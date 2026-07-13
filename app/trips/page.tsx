@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { getTripsByStartDate } from "@/lib/trips";
+import { readContent } from "@/lib/editable-store";
 import type { Money, TripListItem } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
   month: "short",
@@ -58,8 +60,23 @@ function TripCard({ trip }: { trip: TripListItem }) {
   );
 }
 
-export default function TripsPage() {
-  const trips = getTripsByStartDate();
+export default async function TripsPage() {
+  const { content } = await readContent();
+  const trips: TripListItem[] = content.trips
+    .map((trip) => ({
+      id: trip.id,
+      title: trip.title,
+      slug: trip.slug,
+      summary: trip.summary,
+      country: trip.country,
+      city: trip.city,
+      startDate: trip.startDate,
+      endDate: trip.endDate,
+      rating: trip.rating,
+      totalCost: trip.totalCost,
+      coverPhotoId: trip.coverPhotoId,
+    }))
+    .sort((firstTrip, secondTrip) => secondTrip.startDate.localeCompare(firstTrip.startDate));
 
   return (
     <main className="min-h-screen bg-stone-50 text-zinc-950">

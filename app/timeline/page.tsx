@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { getTripDetailsByStartDate } from "@/lib/trips";
+import { readContent } from "@/lib/editable-store";
 import type { TripDetail } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
 
 const monthFormatter = new Intl.DateTimeFormat("en", {
   month: "long",
@@ -39,8 +41,9 @@ function groupTripsByMonth(trips: TripDetail[]) {
   }, []);
 }
 
-export default function TimelinePage() {
-  const trips = getTripDetailsByStartDate();
+export default async function TimelinePage() {
+  const { content } = await readContent();
+  const trips = [...content.trips].sort((firstTrip, secondTrip) => secondTrip.startDate.localeCompare(firstTrip.startDate));
   const groupedTrips = groupTripsByMonth(trips);
 
   return (

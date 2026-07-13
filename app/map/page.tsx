@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { getTripDetailsByStartDate } from "@/lib/trips";
+import { readContent } from "@/lib/editable-store";
+
+export const dynamic = "force-dynamic";
 
 function getPinPosition(latitude: number, longitude: number) {
   return {
@@ -8,8 +10,11 @@ function getPinPosition(latitude: number, longitude: number) {
   };
 }
 
-export default function MapPage() {
-  const trips = getTripDetailsByStartDate().filter((trip) => trip.coordinates);
+export default async function MapPage() {
+  const { content } = await readContent();
+  const trips = content.trips
+    .filter((trip) => trip.coordinates)
+    .sort((firstTrip, secondTrip) => secondTrip.startDate.localeCompare(firstTrip.startDate));
 
   return (
     <main className="min-h-screen bg-stone-50 text-zinc-950">

@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { getTripDetailsByStartDate } from "@/lib/trips";
+import { readContent } from "@/lib/editable-store";
 import type { Cost, CostCategory, CurrencyCode } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
 
 type CategorySummary = {
   category: CostCategory;
@@ -69,8 +71,9 @@ function summarizeByCategory(costs: Cost[]) {
   });
 }
 
-export default function CostsPage() {
-  const trips = getTripDetailsByStartDate();
+export default async function CostsPage() {
+  const { content } = await readContent();
+  const trips = [...content.trips].sort((firstTrip, secondTrip) => secondTrip.startDate.localeCompare(firstTrip.startDate));
   const costs = trips.flatMap((trip) => trip.costs.map((cost) => ({ ...cost, trip })));
   const currencySummaries = summarizeByCurrency(costs);
   const categorySummaries = summarizeByCategory(costs);

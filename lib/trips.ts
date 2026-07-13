@@ -1,6 +1,6 @@
 import type { TripDetail, TripListItem } from "@/lib/types";
 
-const tripDetails: TripDetail[] = [
+export const seedTripDetails: TripDetail[] = [
   {
     id: "trip_hokkaido_2025",
     userId: "user_travelos_owner",
@@ -356,7 +356,7 @@ const tripDetails: TripDetail[] = [
   },
 ];
 
-export const tripListItems: TripListItem[] = tripDetails.map((trip) => ({
+export const tripListItems: TripListItem[] = seedTripDetails.map((trip) => ({
   id: trip.id,
   title: trip.title,
   slug: trip.slug,
@@ -377,11 +377,11 @@ export function getTripsByStartDate(): TripListItem[] {
 }
 
 export function getTripDetailsByStartDate(): TripDetail[] {
-  return [...tripDetails].sort((firstTrip, secondTrip) =>
+  return [...seedTripDetails].sort((firstTrip, secondTrip) =>
     secondTrip.startDate.localeCompare(firstTrip.startDate),
   );
 }
 
 export function getTripDetailBySlug(slug: string): TripDetail | undefined {
-  return tripDetails.find((trip) => trip.slug === slug);
+  return seedTripDetails.find((trip) => trip.slug === slug);
 }

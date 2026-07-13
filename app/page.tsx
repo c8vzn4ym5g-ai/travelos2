@@ -43,6 +43,9 @@ export default function Home() {
               <Link className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950" href="/assistant">
                 Assistant
               </Link>
+              <Link className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white" href="/admin">
+                Edit
+              </Link>
               <Link className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950" href="/trips/new">
                 New draft
               </Link>

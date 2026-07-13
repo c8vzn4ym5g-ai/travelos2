@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getTripDetailBySlug, getTripDetailsByStartDate } from "@/lib/trips";
+import { readContent } from "@/lib/editable-store";
+import { getTripDetailsByStartDate } from "@/lib/trips";
 import type { Cost, Money, Photo, Place } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
 
 interface TripDetailPageProps {
   params: Promise<{ slug: string }>;
@@ -84,10 +87,16 @@ function CostRow({ cost }: { cost: Cost }) {
 }
 
 function PhotoTile({ photo }: { photo: Photo }) {
+  const isUploadedPhoto = photo.storageKey.startsWith("http");
+
   return (
     <article className="min-h-44 rounded-lg border border-dashed border-zinc-300 bg-stone-100 p-4">
       <div className="flex h-full flex-col justify-between gap-8">
-        <p className="text-xs font-semibold uppercase text-zinc-500">Album placeholder</p>
+        <p className="text-xs font-semibold uppercase text-zinc-500">{isUploadedPhoto ? "Uploaded photo" : "Album placeholder"}</p>
+        {isUploadedPhoto ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img alt={photo.caption ?? photo.originalFilename} className="max-h-52 w-full rounded-md object-cover" src={photo.storageKey} />
+        ) : null}
         <div>
           <p className="font-medium text-zinc-950">{photo.caption ?? photo.originalFilename}</p>
           <p className="mt-2 text-sm text-zinc-500">{photo.takenAt ? formatDate(photo.takenAt) : "Date not set"}</p>
@@ -103,7 +112,8 @@ export function generateStaticParams() {
 
 export default async function TripDetailPage({ params }: TripDetailPageProps) {
   const { slug } = await params;
-  const trip = getTripDetailBySlug(slug);
+  const { content } = await readContent();
+  const trip = content.trips.find((item) => item.slug === slug);
 
   if (!trip) {
     notFound();

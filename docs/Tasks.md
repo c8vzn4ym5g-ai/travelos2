@@ -156,3 +156,22 @@ Result:
 - Linked the assistant from the home screen.
 - Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
   `pnpm run build`.
+
+## TASK-011: Add Web Editing and Photo Upload Foundation
+
+Status: done
+
+Goal: Add a browser-based admin editor so content can be changed from the
+webpage after deployment instead of requiring repeated file uploads.
+
+Result:
+
+- Added `/admin` with editable trip overview fields and photo upload controls.
+- Added `/api/content` for reading and saving TravelOS content.
+- Added `/api/photos` for attaching uploaded photos to trips.
+- Added Vercel Blob support through `@vercel/blob`.
+- Public trip, detail, map, timeline, and cost pages now read runtime content
+  from the editable store, with seed data as the fallback.
+- Writes are protected by `TRAVELOS_ADMIN_PIN`.
+- Vercel setup requires a connected Blob store and `TRAVELOS_ADMIN_PIN` in
+  project environment variables.
