@@ -102,15 +102,56 @@ function createSeedContent(): TravelOSContent {
 }
 
 function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
+  let changed = false;
+  const seedTripsById = new Map(seedTripDetails.map((trip) => [trip.id, trip]));
   const existingIds = new Set(content.trips.map((trip) => trip.id));
+  const mergedTrips = content.trips.map((trip) => {
+    const seedTrip = seedTripsById.get(trip.id);
+
+    if (!seedTrip) {
+      return trip;
+    }
+
+    const mergedTrip = {
+      ...trip,
+      coverPhotoId: trip.coverPhotoId ?? seedTrip.coverPhotoId,
+      photos: mergeById(trip.photos, seedTrip.photos),
+      journalEntries: mergeById(trip.journalEntries, seedTrip.journalEntries),
+      places: mergeById(trip.places, seedTrip.places),
+      costs: mergeById(trip.costs, seedTrip.costs),
+    };
+
+    if (
+      mergedTrip.photos.length !== trip.photos.length ||
+      mergedTrip.journalEntries.length !== trip.journalEntries.length ||
+      mergedTrip.places.length !== trip.places.length ||
+      mergedTrip.costs.length !== trip.costs.length ||
+      mergedTrip.coverPhotoId !== trip.coverPhotoId
+    ) {
+      changed = true;
+    }
+
+    return mergedTrip;
+  });
+
   const missingSeedTrips = seedTripDetails.filter((trip) => !existingIds.has(trip.id));
 
   if (missingSeedTrips.length === 0) {
-    return content;
+    return changed
+      ? {
+          trips: mergedTrips,
+          updatedAt: new Date().toISOString(),
+        }
+      : content;
   }
 
   return {
-    trips: [...missingSeedTrips, ...content.trips],
+    trips: [...missingSeedTrips, ...mergedTrips],
     updatedAt: new Date().toISOString(),
   };
+}
+
+function mergeById<T extends { id: string }>(savedItems: T[], seedItems: T[]) {
+  const savedIds = new Set(savedItems.map((item) => item.id));
+  return [...savedItems, ...seedItems.filter((item) => !savedIds.has(item.id))];
 }

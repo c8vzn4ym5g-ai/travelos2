@@ -77,13 +77,19 @@ export default function Home() {
               Open map
             </Link>
           </div>
-          <div className="mt-8 grid min-h-[320px] place-items-center rounded-lg border border-dashed border-zinc-300 bg-stone-100">
+          <div className="mt-8 grid min-h-[320px] gap-3 rounded-lg border border-zinc-200 bg-stone-100 p-3 sm:grid-cols-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               alt="Santa Claus Village glowing in Lapland winter night"
-              className="h-full min-h-[320px] w-full rounded-lg object-cover"
+              className="h-full min-h-[320px] w-full rounded-md object-cover sm:col-span-2"
               src="/travelos/lapland/santa-village-night.jpeg"
             />
+            <div className="grid gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt="Arctic Circle snow marker" className="h-40 w-full rounded-md object-cover" src="/travelos/lapland/arctic-circle.jpeg" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt="Campfire in Lapland snow" className="h-40 w-full rounded-md object-cover" src="/travelos/lapland/campfire.jpeg" />
+            </div>
           </div>
         </div>
         <aside className="space-y-6">

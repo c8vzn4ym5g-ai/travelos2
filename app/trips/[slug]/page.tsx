@@ -127,6 +127,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
   const coverPhoto =
     trip.photos.find((photo) => photo.id === trip.coverPhotoId && isRenderablePhoto(photo)) ??
     trip.photos.find(isRenderablePhoto);
+  const featurePhotos = trip.photos.filter(isRenderablePhoto).slice(0, 4);
 
   return (
     <main className="min-h-screen bg-stone-50 text-zinc-950">
@@ -169,6 +170,17 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             <div className="overflow-hidden rounded-lg border border-zinc-200 bg-stone-100 shadow-sm">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img alt={coverPhoto.caption ?? trip.title} className="h-[22rem] w-full object-cover sm:h-[30rem]" src={coverPhoto.storageKey} />
+            </div>
+          ) : null}
+          {featurePhotos.length > 1 ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {featurePhotos.map((photo) => (
+                <article className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm" key={photo.id}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img alt={photo.caption ?? photo.originalFilename} className="h-40 w-full object-cover" src={photo.storageKey} />
+                  <p className="p-3 text-sm leading-5 text-zinc-600">{photo.caption ?? photo.originalFilename}</p>
+                </article>
+              ))}
             </div>
           ) : null}
         </div>
