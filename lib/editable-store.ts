@@ -114,14 +114,30 @@ function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
 
     const mergedTrip = {
       ...trip,
-      coverPhotoId: trip.coverPhotoId ?? seedTrip.coverPhotoId,
-      photos: mergeById(trip.photos, seedTrip.photos),
-      journalEntries: mergeById(trip.journalEntries, seedTrip.journalEntries),
-      places: mergeById(trip.places, seedTrip.places),
-      costs: mergeById(trip.costs, seedTrip.costs),
+      title: trip.id === "trip_lapland_2020" ? seedTrip.title : trip.title,
+      summary: trip.id === "trip_lapland_2020" ? seedTrip.summary : trip.summary,
+      coverPhotoId: trip.id === "trip_lapland_2020" ? seedTrip.coverPhotoId : trip.coverPhotoId ?? seedTrip.coverPhotoId,
+      photos:
+        trip.id === "trip_lapland_2020"
+          ? mergeById(seedTrip.photos, trip.photos)
+          : mergeById(trip.photos, seedTrip.photos),
+      journalEntries:
+        trip.id === "trip_lapland_2020"
+          ? mergeById(seedTrip.journalEntries, trip.journalEntries)
+          : mergeById(trip.journalEntries, seedTrip.journalEntries),
+      places:
+        trip.id === "trip_lapland_2020"
+          ? mergeById(seedTrip.places, trip.places)
+          : mergeById(trip.places, seedTrip.places),
+      costs:
+        trip.id === "trip_lapland_2020"
+          ? mergeById(seedTrip.costs, trip.costs)
+          : mergeById(trip.costs, seedTrip.costs),
     };
 
     if (
+      mergedTrip.title !== trip.title ||
+      mergedTrip.summary !== trip.summary ||
       mergedTrip.photos.length !== trip.photos.length ||
       mergedTrip.journalEntries.length !== trip.journalEntries.length ||
       mergedTrip.places.length !== trip.places.length ||

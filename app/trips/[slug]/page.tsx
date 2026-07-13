@@ -111,6 +111,18 @@ function PhotoTile({ photo }: { photo: Photo }) {
   );
 }
 
+function NarrativeBody({ body }: { body: string }) {
+  return (
+    <div className="mt-2 space-y-3">
+      {body.split("\n\n").map((paragraph) => (
+        <p className="text-sm leading-7 text-zinc-600" key={paragraph}>
+          {paragraph}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 export function generateStaticParams() {
   return getTripDetailsByStartDate().map((trip) => ({ slug: trip.slug }));
 }
@@ -219,7 +231,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                     <h3 className="font-semibold text-zinc-950">{entry.title}</h3>
                     <p className="text-sm text-zinc-500">{formatDate(entry.entryDate)}</p>
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-zinc-600">{entry.body}</p>
+                  <NarrativeBody body={entry.body} />
                   <p className="mt-3 text-xs font-medium uppercase text-zinc-500">
                     {entry.mood ?? "Mood not set"} / {entry.weatherSummary ?? "Weather not set"}
                   </p>
