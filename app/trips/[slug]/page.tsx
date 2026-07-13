@@ -53,6 +53,10 @@ function SectionHeader({ kicker, title }: { kicker: string; title: string }) {
   );
 }
 
+function isRenderablePhoto(photo: Photo) {
+  return photo.storageKey.startsWith("http") || photo.storageKey.startsWith("/");
+}
+
 function PlaceRow({ place }: { place: Place }) {
   return (
     <article className="border-b border-zinc-100 py-4 first:pt-0 last:border-0 last:pb-0">
@@ -87,20 +91,21 @@ function CostRow({ cost }: { cost: Cost }) {
 }
 
 function PhotoTile({ photo }: { photo: Photo }) {
-  const isUploadedPhoto = photo.storageKey.startsWith("http");
+  const canRenderPhoto = isRenderablePhoto(photo);
 
   return (
-    <article className="min-h-44 rounded-lg border border-dashed border-zinc-300 bg-stone-100 p-4">
-      <div className="flex h-full flex-col justify-between gap-8">
-        <p className="text-xs font-semibold uppercase text-zinc-500">{isUploadedPhoto ? "Uploaded photo" : "Album placeholder"}</p>
-        {isUploadedPhoto ? (
+    <article className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
+      {canRenderPhoto ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img alt={photo.caption ?? photo.originalFilename} className="max-h-52 w-full rounded-md object-cover" src={photo.storageKey} />
-        ) : null}
-        <div>
-          <p className="font-medium text-zinc-950">{photo.caption ?? photo.originalFilename}</p>
-          <p className="mt-2 text-sm text-zinc-500">{photo.takenAt ? formatDate(photo.takenAt) : "Date not set"}</p>
-        </div>
+          <img alt={photo.caption ?? photo.originalFilename} className="h-56 w-full object-cover" src={photo.storageKey} />
+        ) : (
+          <div className="grid h-56 place-items-center bg-stone-100 p-4 text-center text-sm font-medium text-zinc-500">
+            Photo pending upload
+          </div>
+        )}
+      <div className="p-4">
+        <p className="font-medium text-zinc-950">{photo.caption ?? photo.originalFilename}</p>
+        <p className="mt-2 text-sm text-zinc-500">{photo.takenAt ? formatDate(photo.takenAt) : "Date not set"}</p>
       </div>
     </article>
   );
@@ -118,6 +123,10 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
   if (!trip) {
     notFound();
   }
+
+  const coverPhoto =
+    trip.photos.find((photo) => photo.id === trip.coverPhotoId && isRenderablePhoto(photo)) ??
+    trip.photos.find(isRenderablePhoto);
 
   return (
     <main className="min-h-screen bg-stone-50 text-zinc-950">
@@ -156,6 +165,12 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               </div>
             </div>
           </div>
+          {coverPhoto ? (
+            <div className="overflow-hidden rounded-lg border border-zinc-200 bg-stone-100 shadow-sm">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt={coverPhoto.caption ?? trip.title} className="h-[22rem] w-full object-cover sm:h-[30rem]" src={coverPhoto.storageKey} />
+            </div>
+          ) : null}
         </div>
       </section>
       <section className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[1.1fr_0.9fr] lg:px-10">
@@ -201,7 +216,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </div>
           </section>
           <section className="rounded-lg border border-zinc-200 bg-white p-6">
-            <SectionHeader kicker="Album" title="Photo placeholders" />
+            <SectionHeader kicker="Album" title="Photo memories" />
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {trip.photos.map((photo) => (
                 <PhotoTile key={photo.id} photo={photo} />

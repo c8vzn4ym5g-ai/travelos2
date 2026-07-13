@@ -52,8 +52,14 @@ export async function readContent(): Promise<{ content: TravelOSContent; status:
   }
 
   const content = (await response.json()) as TravelOSContent;
+  const mergedContent = mergeSeedTrips(content);
+
+  if (mergedContent.trips.length !== content.trips.length) {
+    await writeContent(mergedContent.trips);
+  }
+
   return {
-    content,
+    content: mergedContent,
     status: { configured: true, source: "blob" },
   };
 }
@@ -91,6 +97,20 @@ export async function addPhotoToTrip(tripId: string, photo: Photo) {
 function createSeedContent(): TravelOSContent {
   return {
     trips: seedTripDetails,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
+  const existingIds = new Set(content.trips.map((trip) => trip.id));
+  const missingSeedTrips = seedTripDetails.filter((trip) => !existingIds.has(trip.id));
+
+  if (missingSeedTrips.length === 0) {
+    return content;
+  }
+
+  return {
+    trips: [...missingSeedTrips, ...content.trips],
     updatedAt: new Date().toISOString(),
   };
 }

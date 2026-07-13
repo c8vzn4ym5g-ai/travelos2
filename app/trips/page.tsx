@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { readContent } from "@/lib/editable-store";
-import type { Money, TripListItem } from "@/lib/types";
+import type { Money, Photo, TripDetail } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -26,9 +26,23 @@ function formatMoney(totalCost: Money | null): string {
   }).format(totalCost.amount);
 }
 
-function TripCard({ trip }: { trip: TripListItem }) {
+function getCoverPhoto(trip: TripDetail): Photo | undefined {
   return (
-    <article className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+    trip.photos.find((photo) => photo.id === trip.coverPhotoId && (photo.storageKey.startsWith("http") || photo.storageKey.startsWith("/"))) ??
+    trip.photos.find((photo) => photo.storageKey.startsWith("http") || photo.storageKey.startsWith("/"))
+  );
+}
+
+function TripCard({ trip }: { trip: TripDetail }) {
+  const coverPhoto = getCoverPhoto(trip);
+
+  return (
+    <article className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
+      {coverPhoto ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img alt={coverPhoto.caption ?? trip.title} className="h-64 w-full object-cover" src={coverPhoto.storageKey} />
+      ) : null}
+      <div className="p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-medium text-teal-700">
@@ -56,27 +70,14 @@ function TripCard({ trip }: { trip: TripListItem }) {
           Open details
         </Link>
       </div>
+      </div>
     </article>
   );
 }
 
 export default async function TripsPage() {
   const { content } = await readContent();
-  const trips: TripListItem[] = content.trips
-    .map((trip) => ({
-      id: trip.id,
-      title: trip.title,
-      slug: trip.slug,
-      summary: trip.summary,
-      country: trip.country,
-      city: trip.city,
-      startDate: trip.startDate,
-      endDate: trip.endDate,
-      rating: trip.rating,
-      totalCost: trip.totalCost,
-      coverPhotoId: trip.coverPhotoId,
-    }))
-    .sort((firstTrip, secondTrip) => secondTrip.startDate.localeCompare(firstTrip.startDate));
+  const trips = content.trips.sort((firstTrip, secondTrip) => secondTrip.startDate.localeCompare(firstTrip.startDate));
 
   return (
     <main className="min-h-screen bg-stone-50 text-zinc-950">

@@ -1,16 +1,16 @@
 import Link from "next/link";
 
 const stats = [
-  { label: "Countries", value: "18" },
-  { label: "Cities", value: "87" },
-  { label: "Travel days", value: "196" },
-  { label: "Journal entries", value: "152" },
+  { label: "Featured trip", value: "Lapland" },
+  { label: "Travel days", value: "8" },
+  { label: "Photo memories", value: "10" },
+  { label: "Saved stops", value: "3" },
 ];
 
 const journeys = [
+  { place: "Rovaniemi, Finland", date: "Winter 2020", note: "Santa Claus Village, Arctic Circle snow, cabin evenings, and sled rides." },
   { place: "Hokkaido, Japan", date: "Autumn 2025", note: "Seafood, hot springs, and a slower northern route." },
   { place: "Bangkok, Thailand", date: "Spring 2025", note: "Food notes, hotel reviews, markets, and day trips." },
-  { place: "Paris, France", date: "Winter 2024", note: "Museum days, neighborhood walks, and favorite cafes." },
 ];
 
 const tasks = [
@@ -28,7 +28,7 @@ export default function Home() {
           <nav className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium uppercase tracking-[0.18em] text-teal-700">TravelOS</p>
-              <h1 className="mt-2 text-4xl font-semibold tracking-normal text-zinc-950 sm:text-6xl">Your travel memory system.</h1>
+              <h1 className="mt-2 text-4xl font-semibold tracking-normal text-zinc-950 sm:text-6xl">Finland Lapland winter memories.</h1>
             </div>
             <div className="hidden gap-2 sm:flex">
               <Link className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950" href="/map">
@@ -68,18 +68,22 @@ export default function Home() {
         <div className="rounded-lg border border-zinc-200 bg-white p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-semibold">World map workspace</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">View saved trip coordinates in a provider-neutral map workspace before a live map service is connected.</p>
+              <h2 className="text-2xl font-semibold">Lapland journey board</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+                Start with the Rovaniemi winter route, then open the full article for snow village photos, Arctic Circle notes, costs, and saved stops.
+              </p>
             </div>
             <Link className="rounded-md bg-teal-50 px-3 py-1 text-sm font-medium text-teal-800" href="/map">
               Open map
             </Link>
           </div>
           <div className="mt-8 grid min-h-[320px] place-items-center rounded-lg border border-dashed border-zinc-300 bg-stone-100">
-            <div className="text-center">
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-zinc-500">Map placeholder</p>
-              <p className="mt-3 text-3xl font-semibold text-zinc-900">Routes, pins, and memories live here.</p>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt="Santa Claus Village glowing in Lapland winter night"
+              className="h-full min-h-[320px] w-full rounded-lg object-cover"
+              src="/travelos/lapland/santa-village-night.jpeg"
+            />
           </div>
         </div>
         <aside className="space-y-6">
