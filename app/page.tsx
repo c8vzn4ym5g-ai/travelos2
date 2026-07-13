@@ -31,6 +31,18 @@ export default function Home() {
               <h1 className="mt-2 text-4xl font-semibold tracking-normal text-zinc-950 sm:text-6xl">Your travel memory system.</h1>
             </div>
             <div className="hidden gap-2 sm:flex">
+              <Link className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950" href="/map">
+                Map
+              </Link>
+              <Link className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950" href="/timeline">
+                Timeline
+              </Link>
+              <Link className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950" href="/costs">
+                Costs
+              </Link>
+              <Link className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950" href="/assistant">
+                Assistant
+              </Link>
               <Link className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950" href="/trips/new">
                 New draft
               </Link>
@@ -54,9 +66,11 @@ export default function Home() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-2xl font-semibold">World map workspace</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">TASK-001 will turn this starter into a durable foundation for trips, albums, costs, places, and AI-assisted memory search.</p>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">View saved trip coordinates in a provider-neutral map workspace before a live map service is connected.</p>
             </div>
-            <span className="rounded-md bg-teal-50 px-3 py-1 text-sm font-medium text-teal-800">Starter</span>
+            <Link className="rounded-md bg-teal-50 px-3 py-1 text-sm font-medium text-teal-800" href="/map">
+              Open map
+            </Link>
           </div>
           <div className="mt-8 grid min-h-[320px] place-items-center rounded-lg border border-dashed border-zinc-300 bg-stone-100">
             <div className="text-center">
