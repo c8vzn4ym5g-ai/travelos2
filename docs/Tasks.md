@@ -196,6 +196,12 @@ Result:
   places, and supporting homepage sections.
 - Added stored-content repair logic that fills missing seed records and repairs
   visibly corrupted old records without overwriting future clean edits.
+- Promoted stored-content repair into a versioned normalization pass so long-lived
+  Vercel Blob content can migrate forward safely after future deployments.
+- Repaired broken stored slugs and placeholder/non-renderable seed photos so
+  article links and public images recover from older saved content.
+- Filtered public reading surfaces to shared/public journeys first, preventing
+  private placeholder drafts from appearing above the finished Lapland article.
 - Improved mobile layout on the homepage, trip list, and trip detail page with
   smaller mobile headings, reduced padding, responsive navigation, safer image
   heights, and mobile-friendly photo grids.

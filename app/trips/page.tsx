@@ -47,17 +47,20 @@ function getCoverPhoto(trip: TripDetail) {
 
 function TripCard({ trip }: { trip: TripDetail }) {
   const coverPhoto = getCoverPhoto(trip);
+  const href = articleHref(trip);
 
   return (
-    <article className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
-      {coverPhoto ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img alt={coverPhoto.caption ?? trip.title} className="h-48 w-full object-cover sm:h-64" src={coverPhoto.storageKey} />
-      ) : (
-        <div className="grid h-40 place-items-center bg-stone-100 p-4 text-sm font-medium text-zinc-500 sm:h-56">
-          Photo pending
-        </div>
-      )}
+    <article className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition hover:border-teal-700">
+      <Link aria-label={`Open ${trip.title}`} className="block" href={href}>
+        {coverPhoto ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img alt={coverPhoto.caption ?? trip.title} className="h-48 w-full object-cover sm:h-64" src={coverPhoto.storageKey} />
+        ) : (
+          <div className="grid h-40 place-items-center bg-stone-100 p-4 text-sm font-medium text-zinc-500 sm:h-56">
+            Photo pending
+          </div>
+        )}
+      </Link>
 
       <div className="p-4 sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -66,7 +69,7 @@ function TripCard({ trip }: { trip: TripDetail }) {
               {trip.country} / {trip.city}
             </p>
             <h2 className="mt-2 text-xl font-semibold text-zinc-950 sm:text-2xl">
-              <Link href={articleHref(trip)}>{trip.title}</Link>
+              <Link href={href}>{trip.title}</Link>
             </h2>
             <p className="mt-2 text-sm leading-7 text-zinc-600">{trip.summary}</p>
           </div>
@@ -85,8 +88,8 @@ function TripCard({ trip }: { trip: TripDetail }) {
 
         <div className="mt-5 flex flex-col gap-3 border-t border-zinc-100 pt-4 text-sm text-zinc-600 sm:flex-row sm:items-center sm:justify-between">
           <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
-          <Link className="rounded-md bg-zinc-950 px-4 py-2 text-center font-medium text-white sm:bg-transparent sm:px-0 sm:py-0 sm:text-zinc-950" href={articleHref(trip)}>
-            閱讀 / Open details
+          <Link className="rounded-md bg-zinc-950 px-4 py-2 text-center font-medium text-white sm:bg-transparent sm:px-0 sm:py-0 sm:text-zinc-950" href={href}>
+            {"\u95b1\u8b80 / Open details"}
           </Link>
         </div>
       </div>
@@ -98,6 +101,7 @@ export default async function TripsPage() {
   const { content } = await readContent();
   const trips = [...content.trips].sort((first, second) => second.startDate.localeCompare(first.startDate));
   const publicTrips = trips.filter((trip) => trip.visibility !== "private");
+  const visibleTrips = publicTrips.length > 0 ? publicTrips : trips;
 
   return (
     <main className="min-h-screen bg-stone-50 text-zinc-950">
@@ -109,25 +113,27 @@ export default async function TripsPage() {
             </Link>
             <div className="flex flex-wrap gap-2">
               <Link className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium" href="/timeline">
-                時間線 / Timeline
+                {"\u6642\u9593\u7dda / Timeline"}
               </Link>
               <Link className="rounded-md bg-zinc-950 px-3 py-2 text-sm font-medium text-white" href="/trips/new">
-                新旅程草稿 / New draft
+                {"\u65b0\u65c5\u7a0b\u8349\u7a3f / New draft"}
               </Link>
             </div>
           </div>
           <div className="grid gap-4 lg:grid-cols-[1fr_18rem] lg:items-end">
             <div className="min-w-0">
               <p className="text-sm font-medium uppercase text-zinc-500">Journey library</p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-normal sm:text-5xl">全部旅程 / All journeys</h1>
+              <h1 className="mt-2 text-3xl font-semibold tracking-normal sm:text-5xl">
+                {"\u5168\u90e8\u65c5\u7a0b / All journeys"}
+              </h1>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-                這裡是 TravelOS 的旅程入口。每一篇文章都用自己的網址開啟，之後新增旅程不需要再建立固定頁面。
+                {"\u9019\u88e1\u662f TravelOS \u7684\u65c5\u7a0b\u5165\u53e3\u3002\u6bcf\u4e00\u7bc7\u6587\u7ae0\u90fd\u7528\u81ea\u5df1\u7684\u7db2\u5740\u958b\u555f\uff0c\u4e4b\u5f8c\u65b0\u589e\u65c5\u7a0b\u4e0d\u9700\u8981\u518d\u5efa\u7acb\u56fa\u5b9a\u9801\u9762\u3002"}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div className="rounded-md border border-zinc-200 bg-stone-50 px-4 py-3">
                 <p className="text-xs text-zinc-500">Total</p>
-                <p className="mt-2 text-2xl font-semibold">{trips.length}</p>
+                <p className="mt-2 text-2xl font-semibold">{visibleTrips.length}</p>
               </div>
               <div className="rounded-md border border-zinc-200 bg-stone-50 px-4 py-3">
                 <p className="text-xs text-zinc-500">Shared</p>
@@ -140,7 +146,7 @@ export default async function TripsPage() {
 
       <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
         <div className="grid gap-5">
-          {trips.map((trip) => (
+          {visibleTrips.map((trip) => (
             <TripCard key={trip.id} trip={trip} />
           ))}
         </div>

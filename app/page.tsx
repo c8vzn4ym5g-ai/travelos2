@@ -27,7 +27,9 @@ function getTravelDays(trip: TripDetail) {
 export default async function Home() {
   const { content } = await readContent();
   const trips = [...content.trips].sort((first, second) => second.startDate.localeCompare(first.startDate));
-  const featuredTrip = content.trips.find((trip) => trip.id === "trip_lapland_2020") ?? trips[0];
+  const publicTrips = trips.filter((trip) => trip.visibility !== "private");
+  const visibleTrips = publicTrips.length > 0 ? publicTrips : trips;
+  const featuredTrip = visibleTrips.find((trip) => trip.id === "trip_lapland_2020") ?? visibleTrips[0];
   const featuredHref = articleHref(featuredTrip);
   const coverPhoto = getCoverPhoto(featuredTrip);
   const supportingPhotos = featuredTrip.photos
@@ -138,7 +140,7 @@ export default async function Home() {
           <div className="rounded-lg border border-zinc-200 bg-white p-4 sm:p-6">
             <h2 className="text-lg font-semibold sm:text-xl">最新旅程 / Latest Journeys</h2>
             <div className="mt-5 space-y-4">
-              {trips.slice(0, 4).map((trip) => (
+              {visibleTrips.slice(0, 4).map((trip) => (
                 <article className="border-b border-zinc-100 pb-4 last:border-0 last:pb-0" key={trip.id}>
                   <Link className="font-medium text-zinc-950 hover:text-teal-800" href={articleHref(trip)}>
                     {trip.title}
