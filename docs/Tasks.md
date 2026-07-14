@@ -279,6 +279,8 @@ Result:
 - Added a public article music player that only starts after the visitor taps
   `Play music`, then fades in gently and can switch tracks based on visible
   article/photo sections.
+- Updated the player so each cue plays at most two rounds, then moves to the
+  next available song or stops instead of looping forever.
 - Added `data-music-zone` markers to article hero, journal sections, and photo
   tiles so cues such as `Santa Claus Village` can surface when that part of the
   story is being viewed.
@@ -289,6 +291,8 @@ Result:
 - Added a generated driving winter-jazz style `Jingle Bells` test WAV at
   `public/travelos/music/jingle-bells-music-box.wav`, using the public-domain
   1857 melody and no third-party recording.
+- Added three original TravelOS winter cues: `Arctic Circle blue swing`,
+  `Campfire warm groove`, and `Snowfall quiet choir`.
 - Enabled the Lapland Santa Claus Village cue with this local test track and
   raised the content schema to version 4 so older empty music cues migrate to
   the working test cue.

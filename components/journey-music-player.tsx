@@ -27,6 +27,7 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
   );
   const [isOn, setIsOn] = useState(false);
   const [activeTrackId, setActiveTrackId] = useState(playableTracks[0]?.id ?? "");
+  const [playRounds, setPlayRounds] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const activeTrack = playableTracks.find((track) => track.id === activeTrackId) ?? playableTracks[0] ?? null;
@@ -59,7 +60,8 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
 
         const zone = visible.target.getAttribute("data-music-zone") ?? "";
         const track = findTrackForZone(playableTracks, zone);
-        if (track) {
+        if (track && track.id !== activeTrackId && playRounds < 2) {
+          setPlayRounds(0);
           setActiveTrackId(track.id);
         }
       },
@@ -68,7 +70,7 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
 
     zones.forEach((zone) => observer.observe(zone));
     return () => observer.disconnect();
-  }, [playableTracks]);
+  }, [activeTrackId, playRounds, playableTracks]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -100,26 +102,61 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
     };
   }, [activeTrack, isOn]);
 
+  function moveToNextTrack() {
+    if (!activeTrack) {
+      setIsOn(false);
+      return;
+    }
+
+    const activeIndex = playableTracks.findIndex((track) => track.id === activeTrack.id);
+    const nextTrack = playableTracks[(activeIndex + 1) % playableTracks.length];
+
+    if (nextTrack && nextTrack.id !== activeTrack.id) {
+      setPlayRounds(0);
+      setActiveTrackId(nextTrack.id);
+      return;
+    }
+
+    setIsOn(false);
+    setPlayRounds(0);
+  }
+
+  function handleTrackEnded() {
+    const nextRounds = playRounds + 1;
+    if (nextRounds < 2 && audioRef.current) {
+      setPlayRounds(nextRounds);
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => setIsOn(false));
+      return;
+    }
+
+    moveToNextTrack();
+  }
+
   if (!activeTrack) {
     return null;
   }
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-40 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-full border border-white/70 bg-white/90 px-4 py-3 text-sm text-zinc-800 shadow-[0_20px_60px_rgba(30,41,59,0.18)] backdrop-blur">
-      <audio key={activeTrack.id} loop ref={audioRef} src={activeTrack.audioUrl} />
-      <div className="flex items-center justify-between gap-3">
-        <button
-          aria-label={isOn ? "Turn journey music off" : "Turn journey music on"}
-          className="rounded-full bg-zinc-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800"
-          onClick={() => setIsOn((current) => !current)}
-          type="button"
-        >
-          {isOn ? "Music on" : "Play music"}
-        </button>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold">{activeTrack.title}</p>
-          <p className="truncate text-xs text-zinc-500">{isOn ? "Changes gently as you read" : "Tap once to start"}</p>
-        </div>
+    <div className="fixed right-4 top-4 z-40 flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-full border border-white/70 bg-white/90 p-2 text-sm text-zinc-800 shadow-[0_16px_45px_rgba(30,41,59,0.16)] backdrop-blur sm:right-6 sm:top-6">
+      <audio key={activeTrack.id} onEnded={handleTrackEnded} ref={audioRef} src={activeTrack.audioUrl} />
+      <button
+        aria-label={isOn ? "Turn journey music off" : "Turn journey music on"}
+        className={`grid h-10 w-10 place-items-center rounded-full text-base font-semibold transition ${
+          isOn ? "bg-teal-800 text-white" : "bg-zinc-950 text-white hover:bg-zinc-800"
+        }`}
+        onClick={() => {
+          setPlayRounds(0);
+          setIsOn((current) => !current);
+        }}
+        title={isOn ? "Music on" : "Play music"}
+        type="button"
+      >
+        <span aria-hidden="true">{"\u266a"}</span>
+      </button>
+      <div className={isOn ? "min-w-0 max-w-44 pr-2 sm:max-w-56" : "hidden sm:block sm:max-w-28 sm:pr-2"}>
+        <p className="truncate text-xs font-semibold">{isOn ? activeTrack.title : "Music"}</p>
+        <p className="truncate text-[0.68rem] text-zinc-500">{isOn ? `Round ${playRounds + 1} of 2` : "Tap to play"}</p>
       </div>
     </div>
   );
