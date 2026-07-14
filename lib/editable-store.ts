@@ -54,7 +54,7 @@ export async function readContent(): Promise<{ content: TravelOSContent; status:
   const content = (await response.json()) as TravelOSContent;
   const mergedContent = mergeSeedTrips(content);
 
-  if (mergedContent.trips.length !== content.trips.length) {
+  if (mergedContent.updatedAt !== content.updatedAt) {
     await writeContent(mergedContent.trips);
   }
 
@@ -112,32 +112,25 @@ function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
       return trip;
     }
 
+    const repairTripText = recordLooksCorrupted(trip.title) || recordLooksCorrupted(trip.summary);
     const mergedTrip = {
       ...trip,
-      title: trip.id === "trip_lapland_2020" ? seedTrip.title : trip.title,
-      summary: trip.id === "trip_lapland_2020" ? seedTrip.summary : trip.summary,
-      coverPhotoId: trip.id === "trip_lapland_2020" ? seedTrip.coverPhotoId : trip.coverPhotoId ?? seedTrip.coverPhotoId,
-      photos:
-        trip.id === "trip_lapland_2020"
-          ? mergeById(seedTrip.photos, trip.photos)
-          : mergeById(trip.photos, seedTrip.photos),
-      journalEntries:
-        trip.id === "trip_lapland_2020"
-          ? mergeById(seedTrip.journalEntries, trip.journalEntries)
-          : mergeById(trip.journalEntries, seedTrip.journalEntries),
-      places:
-        trip.id === "trip_lapland_2020"
-          ? mergeById(seedTrip.places, trip.places)
-          : mergeById(trip.places, seedTrip.places),
-      costs:
-        trip.id === "trip_lapland_2020"
-          ? mergeById(seedTrip.costs, trip.costs)
-          : mergeById(trip.costs, seedTrip.costs),
+      title: repairTripText ? seedTrip.title : trip.title,
+      summary: repairTripText ? seedTrip.summary : trip.summary,
+      coverPhotoId: trip.coverPhotoId ?? seedTrip.coverPhotoId,
+      photos: mergeByIdWithRepair(trip.photos, seedTrip.photos, recordLooksCorrupted),
+      journalEntries: mergeByIdWithRepair(trip.journalEntries, seedTrip.journalEntries, recordLooksCorrupted),
+      places: mergeByIdWithRepair(trip.places, seedTrip.places, recordLooksCorrupted),
+      costs: mergeByIdWithRepair(trip.costs, seedTrip.costs, recordLooksCorrupted),
     };
 
     if (
       mergedTrip.title !== trip.title ||
       mergedTrip.summary !== trip.summary ||
+      JSON.stringify(mergedTrip.photos) !== JSON.stringify(trip.photos) ||
+      JSON.stringify(mergedTrip.journalEntries) !== JSON.stringify(trip.journalEntries) ||
+      JSON.stringify(mergedTrip.places) !== JSON.stringify(trip.places) ||
+      JSON.stringify(mergedTrip.costs) !== JSON.stringify(trip.costs) ||
       mergedTrip.photos.length !== trip.photos.length ||
       mergedTrip.journalEntries.length !== trip.journalEntries.length ||
       mergedTrip.places.length !== trip.places.length ||
@@ -167,7 +160,24 @@ function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
   };
 }
 
-function mergeById<T extends { id: string }>(savedItems: T[], seedItems: T[]) {
+function mergeByIdWithRepair<T extends { id: string }>(
+  savedItems: T[],
+  seedItems: T[],
+  shouldRepair: (item: T) => boolean,
+) {
+  const seedItemsById = new Map(seedItems.map((item) => [item.id, item]));
   const savedIds = new Set(savedItems.map((item) => item.id));
-  return [...savedItems, ...seedItems.filter((item) => !savedIds.has(item.id))];
+
+  return [
+    ...savedItems.map((item) => {
+      const seedItem = seedItemsById.get(item.id);
+      return seedItem && shouldRepair(item) ? seedItem : item;
+    }),
+    ...seedItems.filter((item) => !savedIds.has(item.id)),
+  ];
+}
+
+function recordLooksCorrupted(record: unknown) {
+  const text = typeof record === "string" ? record : JSON.stringify(record);
+  return text.includes("???") || /[\uF000-\uF8FF]/.test(text);
 }

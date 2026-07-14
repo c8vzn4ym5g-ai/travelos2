@@ -144,20 +144,20 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
   return (
     <main className="min-h-screen bg-stone-50 text-zinc-950">
       <section className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-8 lg:px-10">
-          <div className="flex items-center justify-between gap-4">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <Link className="text-sm font-medium text-teal-700" href="/trips">
               Trips
             </Link>
             <span className="rounded-md bg-zinc-950 px-3 py-1 text-sm font-medium text-white">{trip.visibility}</span>
           </div>
-          <div className="grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-end">
-            <div>
+          <div className="grid gap-5 lg:grid-cols-[1fr_18rem] lg:items-end">
+            <div className="min-w-0">
               <p className="text-sm font-medium uppercase text-zinc-500">
                 {trip.country} / {trip.city}
               </p>
-              <h1 className="mt-2 text-4xl font-semibold tracking-normal sm:text-5xl">{trip.title}</h1>
-              <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-600">{trip.summary}</p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-normal sm:text-5xl">{trip.title}</h1>
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-600">{trip.summary}</p>
             </div>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div className="rounded-md border border-zinc-200 bg-stone-50 px-4 py-3">
@@ -181,25 +181,25 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           {coverPhoto ? (
             <div className="overflow-hidden rounded-lg border border-zinc-200 bg-stone-100 shadow-sm">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img alt={coverPhoto.caption ?? trip.title} className="h-[22rem] w-full object-cover sm:h-[30rem]" src={coverPhoto.storageKey} />
+              <img alt={coverPhoto.caption ?? trip.title} className="h-64 w-full object-cover sm:h-[30rem]" src={coverPhoto.storageKey} />
             </div>
           ) : null}
           {featurePhotos.length > 1 ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {featurePhotos.map((photo) => (
                 <article className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm" key={photo.id}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img alt={photo.caption ?? photo.originalFilename} className="h-40 w-full object-cover" src={photo.storageKey} />
-                  <p className="p-3 text-sm leading-5 text-zinc-600">{photo.caption ?? photo.originalFilename}</p>
+                  <img alt={photo.caption ?? photo.originalFilename} className="h-32 w-full object-cover sm:h-40" src={photo.storageKey} />
+                  <p className="p-3 text-xs leading-5 text-zinc-600 sm:text-sm">{photo.caption ?? photo.originalFilename}</p>
                 </article>
               ))}
             </div>
           ) : null}
         </div>
       </section>
-      <section className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[1.1fr_0.9fr] lg:px-10">
+      <section className="mx-auto grid max-w-6xl gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[1.1fr_0.9fr] lg:px-10">
         <div className="space-y-6">
-          <section className="rounded-lg border border-zinc-200 bg-white p-6">
+          <section className="rounded-lg border border-zinc-200 bg-white p-4 sm:p-6">
             <SectionHeader kicker="Overview" title="Trip memory" />
             <dl className="mt-6 grid gap-4 sm:grid-cols-2">
               <div>
@@ -222,7 +222,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               </div>
             </dl>
           </section>
-          <section className="rounded-lg border border-zinc-200 bg-white p-6">
+          <section className="rounded-lg border border-zinc-200 bg-white p-4 sm:p-6">
             <SectionHeader kicker="Journal" title="Narrative notes" />
             <div className="mt-6 space-y-5">
               {trip.journalEntries.map((entry) => (
@@ -239,7 +239,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               ))}
             </div>
           </section>
-          <section className="rounded-lg border border-zinc-200 bg-white p-6">
+          <section className="rounded-lg border border-zinc-200 bg-white p-4 sm:p-6">
             <SectionHeader kicker="Album" title="Photo memories" />
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {trip.photos.map((photo) => (
@@ -249,7 +249,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           </section>
         </div>
         <aside className="space-y-6">
-          <section className="rounded-lg border border-zinc-200 bg-white p-6">
+          <section className="rounded-lg border border-zinc-200 bg-white p-4 sm:p-6">
             <SectionHeader kicker="Places" title="Saved stops" />
             <div className="mt-6">
               {trip.places.map((place) => (
@@ -257,7 +257,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               ))}
             </div>
           </section>
-          <section className="rounded-lg border border-zinc-200 bg-white p-6">
+          <section className="rounded-lg border border-zinc-200 bg-white p-4 sm:p-6">
             <SectionHeader kicker="Costs" title="Tracked spend" />
             <div className="mt-6">
               {trip.costs.map((cost) => (

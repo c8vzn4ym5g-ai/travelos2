@@ -175,3 +175,31 @@ Result:
 - Writes are protected by `TRAVELOS_ADMIN_PIN`.
 - Vercel setup requires a connected Blob store and `TRAVELOS_ADMIN_PIN` in
   project environment variables.
+
+## TASK-012: Stabilize Mobile Reading Experience
+
+Status: done
+
+Goal: Rework the public TravelOS reading surfaces so the homepage, trip list,
+and trip detail article are responsive, data-driven, and suitable for mobile
+viewing.
+
+Result:
+
+- Rebuilt the homepage and trip list as data-driven entry points that read
+  editable trip content and link to each trip through its own `/trips/[slug]`
+  article path.
+- Removed fixed single-article routing assumptions so future trips can appear
+  naturally without new hard-coded pages.
+- Replaced corrupted first-journey seed wording with clean Traditional Chinese
+  and English travel-log copy across the Lapland article, photo captions,
+  places, and supporting homepage sections.
+- Added stored-content repair logic that fills missing seed records and repairs
+  visibly corrupted old records without overwriting future clean edits.
+- Improved mobile layout on the homepage, trip list, and trip detail page with
+  smaller mobile headings, reduced padding, responsive navigation, safer image
+  heights, and mobile-friendly photo grids.
+- Added global overflow wrapping so bilingual content and long mixed-language
+  strings do not push the viewport wider than the phone screen.
+- Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
+  `pnpm run build` on 2026-07-14.
