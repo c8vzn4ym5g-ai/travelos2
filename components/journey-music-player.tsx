@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { MutableRefObject } from "react";
 import type { MusicTrack } from "@/lib/types";
 
 type JourneyMusicPlayerProps = {
   tracks: MusicTrack[];
 };
+
+const SECTION_SETTLE_MS = 7000;
+const SECTION_SWITCH_COOLDOWN_MS = 22000;
+const BETWEEN_TRACK_DELAY_MS = 4500;
 
 function normalize(value: string) {
   return value.toLowerCase().trim();
@@ -20,6 +25,13 @@ function findTrackForZone(tracks: MusicTrack[], zone: string) {
   );
 }
 
+function clearTimer(timerRef: MutableRefObject<ReturnType<typeof setTimeout> | null>) {
+  if (timerRef.current) {
+    clearTimeout(timerRef.current);
+    timerRef.current = null;
+  }
+}
+
 export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
   const playableTracks = useMemo(
     () => tracks.filter((track) => track.enabled && track.audioUrl.trim().length > 0),
@@ -27,8 +39,11 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
   );
   const [isOn, setIsOn] = useState(false);
   const [activeTrackId, setActiveTrackId] = useState(playableTracks[0]?.id ?? "");
-  const [playRounds, setPlayRounds] = useState(0);
+  const [isWaitingForNext, setIsWaitingForNext] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lastSwitchAtRef = useRef(0);
+  const nextTrackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const zoneSwitchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeTrack = playableTracks.find((track) => track.id === activeTrackId) ?? playableTracks[0] ?? null;
 
@@ -60,17 +75,28 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
 
         const zone = visible.target.getAttribute("data-music-zone") ?? "";
         const track = findTrackForZone(playableTracks, zone);
-        if (track && track.id !== activeTrackId && playRounds < 2) {
-          setPlayRounds(0);
-          setActiveTrackId(track.id);
+        if (track && track.id !== activeTrackId) {
+          const now = Date.now();
+          if (now - lastSwitchAtRef.current < SECTION_SWITCH_COOLDOWN_MS) {
+            return;
+          }
+
+          clearTimer(zoneSwitchTimerRef);
+          zoneSwitchTimerRef.current = setTimeout(() => {
+            setActiveTrackId(track.id);
+            lastSwitchAtRef.current = Date.now();
+          }, SECTION_SETTLE_MS);
         }
       },
       { rootMargin: "-20% 0px -45% 0px", threshold: [0.25, 0.5, 0.75] },
     );
 
     zones.forEach((zone) => observer.observe(zone));
-    return () => observer.disconnect();
-  }, [activeTrackId, playRounds, playableTracks]);
+    return () => {
+      observer.disconnect();
+      clearTimer(zoneSwitchTimerRef);
+    };
+  }, [activeTrackId, playableTracks]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -82,6 +108,7 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
     let fadeTimer: ReturnType<typeof setInterval> | null = null;
 
     if (isOn) {
+      setIsWaitingForNext(false);
       audio.volume = 0;
       audio.play().then(() => {
         fadeTimer = setInterval(() => {
@@ -102,6 +129,21 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
     };
   }, [activeTrack, isOn]);
 
+  useEffect(() => {
+    if (!isOn) {
+      clearTimer(nextTrackTimerRef);
+      clearTimer(zoneSwitchTimerRef);
+      setIsWaitingForNext(false);
+    }
+  }, [isOn]);
+
+  useEffect(() => {
+    return () => {
+      clearTimer(nextTrackTimerRef);
+      clearTimer(zoneSwitchTimerRef);
+    };
+  }, []);
+
   function moveToNextTrack() {
     if (!activeTrack) {
       setIsOn(false);
@@ -111,25 +153,21 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
     const activeIndex = playableTracks.findIndex((track) => track.id === activeTrack.id);
     const nextTrack = playableTracks[(activeIndex + 1) % playableTracks.length];
 
+    setIsWaitingForNext(true);
     if (nextTrack && nextTrack.id !== activeTrack.id) {
-      setPlayRounds(0);
-      setActiveTrackId(nextTrack.id);
+      clearTimer(nextTrackTimerRef);
+      nextTrackTimerRef.current = setTimeout(() => {
+        setActiveTrackId(nextTrack.id);
+        setIsWaitingForNext(false);
+        lastSwitchAtRef.current = Date.now();
+      }, BETWEEN_TRACK_DELAY_MS);
       return;
     }
 
     setIsOn(false);
-    setPlayRounds(0);
   }
 
   function handleTrackEnded() {
-    const nextRounds = playRounds + 1;
-    if (nextRounds < 2 && audioRef.current) {
-      setPlayRounds(nextRounds);
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => setIsOn(false));
-      return;
-    }
-
     moveToNextTrack();
   }
 
@@ -146,7 +184,6 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
           isOn ? "bg-teal-800 text-white" : "bg-zinc-950 text-white hover:bg-zinc-800"
         }`}
         onClick={() => {
-          setPlayRounds(0);
           setIsOn((current) => !current);
         }}
         title={isOn ? "Music on" : "Play music"}
@@ -156,7 +193,9 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
       </button>
       <div className={isOn ? "min-w-0 max-w-44 pr-2 sm:max-w-56" : "hidden sm:block sm:max-w-28 sm:pr-2"}>
         <p className="truncate text-xs font-semibold">{isOn ? activeTrack.title : "Music"}</p>
-        <p className="truncate text-[0.68rem] text-zinc-500">{isOn ? `Round ${playRounds + 1} of 2` : "Tap to play"}</p>
+        <p className="truncate text-[0.68rem] text-zinc-500">
+          {isOn ? (isWaitingForNext ? "Next song in a moment" : "One calm pass") : "Tap to play"}
+        </p>
       </div>
     </div>
   );
