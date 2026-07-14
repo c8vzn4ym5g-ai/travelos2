@@ -1,9 +1,9 @@
 import { list, put } from "@vercel/blob";
 import { seedTripDetails } from "@/lib/trips";
-import type { Photo, TripDetail } from "@/lib/types";
+import type { MusicTrack, Photo, TripDetail } from "@/lib/types";
 
 const DATA_BLOB_PATH = "travelos/content.json";
-const CONTENT_SCHEMA_VERSION = 3;
+const CONTENT_SCHEMA_VERSION = 4;
 
 export type TravelOSContent = {
   trips: TripDetail[];
@@ -97,6 +97,21 @@ export async function addPhotoToTrip(tripId: string, photo: Photo) {
   return writeContent(trips);
 }
 
+export async function addMusicTrackToTrip(tripId: string, musicTrack: MusicTrack) {
+  const { content } = await readContent();
+  const trips = content.trips.map((trip) =>
+    trip.id === tripId
+      ? {
+          ...trip,
+          musicTracks: [musicTrack, ...(trip.musicTracks ?? [])],
+          updatedAt: new Date().toISOString(),
+        }
+      : trip,
+  );
+
+  return writeContent(trips);
+}
+
 function createSeedContent(): TravelOSContent {
   return {
     schemaVersion: CONTENT_SCHEMA_VERSION,
@@ -149,6 +164,7 @@ function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
     const repairCoverPhoto =
       !trip.coverPhotoId ||
       !trip.photos.some((photo) => photo.id === trip.coverPhotoId && photoIsRenderable(photo));
+    const savedMusicTracks = Array.isArray(trip.musicTracks) ? trip.musicTracks : [];
 
     const mergedTrip = {
       ...trip,
@@ -166,6 +182,7 @@ function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
         recordLooksCorrupted(place) || shouldMigrateSeedItemCopy(place, seedTrip, savedSchemaVersion),
       ),
       costs: mergeByIdWithRepair(trip.costs, seedTrip.costs, recordLooksCorrupted),
+      musicTracks: mergeByIdWithRepair(savedMusicTracks, seedTrip.musicTracks, musicTrackNeedsSeedRepair),
     };
 
     if (JSON.stringify(mergedTrip) !== JSON.stringify(trip)) {
@@ -259,4 +276,8 @@ function photoNeedsSeedRepair(photo: Photo) {
 
 function photoIsRenderable(photo: Photo) {
   return photo.storageKey.startsWith("http") || photo.storageKey.startsWith("/");
+}
+
+function musicTrackNeedsSeedRepair(musicTrack: MusicTrack) {
+  return recordLooksCorrupted(musicTrack) || musicTrack.audioUrl.trim().length === 0 || musicTrack.volume < 0 || musicTrack.volume > 1;
 }

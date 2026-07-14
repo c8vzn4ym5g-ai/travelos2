@@ -77,6 +77,17 @@ export interface Photo {
   createdAt: string;
 }
 
+export interface MusicTrack {
+  id: string;
+  tripId: string;
+  title: string;
+  audioUrl: string;
+  triggerLabel: string;
+  volume: number;
+  enabled: boolean;
+  createdAt: string;
+}
+
 export interface Place extends TimestampedRecord {
   id: string;
   tripId: string;
@@ -107,6 +118,7 @@ export interface TripDetail extends Trip {
   photos: Photo[];
   places: Place[];
   costs: Cost[];
+  musicTracks: MusicTrack[];
 }
 
 export interface TripListItem {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { Cost, Money, Photo, TripDetail, TravelVisibility } from "@/lib/types";
+import type { Cost, Money, MusicTrack, Photo, TripDetail, TravelVisibility } from "@/lib/types";
 
 type ContentResponse = {
   content: {
@@ -19,6 +19,7 @@ type TripTextField = "city" | "country" | "slug" | "summary" | "title";
 type TripDateField = "endDate" | "startDate";
 type JournalTextField = "body" | "entryDate" | "mood" | "title" | "weatherSummary";
 type PhotoTextField = "caption" | "originalFilename" | "takenAt";
+type MusicTextField = "audioUrl" | "title" | "triggerLabel";
 type PlaceTextField = "address" | "city" | "country" | "name" | "notes" | "type";
 type CostTextField = "category" | "currency" | "merchant" | "notes" | "paidAt";
 
@@ -87,6 +88,7 @@ function createDraftTrip(index: number): TripDetail {
       },
     ],
     photos: [],
+    musicTracks: [],
     places: [],
     costs: [],
   };
@@ -169,10 +171,13 @@ function GuideCard() {
           <span className="font-semibold text-zinc-950">4. Upload photos.</span> Add captions, choose Set cover for the main image, and move photos into the order you like.
         </li>
         <li>
-          <span className="font-semibold text-zinc-950">5. Click Save all edits.</span> Then open the article link and check it like a reader.
+          <span className="font-semibold text-zinc-950">5. Add music only if you want it.</span> Upload an audio file, set a trigger like Santa Claus Village, and keep volume gentle.
         </li>
         <li>
-          <span className="font-semibold text-zinc-950">6. Change Visibility to Shared or Public.</span> Save again only when the article looks good.
+          <span className="font-semibold text-zinc-950">6. Click Save all edits.</span> Then open the article link and check it like a reader.
+        </li>
+        <li>
+          <span className="font-semibold text-zinc-950">7. Change Visibility to Shared or Public.</span> Save again only when the article looks good.
         </li>
       </ol>
     </section>
@@ -351,6 +356,59 @@ export default function AdminPage() {
     updateTrip(tripId, (trip) => ({ ...trip, photos: moveItem(trip.photos, index, direction) }));
   }
 
+  function updateMusicTrack(tripId: string, musicTrackId: string, field: MusicTextField, value: string) {
+    updateTrip(tripId, (trip) => ({
+      ...trip,
+      musicTracks: (trip.musicTracks ?? []).map((musicTrack) =>
+        musicTrack.id === musicTrackId ? { ...musicTrack, [field]: value } : musicTrack,
+      ),
+    }));
+  }
+
+  function updateMusicVolume(tripId: string, musicTrackId: string, value: string) {
+    updateTrip(tripId, (trip) => ({
+      ...trip,
+      musicTracks: (trip.musicTracks ?? []).map((musicTrack) =>
+        musicTrack.id === musicTrackId ? { ...musicTrack, volume: Math.min(1, Math.max(0, Number(value))) } : musicTrack,
+      ),
+    }));
+  }
+
+  function toggleMusicTrack(tripId: string, musicTrackId: string) {
+    updateTrip(tripId, (trip) => ({
+      ...trip,
+      musicTracks: (trip.musicTracks ?? []).map((musicTrack) =>
+        musicTrack.id === musicTrackId ? { ...musicTrack, enabled: !musicTrack.enabled } : musicTrack,
+      ),
+    }));
+  }
+
+  function addMusicUrl(tripId: string) {
+    updateTrip(tripId, (trip) => ({
+      ...trip,
+      musicTracks: [
+        {
+          id: makeId("music"),
+          tripId,
+          title: "New music cue",
+          audioUrl: "",
+          triggerLabel: "Journey",
+          volume: 0.32,
+          enabled: false,
+          createdAt: nowIso(),
+        },
+        ...(trip.musicTracks ?? []),
+      ],
+    }));
+  }
+
+  function removeMusicTrack(tripId: string, musicTrackId: string) {
+    updateTrip(tripId, (trip) => ({
+      ...trip,
+      musicTracks: (trip.musicTracks ?? []).filter((musicTrack) => musicTrack.id !== musicTrackId),
+    }));
+  }
+
   function updatePlace(tripId: string, placeId: string, field: PlaceTextField, value: string) {
     updateTrip(tripId, (trip) => ({
       ...trip,
@@ -482,6 +540,34 @@ export default function AdminPage() {
     setTrips(data.content.trips);
     form.reset();
     setMessage("Photo uploaded and attached to the trip.");
+  }
+
+  async function uploadMusic(event: React.FormEvent<HTMLFormElement>, tripId: string) {
+    event.preventDefault();
+    setMessage("Uploading music...");
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    formData.set("tripId", tripId);
+
+    const response = await fetch("/api/music", {
+      body: formData,
+      headers: {
+        "x-travelos-admin-pin": pin,
+      },
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      const data = (await response.json()) as { error?: string };
+      setMessage(data.error ?? "Music upload failed.");
+      return;
+    }
+
+    const data = (await response.json()) as { content: { trips: TripDetail[] }; musicTrack: MusicTrack };
+    setTrips(data.content.trips);
+    form.reset();
+    setMessage(`Music cue added: ${data.musicTrack.title}`);
   }
 
   return (
@@ -696,6 +782,68 @@ export default function AdminPage() {
                         <div className="grid gap-4 sm:grid-cols-2">
                           <Field label="Filename" onChange={(value) => updatePhoto(activeTrip.id, photo.id, "originalFilename", value)} value={photo.originalFilename} />
                           <Field label="Taken at" onChange={(value) => updatePhoto(activeTrip.id, photo.id, "takenAt", value)} type="datetime-local" value={toDateTimeInput(photo.takenAt)} />
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-3xl border border-stone-200 bg-white/90 p-5 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <SectionTitle eyebrow="Music" title="Gentle journey soundtrack" />
+                  <button className={smallButtonClass} onClick={() => addMusicUrl(activeTrip.id)} type="button">
+                    Add URL cue
+                  </button>
+                </div>
+                <div className="mt-4 rounded-2xl bg-stone-50 px-4 py-3 text-sm leading-6 text-zinc-600">
+                  Music starts only after the visitor taps Play music. Use music you own, licensed music, or public-domain audio. For Santa photos or sections, use trigger label: Santa Claus Village.
+                </div>
+                <form className="mt-5 grid gap-3 rounded-3xl border border-dashed border-stone-300 bg-stone-50 p-4 lg:grid-cols-[1fr_1fr_12rem_8rem_7rem] lg:items-end" onSubmit={(event) => uploadMusic(event, activeTrip.id)}>
+                  <label className="block">
+                    <span className="text-sm font-medium text-zinc-700">Music file</span>
+                    <input accept="audio/*" className={`${inputClass} file:mr-3 file:rounded-full file:border-0 file:bg-teal-800 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white`} name="file" type="file" />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-zinc-700">Or audio URL</span>
+                    <input className={inputClass} name="audioUrl" placeholder="https://..." />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-zinc-700">Title</span>
+                    <input className={inputClass} name="title" placeholder="Christmas in Lapland" required />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-zinc-700">Trigger</span>
+                    <input className={inputClass} name="triggerLabel" placeholder="Santa Claus Village" />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-zinc-700">Volume</span>
+                    <input className={inputClass} defaultValue="0.32" max="1" min="0" name="volume" step="0.05" type="number" />
+                  </label>
+                  <button className={primaryButtonClass} type="submit">
+                    Add music
+                  </button>
+                </form>
+                <div className="mt-5 grid gap-4">
+                  {(activeTrip.musicTracks ?? []).map((musicTrack) => (
+                    <article className="rounded-3xl border border-stone-200 bg-stone-50 p-4" key={musicTrack.id}>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-zinc-700">{musicTrack.enabled ? "Enabled" : "Disabled"}</p>
+                        <div className="flex flex-wrap gap-2">
+                          <button className={smallButtonClass} onClick={() => toggleMusicTrack(activeTrip.id, musicTrack.id)} type="button">
+                            {musicTrack.enabled ? "Disable" : "Enable"}
+                          </button>
+                          <button className={smallButtonClass} onClick={() => removeMusicTrack(activeTrip.id, musicTrack.id)} type="button">
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                      <div className="mt-4 grid gap-4">
+                        <Field label="Music title" onChange={(value) => updateMusicTrack(activeTrip.id, musicTrack.id, "title", value)} value={musicTrack.title} />
+                        <Field label="Audio URL" onChange={(value) => updateMusicTrack(activeTrip.id, musicTrack.id, "audioUrl", value)} value={musicTrack.audioUrl} />
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <Field label="Trigger label" onChange={(value) => updateMusicTrack(activeTrip.id, musicTrack.id, "triggerLabel", value)} value={musicTrack.triggerLabel} />
+                          <Field label="Volume 0-1" onChange={(value) => updateMusicVolume(activeTrip.id, musicTrack.id, value)} type="number" value={musicTrack.volume} />
                         </div>
                       </div>
                     </article>

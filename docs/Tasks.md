@@ -262,3 +262,35 @@ Result:
   protection, and Vercel Blob storage behavior.
 - Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
   `pnpm run build` on 2026-07-14.
+
+## TASK-015: Add Optional Journey Music Cues
+
+Status: done
+
+Goal: Let journey articles use gentle optional background music, with admin
+controls for adding future music.
+
+Result:
+
+- Added a `MusicTrack` content model with title, audio URL, trigger label,
+  volume, enabled state, and trip ownership.
+- Added `/api/music` so the admin editor can upload audio files to Vercel Blob
+  or attach a public audio URL.
+- Added a public article music player that only starts after the visitor taps
+  `Play music`, then fades in gently and can switch tracks based on visible
+  article/photo sections.
+- Added `data-music-zone` markers to article hero, journal sections, and photo
+  tiles so cues such as `Santa Claus Village` can surface when that part of the
+  story is being viewed.
+- Added admin controls for music upload, URL cues, trigger labels, volume,
+  enable/disable, and deletion.
+- Kept seed music disabled until a real licensed/public-domain audio file is
+  provided, avoiding accidental copyrighted-song publishing.
+- Added a generated winter-jazz trio style `Jingle Bells` test WAV at
+  `public/travelos/music/jingle-bells-music-box.wav`, using the public-domain
+  1857 melody and no third-party recording.
+- Enabled the Lapland Santa Claus Village cue with this local test track and
+  raised the content schema to version 4 so older empty music cues migrate to
+  the working test cue.
+- Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
+  `pnpm run build` on 2026-07-14.

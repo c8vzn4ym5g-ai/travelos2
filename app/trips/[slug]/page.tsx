@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { JourneyMusicPlayer } from "@/components/journey-music-player";
 import { readContent } from "@/lib/editable-store";
 import { getTripDetailsByStartDate } from "@/lib/trips";
 import type { Cost, Money, Photo, Place } from "@/lib/types";
@@ -106,7 +107,7 @@ function PhotoTile({ photo }: { photo: Photo }) {
   const canRenderPhoto = isRenderablePhoto(photo);
 
   return (
-    <article className="travel-soft-panel overflow-hidden rounded-[1.5rem]">
+    <article className="travel-soft-panel overflow-hidden rounded-[1.5rem]" data-music-zone={`${photo.caption ?? ""} ${photo.originalFilename}`}>
       {canRenderPhoto ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img alt={photo.caption ?? photo.originalFilename} className="h-56 w-full object-cover" src={photo.storageKey} />
@@ -143,7 +144,8 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
 
   return (
     <main className="travel-shell">
-      <section className="travel-hero">
+      <JourneyMusicPlayer tracks={trip.musicTracks ?? []} />
+      <section className="travel-hero" data-music-zone={`${trip.title} ${trip.summary} ${trip.city} ${trip.country}`}>
         <div className="mx-auto flex max-w-6xl flex-col gap-7 px-4 py-7 sm:px-6 sm:py-10 lg:px-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Link className="travel-kicker text-sm" href="/trips">
@@ -182,7 +184,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           {featurePhotos.length > 1 ? (
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {featurePhotos.map((photo) => (
-                <article className="travel-soft-panel overflow-hidden rounded-[1.4rem]" key={photo.id}>
+                <article className="travel-soft-panel overflow-hidden rounded-[1.4rem]" data-music-zone={`${photo.caption ?? ""} ${photo.originalFilename}`} key={photo.id}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img alt={photo.caption ?? photo.originalFilename} className="h-32 w-full object-cover sm:h-40" src={photo.storageKey} />
                   <p className="travel-muted p-3 text-xs leading-5 sm:text-sm">{photo.caption ?? photo.originalFilename}</p>
@@ -216,7 +218,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             <SectionHeader kicker="Journal" title="Narrative notes" />
             <div className="mt-7 space-y-6">
               {trip.journalEntries.map((entry) => (
-                <article className="border-b border-[color:var(--line)] pb-6 last:border-0 last:pb-0" key={entry.id}>
+                <article className="border-b border-[color:var(--line)] pb-6 last:border-0 last:pb-0" data-music-zone={`${entry.title} ${entry.body}`} key={entry.id}>
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <h3 className="font-semibold text-[color:var(--ink)]">{entry.title}</h3>
                     <p className="travel-muted text-sm">{formatDate(entry.entryDate)}</p>

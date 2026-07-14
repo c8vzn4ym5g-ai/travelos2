@@ -248,6 +248,18 @@ export const seedTripDetails: TripDetail[] = [
         createdAt: "2020-01-25T11:00:00.000Z",
       },
     ],
+    musicTracks: [
+      {
+        id: "music_lapland_santa",
+        tripId: "trip_lapland_2020",
+        title: "Jingle Bells winter jazz trio",
+        audioUrl: "/travelos/music/jingle-bells-music-box.wav",
+        triggerLabel: "Santa Claus Village",
+        volume: 0.28,
+        enabled: true,
+        createdAt: "2026-07-14T12:40:00.000Z",
+      },
+    ],
   },
   {
     id: "trip_hokkaido_2025",
@@ -271,6 +283,7 @@ export const seedTripDetails: TripDetail[] = [
     photos: [],
     places: [],
     costs: [],
+    musicTracks: [],
   },
   {
     id: "trip_bangkok_2025",
@@ -294,6 +307,7 @@ export const seedTripDetails: TripDetail[] = [
     photos: [],
     places: [],
     costs: [],
+    musicTracks: [],
   },
   {
     id: "trip_paris_2024",
@@ -317,6 +331,7 @@ export const seedTripDetails: TripDetail[] = [
     photos: [],
     places: [],
     costs: [],
+    musicTracks: [],
   },
   {
     id: "trip_london_2024",
@@ -340,6 +355,7 @@ export const seedTripDetails: TripDetail[] = [
     photos: [],
     places: [],
     costs: [],
+    musicTracks: [],
   },
 ];
 
