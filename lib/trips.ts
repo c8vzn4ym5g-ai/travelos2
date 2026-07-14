@@ -252,7 +252,7 @@ export const seedTripDetails: TripDetail[] = [
       {
         id: "music_lapland_santa",
         tripId: "trip_lapland_2020",
-        title: "Jingle Bells winter jazz trio",
+        title: "Jingle Bells driving winter jazz",
         audioUrl: "/travelos/music/jingle-bells-music-box.wav",
         triggerLabel: "Santa Claus Village",
         volume: 0.28,

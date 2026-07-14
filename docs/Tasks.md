@@ -286,7 +286,7 @@ Result:
   enable/disable, and deletion.
 - Kept seed music disabled until a real licensed/public-domain audio file is
   provided, avoiding accidental copyrighted-song publishing.
-- Added a generated winter-jazz trio style `Jingle Bells` test WAV at
+- Added a generated driving winter-jazz style `Jingle Bells` test WAV at
   `public/travelos/music/jingle-bells-music-box.wav`, using the public-domain
   1857 melody and no third-party recording.
 - Enabled the Lapland Santa Claus Village cue with this local test track and
