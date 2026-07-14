@@ -237,3 +237,28 @@ Result:
 - Kept admin/editing logic and long-lived content repair unchanged.
 - Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
   `pnpm run build` on 2026-07-14.
+
+## TASK-014: Upgrade Admin Editor v2
+
+Status: done
+
+Goal: Make the deployed admin page capable of editing the full first journey
+article and photos from the webpage.
+
+Result:
+
+- Rebuilt `/admin` into a fuller article editor with trip selection, overview
+  fields, publishing visibility, dates, rating, cost, and article address.
+- Added editable journal sections with title, body, date, mood, weather,
+  add/delete, and move up/down controls.
+- Added photo management with upload caption/date, caption editing, filename
+  editing, taken-at editing, cover selection, delete, and move up/down controls.
+- Added lightweight editing for saved places and tracked costs so article side
+  sections can be maintained without code uploads.
+- Added a plain-language guide inside `/admin` for creating Journey 2, 3, 4,
+  and future articles, including a safe `Add new` private draft flow, save
+  order, preview step, and publish step.
+- Preserved the existing `/api/content` and `/api/photos` save paths, admin PIN
+  protection, and Vercel Blob storage behavior.
+- Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
+  `pnpm run build` on 2026-07-14.
