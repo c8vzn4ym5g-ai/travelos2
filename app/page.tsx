@@ -38,87 +38,87 @@ export default async function Home() {
     .slice(0, 3);
 
   const stats = [
-    { label: "目的地 / Destination", value: featuredTrip.country },
-    { label: "旅程天數 / Days", value: getTravelDays(featuredTrip) },
-    { label: "照片 / Photos", value: String(featuredTrip.photos.length) },
-    { label: "收藏地點 / Stops", value: String(featuredTrip.places.length) },
+    { label: "\u76ee\u7684\u5730 / Destination", value: featuredTrip.country },
+    { label: "\u65c5\u7a0b\u5929\u6578 / Days", value: getTravelDays(featuredTrip) },
+    { label: "\u7167\u7247 / Photos", value: String(featuredTrip.photos.length) },
+    { label: "\u6536\u85cf\u5730\u9ede / Stops", value: String(featuredTrip.places.length) },
   ];
 
   return (
-    <main className="min-h-screen bg-stone-50 text-zinc-950">
-      <section className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+    <main className="travel-shell">
+      <section className="travel-hero">
+        <div className="mx-auto flex max-w-7xl flex-col gap-8 px-4 py-7 sm:px-6 sm:py-10 lg:px-10">
           <nav className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
-              <p className="text-sm font-medium uppercase text-teal-700">TravelOS</p>
-              <Link className="group mt-2 block max-w-4xl" href={featuredHref}>
-                <h1 className="text-3xl font-semibold tracking-normal text-zinc-950 transition group-hover:text-teal-800 sm:text-5xl lg:text-6xl">
+              <p className="travel-kicker text-sm">TravelOS</p>
+              <Link className="group mt-3 block max-w-4xl" href={featuredHref}>
+                <h1 className="travel-hand text-4xl font-semibold leading-tight text-[color:var(--ink)] transition group-hover:text-[color:var(--pine)] sm:text-6xl lg:text-7xl">
                   {featuredTrip.title}
                 </h1>
               </Link>
-              <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-600 sm:text-base">{featuredTrip.summary}</p>
+              <p className="travel-muted mt-5 max-w-3xl text-base leading-8 sm:text-lg">{featuredTrip.summary}</p>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:justify-end">
-              <Link className="rounded-md border border-zinc-300 px-3 py-2 text-center text-sm font-medium text-zinc-950" href="/map">
-                地圖 / Map
+              <Link className="travel-chip rounded-full px-4 py-2 text-center text-sm font-semibold" href="/map">
+                {"\u5730\u5716 / Map"}
               </Link>
-              <Link className="rounded-md border border-zinc-300 px-3 py-2 text-center text-sm font-medium text-zinc-950" href="/timeline">
-                時間線 / Timeline
+              <Link className="travel-chip rounded-full px-4 py-2 text-center text-sm font-semibold" href="/timeline">
+                {"\u6642\u9593\u7dda / Timeline"}
               </Link>
-              <Link className="rounded-md border border-zinc-300 px-3 py-2 text-center text-sm font-medium text-zinc-950" href="/costs">
-                費用 / Costs
+              <Link className="travel-chip rounded-full px-4 py-2 text-center text-sm font-semibold" href="/costs">
+                {"\u8cbb\u7528 / Costs"}
               </Link>
-              <Link className="rounded-md bg-teal-700 px-3 py-2 text-center text-sm font-medium text-white" href="/admin">
-                編輯 / Edit
+              <Link className="travel-chip rounded-full px-4 py-2 text-center text-sm font-semibold" href="/admin">
+                {"\u7de8\u8f2f / Edit"}
               </Link>
-              <Link className="col-span-2 rounded-md bg-zinc-950 px-3 py-2 text-center text-sm font-medium text-white sm:col-span-1" href="/trips">
-                全部旅程 / Trips
+              <Link className="travel-primary col-span-2 rounded-full px-4 py-2 text-center text-sm font-semibold sm:col-span-1" href="/trips">
+                {"\u5168\u90e8\u65c5\u7a0b / Trips"}
               </Link>
             </div>
           </nav>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {stats.map((item) => (
-              <div className="rounded-lg border border-zinc-200 bg-stone-50 p-4 sm:p-5" key={item.label}>
-                <p className="text-sm text-zinc-500">{item.label}</p>
-                <p className="mt-2 text-2xl font-semibold sm:mt-3 sm:text-3xl">{item.value}</p>
+              <div className="travel-soft-panel rounded-3xl p-5" key={item.label}>
+                <p className="travel-muted text-sm">{item.label}</p>
+                <p className="mt-3 text-3xl font-semibold text-[color:var(--pine)]">{item.value}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 sm:py-10 lg:grid-cols-[1.1fr_0.9fr] lg:px-10">
-        <div className="rounded-lg border border-zinc-200 bg-white p-4 sm:p-6">
+      <section className="mx-auto grid max-w-7xl gap-7 px-4 py-7 sm:px-6 sm:py-12 lg:grid-cols-[1.12fr_0.88fr] lg:px-10">
+        <div className="travel-panel rounded-[2rem] p-4 sm:p-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <h2 className="text-xl font-semibold sm:text-2xl">精選旅程 / Featured Article</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-7 text-zinc-600">
-                點擊標題、主照片或下方按鈕，都會進入這段旅程的完整文章。未來新增第二篇、第三篇旅程時，也會依照各自的網址自動連接。
+              <h2 className="travel-hand text-2xl font-semibold sm:text-3xl">{"\u7cbe\u9078\u65c5\u7a0b / Featured Article"}</h2>
+              <p className="travel-muted mt-3 max-w-2xl text-sm leading-7">
+                {"\u9ede\u64ca\u6a19\u984c\u3001\u4e3b\u7167\u7247\u6216\u4e0b\u65b9\u6309\u9215\uff0c\u90fd\u6703\u9032\u5165\u9019\u6bb5\u65c5\u7a0b\u7684\u5b8c\u6574\u6587\u7ae0\u3002\u672a\u4f86\u65b0\u589e\u65c5\u7a0b\u6642\uff0c\u4e5f\u6703\u4f9d\u7167\u5404\u81ea\u7684\u7db2\u5740\u81ea\u52d5\u9023\u63a5\u3002"}
                 <span className="mt-2 block">
-                  The homepage uses each journey slug, so every future article can open through its own route without new hard-coded pages.
+                  Each journey keeps its own article path, so the site can grow without hard-coded pages.
                 </span>
               </p>
             </div>
-            <Link className="rounded-md bg-zinc-950 px-4 py-3 text-center text-sm font-semibold text-white" href={featuredHref}>
-              閱讀文章 / Read article
+            <Link className="travel-primary rounded-full px-5 py-3 text-center text-sm font-semibold" href={featuredHref}>
+              {"\u95b1\u8b80\u6587\u7ae0 / Read article"}
             </Link>
           </div>
 
           <Link
             aria-label={`Open ${featuredTrip.title}`}
-            className="mt-6 grid gap-3 rounded-lg border border-zinc-200 bg-stone-100 p-2 transition hover:border-teal-700 sm:mt-8 sm:grid-cols-3 sm:p-3"
+            className="mt-7 grid gap-3 rounded-[1.5rem] bg-[color:var(--paper-soft)] p-2 transition hover:scale-[1.005] sm:mt-9 sm:grid-cols-3 sm:p-3"
             href={featuredHref}
           >
             {coverPhoto ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 alt={coverPhoto.caption ?? featuredTrip.title}
-                className="h-64 w-full rounded-md object-cover sm:col-span-2 sm:h-full sm:min-h-[320px]"
+                className="travel-photo h-72 w-full rounded-[1.25rem] object-cover sm:col-span-2 sm:h-full sm:min-h-[360px]"
                 src={coverPhoto.storageKey}
               />
             ) : (
-              <div className="grid h-64 place-items-center rounded-md bg-stone-200 text-sm font-medium text-zinc-500 sm:col-span-2 sm:min-h-[320px]">
+              <div className="grid h-72 place-items-center rounded-[1.25rem] bg-white/70 text-sm font-medium text-[color:var(--muted)] sm:col-span-2 sm:min-h-[360px]">
                 Photo pending
               </div>
             )}
@@ -127,7 +127,7 @@ export default async function Home() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   alt={photo.caption ?? photo.originalFilename}
-                  className="h-32 w-full rounded-md object-cover sm:h-40"
+                  className="h-36 w-full rounded-[1.1rem] object-cover shadow-md sm:h-44"
                   key={photo.id}
                   src={photo.storageKey}
                 />
@@ -136,36 +136,36 @@ export default async function Home() {
           </Link>
         </div>
 
-        <aside className="space-y-6">
-          <div className="rounded-lg border border-zinc-200 bg-white p-4 sm:p-6">
-            <h2 className="text-lg font-semibold sm:text-xl">最新旅程 / Latest Journeys</h2>
-            <div className="mt-5 space-y-4">
+        <aside className="space-y-7">
+          <div className="travel-panel rounded-[2rem] p-5 sm:p-7">
+            <h2 className="travel-hand text-2xl font-semibold">{"\u6700\u65b0\u65c5\u7a0b / Latest Journeys"}</h2>
+            <div className="travel-rule mt-5">
               {visibleTrips.slice(0, 4).map((trip) => (
-                <article className="border-b border-zinc-100 pb-4 last:border-0 last:pb-0" key={trip.id}>
-                  <Link className="font-medium text-zinc-950 hover:text-teal-800" href={articleHref(trip)}>
+                <article className="py-4 first:pt-0 last:pb-0" key={trip.id}>
+                  <Link className="font-semibold text-[color:var(--pine)] hover:text-[color:var(--clay)]" href={articleHref(trip)}>
                     {trip.title}
                   </Link>
-                  <p className="mt-1 text-sm text-zinc-500">
+                  <p className="travel-muted mt-1 text-sm">
                     {trip.city}, {trip.country}
                   </p>
-                  <p className="mt-2 text-sm leading-6 text-zinc-600">{trip.summary}</p>
+                  <p className="travel-muted mt-2 text-sm leading-6">{trip.summary}</p>
                 </article>
               ))}
             </div>
           </div>
 
-          <div className="rounded-lg border border-zinc-200 bg-white p-4 sm:p-6">
-            <h2 className="text-lg font-semibold sm:text-xl">整理進度 / Working Queue</h2>
+          <div className="travel-soft-panel rounded-[2rem] p-5 sm:p-7">
+            <h2 className="travel-hand text-2xl font-semibold">{"\u6574\u7406\u9032\u5ea6 / Working Queue"}</h2>
             <ol className="mt-5 space-y-3">
               {[
-                "完善精選遊記 / Refine featured journal",
-                "補齊照片與說明 / Complete photos and captions",
-                "同步地圖與時間線 / Sync map and timeline",
-                "保留網頁編輯能力 / Keep browser editing ready",
+                "\u5b8c\u5584\u7cbe\u9078\u904a\u8a18 / Refine featured journal",
+                "\u88dc\u9f4a\u7167\u7247\u8207\u8aaa\u660e / Complete photos and captions",
+                "\u540c\u6b65\u5730\u5716\u8207\u6642\u9593\u7dda / Sync map and timeline",
+                "\u4fdd\u7559\u7db2\u9801\u7de8\u8f2f\u80fd\u529b / Keep browser editing ready",
               ].map((task, index) => (
                 <li className="flex gap-3 text-sm" key={task}>
-                  <span className="grid size-7 shrink-0 place-items-center rounded-full bg-zinc-950 text-xs font-semibold text-white">{index + 1}</span>
-                  <span className="pt-1 text-zinc-700">{task}</span>
+                  <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[color:var(--clay)] text-xs font-semibold text-white">{index + 1}</span>
+                  <span className="travel-muted pt-1">{task}</span>
                 </li>
               ))}
             </ol>

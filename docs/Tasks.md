@@ -209,3 +209,23 @@ Result:
   strings do not push the viewport wider than the phone screen.
 - Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
   `pnpm run build` on 2026-07-14.
+
+## TASK-013: Soften Public Reading Design
+
+Status: done
+
+Goal: Make the public TravelOS reading surfaces feel warmer, more modern, and
+less like an engineering scaffold.
+
+Result:
+
+- Added a shared visual system with warm paper backgrounds, sage/pine/clay
+  accents, softer shadows, rounded reading panels, and handwritten-style
+  display headings.
+- Reworked the homepage, trip list, and trip detail article to use the softer
+  reading layout while preserving dynamic article links and editable content.
+- Improved photo presentation with larger rounded hero images, softer album
+  tiles, and calmer article typography intended for lingering.
+- Kept admin/editing logic and long-lived content repair unchanged.
+- Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
+  `pnpm run build` on 2026-07-14.
