@@ -226,6 +226,14 @@ Result:
   reading layout while preserving dynamic article links and editable content.
 - Improved photo presentation with larger rounded hero images, softer album
   tiles, and calmer article typography intended for lingering.
+- Repaired the Trips page Chinese rendering path by keeping the Trips UI labels
+  and seed travel-log copy in encoding-safe Unicode escape strings, then
+  verified the rendered `/trips` HTML contains Traditional Chinese text, the
+  Lapland article link, and the public photo path.
+- Raised the editable content schema to version 3 so older Vercel-stored
+  TravelOS records that are English-only, simplified, or stale are migrated
+  once into the bilingual Traditional Chinese seed copy without repeatedly
+  overwriting future admin edits.
 - Kept admin/editing logic and long-lived content repair unchanged.
 - Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
   `pnpm run build` on 2026-07-14.

@@ -3,7 +3,7 @@ import { seedTripDetails } from "@/lib/trips";
 import type { Photo, TripDetail } from "@/lib/types";
 
 const DATA_BLOB_PATH = "travelos/content.json";
-const CONTENT_SCHEMA_VERSION = 2;
+const CONTENT_SCHEMA_VERSION = 3;
 
 export type TravelOSContent = {
   trips: TripDetail[];
@@ -99,6 +99,7 @@ export async function addPhotoToTrip(tripId: string, photo: Photo) {
 
 function createSeedContent(): TravelOSContent {
   return {
+    schemaVersion: CONTENT_SCHEMA_VERSION,
     trips: seedTripDetails,
     updatedAt: new Date().toISOString(),
   };
@@ -129,6 +130,7 @@ function normalizeContent(content: TravelOSContent): { changed: boolean; content
 
 function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
   let changed = false;
+  const savedSchemaVersion = content.schemaVersion ?? 1;
   const seedTripsById = new Map(seedTripDetails.map((trip) => [trip.id, trip]));
   const existingIds = new Set(content.trips.map((trip) => trip.id));
 
@@ -139,7 +141,10 @@ function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
       return trip;
     }
 
-    const repairTripText = recordLooksCorrupted(trip.title) || recordLooksCorrupted(trip.summary);
+    const repairTripText =
+      recordLooksCorrupted(trip.title) ||
+      recordLooksCorrupted(trip.summary) ||
+      shouldMigrateSeedTripCopy(trip, seedTrip, savedSchemaVersion);
     const repairTripSlug = !trip.slug || recordLooksCorrupted(trip.slug);
     const repairCoverPhoto =
       !trip.coverPhotoId ||
@@ -151,9 +156,15 @@ function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
       summary: repairTripText ? seedTrip.summary : trip.summary,
       slug: repairTripSlug ? seedTrip.slug : trip.slug,
       coverPhotoId: repairCoverPhoto ? seedTrip.coverPhotoId : trip.coverPhotoId,
-      photos: mergeByIdWithRepair(trip.photos, seedTrip.photos, photoNeedsSeedRepair),
-      journalEntries: mergeByIdWithRepair(trip.journalEntries, seedTrip.journalEntries, recordLooksCorrupted),
-      places: mergeByIdWithRepair(trip.places, seedTrip.places, recordLooksCorrupted),
+      photos: mergeByIdWithRepair(trip.photos, seedTrip.photos, (photo) =>
+        photoNeedsSeedRepair(photo) || shouldMigrateSeedItemCopy(photo, seedTrip, savedSchemaVersion),
+      ),
+      journalEntries: mergeByIdWithRepair(trip.journalEntries, seedTrip.journalEntries, (entry) =>
+        recordLooksCorrupted(entry) || shouldMigrateSeedItemCopy(entry, seedTrip, savedSchemaVersion),
+      ),
+      places: mergeByIdWithRepair(trip.places, seedTrip.places, (place) =>
+        recordLooksCorrupted(place) || shouldMigrateSeedItemCopy(place, seedTrip, savedSchemaVersion),
+      ),
       costs: mergeByIdWithRepair(trip.costs, seedTrip.costs, recordLooksCorrupted),
     };
 
@@ -203,6 +214,34 @@ function mergeByIdWithRepair<T extends { id: string }>(
 function recordLooksCorrupted(record: unknown) {
   const text = typeof record === "string" ? record : JSON.stringify(record);
   return text.includes("???") || /[\uF000-\uF8FF]/.test(text) || looksLikeMojibake(text);
+}
+
+function shouldMigrateSeedTripCopy(trip: TripDetail, seedTrip: TripDetail, savedSchemaVersion: number) {
+  if (savedSchemaVersion >= CONTENT_SCHEMA_VERSION || !seedContainsTraditionalChinese(seedTrip)) {
+    return false;
+  }
+
+  return trip.id === seedTrip.id && !containsTraditionalTravelosMarker(`${trip.title} ${trip.summary}`);
+}
+
+function shouldMigrateSeedItemCopy<T extends { id: string; tripId?: string }>(
+  item: T,
+  seedTrip: TripDetail,
+  savedSchemaVersion: number,
+) {
+  if (savedSchemaVersion >= CONTENT_SCHEMA_VERSION || item.tripId !== seedTrip.id) {
+    return false;
+  }
+
+  return !containsTraditionalTravelosMarker(JSON.stringify(item));
+}
+
+function seedContainsTraditionalChinese(seedTrip: TripDetail) {
+  return containsTraditionalTravelosMarker(`${seedTrip.title} ${seedTrip.summary}`);
+}
+
+function containsTraditionalTravelosMarker(text: string) {
+  return /[\u862d\u8a18\u61b6\u8056\u8a95\u5713\u6a19\u71df\u71c8]/.test(text);
 }
 
 function looksLikeMojibake(text: string) {

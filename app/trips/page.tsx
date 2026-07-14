@@ -4,6 +4,15 @@ import type { Money, Photo, TripDetail } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+const ui = {
+  allJourneys: "\u5168\u90e8\u65c5\u7a0b / All journeys",
+  intro:
+    "\u9019\u88e1\u662f TravelOS \u7684\u65c5\u7a0b\u5165\u53e3\u3002\u6bcf\u4e00\u7bc7\u6587\u7ae0\u90fd\u7528\u81ea\u5df1\u7684\u7db2\u5740\u958b\u555f\uff0c\u4e4b\u5f8c\u65b0\u589e\u65c5\u7a0b\u4e0d\u9700\u8981\u518d\u5efa\u7acb\u56fa\u5b9a\u9801\u9762\u3002",
+  newDraft: "\u65b0\u65c5\u7a0b\u8349\u7a3f / New draft",
+  read: "\u95b1\u8b80 / Open details",
+  timeline: "\u6642\u9593\u7dda / Timeline",
+};
+
 const dateFormatter = new Intl.DateTimeFormat("en", {
   day: "numeric",
   month: "short",
@@ -89,7 +98,7 @@ function TripCard({ trip }: { trip: TripDetail }) {
         <div className="mt-6 flex flex-col gap-3 border-t border-[color:var(--line)] pt-5 text-sm text-[color:var(--muted)] sm:flex-row sm:items-center sm:justify-between">
           <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
           <Link className="travel-primary rounded-full px-5 py-2 text-center font-semibold sm:px-5 sm:py-2" href={href}>
-            閱讀 / Open details
+            {ui.read}
           </Link>
         </div>
       </div>
@@ -113,22 +122,18 @@ export default async function TripsPage() {
             </Link>
             <div className="flex flex-wrap gap-2">
               <Link className="travel-chip rounded-full px-4 py-2 text-sm font-semibold" href="/timeline">
-                時間線 / Timeline
+                {ui.timeline}
               </Link>
               <Link className="travel-primary rounded-full px-4 py-2 text-sm font-semibold" href="/trips/new">
-                新旅程草稿 / New draft
+                {ui.newDraft}
               </Link>
             </div>
           </div>
           <div className="grid gap-4 lg:grid-cols-[1fr_18rem] lg:items-end">
             <div className="min-w-0">
               <p className="travel-kicker text-sm">Journey library</p>
-              <h1 className="travel-hand mt-2 text-4xl font-semibold tracking-normal sm:text-6xl">
-                全部旅程 / All journeys
-              </h1>
-              <p className="travel-muted mt-4 max-w-2xl text-sm leading-7 sm:text-base">
-                這裡是 TravelOS 的旅程入口。每一篇文章都用自己的網址開啟，之後新增旅程不需要再建立固定頁面。
-              </p>
+              <h1 className="travel-hand mt-2 text-4xl font-semibold tracking-normal sm:text-6xl">{ui.allJourneys}</h1>
+              <p className="travel-muted mt-4 max-w-2xl text-sm leading-7 sm:text-base">{ui.intro}</p>
             </div>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div className="travel-soft-panel rounded-3xl px-5 py-4">
