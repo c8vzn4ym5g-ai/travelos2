@@ -41,5 +41,9 @@ export async function POST(request: Request) {
   };
 
   const content = await addPhotoToCoffeeShop(coffeeShopId, photo);
+  if (!content) {
+    return Response.json({ error: "Coffee shop must be saved before uploading photos" }, { status: 404 });
+  }
+
   return Response.json({ content, photo });
 }

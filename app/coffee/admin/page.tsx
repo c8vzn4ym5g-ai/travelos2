@@ -308,11 +308,28 @@ export default function CoffeeAdminPage() {
 
   async function uploadPhoto(event: React.FormEvent<HTMLFormElement>, coffeeShopId: string) {
     event.preventDefault();
-    setMessage("Uploading coffee photo...");
+    setMessage("Saving coffee record before photo upload...");
 
     const form = event.currentTarget;
     const formData = new FormData(form);
     formData.set("coffeeShopId", coffeeShopId);
+
+    const saveResponse = await fetch("/api/coffee/content", {
+      body: JSON.stringify({ shops }),
+      headers: {
+        "content-type": "application/json",
+        "x-travelos-admin-pin": pin,
+      },
+      method: "PUT",
+    });
+
+    if (!saveResponse.ok) {
+      const data = (await saveResponse.json()) as { error?: string };
+      setMessage(data.error ?? "Save before photo upload failed.");
+      return;
+    }
+
+    setMessage("Uploading coffee photo...");
 
     const response = await fetch("/api/coffee/photos", {
       body: formData,

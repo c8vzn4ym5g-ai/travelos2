@@ -86,15 +86,23 @@ export async function writeCoffeeContent(shops: CoffeeShop[]) {
 
 export async function addPhotoToCoffeeShop(coffeeShopId: string, photo: CoffeePhoto) {
   const { content } = await readCoffeeContent();
+  let foundShop = false;
   const shops = content.shops.map((shop) =>
     shop.id === coffeeShopId
-      ? {
-          ...shop,
-          photos: [photo, ...shop.photos],
-          updatedAt: new Date().toISOString(),
-        }
+      ? (() => {
+          foundShop = true;
+          return {
+            ...shop,
+            photos: [photo, ...shop.photos],
+            updatedAt: new Date().toISOString(),
+          };
+        })()
       : shop,
   );
+
+  if (!foundShop) {
+    return null;
+  }
 
   return writeCoffeeContent(shops);
 }
