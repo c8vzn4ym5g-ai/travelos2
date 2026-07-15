@@ -36,6 +36,8 @@ const smallButtonClass =
   "rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:border-teal-700 hover:text-teal-800 disabled:cursor-not-allowed disabled:opacity-40";
 const primaryButtonClass =
   "rounded-full bg-zinc-950 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60";
+const supportedUploadTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const maxUploadBytes = 4_500_000;
 
 function nowIso() {
   return new Date().toISOString();
@@ -124,7 +126,27 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit, tim
   }
 }
 
+function waitWithTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeout);
+        resolve(value);
+      },
+      (error: unknown) => {
+        window.clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
+}
+
 async function resizePhotoForUpload(file: File) {
+  if (!supportedUploadTypes.has(file.type)) {
+    throw new Error("Please use JPG, PNG, or WebP. Phone HEIC photos need to be converted before upload.");
+  }
+
   if (!file.type.startsWith("image/") || file.size < 1_500_000) {
     return file;
   }
@@ -134,7 +156,7 @@ async function resizePhotoForUpload(file: File) {
   try {
     const image = new Image();
     image.src = imageUrl;
-    await image.decode();
+    await waitWithTimeout(image.decode(), 12000, "Photo preparation timed out. Try a smaller JPG photo.");
 
     const maxSide = 1800;
     const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
@@ -161,6 +183,56 @@ async function resizePhotoForUpload(file: File) {
   } finally {
     URL.revokeObjectURL(imageUrl);
   }
+}
+
+function uploadCoffeePhotoWithProgress(
+  formData: FormData,
+  pin: string,
+  onProgress: (progress: number) => void,
+): Promise<{ content: { shops: CoffeeShop[] }; photo: CoffeePhoto }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const timeout = window.setTimeout(() => {
+      xhr.abort();
+      reject(new DOMException("Photo upload timed out.", "AbortError"));
+    }, 45000);
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) {
+        onProgress(1);
+        return;
+      }
+
+      onProgress(Math.max(1, Math.min(99, Math.round((event.loaded / event.total) * 100))));
+    };
+
+    xhr.onload = () => {
+      window.clearTimeout(timeout);
+      const data = JSON.parse(xhr.responseText || "{}") as { content?: { shops: CoffeeShop[] }; error?: string; photo?: CoffeePhoto };
+
+      if (xhr.status < 200 || xhr.status >= 300 || !data.content || !data.photo) {
+        reject(new Error(data.error ?? "Photo upload failed."));
+        return;
+      }
+
+      onProgress(100);
+      resolve({ content: data.content, photo: data.photo });
+    };
+
+    xhr.onerror = () => {
+      window.clearTimeout(timeout);
+      reject(new Error("Network failed during photo upload."));
+    };
+
+    xhr.onabort = () => {
+      window.clearTimeout(timeout);
+      reject(new DOMException("Photo upload timed out.", "AbortError"));
+    };
+
+    xhr.open("POST", "/api/coffee/photos");
+    xhr.setRequestHeader("x-travelos-admin-pin", pin);
+    xhr.send(formData);
+  });
 }
 
 function replaceShop(shops: CoffeeShop[], shopId: string, updater: (shop: CoffeeShop) => CoffeeShop) {
@@ -249,6 +321,7 @@ export default function CoffeeAdminPage() {
   const [message, setMessage] = useState("Enter admin PIN to edit coffee content.");
   const [saving, setSaving] = useState(false);
   const [uploadingShopId, setUploadingShopId] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [activeShopId, setActiveShopId] = useState<string | null>(null);
 
   async function loadContent() {
@@ -426,6 +499,7 @@ export default function CoffeeAdminPage() {
   async function uploadPhoto(event: React.FormEvent<HTMLFormElement>, coffeeShopId: string) {
     event.preventDefault();
     setUploadingShopId(coffeeShopId);
+    setUploadProgress(null);
     setMessage("Preparing selected photo...");
 
     const form = event.currentTarget;
@@ -440,9 +514,18 @@ export default function CoffeeAdminPage() {
 
     try {
       const uploadFile = await resizePhotoForUpload(selectedFile);
+      if (uploadFile.size > maxUploadBytes) {
+        setMessage("Photo is still too large after compression. Please choose a smaller JPG, PNG, or WebP photo.");
+        return;
+      }
+
       formData.set("file", uploadFile);
       formData.set("coffeeShopId", coffeeShopId);
-      setMessage(uploadFile.size < selectedFile.size ? "Photo compressed. Saving coffee record..." : "Saving coffee record before photo upload...");
+      setMessage(
+        uploadFile.size < selectedFile.size
+          ? `Photo compressed to ${(uploadFile.size / 1_000_000).toFixed(1)} MB. Saving coffee record...`
+          : "Saving coffee record before photo upload...",
+      );
 
       const saveResponse = await fetchWithTimeout(
         "/api/coffee/content",
@@ -463,27 +546,13 @@ export default function CoffeeAdminPage() {
         return;
       }
 
-      setMessage("Uploading coffee photo...");
+      setUploadProgress(0);
+      setMessage("Uploading coffee photo: 0%");
 
-      const response = await fetchWithTimeout(
-        "/api/coffee/photos",
-        {
-          body: formData,
-          headers: {
-            "x-travelos-admin-pin": pin,
-          },
-          method: "POST",
-        },
-        45000,
-      );
-
-      if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        setMessage(data.error ?? "Photo upload failed.");
-        return;
-      }
-
-      const data = (await response.json()) as { content: { shops: CoffeeShop[] }; photo: CoffeePhoto };
+      const data = await uploadCoffeePhotoWithProgress(formData, pin, (progress) => {
+        setUploadProgress(progress);
+        setMessage(`Uploading coffee photo: ${progress}%`);
+      });
       const uploadedPhoto = data.photo;
       const nextShops = data.content.shops.map((shop) =>
         shop.id === coffeeShopId && !shop.photos.some((photo) => photo.id === uploadedPhoto.id)
@@ -500,9 +569,16 @@ export default function CoffeeAdminPage() {
           : "Photo uploaded, but the saved record did not refresh. Please try Upload again.",
       );
     } catch (error) {
-      setMessage(error instanceof DOMException && error.name === "AbortError" ? "Photo upload timed out. Try a smaller photo." : "Photo upload failed. Try another image.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : error instanceof DOMException && error.name === "AbortError"
+            ? "Photo upload timed out. Try a smaller photo."
+            : "Photo upload failed. Try another image.",
+      );
     } finally {
       setUploadingShopId(null);
+      setUploadProgress(null);
     }
   }
 
@@ -631,7 +707,7 @@ export default function CoffeeAdminPage() {
                 <form className="mt-5 grid gap-3 rounded-3xl border border-dashed border-stone-300 bg-stone-50 p-4 lg:grid-cols-[1fr_1fr_13rem_auto] lg:items-end" onSubmit={(event) => uploadPhoto(event, activeShop.id)}>
                   <label className="block">
                     <span className="text-sm font-medium text-zinc-700">Upload photo</span>
-                    <input accept="image/*" className={`${inputClass} file:mr-3 file:rounded-full file:border-0 file:bg-teal-800 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white`} name="file" required type="file" />
+                    <input accept="image/jpeg,image/png,image/webp" className={`${inputClass} file:mr-3 file:rounded-full file:border-0 file:bg-teal-800 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white`} name="file" required type="file" />
                   </label>
                   <label className="block">
                     <span className="text-sm font-medium text-zinc-700">Caption</span>
@@ -645,6 +721,14 @@ export default function CoffeeAdminPage() {
                     {uploadingShopId === activeShop.id ? "Uploading" : "Upload"}
                   </button>
                 </form>
+                {uploadingShopId === activeShop.id && uploadProgress !== null ? (
+                  <div className="mt-4 rounded-2xl border border-stone-200 bg-white p-3">
+                    <div className="h-2 overflow-hidden rounded-full bg-stone-200">
+                      <div className="h-full rounded-full bg-teal-700 transition-all" style={{ width: `${uploadProgress}%` }} />
+                    </div>
+                    <p className="mt-2 text-xs font-semibold text-zinc-600">{uploadProgress}% uploaded</p>
+                  </div>
+                ) : null}
                 <div className="mt-5 grid gap-4">
                   {activeShop.photos.map((photo, index) => (
                     <article className="grid gap-4 rounded-3xl border border-stone-200 bg-stone-50 p-4 lg:grid-cols-[14rem_1fr]" key={photo.id}>
