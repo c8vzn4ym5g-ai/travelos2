@@ -18,7 +18,18 @@ function formatDate(date: string): string {
 function CoffeeCard({ shop }: { shop: CoffeeShopListItem }) {
   return (
     <article className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="grid gap-4 lg:grid-cols-[13rem_1fr]">
+        <Link className="block overflow-hidden rounded-lg bg-stone-100" href={`/coffee/${shop.slug}`}>
+          {shop.coverPhoto ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img alt={shop.coverPhoto.caption ?? shop.coverPhoto.originalFilename} className="h-44 w-full object-cover lg:h-full" src={shop.coverPhoto.storageKey} />
+          ) : (
+            <div className="grid h-44 place-items-center px-4 text-center text-sm text-zinc-500">
+              No photo yet
+            </div>
+          )}
+        </Link>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-medium text-teal-700">
             {shop.country} / {shop.city}
@@ -40,9 +51,10 @@ function CoffeeCard({ shop }: { shop: CoffeeShopListItem }) {
           </div>
         </div>
       </div>
+      </div>
       <div className="mt-5 flex flex-col gap-3 border-t border-zinc-100 pt-4 text-sm text-zinc-600 sm:flex-row sm:items-center sm:justify-between">
         <span>
-          {formatDate(shop.visitedAt)} / {shop.address}
+          {formatDate(shop.visitedAt)} / {shop.address} / {shop.photoCount} photos
         </span>
         <Link className="font-medium text-zinc-950" href={`/coffee/${shop.slug}`}>
           Open note

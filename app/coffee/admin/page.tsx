@@ -418,9 +418,18 @@ export default function CoffeeAdminPage() {
       }
 
       const data = (await response.json()) as { content: { shops: CoffeeShop[] }; photo: CoffeePhoto };
-      setShops(data.content.shops);
+      const freshResponse = await fetch("/api/coffee/content", { cache: "no-store" });
+      const freshData = freshResponse.ok ? ((await freshResponse.json()) as CoffeeContentResponse) : null;
+      const nextShops = freshData?.content.shops ?? data.content.shops;
+      const savedShop = nextShops.find((shop) => shop.id === coffeeShopId);
+
+      setShops(nextShops);
       form.reset();
-      setMessage(`Photo uploaded: ${data.photo.originalFilename}`);
+      setMessage(
+        savedShop?.photos.some((photo) => photo.id === data.photo.id)
+          ? `Photo uploaded: ${data.photo.originalFilename}`
+          : "Photo uploaded, but the saved record did not refresh. Please try Upload again.",
+      );
     } catch (error) {
       setMessage(error instanceof DOMException && error.name === "AbortError" ? "Photo upload timed out. Try a smaller photo." : "Photo upload failed. Try another image.");
     } finally {

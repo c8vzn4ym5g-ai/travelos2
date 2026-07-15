@@ -192,5 +192,6 @@ export interface CoffeeShopListItem {
   lifeNote: CoffeeShop["lifeNote"];
   mapUrl: CoffeeShop["mapUrl"];
   websiteUrl: CoffeeShop["websiteUrl"];
+  coverPhoto: CoffeePhoto | null;
   photoCount: number;
 }
