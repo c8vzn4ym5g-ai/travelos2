@@ -1,6 +1,6 @@
 import type { CoffeeShop, CoffeeShopListItem } from "@/lib/types";
 
-const coffeeShops: CoffeeShop[] = [
+export const seedCoffeeShops: CoffeeShop[] = [
   {
     id: "coffee_paris_left_bank_2024",
     userId: "user_travelos_owner",
@@ -95,7 +95,8 @@ const coffeeShops: CoffeeShop[] = [
   },
 ];
 
-export const coffeeShopListItems: CoffeeShopListItem[] = coffeeShops.map((shop) => ({
+export function toCoffeeShopListItems(shops: CoffeeShop[]): CoffeeShopListItem[] {
+  return shops.map((shop) => ({
   id: shop.id,
   name: shop.name,
   slug: shop.slug,
@@ -112,29 +113,32 @@ export const coffeeShopListItems: CoffeeShopListItem[] = coffeeShops.map((shop) 
   mapUrl: shop.mapUrl,
   websiteUrl: shop.websiteUrl,
   photoCount: shop.photos.length,
-}));
+  }));
+}
 
-export function getCoffeeShopsByVisitDate(): CoffeeShopListItem[] {
-  return [...coffeeShopListItems].sort((firstShop, secondShop) =>
+export const coffeeShopListItems: CoffeeShopListItem[] = toCoffeeShopListItems(seedCoffeeShops);
+
+export function getCoffeeShopsByVisitDate(shops: CoffeeShop[] = seedCoffeeShops): CoffeeShopListItem[] {
+  return toCoffeeShopListItems(shops).sort((firstShop, secondShop) =>
     secondShop.visitedAt.localeCompare(firstShop.visitedAt),
   );
 }
 
-export function getCoffeeShopDetailsByVisitDate(): CoffeeShop[] {
-  return [...coffeeShops].sort((firstShop, secondShop) =>
+export function getCoffeeShopDetailsByVisitDate(shops: CoffeeShop[] = seedCoffeeShops): CoffeeShop[] {
+  return [...shops].sort((firstShop, secondShop) =>
     secondShop.visitedAt.localeCompare(firstShop.visitedAt),
   );
 }
 
-export function getCoffeeShopBySlug(slug: string): CoffeeShop | undefined {
-  return coffeeShops.find((shop) => shop.slug === slug);
+export function getCoffeeShopBySlug(slug: string, shops: CoffeeShop[] = seedCoffeeShops): CoffeeShop | undefined {
+  return shops.find((shop) => shop.slug === slug);
 }
 
-export function getCoffeeStats() {
+export function getCoffeeStats(shops: CoffeeShop[] = seedCoffeeShops) {
   return {
-    shops: coffeeShops.length,
-    countries: new Set(coffeeShops.map((shop) => shop.country)).size,
-    cities: new Set(coffeeShops.map((shop) => shop.city)).size,
-    photos: coffeeShops.reduce((total, shop) => total + shop.photos.length, 0),
+    shops: shops.length,
+    countries: new Set(shops.map((shop) => shop.country)).size,
+    cities: new Set(shops.map((shop) => shop.city)).size,
+    photos: shops.reduce((total, shop) => total + shop.photos.length, 0),
   };
 }

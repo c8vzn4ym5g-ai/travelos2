@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCoffeeShopBySlug, getCoffeeShopDetailsByVisitDate } from "@/lib/coffee";
+import { readCoffeeContent } from "@/lib/coffee-store";
+import type { CoffeePhoto } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
 
 interface CoffeeDetailPageProps {
   params: Promise<{ slug: string }>;
@@ -25,13 +29,15 @@ function SectionHeader({ kicker, title }: { kicker: string; title: string }) {
   );
 }
 
-export function generateStaticParams() {
-  return getCoffeeShopDetailsByVisitDate().map((shop) => ({ slug: shop.slug }));
+export async function generateStaticParams() {
+  const { content } = await readCoffeeContent();
+  return getCoffeeShopDetailsByVisitDate(content.shops).map((shop) => ({ slug: shop.slug }));
 }
 
 export default async function CoffeeDetailPage({ params }: CoffeeDetailPageProps) {
   const { slug } = await params;
-  const shop = getCoffeeShopBySlug(slug);
+  const { content } = await readCoffeeContent();
+  const shop = getCoffeeShopBySlug(slug, content.shops);
 
   if (!shop) {
     notFound();
@@ -117,17 +123,7 @@ export default async function CoffeeDetailPage({ params }: CoffeeDetailPageProps
             <SectionHeader kicker="Album" title="Photo placeholders" />
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {shop.photos.length > 0 ? (
-                shop.photos.map((photo) => (
-                  <article className="min-h-44 rounded-lg border border-dashed border-zinc-300 bg-stone-100 p-4" key={photo.id}>
-                    <div className="flex h-full flex-col justify-between gap-8">
-                      <p className="text-xs font-semibold uppercase text-zinc-500">Coffee photo</p>
-                      <div>
-                        <p className="font-medium text-zinc-950">{photo.caption ?? photo.originalFilename}</p>
-                        <p className="mt-2 text-sm text-zinc-500">{photo.takenAt ? formatDate(photo.takenAt) : "Date not set"}</p>
-                      </div>
-                    </div>
-                  </article>
-                ))
+                shop.photos.map((photo) => <CoffeePhotoCard key={photo.id} photo={photo} />)
               ) : (
                 <div className="rounded-lg border border-dashed border-zinc-300 bg-stone-100 p-4 text-sm text-zinc-600">
                   No photos yet. This shop is ready for cup, storefront, menu, or table images later.
@@ -166,5 +162,28 @@ export default async function CoffeeDetailPage({ params }: CoffeeDetailPageProps
         </aside>
       </section>
     </main>
+  );
+}
+
+function isRenderablePhoto(photo: CoffeePhoto) {
+  return photo.storageKey.startsWith("http") || photo.storageKey.startsWith("/");
+}
+
+function CoffeePhotoCard({ photo }: { photo: CoffeePhoto }) {
+  return (
+    <article className="overflow-hidden rounded-lg border border-zinc-200 bg-stone-100">
+      {isRenderablePhoto(photo) ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img alt={photo.caption ?? photo.originalFilename} className="h-48 w-full object-cover" src={photo.storageKey} />
+      ) : (
+        <div className="grid h-48 place-items-center border-b border-dashed border-zinc-300 text-sm text-zinc-500">
+          Photo pending upload
+        </div>
+      )}
+      <div className="p-4">
+        <p className="font-medium text-zinc-950">{photo.caption ?? photo.originalFilename}</p>
+        <p className="mt-2 text-sm text-zinc-500">{photo.takenAt ? formatDate(photo.takenAt) : "Date not set"}</p>
+      </div>
+    </article>
   );
 }

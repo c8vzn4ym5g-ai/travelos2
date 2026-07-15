@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { getCoffeeShopsByVisitDate, getCoffeeStats } from "@/lib/coffee";
+import { readCoffeeContent } from "@/lib/coffee-store";
 import { getTripsByStartDate } from "@/lib/trips";
+
+export const dynamic = "force-dynamic";
 
 const travelStats = [
   { label: "Countries", value: "18" },
@@ -8,8 +11,6 @@ const travelStats = [
   { label: "Travel days", value: "196" },
   { label: "Journal entries", value: "152" },
 ];
-
-const coffeeStats = getCoffeeStats();
 
 const sessions = [
   {
@@ -34,9 +35,11 @@ const sessions = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const { content: coffeeContent } = await readCoffeeContent();
+  const coffeeStats = getCoffeeStats(coffeeContent.shops);
   const latestTrips = getTripsByStartDate().slice(0, 3);
-  const latestCoffee = getCoffeeShopsByVisitDate().slice(0, 3);
+  const latestCoffee = getCoffeeShopsByVisitDate(coffeeContent.shops).slice(0, 3);
 
   return (
     <main className="min-h-screen bg-stone-50 text-zinc-950">

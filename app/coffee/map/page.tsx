@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { getCoffeeShopsByVisitDate } from "@/lib/coffee";
+import { readCoffeeContent } from "@/lib/coffee-store";
 
-export default function CoffeeMapPage() {
-  const shops = getCoffeeShopsByVisitDate();
+export const dynamic = "force-dynamic";
+
+export default async function CoffeeMapPage() {
+  const { content } = await readCoffeeContent();
+  const shops = getCoffeeShopsByVisitDate(content.shops);
 
   return (
     <main className="min-h-screen bg-stone-50 text-zinc-950">

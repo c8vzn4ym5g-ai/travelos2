@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { getCoffeeShopsByVisitDate, getCoffeeStats } from "@/lib/coffee";
+import { readCoffeeContent } from "@/lib/coffee-store";
 import type { CoffeeShopListItem } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
   month: "short",
@@ -49,9 +52,10 @@ function CoffeeCard({ shop }: { shop: CoffeeShopListItem }) {
   );
 }
 
-export default function CoffeePage() {
-  const shops = getCoffeeShopsByVisitDate();
-  const stats = getCoffeeStats();
+export default async function CoffeePage() {
+  const { content } = await readCoffeeContent();
+  const shops = getCoffeeShopsByVisitDate(content.shops);
+  const stats = getCoffeeStats(content.shops);
 
   return (
     <main className="min-h-screen bg-stone-50 text-zinc-950">
@@ -76,6 +80,9 @@ export default function CoffeePage() {
                 </Link>
                 <Link className="rounded-md bg-zinc-950 px-4 py-3 text-center text-sm font-semibold text-white" href="/coffee/new">
                   Add coffee shop
+                </Link>
+                <Link className="rounded-md border border-teal-700 px-4 py-3 text-center text-sm font-semibold text-teal-800" href="/coffee/admin">
+                  Admin
                 </Link>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">

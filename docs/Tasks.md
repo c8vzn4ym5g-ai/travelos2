@@ -169,3 +169,20 @@ Acceptance Criteria:
 Status: pending
 
 Goal: Add the AI assistant screen as a non-connected interface that explains what data will be searchable.
+
+## TASK-011: Add Coffee Admin Editing
+
+Status: done
+
+Goal: Add Coffee admin tools similar to the Travel trip admin editor.
+
+Result:
+
+- Added `/coffee/admin` with guidelines for adding coffee shops, comments,
+  life notes, tags, and photos.
+- Added Coffee content persistence through Vercel Blob at
+  `travelos/coffee.json`, using the same admin PIN pattern as Travel admin.
+- Added `/api/coffee/content` for loading and saving Coffee records.
+- Added `/api/coffee/photos` for uploading Coffee photos.
+- Updated Coffee public pages and the homepage to read saved Coffee content.
+- Kept Trip admin/storage and Travel photo/music files separate and unchanged.
