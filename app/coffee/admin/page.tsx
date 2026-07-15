@@ -704,22 +704,27 @@ export default function CoffeeAdminPage() {
                   <SectionTitle eyebrow="Album" title="Coffee photos" />
                   <span className="rounded-full bg-stone-100 px-3 py-2 text-xs font-semibold text-zinc-600">{activeShop.photos.length} photos</span>
                 </div>
-                <form className="mt-5 grid gap-3 rounded-3xl border border-dashed border-stone-300 bg-stone-50 p-4 lg:grid-cols-[1fr_1fr_13rem_auto] lg:items-end" onSubmit={(event) => uploadPhoto(event, activeShop.id)}>
-                  <label className="block">
+                <form className="mt-5 rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-4" onSubmit={(event) => uploadPhoto(event, activeShop.id)}>
+                  <div className="grid gap-4 xl:grid-cols-[minmax(22rem,1.4fr)_minmax(16rem,1fr)_13rem] xl:items-end">
+                    <label className="block min-w-0">
                     <span className="text-sm font-medium text-zinc-700">Upload photo</span>
                     <input accept="image/jpeg,image/png,image/webp" className={`${inputClass} file:mr-3 file:rounded-full file:border-0 file:bg-teal-800 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white`} name="file" required type="file" />
                   </label>
-                  <label className="block">
+                    <label className="block min-w-0">
                     <span className="text-sm font-medium text-zinc-700">Caption</span>
                     <input className={inputClass} name="caption" placeholder="Cup by the window" />
                   </label>
-                  <label className="block">
+                    <label className="block">
                     <span className="text-sm font-medium text-zinc-700">Taken at</span>
                     <input className={inputClass} name="takenAt" type="datetime-local" />
                   </label>
-                  <button className={primaryButtonClass} disabled={uploadingShopId === activeShop.id} type="submit">
-                    {uploadingShopId === activeShop.id ? "Uploading" : "Upload"}
-                  </button>
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs leading-5 text-zinc-500">JPG, PNG, or WebP only. Large photos are compressed before upload.</p>
+                    <button className={`${primaryButtonClass} min-w-32`} disabled={uploadingShopId === activeShop.id} type="submit">
+                      {uploadingShopId === activeShop.id ? "Uploading" : "Upload"}
+                    </button>
+                  </div>
                 </form>
                 {uploadingShopId === activeShop.id && uploadProgress !== null ? (
                   <div className="mt-4 rounded-2xl border border-stone-200 bg-white p-3">
