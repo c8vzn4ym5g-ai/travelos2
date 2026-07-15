@@ -113,6 +113,56 @@ function isRenderablePhoto(photo: CoffeePhoto) {
   return photo.storageKey.startsWith("http") || photo.storageKey.startsWith("/");
 }
 
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit, timeoutMs: number) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+async function resizePhotoForUpload(file: File) {
+  if (!file.type.startsWith("image/") || file.size < 1_500_000) {
+    return file;
+  }
+
+  const imageUrl = URL.createObjectURL(file);
+
+  try {
+    const image = new Image();
+    image.src = imageUrl;
+    await image.decode();
+
+    const maxSide = 1800;
+    const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return file;
+    }
+
+    context.drawImage(image, 0, 0, width, height);
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
+    if (!blob || blob.size >= file.size) {
+      return file;
+    }
+
+    const filename = file.name.replace(/\.[^.]+$/, "") || "coffee-photo";
+    return new File([blob], `${filename}.jpg`, { type: "image/jpeg" });
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
+
 function replaceShop(shops: CoffeeShop[], shopId: string, updater: (shop: CoffeeShop) => CoffeeShop) {
   return shops.map((shop) =>
     shop.id === shopId
@@ -196,6 +246,7 @@ export default function CoffeeAdminPage() {
   const [source, setSource] = useState<"blob" | "seed">("seed");
   const [message, setMessage] = useState("Loading coffee content...");
   const [saving, setSaving] = useState(false);
+  const [uploadingShopId, setUploadingShopId] = useState<string | null>(null);
   const [activeShopId, setActiveShopId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -308,47 +359,73 @@ export default function CoffeeAdminPage() {
 
   async function uploadPhoto(event: React.FormEvent<HTMLFormElement>, coffeeShopId: string) {
     event.preventDefault();
-    setMessage("Saving coffee record before photo upload...");
+    setUploadingShopId(coffeeShopId);
+    setMessage("Preparing selected photo...");
 
     const form = event.currentTarget;
     const formData = new FormData(form);
-    formData.set("coffeeShopId", coffeeShopId);
+    const selectedFile = formData.get("file");
 
-    const saveResponse = await fetch("/api/coffee/content", {
-      body: JSON.stringify({ shops }),
-      headers: {
-        "content-type": "application/json",
-        "x-travelos-admin-pin": pin,
-      },
-      method: "PUT",
-    });
-
-    if (!saveResponse.ok) {
-      const data = (await saveResponse.json()) as { error?: string };
-      setMessage(data.error ?? "Save before photo upload failed.");
+    if (!(selectedFile instanceof File)) {
+      setMessage("Choose a photo file first.");
+      setUploadingShopId(null);
       return;
     }
 
-    setMessage("Uploading coffee photo...");
+    try {
+      const uploadFile = await resizePhotoForUpload(selectedFile);
+      formData.set("file", uploadFile);
+      formData.set("coffeeShopId", coffeeShopId);
+      setMessage(uploadFile.size < selectedFile.size ? "Photo compressed. Saving coffee record..." : "Saving coffee record before photo upload...");
 
-    const response = await fetch("/api/coffee/photos", {
-      body: formData,
-      headers: {
-        "x-travelos-admin-pin": pin,
-      },
-      method: "POST",
-    });
+      const saveResponse = await fetchWithTimeout(
+        "/api/coffee/content",
+        {
+          body: JSON.stringify({ shops }),
+          headers: {
+            "content-type": "application/json",
+            "x-travelos-admin-pin": pin,
+          },
+          method: "PUT",
+        },
+        30000,
+      );
 
-    if (!response.ok) {
-      const data = (await response.json()) as { error?: string };
-      setMessage(data.error ?? "Photo upload failed.");
-      return;
+      if (!saveResponse.ok) {
+        const data = (await saveResponse.json()) as { error?: string };
+        setMessage(data.error ?? "Save before photo upload failed.");
+        return;
+      }
+
+      setMessage("Uploading coffee photo...");
+
+      const response = await fetchWithTimeout(
+        "/api/coffee/photos",
+        {
+          body: formData,
+          headers: {
+            "x-travelos-admin-pin": pin,
+          },
+          method: "POST",
+        },
+        45000,
+      );
+
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        setMessage(data.error ?? "Photo upload failed.");
+        return;
+      }
+
+      const data = (await response.json()) as { content: { shops: CoffeeShop[] }; photo: CoffeePhoto };
+      setShops(data.content.shops);
+      form.reset();
+      setMessage(`Photo uploaded: ${data.photo.originalFilename}`);
+    } catch (error) {
+      setMessage(error instanceof DOMException && error.name === "AbortError" ? "Photo upload timed out. Try a smaller photo." : "Photo upload failed. Try another image.");
+    } finally {
+      setUploadingShopId(null);
     }
-
-    const data = (await response.json()) as { content: { shops: CoffeeShop[] }; photo: CoffeePhoto };
-    setShops(data.content.shops);
-    form.reset();
-    setMessage(`Photo uploaded: ${data.photo.originalFilename}`);
   }
 
   return (
@@ -486,8 +563,8 @@ export default function CoffeeAdminPage() {
                     <span className="text-sm font-medium text-zinc-700">Taken at</span>
                     <input className={inputClass} name="takenAt" type="datetime-local" />
                   </label>
-                  <button className={primaryButtonClass} type="submit">
-                    Upload
+                  <button className={primaryButtonClass} disabled={uploadingShopId === activeShop.id} type="submit">
+                    {uploadingShopId === activeShop.id ? "Uploading" : "Upload"}
                   </button>
                 </form>
                 <div className="mt-5 grid gap-4">
