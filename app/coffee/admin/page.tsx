@@ -241,34 +241,100 @@ function TextArea({ label, onChange, value }: { label: string; onChange: (value:
 
 export default function CoffeeAdminPage() {
   const [pin, setPin] = useState("");
+  const [authenticated, setAuthenticated] = useState(false);
+  const [checkingPin, setCheckingPin] = useState(false);
   const [shops, setShops] = useState<CoffeeShop[]>([]);
   const [configured, setConfigured] = useState(false);
   const [source, setSource] = useState<"blob" | "seed">("seed");
-  const [message, setMessage] = useState("Loading coffee content...");
+  const [message, setMessage] = useState("Enter admin PIN to edit coffee content.");
   const [saving, setSaving] = useState(false);
   const [uploadingShopId, setUploadingShopId] = useState<string | null>(null);
   const [activeShopId, setActiveShopId] = useState<string | null>(null);
 
+  async function loadContent() {
+    setMessage("Loading coffee content...");
+    const response = await fetch("/api/coffee/content", { cache: "no-store" });
+    const data = (await response.json()) as CoffeeContentResponse;
+    const sortedShops = [...data.content.shops].sort((first, second) => second.visitedAt.localeCompare(first.visitedAt));
+    setShops(sortedShops);
+    setActiveShopId((current) => current ?? sortedShops[0]?.id ?? null);
+    setConfigured(data.status.configured);
+    setSource(data.status.source);
+    setMessage(data.status.configured ? "Ready to edit." : "Storage setup needed before saves work on Vercel.");
+  }
+
   useEffect(() => {
-    async function loadContent() {
-      const response = await fetch("/api/coffee/content", { cache: "no-store" });
-      const data = (await response.json()) as CoffeeContentResponse;
-      const sortedShops = [...data.content.shops].sort((first, second) => second.visitedAt.localeCompare(first.visitedAt));
-      setShops(sortedShops);
-      setActiveShopId((current) => current ?? sortedShops[0]?.id ?? null);
-      setConfigured(data.status.configured);
-      setSource(data.status.source);
-      setMessage(data.status.configured ? "Ready to edit." : "Storage setup needed before saves work on Vercel.");
+    if (!authenticated) {
+      return;
     }
 
     loadContent().catch(() => setMessage("Could not load coffee content."));
-  }, []);
+  }, [authenticated]);
+
+  async function verifyPin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCheckingPin(true);
+    setMessage("Checking admin PIN...");
+
+    const response = await fetch("/api/coffee/admin", {
+      headers: {
+        "x-travelos-admin-pin": pin,
+      },
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      const data = (await response.json()) as { error?: string };
+      setMessage(data.error ?? "Admin PIN check failed.");
+      setCheckingPin(false);
+      return;
+    }
+
+    setAuthenticated(true);
+    setCheckingPin(false);
+  }
 
   const sortedShops = useMemo(
     () => [...shops].sort((first, second) => second.visitedAt.localeCompare(first.visitedAt)),
     [shops],
   );
   const activeShop = sortedShops.find((shop) => shop.id === activeShopId) ?? sortedShops[0] ?? null;
+
+  if (!authenticated) {
+    return (
+      <main className="min-h-screen bg-[#f7f2ea] text-zinc-950">
+        <section className="border-b border-stone-200 bg-white/85">
+          <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-10">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Link className="text-sm font-semibold text-teal-800" href="/coffee">
+                Coffee Map
+              </Link>
+              <Link className={smallButtonClass} href="/coffee">
+                Public coffee
+              </Link>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-800">Coffee Admin</p>
+              <h1 className="mt-2 text-4xl font-semibold tracking-normal sm:text-5xl">Security check</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">
+                Enter the admin PIN first. The editing workspace opens only after the code is accepted.
+              </p>
+            </div>
+          </div>
+        </section>
+        <section className="mx-auto max-w-md px-4 py-8 sm:px-6 lg:px-10">
+          <form className="rounded-3xl border border-stone-200 bg-white/90 p-5 shadow-sm" onSubmit={verifyPin}>
+            <SectionTitle eyebrow="Security" title="Admin PIN" />
+            <Field label="PIN" onChange={setPin} value={pin} />
+            <button className={`${primaryButtonClass} mt-4 w-full`} disabled={checkingPin || pin.trim().length === 0} type="submit">
+              {checkingPin ? "Checking" : "Unlock editor"}
+            </button>
+            <p className="mt-4 text-sm leading-6 text-zinc-600">{message}</p>
+          </form>
+        </section>
+      </main>
+    );
+  }
 
   function updateShop(shopId: string, updater: (shop: CoffeeShop) => CoffeeShop) {
     setShops((currentShops) => replaceShop(currentShops, shopId, updater));
@@ -418,9 +484,12 @@ export default function CoffeeAdminPage() {
       }
 
       const data = (await response.json()) as { content: { shops: CoffeeShop[] }; photo: CoffeePhoto };
-      const freshResponse = await fetch("/api/coffee/content", { cache: "no-store" });
-      const freshData = freshResponse.ok ? ((await freshResponse.json()) as CoffeeContentResponse) : null;
-      const nextShops = freshData?.content.shops ?? data.content.shops;
+      const uploadedPhoto = data.photo;
+      const nextShops = data.content.shops.map((shop) =>
+        shop.id === coffeeShopId && !shop.photos.some((photo) => photo.id === uploadedPhoto.id)
+          ? { ...shop, photos: [uploadedPhoto, ...shop.photos], updatedAt: nowIso() }
+          : shop,
+      );
       const savedShop = nextShops.find((shop) => shop.id === coffeeShopId);
 
       setShops(nextShops);
@@ -477,8 +546,8 @@ export default function CoffeeAdminPage() {
         <aside className="space-y-5">
           <GuideCard />
           <section className="rounded-3xl border border-stone-200 bg-white/90 p-5 shadow-sm">
-            <SectionTitle eyebrow="Security" title="Admin PIN" />
-            <Field label="PIN" onChange={setPin} value={pin} />
+            <SectionTitle eyebrow="Security" title="Unlocked editor" />
+            <p className="mt-3 text-sm leading-6 text-zinc-600">Admin PIN accepted. Saves and photo uploads will use this session.</p>
             <button className={`${primaryButtonClass} mt-4 w-full`} onClick={addNewCoffeeShop} type="button">
               Add coffee shop
             </button>
