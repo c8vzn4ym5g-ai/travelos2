@@ -77,17 +77,6 @@ export interface Photo {
   createdAt: string;
 }
 
-export interface MusicTrack {
-  id: string;
-  tripId: string;
-  title: string;
-  audioUrl: string;
-  triggerLabel: string;
-  volume: number;
-  enabled: boolean;
-  createdAt: string;
-}
-
 export interface Place extends TimestampedRecord {
   id: string;
   tripId: string;
@@ -118,7 +107,6 @@ export interface TripDetail extends Trip {
   photos: Photo[];
   places: Place[];
   costs: Cost[];
-  musicTracks: MusicTrack[];
 }
 
 export interface TripListItem {
@@ -133,4 +121,64 @@ export interface TripListItem {
   rating: Trip["rating"];
   totalCost: Trip["totalCost"];
   coverPhotoId: Trip["coverPhotoId"];
+}
+
+export type CoffeeMood =
+  | "focused"
+  | "quiet"
+  | "social"
+  | "reflective"
+  | "inspired"
+  | "tired"
+  | "other";
+
+export interface CoffeePhoto {
+  id: string;
+  coffeeShopId: string;
+  storageKey: string;
+  originalFilename: string;
+  caption: string | null;
+  takenAt: string | null;
+  createdAt: string;
+}
+
+export interface CoffeeShop extends TimestampedRecord {
+  id: string;
+  userId: string;
+  name: string;
+  slug: string;
+  country: string;
+  city: string;
+  address: string;
+  mapUrl: string | null;
+  websiteUrl: string | null;
+  visitedAt: string;
+  coffeeOrdered: string;
+  rating: number | null;
+  mood: CoffeeMood;
+  tags: string[];
+  comments: string;
+  lifeNote: string;
+  linkedTripId: string | null;
+  coordinates: GeoPoint | null;
+  photos: CoffeePhoto[];
+}
+
+export interface CoffeeShopListItem {
+  id: CoffeeShop["id"];
+  name: CoffeeShop["name"];
+  slug: CoffeeShop["slug"];
+  country: CoffeeShop["country"];
+  city: CoffeeShop["city"];
+  address: CoffeeShop["address"];
+  visitedAt: CoffeeShop["visitedAt"];
+  coffeeOrdered: CoffeeShop["coffeeOrdered"];
+  rating: CoffeeShop["rating"];
+  mood: CoffeeShop["mood"];
+  tags: CoffeeShop["tags"];
+  comments: CoffeeShop["comments"];
+  lifeNote: CoffeeShop["lifeNote"];
+  mapUrl: CoffeeShop["mapUrl"];
+  websiteUrl: CoffeeShop["websiteUrl"];
+  photoCount: number;
 }

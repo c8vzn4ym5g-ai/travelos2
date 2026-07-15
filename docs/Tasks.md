@@ -19,8 +19,13 @@ Result:
 - Tailwind is wired through `app/globals.css` and `postcss.config.mjs`.
 - Docs exist for PRD, architecture, database, API, UI, coding rules, prompts,
   acceptance, and task workflow.
-- `pnpm run typecheck`, `pnpm run lint`, and `pnpm run build` passed on
-  2026-07-13.
+- The original generated `node_modules` folder produced `EPERM` errors when
+  Node tried to read package executables, so validation was run from a clean
+  project copy without generated dependency or build output.
+- Dependencies were rebuilt with pnpm using a workspace-local package store.
+- `pnpm run typecheck`, `pnpm run lint`, and `pnpm run build` all passed.
+- `pnpm run dev --hostname 127.0.0.1 --port 3217` started successfully and
+  reached the Next.js ready state.
 
 Goal: Confirm the initial Next.js, TypeScript, and Tailwind scaffold is complete and ready for iterative development.
 
@@ -48,9 +53,9 @@ Goal: Add TypeScript domain types for Trip, JournalEntry, Photo, Place, and Cost
 
 Result:
 
-- Added domain types in `lib/types.ts`.
-- Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
-  `pnpm run build`.
+- Added shared domain types in `lib/types.ts` for Trip, JournalEntry, Photo,
+  Place, Cost, related enums, coordinates, money, list items, and trip details.
+- Validation passed with `pnpm run typecheck` and `pnpm run lint`.
 
 ## TASK-003: Build Trip List Screen
 
@@ -60,7 +65,10 @@ Goal: Add a trip list route that displays trips by date, country, city, and summ
 
 Result:
 
-- Added `/trips` backed by typed seed trip data.
+- Added typed local trip seed data in `lib/trips.ts`.
+- Added `/trips` with trips ordered by start date and displayed with date,
+  country, city, summary, rating, cost, and slug.
+- Added a dashboard link to the trip list.
 - Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
   `pnpm run build`.
 
@@ -72,8 +80,11 @@ Goal: Add a trip detail route with overview, journal, places, costs, and album s
 
 Result:
 
-- Added `/trips/[slug]` detail pages with overview, journal, places, costs,
-  and album placeholder sections.
+- Expanded typed local seed data to include trip details, journal entries,
+  places, costs, photos, coordinates, and metadata.
+- Added `/trips/[slug]` with overview, journal, places, costs, and album
+  placeholder sections.
+- Linked trip list records to their detail screens.
 - Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
   `pnpm run build`.
 
@@ -85,7 +96,11 @@ Goal: Add a draft trip form UI without persistence.
 
 Result:
 
-- Added `/trips/new` draft form UI without persistence.
+- Added `/trips/new` as a non-persistent draft trip form for core trip data,
+  first journal note, first saved place, and starting cost item.
+- Added clear disabled save/publish controls to show persistence is not wired
+  yet.
+- Linked the draft flow from the dashboard and trip list.
 - Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
   `pnpm run build`.
 
@@ -97,208 +112,60 @@ Goal: Introduce a Prisma schema draft aligned with `docs/Database.md`.
 
 Result:
 
-- Added `prisma/schema.prisma` and `.env.example` with `DATABASE_URL`.
+- Added `prisma/schema.prisma` with PostgreSQL datasource, Prisma client
+  generator, core TravelOS models, enums, relations, and indexes.
+- Added a `DATABASE_URL` placeholder to `.env.example`.
+- Kept the change schema-only; no Prisma client, migrations, or runtime
+  database access were introduced yet.
 - Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
   `pnpm run build`.
 
 ## TASK-007: Add Map Placeholder Route
 
-Status: done
+Status: pending
 
 Goal: Add a world map route with a provider-neutral placeholder and trip pins from seed data.
 
-Result:
-
-- Added `/map` with a provider-neutral world map placeholder and trip pins from
-  seed trip coordinates.
-- Linked the map workspace from the home screen.
-- Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
-  `pnpm run build`.
-
 ## TASK-008: Add Timeline Route
 
-Status: done
+Status: pending
 
 Goal: Show trips grouped by year and month.
 
-Result:
-
-- Added `/timeline` with trips grouped by year and month.
-- Linked the timeline from the home screen.
-- Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
-  `pnpm run build`.
-
 ## TASK-009: Add Cost Summary UI
 
-Status: done
+Status: pending
 
 Goal: Display trip cost totals by category and currency.
 
+## TASK-010: Add Coffee Map Parallel Session
+
+Status: done
+
+Goal: Add a Coffee Map workspace beside Travel Journal without creating a new Git or Vercel project.
+
 Result:
 
-- Added `/costs` with currency totals, category totals, and a read-only cost
-  ledger linked back to trip details.
-- Linked the cost summary from the home screen.
-- Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
-  `pnpm run build`.
+- Updated the first page to show two visible sessions: Travel Journal and
+  Coffee Map.
+- Kept existing `/trips`, `/trips/new`, and `/trips/[slug]` routes intact.
+- Added typed coffee records in `lib/types.ts` and seed data/helpers in
+  `lib/coffee.ts`.
+- Added `/coffee` for coffee shop notes, `/coffee/new` for quick capture,
+  `/coffee/map` for a provider-neutral map placeholder, and `/coffee/[slug]`
+  for coffee shop detail notes.
+- Coffee records are separate from trip journals, with optional linked trip IDs
+  for future cross-reference.
+
+Acceptance Criteria:
+
+- The homepage links clearly to Travel Journal and Coffee Map.
+- Coffee Map supports address/link/comment/life-note/photo-slot concepts.
+- Existing trip pages remain available under their current routes.
+- Validation passes with typecheck, lint, and build.
 
 ## TASK-010: Add AI Assistant Placeholder
 
-Status: done
+Status: pending
 
 Goal: Add the AI assistant screen as a non-connected interface that explains what data will be searchable.
-
-Result:
-
-- Added `/assistant` as a non-connected AI assistant placeholder.
-- Documented future searchable memory fields and example questions without
-  connecting an AI provider.
-- Linked the assistant from the home screen.
-- Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
-  `pnpm run build`.
-
-## TASK-011: Add Web Editing and Photo Upload Foundation
-
-Status: done
-
-Goal: Add a browser-based admin editor so content can be changed from the
-webpage after deployment instead of requiring repeated file uploads.
-
-Result:
-
-- Added `/admin` with editable trip overview fields and photo upload controls.
-- Added `/api/content` for reading and saving TravelOS content.
-- Added `/api/photos` for attaching uploaded photos to trips.
-- Added Vercel Blob support through `@vercel/blob`.
-- Public trip, detail, map, timeline, and cost pages now read runtime content
-  from the editable store, with seed data as the fallback.
-- Writes are protected by `TRAVELOS_ADMIN_PIN`.
-- Vercel setup requires a connected Blob store and `TRAVELOS_ADMIN_PIN` in
-  project environment variables.
-
-## TASK-012: Stabilize Mobile Reading Experience
-
-Status: done
-
-Goal: Rework the public TravelOS reading surfaces so the homepage, trip list,
-and trip detail article are responsive, data-driven, and suitable for mobile
-viewing.
-
-Result:
-
-- Rebuilt the homepage and trip list as data-driven entry points that read
-  editable trip content and link to each trip through its own `/trips/[slug]`
-  article path.
-- Removed fixed single-article routing assumptions so future trips can appear
-  naturally without new hard-coded pages.
-- Replaced corrupted first-journey seed wording with clean Traditional Chinese
-  and English travel-log copy across the Lapland article, photo captions,
-  places, and supporting homepage sections.
-- Added stored-content repair logic that fills missing seed records and repairs
-  visibly corrupted old records without overwriting future clean edits.
-- Promoted stored-content repair into a versioned normalization pass so long-lived
-  Vercel Blob content can migrate forward safely after future deployments.
-- Repaired broken stored slugs and placeholder/non-renderable seed photos so
-  article links and public images recover from older saved content.
-- Filtered public reading surfaces to shared/public journeys first, preventing
-  private placeholder drafts from appearing above the finished Lapland article.
-- Improved mobile layout on the homepage, trip list, and trip detail page with
-  smaller mobile headings, reduced padding, responsive navigation, safer image
-  heights, and mobile-friendly photo grids.
-- Added global overflow wrapping so bilingual content and long mixed-language
-  strings do not push the viewport wider than the phone screen.
-- Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
-  `pnpm run build` on 2026-07-14.
-
-## TASK-013: Soften Public Reading Design
-
-Status: done
-
-Goal: Make the public TravelOS reading surfaces feel warmer, more modern, and
-less like an engineering scaffold.
-
-Result:
-
-- Added a shared visual system with warm paper backgrounds, sage/pine/clay
-  accents, softer shadows, rounded reading panels, and handwritten-style
-  display headings.
-- Reworked the homepage, trip list, and trip detail article to use the softer
-  reading layout while preserving dynamic article links and editable content.
-- Improved photo presentation with larger rounded hero images, softer album
-  tiles, and calmer article typography intended for lingering.
-- Repaired the Trips page Chinese rendering path by keeping the Trips UI labels
-  and seed travel-log copy in encoding-safe Unicode escape strings, then
-  verified the rendered `/trips` HTML contains Traditional Chinese text, the
-  Lapland article link, and the public photo path.
-- Raised the editable content schema to version 3 so older Vercel-stored
-  TravelOS records that are English-only, simplified, or stale are migrated
-  once into the bilingual Traditional Chinese seed copy without repeatedly
-  overwriting future admin edits.
-- Kept admin/editing logic and long-lived content repair unchanged.
-- Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
-  `pnpm run build` on 2026-07-14.
-
-## TASK-014: Upgrade Admin Editor v2
-
-Status: done
-
-Goal: Make the deployed admin page capable of editing the full first journey
-article and photos from the webpage.
-
-Result:
-
-- Rebuilt `/admin` into a fuller article editor with trip selection, overview
-  fields, publishing visibility, dates, rating, cost, and article address.
-- Added editable journal sections with title, body, date, mood, weather,
-  add/delete, and move up/down controls.
-- Added photo management with upload caption/date, caption editing, filename
-  editing, taken-at editing, cover selection, delete, and move up/down controls.
-- Added lightweight editing for saved places and tracked costs so article side
-  sections can be maintained without code uploads.
-- Added a plain-language guide inside `/admin` for creating Journey 2, 3, 4,
-  and future articles, including a safe `Add new` private draft flow, save
-  order, preview step, and publish step.
-- Preserved the existing `/api/content` and `/api/photos` save paths, admin PIN
-  protection, and Vercel Blob storage behavior.
-- Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
-  `pnpm run build` on 2026-07-14.
-
-## TASK-015: Add Optional Journey Music Cues
-
-Status: done
-
-Goal: Let journey articles use gentle optional background music, with admin
-controls for adding future music.
-
-Result:
-
-- Added a `MusicTrack` content model with title, audio URL, trigger label,
-  volume, enabled state, and trip ownership.
-- Added `/api/music` so the admin editor can upload audio files to Vercel Blob
-  or attach a public audio URL.
-- Added a public article music player that only starts after the visitor taps
-  `Play music`, then fades in gently and can switch tracks based on visible
-  article/photo sections.
-- Updated the player so each cue plays one pass, then moves to the next
-  available song or stops instead of looping forever.
-- Slowed music rollover with a 7-second section-settle delay, a 22-second
-  switch cooldown, and a short pause before the next song starts.
-- Added `data-music-zone` markers to article hero, journal sections, and photo
-  tiles so cues such as `Santa Claus Village` can surface when that part of the
-  story is being viewed.
-- Added admin controls for music upload, URL cues, trigger labels, volume,
-  enable/disable, and deletion.
-- Kept seed music disabled until a real licensed/public-domain audio file is
-  provided, avoiding accidental copyrighted-song publishing.
-- Added a generated driving winter-jazz style `Jingle Bells` test WAV at
-  `public/travelos/music/jingle-bells-music-box.wav`, using the public-domain
-  1857 melody and no third-party recording.
-- Added three original TravelOS winter cues: `Arctic Circle blue swing`,
-  `Campfire warm groove`, and `Snowfall quiet choir`.
-- Added four longer original instrument-variety cues: accordion, vibraphone,
-  cello, and brass pieces for sled, night, cabin, and village moments.
-- Enabled the Lapland Santa Claus Village cue with this local test track and
-  raised the content schema to version 4 so older empty music cues migrate to
-  the working test cue.
-- Validation passed with `pnpm run typecheck`, `pnpm run lint`, and
-  `pnpm run build` on 2026-07-14.
