@@ -81,21 +81,35 @@ function SessionCard({
   secondaryHref: string;
   title: string;
 }) {
+  const visiblePhotos = photos.slice(0, 3);
+  const primaryPhoto = visiblePhotos[0];
+  const supportingPhotos = visiblePhotos.slice(1);
+
   return (
-    <article className="flex min-h-80 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
-      <Link className="group grid h-48 grid-cols-3 gap-1 bg-stone-100" href={href}>
-        {photos.length > 0 ? (
-          photos.slice(0, 3).map((photo, index) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              alt={photo.alt}
-              className={`h-full w-full object-cover transition duration-500 group-hover:scale-105 ${index === 0 ? "col-span-2" : ""}`}
-              key={`${photo.src}-${index}`}
-              src={photo.src}
-            />
-          ))
+    <article className="flex min-h-[32rem] flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+      <Link className="block border-b border-zinc-100 bg-stone-100 p-1" href={href}>
+        {primaryPhoto ? (
+          <div className="grid gap-1">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img alt={primaryPhoto.alt} className="h-44 w-full rounded-lg object-cover" src={primaryPhoto.src} />
+            {supportingPhotos.length > 0 ? (
+              <div className="grid grid-cols-2 gap-1">
+                {supportingPhotos.map((photo, index) => (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    alt={photo.alt}
+                    className="h-20 w-full rounded-md object-cover"
+                    key={`${photo.src}-${index}`}
+                    src={photo.src}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
         ) : (
-          <div className="col-span-3 grid h-full place-items-center text-sm text-zinc-500">Photo preview coming soon</div>
+          <div className="grid h-64 place-items-center rounded-lg border border-zinc-200 bg-gradient-to-br from-slate-100 via-stone-50 to-amber-50 px-6 text-center text-sm text-zinc-500">
+            Visual preview coming soon
+          </div>
         )}
       </Link>
       <div className="flex flex-1 flex-col p-6">
