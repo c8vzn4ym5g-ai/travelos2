@@ -3,7 +3,7 @@ import { seedTripDetails } from "@/lib/trips";
 import type { MusicTrack, Photo, TripDetail } from "@/lib/types";
 
 const DATA_BLOB_PATH = "travelos/content.json";
-const CONTENT_SCHEMA_VERSION = 5;
+const CONTENT_SCHEMA_VERSION = 6;
 
 export type TravelOSContent = {
   trips: TripDetail[];
@@ -184,7 +184,7 @@ function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
       places: mergeByIdWithRepair(trip.places, seedTrip.places, (place) =>
         recordLooksCorrupted(place) || shouldMigrateSeedItemCopy(place, seedTrip, savedSchemaVersion),
       ),
-      travelRoute: mergeByIdWithRepair(savedTravelRoute, seedTrip.travelRoute, recordLooksCorrupted),
+      travelRoute: mergeTravelRouteSegments(savedTravelRoute, seedTrip.travelRoute, savedSchemaVersion),
       costs: mergeByIdWithRepair(trip.costs, seedTrip.costs, recordLooksCorrupted),
       musicTracks: mergeByIdWithRepair(savedMusicTracks, seedTrip.musicTracks, musicTrackNeedsSeedRepair),
     };
@@ -255,6 +255,42 @@ function mergeJournalEntries(
         ...item,
         storyPhotoId: item.storyPhotoId ?? seedItem.storyPhotoId ?? null,
       };
+    }),
+    ...seedItems.filter((item) => !savedIds.has(item.id)),
+  ];
+}
+
+function mergeTravelRouteSegments(
+  savedItems: TripDetail["travelRoute"],
+  seedItems: TripDetail["travelRoute"],
+  savedSchemaVersion: number,
+) {
+  const seedItemsById = new Map(seedItems.map((item) => [item.id, item]));
+  const savedIds = new Set(savedItems.map((item) => item.id));
+
+  return [
+    ...savedItems.map((item) => {
+      const seedItem = seedItemsById.get(item.id);
+      if (!seedItem) {
+        return item;
+      }
+
+      if (recordLooksCorrupted(item)) {
+        return seedItem;
+      }
+
+      if (savedSchemaVersion < 6 && item.tripId === "trip_lapland_2020") {
+        return {
+          ...item,
+          fromLabel: seedItem.fromLabel,
+          linkedPlaceId: item.linkedPlaceId ?? seedItem.linkedPlaceId,
+          note: seedItem.note,
+          toLabel: seedItem.toLabel,
+          transport: seedItem.transport,
+        };
+      }
+
+      return item;
     }),
     ...seedItems.filter((item) => !savedIds.has(item.id)),
   ];
