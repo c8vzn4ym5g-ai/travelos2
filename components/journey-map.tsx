@@ -353,7 +353,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
         </span>
       </div>
 
-      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_14.5rem]">
+      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_12.25rem]">
         <div className="relative min-h-[20rem] overflow-hidden bg-[#dbeafe] sm:min-h-[22rem]">
           <div className="absolute inset-0 bg-[linear-gradient(135deg,#dbeafe_0%,#dcfce7_100%)]" />
           {mapTiles.map((tile) => (
@@ -452,9 +452,9 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
           </a>
         </div>
 
-        <aside className="space-y-3 border-t border-white/70 bg-[rgba(255,255,255,.78)] p-3 lg:border-l lg:border-t-0">
+        <aside className="space-y-2.5 border-t border-white/70 bg-[rgba(255,255,255,.58)] p-2.5 lg:border-l lg:border-t-0">
           {routeStops.length > 0 ? (
-            <div className="rounded-2xl border border-white/80 bg-white/85 p-2.5 shadow-sm">
+            <div className="rounded-2xl border border-white/70 bg-white/70 p-2 shadow-sm">
               <div className="flex items-center justify-between gap-2 px-1">
                 <p className="travel-kicker text-[0.62rem]">Route stops</p>
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[0.62rem] font-semibold text-slate-600">{routeStops.length}</span>
@@ -462,7 +462,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
               <div className="mt-2 grid gap-1">
                 {routeStops.map((pin) => (
                   <button
-                    className={`grid grid-cols-[1.35rem_1fr] items-center gap-2 rounded-xl border px-2 py-1.5 text-left text-[0.72rem] font-semibold leading-4 transition ${
+                    className={`grid grid-cols-[1.2rem_1fr] items-center gap-1.5 rounded-xl border px-1.5 py-1.5 text-left text-[0.68rem] font-semibold leading-4 transition ${
                       selectedId === pin.id ? "border-red-200 bg-red-50 text-red-700 shadow-sm" : "border-transparent bg-white/65 text-slate-700 hover:border-sky-100 hover:bg-sky-50"
                     }`}
                     key={`route-stop-${pin.id}`}
@@ -470,7 +470,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
                     title={pin.label}
                     type="button"
                   >
-                    <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[0.65rem] ${
+                    <span className={`grid h-4.5 w-4.5 shrink-0 place-items-center rounded-full text-[0.6rem] ${
                       selectedId === pin.id ? "bg-red-600 text-white" : "bg-slate-900 text-white"
                     }`}>{pin.routeOrder}</span>
                     <span className="line-clamp-2">{getRouteStopLabel(pin.label)}</span>
@@ -480,7 +480,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
             </div>
           ) : null}
           {selectedPin || selectedRoute ? (
-            <div className="rounded-2xl border border-white/80 bg-white/85 p-3 shadow-sm">
+            <div className="rounded-2xl border border-white/70 bg-white/65 p-2.5">
               <p className="travel-kicker text-[0.65rem]">{selectedRoute ? transportLabel(selectedRoute.transport) : selectedPin?.kind}</p>
               <h3 className="mt-1 text-sm font-semibold leading-5 text-[color:var(--ink)]">
                 {selectedRoute ? `${selectedRoute.fromLabel} to ${selectedRoute.toLabel}` : selectedPin?.label}
