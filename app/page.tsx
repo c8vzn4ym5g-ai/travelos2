@@ -82,7 +82,7 @@ function SessionCard({
   title: string;
 }) {
   return (
-    <article className="flex min-h-80 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-stone-50">
+    <article className="flex min-h-80 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
       <Link className="group grid h-48 grid-cols-3 gap-1 bg-stone-100" href={href}>
         {photos.length > 0 ? (
           photos.slice(0, 3).map((photo, index) => (
@@ -99,11 +99,11 @@ function SessionCard({
         )}
       </Link>
       <div className="flex flex-1 flex-col p-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">{eyebrow}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">{eyebrow}</p>
         <h2 className="mt-3 text-2xl font-semibold leading-tight text-zinc-950">{title}</h2>
         <p className="mt-3 flex-1 text-sm leading-6 text-zinc-600">{description}</p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link className="rounded-full border border-teal-700 bg-teal-700 px-4 py-2.5 text-center text-sm font-semibold text-white" href={href}>
+          <Link className="rounded-full border border-slate-700 bg-slate-800 px-4 py-2.5 text-center text-sm font-semibold text-white" href={href}>
             {action}
           </Link>
           <Link className="rounded-full border border-zinc-300 bg-white px-4 py-2.5 text-center text-sm font-semibold text-zinc-950" href={secondaryHref}>
@@ -209,7 +209,7 @@ export default async function Home() {
         <div className="mx-auto flex max-w-7xl flex-col gap-10 px-6 py-8 lg:px-10">
           <nav className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-teal-700">TravelOS</p>
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-amber-700">TravelOS</p>
               <h1 className="mt-2 max-w-4xl text-4xl font-semibold tracking-normal text-zinc-950 sm:text-6xl">
                 Your travel and coffee memory system.
               </h1>
@@ -219,13 +219,13 @@ export default async function Home() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link className="rounded-full border border-teal-700 bg-white px-4 py-2 text-sm font-semibold text-teal-800" href="/trips">
+              <Link className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-800" href="/trips">
                 Travel
               </Link>
-              <Link className="rounded-full border border-teal-700 bg-white px-4 py-2 text-sm font-semibold text-teal-800" href="/coffee">
+              <Link className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-800" href="/coffee">
                 Coffee
               </Link>
-              <Link className="rounded-full border border-teal-700 bg-teal-700 px-4 py-2 text-sm font-semibold text-white" href="/drive">
+              <Link className="rounded-full border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-semibold text-white" href="/drive">
                 Drive
               </Link>
             </div>
@@ -241,7 +241,7 @@ export default async function Home() {
         <div className="rounded-lg border border-zinc-200 bg-white p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase text-teal-700">Travel Journal</p>
+              <p className="text-xs font-semibold uppercase text-amber-700">Travel Journal</p>
               <h2 className="mt-2 text-2xl font-semibold">Latest journeys</h2>
             </div>
             <Link className="rounded-full border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-950" href="/trips">
@@ -255,7 +255,7 @@ export default async function Home() {
           </div>
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {travelStats.map((item) => (
-              <div className="rounded-md bg-stone-100 px-3 py-3" key={item.label}>
+              <div className="rounded-md border border-zinc-200 bg-white px-3 py-3" key={item.label}>
                 <p className="text-xl font-semibold">{item.value}</p>
                 <p className="mt-1 text-xs text-zinc-500">{item.label}</p>
               </div>
@@ -265,7 +265,7 @@ export default async function Home() {
         <div className="rounded-lg border border-zinc-200 bg-white p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase text-teal-700">Coffee Map</p>
+              <p className="text-xs font-semibold uppercase text-amber-700">Coffee Map</p>
               <h2 className="mt-2 text-2xl font-semibold">Latest coffee notes</h2>
             </div>
             <Link className="rounded-full border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-950" href="/coffee">
@@ -278,19 +278,19 @@ export default async function Home() {
             ))}
           </div>
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-md bg-stone-100 px-3 py-3">
+            <div className="rounded-md border border-zinc-200 bg-white px-3 py-3">
               <p className="text-xl font-semibold">{coffeeStats.shops}</p>
               <p className="mt-1 text-xs text-zinc-500">Shops</p>
             </div>
-            <div className="rounded-md bg-stone-100 px-3 py-3">
+            <div className="rounded-md border border-zinc-200 bg-white px-3 py-3">
               <p className="text-xl font-semibold">{coffeeStats.countries}</p>
               <p className="mt-1 text-xs text-zinc-500">Countries</p>
             </div>
-            <div className="rounded-md bg-stone-100 px-3 py-3">
+            <div className="rounded-md border border-zinc-200 bg-white px-3 py-3">
               <p className="text-xl font-semibold">{coffeeStats.cities}</p>
               <p className="mt-1 text-xs text-zinc-500">Cities</p>
             </div>
-            <div className="rounded-md bg-stone-100 px-3 py-3">
+            <div className="rounded-md border border-zinc-200 bg-white px-3 py-3">
               <p className="text-xl font-semibold">{coffeeStats.photos}</p>
               <p className="mt-1 text-xs text-zinc-500">Photos</p>
             </div>
