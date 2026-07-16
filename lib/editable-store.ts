@@ -3,7 +3,7 @@ import { seedTripDetails } from "@/lib/trips";
 import type { MusicTrack, Photo, TripDetail } from "@/lib/types";
 
 const DATA_BLOB_PATH = "travelos/content.json";
-const CONTENT_SCHEMA_VERSION = 6;
+const CONTENT_SCHEMA_VERSION = 7;
 
 export type TravelOSContent = {
   trips: TripDetail[];
@@ -268,7 +268,7 @@ function mergeTravelRouteSegments(
   const seedItemsById = new Map(seedItems.map((item) => [item.id, item]));
   const savedIds = new Set(savedItems.map((item) => item.id));
 
-  return [
+  const mergedItems = [
     ...savedItems.map((item) => {
       const seedItem = seedItemsById.get(item.id);
       if (!seedItem) {
@@ -279,12 +279,14 @@ function mergeTravelRouteSegments(
         return seedItem;
       }
 
-      if (savedSchemaVersion < 6 && item.tripId === "trip_lapland_2020") {
+      if (savedSchemaVersion < 7 && item.tripId === "trip_lapland_2020") {
         return {
           ...item,
+          from: seedItem.from,
           fromLabel: seedItem.fromLabel,
           linkedPlaceId: item.linkedPlaceId ?? seedItem.linkedPlaceId,
           note: seedItem.note,
+          to: seedItem.to,
           toLabel: seedItem.toLabel,
           transport: seedItem.transport,
         };
@@ -294,6 +296,15 @@ function mergeTravelRouteSegments(
     }),
     ...seedItems.filter((item) => !savedIds.has(item.id)),
   ];
+
+  if (savedSchemaVersion < 7 && seedItems.some((item) => item.tripId === "trip_lapland_2020")) {
+    const mergedById = new Map(mergedItems.map((item) => [item.id, item]));
+    const seedOrderedItems = seedItems.map((item) => mergedById.get(item.id) ?? item);
+    const customItems = mergedItems.filter((item) => !seedItemsById.has(item.id));
+    return [...seedOrderedItems, ...customItems];
+  }
+
+  return mergedItems;
 }
 
 function recordLooksCorrupted(record: unknown) {
