@@ -7,17 +7,17 @@ const adminSessionKey = "travelos-admin-pin";
 
 const adminTargets = [
   {
-    description: "Create saved trip drafts, first notes, places, and starting cost records.",
-    href: "/trips/new",
+    description: "Edit existing trips first, or create a new trip draft from the Travel admin workspace.",
+    href: "/trips/admin",
     label: "Travel admin",
-    title: "Travel drafts",
+    title: "Trips and drafts",
     tone: "border-sky-100 bg-sky-50/70 text-sky-950",
   },
   {
-    description: "Edit coffee shops, notes, addresses, links, and uploaded coffee photos.",
+    description: "Edit existing coffee shops, add new coffee shops, and manage notes, links, and photos.",
     href: "/coffee/admin",
     label: "Coffee admin",
-    title: "Coffee map editor",
+    title: "Coffee records",
     tone: "border-rose-100 bg-rose-50/70 text-rose-950",
   },
 ];

@@ -323,8 +323,8 @@ export default function NewTripPage() {
         <section className="border-b border-zinc-200 bg-white">
           <div className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-8 lg:px-10">
             <div className="flex items-center justify-between gap-4">
-              <Link className="text-sm font-medium text-teal-700" href="/admin">
-                Admin
+              <Link className="text-sm font-medium text-teal-700" href="/trips/admin">
+                Travel admin
               </Link>
               <span className="rounded-md bg-stone-100 px-3 py-1 text-sm font-medium text-zinc-700">Security first</span>
             </div>
@@ -353,8 +353,8 @@ export default function NewTripPage() {
       <section className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8 lg:px-10">
             <div className="flex items-center justify-between gap-4">
-            <Link className="text-sm font-medium text-teal-700" href="/admin">
-              Admin
+            <Link className="text-sm font-medium text-teal-700" href="/trips/admin">
+              Travel admin
             </Link>
             <span className="rounded-md bg-stone-100 px-3 py-1 text-sm font-medium text-zinc-700">Saving enabled</span>
           </div>
