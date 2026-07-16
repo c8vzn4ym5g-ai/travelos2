@@ -59,6 +59,7 @@ export interface JournalEntry extends TimestampedRecord {
   title: string;
   body: string;
   entryDate: string;
+  storyPhotoId?: string | null;
   mood: string | null;
   weatherSummary: string | null;
   aiSummary: string | null;

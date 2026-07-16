@@ -39,6 +39,7 @@ export const seedTripDetails: TripDetail[] = [
         body:
           "\u51ac\u5929\u7684\u62c9\u666e\u862d\u6709\u4e00\u7a2e\u514b\u5236\u7684\u7d14\u6de8\u3002\u96ea\u8986\u5728\u9053\u8def\u3001\u5c4b\u9802\u548c\u6797\u7dda\u4e0a\uff0c\u628a\u65e5\u5e38\u7684\u96dc\u97f3\u4e00\u5c64\u5c64\u6536\u8d70\u3002\u62b5\u9054\u7f85\u74e6\u6d85\u7c73\u4e4b\u5f8c\uff0c\u6642\u9593\u50cf\u88ab\u8abf\u6162\u4e86\u3002\n\nLapland in winter carries an almost restrained purity. Snow covers roads, rooftops, and forests, filtering out the noise of everyday life.",
         entryDate: "2020-01-18",
+        storyPhotoId: "photo_lapland_arctic_circle",
         mood: "\u5b89\u975c",
         weatherSummary: "\u6df1\u51ac\u6674\u51b7",
         aiSummary: null,
@@ -52,6 +53,7 @@ export const seedTripDetails: TripDetail[] = [
         body:
           "\u8056\u8a95\u8001\u4eba\u6751\u5728\u71c8\u5149\u4eae\u8d77\u4e4b\u5f8c\u6700\u52d5\u4eba\u3002\u6728\u5c4b\u3001\u96ea\u5f91\u3001\u8def\u724c\u8207\u6eab\u6696\u7684\u6ae5\u7a97\uff0c\u88ab\u7d44\u6210\u4e00\u5e45\u7cbe\u6e96\u7684\u51ac\u65e5\u756b\u9762\u3002\n\nSanta Claus Village is most moving after the lights come on. It carries a trace of fairytale, but what stays is the texture of real northern geography.",
         entryDate: "2020-01-20",
+        storyPhotoId: "photo_lapland_santa_night",
         mood: "\u660e\u4eae",
         weatherSummary: "\u8584\u96ea\uff0c\u5165\u591c\u8f49\u51b7",
         aiSummary: null,
@@ -65,6 +67,7 @@ export const seedTripDetails: TripDetail[] = [
         body:
           "\u5728\u62c9\u666e\u862d\uff0c\u6eab\u6696\u4e0d\u662f\u62bd\u8c61\u8a5e\u3002\u5b83\u53ef\u4ee5\u662f\u4e00\u5c0f\u7c07\u706b\u3001\u4e00\u76de\u71c8\u3001\u4e00\u9593\u6728\u5c4b\uff0c\u6216\u662f\u5728\u5bd2\u98a8\u88e1\u5f7c\u6b64\u9760\u8fd1\u7684\u77ed\u66ab\u7247\u523b\u3002\n\nIn Lapland, warmth is not an abstract word. Firelight, white snow, visible breath, and quiet made this moment become a real memory.",
         entryDate: "2020-01-22",
+        storyPhotoId: "photo_lapland_campfire",
         mood: "\u6eab\u6696",
         weatherSummary: "\u96ea\u5f8c\u5bd2\u591c",
         aiSummary: null,

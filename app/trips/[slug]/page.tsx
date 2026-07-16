@@ -57,7 +57,7 @@ function getReadingMinutes(entries: JournalEntry[]) {
 }
 
 function getFirstSentence(text: string) {
-  const sentence = text.split(/(?<=[.!?。！？])\s+/)[0]?.trim();
+  const sentence = text.split(/\n\n|\. |! |\? /)[0]?.trim();
   return sentence || text.slice(0, 140);
 }
 
@@ -83,6 +83,11 @@ function getStoryKeywords(entry: JournalEntry) {
 }
 
 function getBestStoryPhoto(entry: JournalEntry, photos: Photo[], usedPhotoIds: Set<string>) {
+  const selectedPhoto = entry.storyPhotoId ? photos.find((photo) => photo.id === entry.storyPhotoId) : undefined;
+  if (selectedPhoto) {
+    return selectedPhoto;
+  }
+
   const keywords = getStoryKeywords(entry);
   const scoredPhotos = photos
     .filter((photo) => !usedPhotoIds.has(photo.id))

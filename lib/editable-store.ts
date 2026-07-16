@@ -175,8 +175,10 @@ function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
       photos: mergeByIdWithRepair(trip.photos, seedTrip.photos, (photo) =>
         photoNeedsSeedRepair(photo) || shouldMigrateSeedItemCopy(photo, seedTrip, savedSchemaVersion),
       ),
-      journalEntries: mergeByIdWithRepair(trip.journalEntries, seedTrip.journalEntries, (entry) =>
-        recordLooksCorrupted(entry) || shouldMigrateSeedItemCopy(entry, seedTrip, savedSchemaVersion),
+      journalEntries: mergeJournalEntries(
+        trip.journalEntries,
+        seedTrip.journalEntries,
+        (entry) => recordLooksCorrupted(entry) || shouldMigrateSeedItemCopy(entry, seedTrip, savedSchemaVersion),
       ),
       places: mergeByIdWithRepair(trip.places, seedTrip.places, (place) =>
         recordLooksCorrupted(place) || shouldMigrateSeedItemCopy(place, seedTrip, savedSchemaVersion),
@@ -223,6 +225,34 @@ function mergeByIdWithRepair<T extends { id: string }>(
     ...savedItems.map((item) => {
       const seedItem = seedItemsById.get(item.id);
       return seedItem && shouldRepair(item) ? seedItem : item;
+    }),
+    ...seedItems.filter((item) => !savedIds.has(item.id)),
+  ];
+}
+
+function mergeJournalEntries(
+  savedItems: TripDetail["journalEntries"],
+  seedItems: TripDetail["journalEntries"],
+  shouldRepair: (item: TripDetail["journalEntries"][number]) => boolean,
+) {
+  const seedItemsById = new Map(seedItems.map((item) => [item.id, item]));
+  const savedIds = new Set(savedItems.map((item) => item.id));
+
+  return [
+    ...savedItems.map((item) => {
+      const seedItem = seedItemsById.get(item.id);
+      if (!seedItem) {
+        return item;
+      }
+
+      if (shouldRepair(item)) {
+        return seedItem;
+      }
+
+      return {
+        ...item,
+        storyPhotoId: item.storyPhotoId ?? seedItem.storyPhotoId ?? null,
+      };
     }),
     ...seedItems.filter((item) => !savedIds.has(item.id)),
   ];

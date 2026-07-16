@@ -15,7 +15,7 @@ type TravelContentResponse = {
 
 type TripTextField = "city" | "country" | "slug" | "summary" | "title";
 type TripDateField = "endDate" | "startDate";
-type JournalTextField = "body" | "entryDate" | "mood" | "title" | "weatherSummary";
+type JournalTextField = "body" | "entryDate" | "mood" | "storyPhotoId" | "title" | "weatherSummary";
 type PhotoTextField = "caption" | "originalFilename" | "takenAt";
 
 const adminSessionKey = "travelos-admin-pin";
@@ -375,6 +375,7 @@ export default function TravelAdminPage() {
       title: "New journal note",
       body: "Write the memory here.",
       entryDate: activeTrip.startDate || now.slice(0, 10),
+      storyPhotoId: null,
       mood: null,
       weatherSummary: null,
       aiSummary: null,
@@ -393,7 +394,7 @@ export default function TravelAdminPage() {
         entry.id === entryId
           ? {
               ...entry,
-              [field]: field === "mood" || field === "weatherSummary" ? value || null : value,
+              [field]: field === "mood" || field === "storyPhotoId" || field === "weatherSummary" ? value || null : value,
               updatedAt: nowIso(),
             }
           : entry,
@@ -431,6 +432,15 @@ export default function TravelAdminPage() {
       ...trip,
       coverPhotoId: trip.coverPhotoId === photoId ? null : trip.coverPhotoId,
       photos: trip.photos.filter((photo) => photo.id !== photoId),
+      journalEntries: trip.journalEntries.map((entry) =>
+        entry.storyPhotoId === photoId
+          ? {
+              ...entry,
+              storyPhotoId: null,
+              updatedAt: nowIso(),
+            }
+          : entry,
+      ),
     }));
   }
 
@@ -722,6 +732,17 @@ export default function TravelAdminPage() {
                         <Field label="Mood" onChange={(value) => updateJournalEntry(entry.id, "mood", value)} value={entry.mood ?? ""} />
                         <Field label="Weather" onChange={(value) => updateJournalEntry(entry.id, "weatherSummary", value)} value={entry.weatherSummary ?? ""} />
                       </div>
+                      <label className="block">
+                        <span className="travel-label text-sm font-semibold text-zinc-700">Story photo paired with this wording</span>
+                        <select className={inputClass} onChange={(event) => updateJournalEntry(entry.id, "storyPhotoId", event.target.value)} value={entry.storyPhotoId ?? ""}>
+                          <option value="">Auto match for old entries</option>
+                          {activeTrip.photos.map((photo, photoIndex) => (
+                            <option key={photo.id} value={photo.id}>
+                              {photoIndex + 1}. {photo.caption ?? photo.originalFilename}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                       <TextArea label="Journal body" onChange={(value) => updateJournalEntry(entry.id, "body", value)} value={entry.body} />
                     </div>
                   </article>
