@@ -109,7 +109,7 @@ function SessionCard({
 }) {
   const visiblePhotos = photos.slice(0, 3);
   const photoCount = visiblePhotos.length;
-  const rollDuration = `${Math.max(photoCount, 1) * 3.5}s`;
+  const rollDuration = `${Math.max(photoCount, 1) * 9}s`;
 
   return (
     <article className="flex min-h-[29rem] flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
