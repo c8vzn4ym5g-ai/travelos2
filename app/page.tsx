@@ -109,7 +109,7 @@ function SessionCard({
 }) {
   const visiblePhotos = photos.slice(0, 3);
   const photoCount = visiblePhotos.length;
-  const rollDuration = `${Math.max(photoCount, 1) * 12}s`;
+  const rollDuration = `${Math.max(photoCount, 1) * 10}s`;
 
   return (
     <article className="flex min-h-[29rem] flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
@@ -128,7 +128,7 @@ function SessionCard({
                 style={
                   photoCount > 1
                     ? ({
-                        animationDelay: `${index * 12}s`,
+                        animationDelay: `${index * 10}s`,
                         animationDuration: rollDuration,
                       } as CSSProperties)
                     : undefined
