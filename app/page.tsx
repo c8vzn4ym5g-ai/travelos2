@@ -1,8 +1,9 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { getCoffeeShopsByVisitDate, getCoffeeStats } from "@/lib/coffee";
 import { readCoffeeContent } from "@/lib/coffee-store";
 import { readContent } from "@/lib/editable-store";
-import type { CoffeePhoto, CoffeeShopListItem, Photo, TripDetail } from "@/lib/types";
+import type { CoffeePhoto, CoffeeShop, CoffeeShopListItem, Photo, TripDetail } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,41 @@ function getCoffeeCoverPhoto(shop: CoffeeShopListItem) {
   return shop.coverPhoto;
 }
 
+function uniqueSessionPhotos(photos: { alt: string; src: string }[]) {
+  const seen = new Set<string>();
+
+  return photos.filter((photo) => {
+    if (seen.has(photo.src)) {
+      return false;
+    }
+
+    seen.add(photo.src);
+    return true;
+  });
+}
+
+function getTravelSessionPhotos(trips: TripDetail[]) {
+  return uniqueSessionPhotos(
+    trips.flatMap((trip) =>
+      trip.photos.filter(isRenderablePhoto).map((photo) => ({
+        alt: photo.caption ?? trip.title,
+        src: photo.storageKey,
+      })),
+    ),
+  );
+}
+
+function getCoffeeSessionPhotos(shops: CoffeeShop[]) {
+  return uniqueSessionPhotos(
+    shops.flatMap((shop) =>
+      shop.photos.filter(isRenderablePhoto).map((photo) => ({
+        alt: photo.caption ?? shop.name,
+        src: photo.storageKey,
+      })),
+    ),
+  );
+}
+
 function SessionCard({
   action,
   description,
@@ -73,23 +109,34 @@ function SessionCard({
 }) {
   const visiblePhotos = photos.slice(0, 3);
   const photoCount = visiblePhotos.length;
-  const rollDuration = `${Math.max(photoCount, 1) * 4}s`;
+  const rollDuration = `${Math.max(photoCount, 1) * 3.5}s`;
 
   return (
     <article className="flex min-h-[29rem] flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
       <Link className="block border-b border-zinc-100 bg-stone-100 p-1" href={href}>
         {photoCount > 0 ? (
           <div className="session-photo-roll relative h-56 overflow-hidden rounded-lg">
-            {visiblePhotos.map((photo, index) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                alt={photo.alt}
-                className={`absolute inset-0 h-full w-full object-cover ${photoCount > 1 ? "session-photo-roll-image" : "opacity-100"}`}
-                key={`${photo.src}-${index}`}
-                src={photo.src}
-                style={photoCount > 1 ? { animationDelay: `${index * 4}s`, animationDuration: rollDuration } : undefined}
-              />
-            ))}
+            <div
+              className={`flex h-full ${photoCount > 1 ? "session-photo-roll-track" : ""}`}
+              style={
+                {
+                  "--photo-count": photoCount,
+                  animationDuration: rollDuration,
+                  width: `${photoCount * 100}%`,
+                } as CSSProperties
+              }
+            >
+              {visiblePhotos.map((photo, index) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  alt={photo.alt}
+                  className="h-full object-cover"
+                  key={`${photo.src}-${index}`}
+                  src={photo.src}
+                  style={{ width: `${100 / photoCount}%` }}
+                />
+              ))}
+            </div>
             {photoCount > 1 ? (
               <div className="absolute bottom-3 left-3 flex gap-1.5">
                 {visiblePhotos.map((photo, index) => (
@@ -174,36 +221,12 @@ export default async function Home() {
   const publicTrips = trips.filter((trip) => trip.visibility !== "private");
   const visibleTrips = (publicTrips.length > 0 ? publicTrips : trips).slice(0, 3);
   const latestCoffee = getCoffeeShopsByVisitDate(coffeeContent.shops).slice(0, 3);
-  const travelPhotoStrip = visibleTrips
-    .map((trip) => {
-      const photo = getTripCoverPhoto(trip);
-      return photo
-        ? {
-            alt: photo.caption ?? trip.title,
-            href: `/trips/${trip.slug}`,
-            label: trip.city,
-            src: photo.storageKey,
-          }
-        : null;
-    })
-    .filter((item): item is { alt: string; href: string; label: string; src: string } => Boolean(item));
-  const coffeePhotoStrip = latestCoffee
-    .map((shop) => {
-      const photo = getCoffeeCoverPhoto(shop);
-      return photo
-        ? {
-            alt: photo.caption ?? shop.name,
-            href: `/coffee/${shop.slug}`,
-            label: shop.city,
-            src: photo.storageKey,
-          }
-        : null;
-    })
-    .filter((item): item is { alt: string; href: string; label: string; src: string } => Boolean(item));
+  const travelPhotoStrip = getTravelSessionPhotos(publicTrips.length > 0 ? publicTrips : trips);
+  const coffeePhotoStrip = getCoffeeSessionPhotos(coffeeContent.shops);
   const sessionPhotosByHref: Record<string, { alt: string; src: string }[]> = {
-    "/coffee": coffeePhotoStrip.map((item) => ({ alt: item.alt, src: item.src })),
+    "/coffee": coffeePhotoStrip,
     "/drive": [],
-    "/trips": travelPhotoStrip.map((item) => ({ alt: item.alt, src: item.src })),
+    "/trips": travelPhotoStrip,
   };
 
   return (

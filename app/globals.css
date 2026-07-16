@@ -105,43 +105,24 @@ a {
 }
 
 @keyframes session-photo-roll {
-  0%,
-  30% {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  36%,
-  94% {
-    opacity: 0;
-    transform: scale(1.03);
+  0% {
+    transform: translateX(0);
   }
 
   100% {
-    opacity: 1;
-    transform: scale(1);
+    transform: translateX(calc(-100% + 100% / var(--photo-count, 1)));
   }
 }
 
-.session-photo-roll-image {
-  animation-fill-mode: both;
+.session-photo-roll-track {
   animation-iteration-count: infinite;
   animation-name: session-photo-roll;
   animation-timing-function: ease-in-out;
-  opacity: 0;
-}
-
-.session-photo-roll-image:first-child {
-  opacity: 1;
+  --photo-count: 3;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .session-photo-roll-image {
+  .session-photo-roll-track {
     animation: none;
-    opacity: 0;
-  }
-
-  .session-photo-roll-image:first-child {
-    opacity: 1;
   }
 }
