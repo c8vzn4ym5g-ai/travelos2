@@ -17,26 +17,31 @@ export function SessionPhotoCarousel({ photos }: { photos: SessionPhoto[] }) {
   const photoCount = photos.length;
 
   useEffect(() => {
+    if (activeIndex >= photoCount) {
+      setActiveIndex(0);
+      setVisible(true);
+    }
+  }, [activeIndex, photoCount]);
+
+  useEffect(() => {
     if (photoCount <= 1) {
       setActiveIndex(0);
       setVisible(true);
       return;
     }
 
-    let blankTimer: ReturnType<typeof setTimeout>;
-    let nextTimer: ReturnType<typeof setTimeout>;
+    let changeTimer: ReturnType<typeof setTimeout>;
     const stayTimer = setTimeout(() => {
       setVisible(false);
-      blankTimer = setTimeout(() => {
+      changeTimer = setTimeout(() => {
         setActiveIndex((index) => (index + 1) % photoCount);
-        nextTimer = setTimeout(() => setVisible(true), blankMs);
-      }, fadeMs);
+        setVisible(true);
+      }, fadeMs + blankMs);
     }, stayMs);
 
     return () => {
       clearTimeout(stayTimer);
-      clearTimeout(blankTimer);
-      clearTimeout(nextTimer);
+      clearTimeout(changeTimer);
     };
   }, [activeIndex, photoCount]);
 
