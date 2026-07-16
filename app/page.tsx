@@ -33,6 +33,16 @@ const sessions = [
     secondaryHref: "/coffee/new",
     secondaryAction: "Add coffee shop",
   },
+  {
+    eyebrow: "Drive",
+    title: "Car rental and road-trip booking tools",
+    description:
+      "Open the Travelpayouts Drive workspace for rental-car searches and road-trip planning without mixing it into journals or coffee notes.",
+    href: "/drive",
+    action: "Open Drive",
+    secondaryHref: "/trips",
+    secondaryAction: "Back to trips",
+  },
 ];
 
 export default async function Home() {
@@ -60,12 +70,15 @@ export default async function Home() {
               <Link className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950" href="/trips">
                 Travel
               </Link>
-              <Link className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white" href="/coffee">
+              <Link className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950" href="/coffee">
                 Coffee
+              </Link>
+              <Link className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white" href="/drive">
+                Drive
               </Link>
             </div>
           </nav>
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-3">
             {sessions.map((session) => (
               <article className="rounded-lg border border-zinc-200 bg-stone-50 p-6" key={session.eyebrow}>
                 <p className="text-xs font-semibold uppercase text-teal-700">{session.eyebrow}</p>
