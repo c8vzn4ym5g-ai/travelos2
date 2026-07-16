@@ -8,7 +8,6 @@ const ui = {
   allJourneys: "\u5168\u90e8\u65c5\u7a0b / All journeys",
   intro:
     "\u9019\u88e1\u662f TravelOS \u7684\u65c5\u7a0b\u5165\u53e3\u3002\u6bcf\u4e00\u7bc7\u6587\u7ae0\u90fd\u7528\u81ea\u5df1\u7684\u7db2\u5740\u958b\u555f\uff0c\u4e4b\u5f8c\u65b0\u589e\u65c5\u7a0b\u4e0d\u9700\u8981\u518d\u5efa\u7acb\u56fa\u5b9a\u9801\u9762\u3002",
-  newDraft: "\u65b0\u65c5\u7a0b\u8349\u7a3f / New draft",
   read: "\u95b1\u8b80 / Open details",
   timeline: "\u6642\u9593\u7dda / Timeline",
 };
@@ -123,9 +122,6 @@ export default async function TripsPage() {
             <div className="flex flex-wrap gap-2">
               <Link className="travel-chip rounded-full px-4 py-2 text-sm font-semibold" href="/timeline">
                 {ui.timeline}
-              </Link>
-              <Link className="travel-primary rounded-full px-4 py-2 text-sm font-semibold" href="/trips/new">
-                {ui.newDraft}
               </Link>
             </div>
           </div>

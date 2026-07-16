@@ -90,12 +90,6 @@ export default async function CoffeePage() {
                 <Link className="rounded-md border border-zinc-300 px-4 py-3 text-center text-sm font-semibold text-zinc-950" href="/coffee/map">
                   Map view
                 </Link>
-                <Link className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-950" href="/coffee/new">
-                  Add coffee shop
-                </Link>
-                <Link className="rounded-md border border-teal-700 px-4 py-3 text-center text-sm font-semibold text-teal-800" href="/coffee/admin">
-                  Admin
-                </Link>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-md border border-zinc-200 bg-stone-50 px-4 py-3">

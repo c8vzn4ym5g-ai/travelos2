@@ -21,8 +21,6 @@ const sessions = [
       "Keep journeys, daily notes, places, photos, and trip costs in the original TravelOS journal area.",
     href: "/trips",
     action: "Open travel",
-    secondaryHref: "/trips/new",
-    secondaryAction: "New trip draft",
   },
   {
     eyebrow: "Coffee Map",
@@ -31,8 +29,6 @@ const sessions = [
       "Collect cafes across countries without mixing them into trip journals. Add links, photos, comments, and personal notes from the shop.",
     href: "/coffee",
     action: "Open coffee map",
-    secondaryHref: "/coffee/new",
-    secondaryAction: "Add coffee shop",
   },
   {
     eyebrow: "Drive",
@@ -41,8 +37,6 @@ const sessions = [
       "Open the Travelpayouts Drive workspace for rental-car searches and road-trip planning without mixing it into journals or coffee notes.",
     href: "/drive",
     action: "Open Drive",
-    secondaryHref: "/trips",
-    secondaryAction: "Back to trips",
   },
 ];
 
@@ -68,8 +62,6 @@ function SessionCard({
   eyebrow,
   href,
   photos,
-  secondaryAction,
-  secondaryHref,
   title,
 }: {
   action: string;
@@ -77,8 +69,6 @@ function SessionCard({
   eyebrow: string;
   href: string;
   photos: { alt: string; src: string }[];
-  secondaryAction: string;
-  secondaryHref: string;
   title: string;
 }) {
   const visiblePhotos = photos.slice(0, 3);
@@ -119,9 +109,6 @@ function SessionCard({
         <div className="mt-6 flex flex-wrap gap-3">
           <Link className="rounded-full border border-amber-300 bg-amber-50 px-4 py-2.5 text-center text-sm font-semibold text-amber-950" href={href}>
             {action}
-          </Link>
-          <Link className="rounded-full border border-zinc-300 bg-white px-4 py-2.5 text-center text-sm font-semibold text-zinc-950" href={secondaryHref}>
-            {secondaryAction}
           </Link>
         </div>
       </div>
