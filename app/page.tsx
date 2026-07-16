@@ -109,7 +109,7 @@ function SessionCard({
 }) {
   const visiblePhotos = photos.slice(0, 3);
   const photoCount = visiblePhotos.length;
-  const rollDuration = `${Math.max(photoCount, 1) * 10}s`;
+  const rollDuration = `${Math.max(photoCount, 1) * 12}s`;
 
   return (
     <article className="flex min-h-[29rem] flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
@@ -120,13 +120,15 @@ function SessionCard({
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 alt={photo.alt}
-                className={`absolute inset-0 h-full w-full object-cover ${photoCount > 1 ? "session-photo-fade-image" : "opacity-100"}`}
+                className={`absolute inset-0 h-full w-full object-cover ${
+                  photoCount > 1 ? `session-photo-fade-image session-photo-fade-count-${photoCount}` : "opacity-100"
+                }`}
                 key={`${photo.src}-${index}`}
                 src={photo.src}
                 style={
                   photoCount > 1
                     ? ({
-                        animationDelay: `${index * 10}s`,
+                        animationDelay: `${index * 12}s`,
                         animationDuration: rollDuration,
                       } as CSSProperties)
                     : undefined

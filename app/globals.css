@@ -106,18 +106,38 @@ a {
 
 @keyframes session-photo-roll {
   0%,
-  4% {
+  7% {
     opacity: 0;
     transform: scale(1.01);
   }
 
-  10%,
-  27% {
+  14%,
+  25% {
     opacity: 1;
     transform: scale(1);
   }
 
-  33%,
+  32%,
+  100% {
+    opacity: 0;
+    transform: scale(1.01);
+  }
+}
+
+@keyframes session-photo-roll-two {
+  0%,
+  10% {
+    opacity: 0;
+    transform: scale(1.01);
+  }
+
+  20%,
+  38% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  48%,
   100% {
     opacity: 0;
     transform: scale(1.01);
@@ -130,6 +150,10 @@ a {
   animation-name: session-photo-roll;
   animation-timing-function: ease-in-out;
   opacity: 0;
+}
+
+.session-photo-fade-count-2 {
+  animation-name: session-photo-roll-two;
 }
 
 @media (prefers-reduced-motion: reduce) {
