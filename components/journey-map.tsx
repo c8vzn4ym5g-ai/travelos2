@@ -9,6 +9,8 @@ type MapPin = {
   point: GeoPoint;
   note: string | null;
   kind: "base" | "place" | "photo";
+  linkedJournalEntryId?: string | null;
+  linkedPhotoId?: string | null;
   routeOrder?: number;
   photo?: Photo;
   journal?: JournalEntry;
@@ -16,6 +18,8 @@ type MapPin = {
 
 type RouteStop = {
   label: string;
+  linkedJournalEntryId: string | null;
+  linkedPhotoId: string | null;
   order: number;
   point: GeoPoint;
 };
@@ -231,13 +235,25 @@ function getRouteStops(route: TravelRouteSegment[]) {
 
   route.forEach((segment) => {
     [
-      { label: segment.fromLabel, point: segment.from },
-      { label: segment.toLabel, point: segment.to },
+      { label: segment.fromLabel, linkedJournalEntryId: null, linkedPhotoId: null, point: segment.from },
+      {
+        label: segment.toLabel,
+        linkedJournalEntryId: segment.linkedJournalEntryId,
+        linkedPhotoId: segment.linkedPhotoId,
+        point: segment.to,
+      },
     ].forEach((stop) => {
       const normalizedLabel = stop.label.toLowerCase();
       if (!seenLabels.has(normalizedLabel)) {
         stops.push({ ...stop, order: stops.length + 1 });
         seenLabels.add(normalizedLabel);
+        return;
+      }
+
+      const existingStop = stops.find((item) => item.label.toLowerCase() === normalizedLabel);
+      if (existingStop && !existingStop.linkedPhotoId && stop.linkedPhotoId) {
+        existingStop.linkedJournalEntryId = stop.linkedJournalEntryId;
+        existingStop.linkedPhotoId = stop.linkedPhotoId;
       }
     });
   });
@@ -276,6 +292,8 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
           id: place.id,
           kind: "place" as const,
           label: place.name,
+          linkedJournalEntryId: routeStop?.linkedJournalEntryId,
+          linkedPhotoId: routeStop?.linkedPhotoId,
           note: place.notes,
           photo: linkedPhoto,
           point: place.coordinates as GeoPoint,
@@ -303,6 +321,8 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
             id: "trip_base",
             kind: "base" as const,
             label: `${city}, ${country}`,
+            linkedJournalEntryId: findRouteStopForPin(city, center, orderedRouteStops)?.linkedJournalEntryId,
+            linkedPhotoId: findRouteStopForPin(city, center, orderedRouteStops)?.linkedPhotoId,
             note: "Trip base",
             point: center,
             routeOrder: findRouteStopForPin(city, center, orderedRouteStops)?.order,
@@ -328,9 +348,12 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
   const [selectedId, setSelectedId] = useState<string | null>(defaultSelection);
   const selectedPin = pins.find((pin) => pin.id === selectedId);
   const selectedRoute = visibleRoute.find((segment) => segment.id === selectedId);
+  const selectedPinRoutePhoto = selectedPin?.linkedPhotoId ? routePhotos.get(selectedPin.linkedPhotoId) : undefined;
+  const selectedPinRouteEntry = selectedPin?.linkedJournalEntryId ? routeEntries.get(selectedPin.linkedJournalEntryId) : undefined;
   const selectedRoutePhoto = selectedRoute?.linkedPhotoId ? routePhotos.get(selectedRoute.linkedPhotoId) : undefined;
   const selectedRouteEntry = selectedRoute?.linkedJournalEntryId ? routeEntries.get(selectedRoute.linkedJournalEntryId) : undefined;
-  const selectedPhoto = selectedPin?.photo ?? selectedRoutePhoto;
+  const selectedPhoto = selectedPinRoutePhoto ?? selectedRoutePhoto ?? selectedPin?.photo;
+  const selectedEntry = selectedPinRouteEntry ?? selectedRouteEntry;
 
   if (mapPoints.length === 0) {
     return (
@@ -492,7 +515,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
                   <img alt={selectedPhoto.caption ?? selectedPhoto.originalFilename} className="h-20 w-full object-cover" src={selectedPhoto.storageKey} />
                 </div>
               ) : null}
-              {selectedRouteEntry ? <p className="mt-3 line-clamp-2 text-xs font-semibold text-teal-900">{selectedRouteEntry.title}</p> : null}
+              {selectedEntry ? <p className="mt-3 line-clamp-2 text-xs font-semibold text-teal-900">{selectedEntry.title}</p> : null}
             </div>
           ) : (
             <p className="travel-muted text-xs leading-5">Choose a pin or route to see the record.</p>
