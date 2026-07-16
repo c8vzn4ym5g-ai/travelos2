@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { getCoffeeShopsByVisitDate, getCoffeeStats } from "@/lib/coffee";
 import { readCoffeeContent } from "@/lib/coffee-store";
-import { getTripsByStartDate } from "@/lib/trips";
+import { readContent } from "@/lib/editable-store";
+import type { CoffeePhoto, CoffeeShopListItem, Photo, TripDetail } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -45,11 +46,102 @@ const sessions = [
   },
 ];
 
+function isRenderablePhoto(photo: Photo | CoffeePhoto) {
+  return photo.storageKey.startsWith("http") || photo.storageKey.startsWith("/");
+}
+
+function getTripCoverPhoto(trip: TripDetail) {
+  return (
+    trip.photos.find((photo) => photo.id === trip.coverPhotoId && isRenderablePhoto(photo)) ??
+    trip.photos.find(isRenderablePhoto) ??
+    null
+  );
+}
+
+function getCoffeeCoverPhoto(shop: CoffeeShopListItem) {
+  return shop.coverPhoto;
+}
+
+function PhotoStrip({
+  items,
+}: {
+  items: { alt: string; href: string; label: string; src: string }[];
+}) {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-5 grid grid-cols-3 gap-2">
+      {items.slice(0, 3).map((item) => (
+        <Link className="group overflow-hidden rounded-lg bg-stone-100" href={item.href} key={`${item.href}-${item.src}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img alt={item.alt} className="h-24 w-full object-cover transition group-hover:scale-105 sm:h-28" src={item.src} />
+          <p className="truncate px-2 py-2 text-xs font-medium text-zinc-600">{item.label}</p>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function LatestCoffeeItem({ shop }: { shop: CoffeeShopListItem }) {
+  const coverPhoto = getCoffeeCoverPhoto(shop);
+
+  return (
+    <article className="grid gap-3 border-b border-zinc-100 pb-4 last:border-0 last:pb-0 sm:grid-cols-[5.5rem_1fr]">
+      <Link className="overflow-hidden rounded-md bg-stone-100" href={`/coffee/${shop.slug}`}>
+        {coverPhoto ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img alt={coverPhoto.caption ?? shop.name} className="h-24 w-full object-cover" src={coverPhoto.storageKey} />
+        ) : (
+          <div className="grid h-24 place-items-center px-2 text-center text-xs text-zinc-500">No photo</div>
+        )}
+      </Link>
+      <div>
+        <p className="font-medium">{shop.name}</p>
+        <p className="mt-1 text-sm text-zinc-500">
+          {shop.city}, {shop.country} / {shop.coffeeOrdered}
+        </p>
+        <p className="mt-2 text-sm leading-6 text-zinc-600">{shop.lifeNote}</p>
+      </div>
+    </article>
+  );
+}
+
 export default async function Home() {
+  const { content: travelContent } = await readContent();
   const { content: coffeeContent } = await readCoffeeContent();
   const coffeeStats = getCoffeeStats(coffeeContent.shops);
-  const latestTrips = getTripsByStartDate().slice(0, 3);
+  const trips = [...travelContent.trips].sort((first, second) => second.startDate.localeCompare(first.startDate));
+  const publicTrips = trips.filter((trip) => trip.visibility !== "private");
+  const visibleTrips = (publicTrips.length > 0 ? publicTrips : trips).slice(0, 3);
   const latestCoffee = getCoffeeShopsByVisitDate(coffeeContent.shops).slice(0, 3);
+  const travelPhotoStrip = visibleTrips
+    .map((trip) => {
+      const photo = getTripCoverPhoto(trip);
+      return photo
+        ? {
+            alt: photo.caption ?? trip.title,
+            href: `/trips/${trip.slug}`,
+            label: trip.city,
+            src: photo.storageKey,
+          }
+        : null;
+    })
+    .filter((item): item is { alt: string; href: string; label: string; src: string } => Boolean(item));
+  const coffeePhotoStrip = latestCoffee
+    .map((shop) => {
+      const photo = getCoffeeCoverPhoto(shop);
+      return photo
+        ? {
+            alt: photo.caption ?? shop.name,
+            href: `/coffee/${shop.slug}`,
+            label: shop.city,
+            src: photo.storageKey,
+          }
+        : null;
+    })
+    .filter((item): item is { alt: string; href: string; label: string; src: string } => Boolean(item));
 
   return (
     <main className="min-h-screen bg-stone-50 text-zinc-950">
@@ -112,7 +204,7 @@ export default async function Home() {
             </Link>
           </div>
           <div className="mt-5 space-y-4">
-            {latestTrips.map((trip) => (
+            {visibleTrips.map((trip) => (
               <article className="border-b border-zinc-100 pb-4 last:border-0 last:pb-0" key={trip.id}>
                 <p className="font-medium">{trip.title}</p>
                 <p className="mt-1 text-sm text-zinc-500">
@@ -122,6 +214,7 @@ export default async function Home() {
               </article>
             ))}
           </div>
+          <PhotoStrip items={travelPhotoStrip} />
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {travelStats.map((item) => (
               <div className="rounded-md bg-stone-100 px-3 py-3" key={item.label}>
@@ -143,15 +236,10 @@ export default async function Home() {
           </div>
           <div className="mt-5 space-y-4">
             {latestCoffee.map((shop) => (
-              <article className="border-b border-zinc-100 pb-4 last:border-0 last:pb-0" key={shop.id}>
-                <p className="font-medium">{shop.name}</p>
-                <p className="mt-1 text-sm text-zinc-500">
-                  {shop.city}, {shop.country} / {shop.coffeeOrdered}
-                </p>
-                <p className="mt-2 text-sm leading-6 text-zinc-600">{shop.lifeNote}</p>
-              </article>
+              <LatestCoffeeItem key={shop.id} shop={shop} />
             ))}
           </div>
+          <PhotoStrip items={coffeePhotoStrip} />
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-md bg-stone-100 px-3 py-3">
               <p className="text-xl font-semibold">{coffeeStats.shops}</p>
