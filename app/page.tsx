@@ -62,25 +62,56 @@ function getCoffeeCoverPhoto(shop: CoffeeShopListItem) {
   return shop.coverPhoto;
 }
 
-function PhotoStrip({
-  items,
+function SessionCard({
+  action,
+  description,
+  eyebrow,
+  href,
+  photos,
+  secondaryAction,
+  secondaryHref,
+  title,
 }: {
-  items: { alt: string; href: string; label: string; src: string }[];
+  action: string;
+  description: string;
+  eyebrow: string;
+  href: string;
+  photos: { alt: string; src: string }[];
+  secondaryAction: string;
+  secondaryHref: string;
+  title: string;
 }) {
-  if (items.length === 0) {
-    return null;
-  }
-
   return (
-    <div className="mt-5 grid grid-cols-3 gap-2">
-      {items.slice(0, 3).map((item) => (
-        <Link className="group overflow-hidden rounded-lg bg-stone-100" href={item.href} key={`${item.href}-${item.src}`}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img alt={item.alt} className="h-24 w-full object-cover transition group-hover:scale-105 sm:h-28" src={item.src} />
-          <p className="truncate px-2 py-2 text-xs font-medium text-zinc-600">{item.label}</p>
-        </Link>
-      ))}
-    </div>
+    <article className="flex min-h-80 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-stone-50">
+      <Link className="group grid h-48 grid-cols-3 gap-1 bg-stone-100" href={href}>
+        {photos.length > 0 ? (
+          photos.slice(0, 3).map((photo, index) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt={photo.alt}
+              className={`h-full w-full object-cover transition duration-500 group-hover:scale-105 ${index === 0 ? "col-span-2" : ""}`}
+              key={`${photo.src}-${index}`}
+              src={photo.src}
+            />
+          ))
+        ) : (
+          <div className="col-span-3 grid h-full place-items-center text-sm text-zinc-500">Photo preview coming soon</div>
+        )}
+      </Link>
+      <div className="flex flex-1 flex-col p-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">{eyebrow}</p>
+        <h2 className="mt-3 text-2xl font-semibold leading-tight text-zinc-950">{title}</h2>
+        <p className="mt-3 flex-1 text-sm leading-6 text-zinc-600">{description}</p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link className="rounded-full border border-teal-700 bg-teal-700 px-4 py-2.5 text-center text-sm font-semibold text-white" href={href}>
+            {action}
+          </Link>
+          <Link className="rounded-full border border-zinc-300 bg-white px-4 py-2.5 text-center text-sm font-semibold text-zinc-950" href={secondaryHref}>
+            {secondaryAction}
+          </Link>
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -103,6 +134,30 @@ function LatestCoffeeItem({ shop }: { shop: CoffeeShopListItem }) {
           {shop.city}, {shop.country} / {shop.coffeeOrdered}
         </p>
         <p className="mt-2 text-sm leading-6 text-zinc-600">{shop.lifeNote}</p>
+      </div>
+    </article>
+  );
+}
+
+function LatestTripItem({ trip }: { trip: TripDetail }) {
+  const coverPhoto = getTripCoverPhoto(trip);
+
+  return (
+    <article className="grid gap-3 border-b border-zinc-100 pb-4 last:border-0 last:pb-0 sm:grid-cols-[5.5rem_1fr]">
+      <Link className="overflow-hidden rounded-md bg-stone-100" href={`/trips/${trip.slug}`}>
+        {coverPhoto ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img alt={coverPhoto.caption ?? trip.title} className="h-24 w-full object-cover" src={coverPhoto.storageKey} />
+        ) : (
+          <div className="grid h-24 place-items-center px-2 text-center text-xs text-zinc-500">No photo</div>
+        )}
+      </Link>
+      <div>
+        <p className="font-medium">{trip.title}</p>
+        <p className="mt-1 text-sm text-zinc-500">
+          {trip.city}, {trip.country}
+        </p>
+        <p className="mt-2 text-sm leading-6 text-zinc-600">{trip.summary}</p>
       </div>
     </article>
   );
@@ -142,6 +197,11 @@ export default async function Home() {
         : null;
     })
     .filter((item): item is { alt: string; href: string; label: string; src: string } => Boolean(item));
+  const sessionPhotosByHref: Record<string, { alt: string; src: string }[]> = {
+    "/coffee": coffeePhotoStrip.map((item) => ({ alt: item.alt, src: item.src })),
+    "/drive": [],
+    "/trips": travelPhotoStrip.map((item) => ({ alt: item.alt, src: item.src })),
+  };
 
   return (
     <main className="min-h-screen bg-stone-50 text-zinc-950">
@@ -172,22 +232,7 @@ export default async function Home() {
           </nav>
           <div className="grid gap-4 xl:grid-cols-3">
             {sessions.map((session) => (
-              <article className="flex min-h-72 flex-col rounded-lg border border-zinc-200 bg-stone-50 p-6" key={session.eyebrow}>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">{session.eyebrow}</p>
-                <h2 className="mt-3 text-2xl font-semibold leading-tight text-zinc-950">{session.title}</h2>
-                <p className="mt-3 flex-1 text-sm leading-6 text-zinc-600">{session.description}</p>
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <Link className="rounded-full border border-teal-700 bg-teal-700 px-4 py-2.5 text-center text-sm font-semibold text-white" href={session.href}>
-                    {session.action}
-                  </Link>
-                  <Link
-                    className="rounded-full border border-zinc-300 bg-white px-4 py-2.5 text-center text-sm font-semibold text-zinc-950"
-                    href={session.secondaryHref}
-                  >
-                    {session.secondaryAction}
-                  </Link>
-                </div>
-              </article>
+              <SessionCard key={session.eyebrow} photos={sessionPhotosByHref[session.href] ?? []} {...session} />
             ))}
           </div>
         </div>
@@ -205,16 +250,9 @@ export default async function Home() {
           </div>
           <div className="mt-5 space-y-4">
             {visibleTrips.map((trip) => (
-              <article className="border-b border-zinc-100 pb-4 last:border-0 last:pb-0" key={trip.id}>
-                <p className="font-medium">{trip.title}</p>
-                <p className="mt-1 text-sm text-zinc-500">
-                  {trip.city}, {trip.country}
-                </p>
-                <p className="mt-2 text-sm leading-6 text-zinc-600">{trip.summary}</p>
-              </article>
+              <LatestTripItem key={trip.id} trip={trip} />
             ))}
           </div>
-          <PhotoStrip items={travelPhotoStrip} />
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {travelStats.map((item) => (
               <div className="rounded-md bg-stone-100 px-3 py-3" key={item.label}>
@@ -239,7 +277,6 @@ export default async function Home() {
               <LatestCoffeeItem key={shop.id} shop={shop} />
             ))}
           </div>
-          <PhotoStrip items={coffeePhotoStrip} />
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-md bg-stone-100 px-3 py-3">
               <p className="text-xl font-semibold">{coffeeStats.shops}</p>
