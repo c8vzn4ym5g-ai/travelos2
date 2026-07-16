@@ -61,6 +61,41 @@ function getFirstSentence(text: string) {
   return sentence || text.slice(0, 140);
 }
 
+function getStoryKeywords(entry: JournalEntry) {
+  const text = `${entry.id} ${entry.title}`.toLowerCase();
+
+  if (text.includes("arrival") || text.includes("arctic")) {
+    return ["arctic", "circle", "arrival"];
+  }
+
+  if (text.includes("santa")) {
+    return ["santa", "village", "night", "dusk"];
+  }
+
+  if (text.includes("campfire") || text.includes("fire")) {
+    return ["campfire", "fire", "warmth"];
+  }
+
+  return text
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length > 3);
+}
+
+function getBestStoryPhoto(entry: JournalEntry, photos: Photo[], usedPhotoIds: Set<string>) {
+  const keywords = getStoryKeywords(entry);
+  const scoredPhotos = photos
+    .filter((photo) => !usedPhotoIds.has(photo.id))
+    .map((photo) => {
+      const searchable = `${photo.id} ${photo.originalFilename} ${photo.caption ?? ""}`.toLowerCase();
+      const score = keywords.reduce((total, keyword) => total + (searchable.includes(keyword) ? 1 : 0), 0);
+      return { photo, score };
+    })
+    .sort((first, second) => second.score - first.score);
+
+  return scoredPhotos.find((item) => item.score > 0)?.photo ?? photos.find((photo) => !usedPhotoIds.has(photo.id));
+}
+
 function SectionHeader({ kicker, title }: { kicker: string; title: string }) {
   return (
     <div>
@@ -206,6 +241,15 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
   const featurePhotos = trip.photos.filter(isRenderablePhoto).slice(0, 4);
   const renderablePhotos = trip.photos.filter(isRenderablePhoto);
   const readingMinutes = getReadingMinutes(trip.journalEntries);
+  const usedStoryPhotoIds = new Set<string>();
+  const storyMoments = trip.journalEntries.map((entry, index) => {
+    const photo = getBestStoryPhoto(entry, renderablePhotos, usedStoryPhotoIds);
+    if (photo) {
+      usedStoryPhotoIds.add(photo.id);
+    }
+
+    return { entry, index, photo };
+  });
   const articleJsonLd = {
     "@context": "https://schema.org",
     "@type": "TravelBlogPosting",
@@ -324,8 +368,8 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                 A visitor should be able to understand the emotional path before reading every note. These moments turn the trip into a guided story.
               </p>
               <div className="mt-6 grid gap-4">
-                {trip.journalEntries.map((entry, index) => (
-                  <StoryMomentCard entry={entry} index={index} key={entry.id} photo={renderablePhotos[index]} />
+                {storyMoments.map(({ entry, index, photo }) => (
+                  <StoryMomentCard entry={entry} index={index} key={entry.id} photo={photo} />
                 ))}
               </div>
             </section>
