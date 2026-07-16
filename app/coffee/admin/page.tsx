@@ -15,6 +15,7 @@ type CoffeeContentResponse = {
   };
 };
 
+const adminSessionKey = "travelos-admin-pin";
 type CoffeeTextField =
   | "address"
   | "city"
@@ -324,6 +325,15 @@ export default function CoffeeAdminPage() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [activeShopId, setActiveShopId] = useState<string | null>(null);
 
+  useEffect(() => {
+    const storedPin = window.sessionStorage.getItem(adminSessionKey);
+    if (storedPin) {
+      setPin(storedPin);
+      setAuthenticated(true);
+      setMessage("Admin session unlocked from the shared admin workspace.");
+    }
+  }, []);
+
   async function loadContent() {
     setMessage("Loading coffee content...");
     const response = await fetch("/api/coffee/content", { cache: "no-store" });
@@ -364,6 +374,7 @@ export default function CoffeeAdminPage() {
     }
 
     setAuthenticated(true);
+    window.sessionStorage.setItem(adminSessionKey, pin);
     setCheckingPin(false);
   }
 
@@ -379,8 +390,8 @@ export default function CoffeeAdminPage() {
         <section className="border-b border-stone-200 bg-white/85">
           <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-10">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <Link className="text-sm font-semibold text-teal-800" href="/coffee">
-                Coffee Map
+              <Link className="text-sm font-semibold text-teal-800" href="/admin">
+                Admin
               </Link>
               <Link className={smallButtonClass} href="/coffee">
                 Public coffee
@@ -587,8 +598,8 @@ export default function CoffeeAdminPage() {
       <section className="border-b border-stone-200 bg-white/85">
         <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link className="text-sm font-semibold text-teal-800" href="/coffee">
-              Coffee Map
+            <Link className="text-sm font-semibold text-teal-800" href="/admin">
+              Admin
             </Link>
             <div className="flex flex-wrap gap-2">
               <Link className={smallButtonClass} href="/coffee">

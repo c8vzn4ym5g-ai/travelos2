@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CostCategory, PlaceType, TravelVisibility, TripDetail } from "@/lib/types";
 
+const adminSessionKey = "travelos-admin-pin";
 const fieldClass =
   "mt-2 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-teal-700";
 const buttonClass =
@@ -251,6 +252,15 @@ export default function NewTripPage() {
   const [message, setMessage] = useState("Enter admin PIN to create a saved trip draft.");
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
 
+  useEffect(() => {
+    const storedPin = window.sessionStorage.getItem(adminSessionKey);
+    if (storedPin) {
+      setPin(storedPin);
+      setUnlocked(true);
+      setMessage("Admin session unlocked from the shared admin workspace.");
+    }
+  }, []);
+
   function updateDraft(name: keyof DraftState, value: string) {
     setDraft((current) => ({ ...current, [name]: value }));
   }
@@ -270,6 +280,7 @@ export default function NewTripPage() {
     }
 
     setUnlocked(true);
+    window.sessionStorage.setItem(adminSessionKey, pin);
     setMessage("Ready to save Travel drafts.");
   }
 
@@ -312,8 +323,8 @@ export default function NewTripPage() {
         <section className="border-b border-zinc-200 bg-white">
           <div className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-8 lg:px-10">
             <div className="flex items-center justify-between gap-4">
-              <Link className="text-sm font-medium text-teal-700" href="/trips">
-                Trips
+              <Link className="text-sm font-medium text-teal-700" href="/admin">
+                Admin
               </Link>
               <span className="rounded-md bg-stone-100 px-3 py-1 text-sm font-medium text-zinc-700">Security first</span>
             </div>
@@ -341,9 +352,9 @@ export default function NewTripPage() {
     <main className="min-h-screen bg-stone-50 text-zinc-950">
       <section className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8 lg:px-10">
-          <div className="flex items-center justify-between gap-4">
-            <Link className="text-sm font-medium text-teal-700" href="/trips">
-              Trips
+            <div className="flex items-center justify-between gap-4">
+            <Link className="text-sm font-medium text-teal-700" href="/admin">
+              Admin
             </Link>
             <span className="rounded-md bg-stone-100 px-3 py-1 text-sm font-medium text-zinc-700">Saving enabled</span>
           </div>
