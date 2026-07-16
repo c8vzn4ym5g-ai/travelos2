@@ -265,6 +265,38 @@ function VisitorScan({
   );
 }
 
+function CompactReaderGuide({
+  featurePhotoCount,
+  placesCount,
+  readingMinutes,
+  storyCount,
+}: {
+  featurePhotoCount: number;
+  placesCount: number;
+  readingMinutes: number;
+  storyCount: number;
+}) {
+  return (
+    <section className="travel-soft-panel rounded-2xl px-4 py-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="travel-kicker text-xs">Reader guide</p>
+          <p className="travel-muted mt-1 text-sm">A quick read on what this page contains.</p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-sm">
+          {[
+            ["Story", storyCount > 0 ? `${storyCount} notes / ${readingMinutes} min` : "Draft ready", "border-rose-100 bg-rose-50 text-rose-950"],
+            ["Photos", featurePhotoCount > 0 ? `${featurePhotoCount} featured` : "Album ready", "border-amber-100 bg-amber-50 text-amber-950"],
+            ["Stops", placesCount > 0 ? `${placesCount} saved` : "Add later", "border-teal-100 bg-teal-50 text-teal-950"],
+          ].map(([label, value, tone]) => (
+            <MemoryChip key={label} label={label} tone={tone} value={value} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function generateStaticParams() {
   return getTripDetailsByStartDate().map((trip) => ({ slug: trip.slug }));
 }
@@ -419,21 +451,12 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </dl>
           </section>
 
-          <section className="travel-panel rounded-3xl p-5 sm:p-7">
-            <SectionHeader kicker="Reader guide" title="Why this journey is worth opening" />
-            <div className="mt-6 grid gap-4 sm:grid-cols-3">
-              {[
-                ["Story", trip.journalEntries.length > 0 ? `${trip.journalEntries.length} notes / ${readingMinutes} min read` : "Story draft ready"],
-                ["Photos", trip.photos.length > 0 ? `${trip.photos.length} memories / ${featurePhotos.length} featured` : "Photo album ready"],
-                ["Practical", trip.places.length > 0 ? `${trip.places.length} saved stops` : "Places can be added"],
-              ].map(([label, value]) => (
-                <div className="travel-soft-panel rounded-2xl p-4" key={label}>
-                  <p className="travel-kicker text-xs">{label}</p>
-                  <p className="travel-muted mt-3 text-sm leading-6">{value}</p>
-                </div>
-              ))}
-            </div>
-          </section>
+          <CompactReaderGuide
+            featurePhotoCount={featurePhotos.length}
+            placesCount={trip.places.length}
+            readingMinutes={readingMinutes}
+            storyCount={trip.journalEntries.length}
+          />
 
           {trip.journalEntries.length > 0 ? (
             <section className="travel-panel rounded-3xl p-5 sm:p-7">
@@ -478,6 +501,27 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
         </div>
 
         <aside className="space-y-6">
+          <section className="travel-panel rounded-3xl p-5 sm:p-7">
+            <SectionHeader kicker="Story contents" title="On this page" />
+            <div className="mt-5 grid gap-3">
+              {storyMoments.map(({ entry, photo }, index) => (
+                <article className="grid grid-cols-[3.25rem_1fr] gap-3 rounded-2xl border border-[color:var(--line)] bg-white/60 p-2" key={entry.id}>
+                  <div className="overflow-hidden rounded-xl bg-[color:var(--paper-soft)]">
+                    {photo && isRenderablePhoto(photo) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img alt={photo.caption ?? entry.title} className="h-14 w-full object-cover" src={photo.storageKey} />
+                    ) : (
+                      <div className="grid h-14 place-items-center text-xs text-[color:var(--muted)]">{index + 1}</div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="travel-kicker text-[0.65rem]">Moment {index + 1}</p>
+                    <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-[color:var(--ink)]">{entry.title}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
           <section className="travel-panel rounded-3xl p-5 sm:p-7">
             <SectionHeader kicker="Places" title="Saved stops" />
             <div className="mt-6">
