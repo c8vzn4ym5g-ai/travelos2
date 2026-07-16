@@ -81,6 +81,18 @@ a {
   letter-spacing: 0;
 }
 
+.travel-display {
+  font-family: Georgia, "Times New Roman", Cambria, serif;
+}
+
+.travel-body {
+  font-family: "Aptos", "Segoe UI", Arial, Helvetica, sans-serif;
+}
+
+.travel-label {
+  font-family: "Trebuchet MS", "Segoe UI", Arial, Helvetica, sans-serif;
+}
+
 .travel-kicker {
   color: var(--teal);
   font-weight: 700;

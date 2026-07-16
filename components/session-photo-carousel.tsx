@@ -8,7 +8,7 @@ type SessionPhoto = {
 };
 
 const fadeMs = 2200;
-const blankMs = 800;
+const blankMs = 300;
 const stayMs = 7000;
 
 export function SessionPhotoCarousel({ photos }: { photos: SessionPhoto[] }) {

@@ -131,7 +131,7 @@ function SessionCard({
           };
 
   return (
-    <article className={`flex min-h-[29rem] flex-col overflow-hidden rounded-xl border bg-white/95 shadow-sm ${tone.card}`}>
+    <article className={`travel-body flex min-h-[29rem] flex-col overflow-hidden rounded-xl border bg-white/95 shadow-sm ${tone.card}`}>
       <Link className="block border-b border-zinc-100 bg-stone-100 p-1" href={href}>
         {photoCount > 0 ? (
           <SessionPhotoCarousel photos={photos} />
@@ -142,11 +142,11 @@ function SessionCard({
         )}
       </Link>
       <div className="flex flex-1 flex-col p-6">
-        <p className={`text-xs font-semibold uppercase tracking-[0.14em] ${tone.eyebrow}`}>{eyebrow}</p>
-        <h2 className="mt-3 text-xl font-semibold leading-tight text-zinc-950 sm:text-2xl">{title}</h2>
+        <p className={`travel-label text-xs font-semibold uppercase tracking-[0.14em] ${tone.eyebrow}`}>{eyebrow}</p>
+        <h2 className="travel-display mt-3 text-xl font-semibold leading-tight text-zinc-950 sm:text-2xl">{title}</h2>
         <p className="mt-3 flex-1 text-sm leading-6 text-zinc-600">{description}</p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link className={`rounded-full border px-4 py-2.5 text-center text-sm font-semibold transition ${tone.action}`} href={href}>
+          <Link className={`travel-label rounded-full border px-4 py-2.5 text-center text-sm font-semibold transition ${tone.action}`} href={href}>
             {action}
           </Link>
         </div>
@@ -169,7 +169,7 @@ function LatestCoffeeItem({ shop }: { shop: CoffeeShopListItem }) {
         )}
       </Link>
       <div>
-        <p className="font-medium">{shop.name}</p>
+        <p className="travel-display font-medium">{shop.name}</p>
         <p className="mt-1 text-sm text-zinc-500">
           {shop.city}, {shop.country} / {shop.coffeeOrdered}
         </p>
@@ -193,7 +193,7 @@ function LatestTripItem({ trip }: { trip: TripDetail }) {
         )}
       </Link>
       <div>
-        <p className="font-medium">{trip.title}</p>
+        <p className="travel-display font-medium">{trip.title}</p>
         <p className="mt-1 text-sm text-zinc-500">
           {trip.city}, {trip.country}
         </p>
@@ -220,13 +220,13 @@ export default async function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f8f3ea] text-zinc-950">
+    <main className="travel-body min-h-screen bg-[#f8f3ea] text-zinc-950">
       <section className="border-b border-amber-100 bg-[radial-gradient(circle_at_top_left,_#e0f2fe_0,_transparent_28%),radial-gradient(circle_at_top_right,_#ffe4e6_0,_transparent_26%),linear-gradient(180deg,_#fffaf0_0%,_#f8f3ea_100%)]">
         <div className="mx-auto flex max-w-7xl flex-col gap-10 px-6 py-8 lg:px-10">
           <nav className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-amber-700">TravelOS</p>
-              <h1 className="mt-2 max-w-4xl text-4xl font-semibold tracking-normal text-zinc-950 sm:text-6xl">
+              <p className="travel-label text-sm font-medium uppercase tracking-[0.18em] text-amber-700">TravelOS</p>
+              <h1 className="travel-display mt-2 max-w-4xl text-4xl font-semibold tracking-normal text-zinc-950 sm:text-6xl">
                 Your travel and coffee memory system.
               </h1>
               <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-600">
@@ -235,13 +235,13 @@ export default async function Home() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link className="rounded-full border border-sky-200 bg-white/80 px-4 py-2 text-sm font-semibold text-sky-950 transition hover:bg-sky-50" href="/trips">
+              <Link className="travel-label rounded-full border border-sky-200 bg-white/80 px-4 py-2 text-sm font-semibold text-sky-950 transition hover:bg-sky-50" href="/trips">
                 Travel
               </Link>
-              <Link className="rounded-full border border-rose-200 bg-white/80 px-4 py-2 text-sm font-semibold text-rose-950 transition hover:bg-rose-50" href="/coffee">
+              <Link className="travel-label rounded-full border border-rose-200 bg-white/80 px-4 py-2 text-sm font-semibold text-rose-950 transition hover:bg-rose-50" href="/coffee">
                 Coffee
               </Link>
-              <Link className="rounded-full border border-indigo-200 bg-white/80 px-4 py-2 text-sm font-semibold text-indigo-950 transition hover:bg-indigo-50" href="/drive">
+              <Link className="travel-label rounded-full border border-indigo-200 bg-white/80 px-4 py-2 text-sm font-semibold text-indigo-950 transition hover:bg-indigo-50" href="/drive">
                 Drive
               </Link>
             </div>
@@ -257,10 +257,10 @@ export default async function Home() {
         <div className="rounded-lg border border-sky-100 bg-white/95 p-6 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase text-sky-700">Travel Journal</p>
-              <h2 className="mt-2 text-2xl font-semibold">Latest journeys</h2>
+              <p className="travel-label text-xs font-semibold uppercase text-sky-700">Travel Journal</p>
+              <h2 className="travel-display mt-2 text-2xl font-semibold">Latest journeys</h2>
             </div>
-            <Link className="rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-950" href="/trips">
+            <Link className="travel-label rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-950" href="/trips">
               View all
             </Link>
           </div>
@@ -281,10 +281,10 @@ export default async function Home() {
         <div className="rounded-lg border border-rose-100 bg-white/95 p-6 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase text-rose-700">Coffee Map</p>
-              <h2 className="mt-2 text-2xl font-semibold">Latest coffee notes</h2>
+              <p className="travel-label text-xs font-semibold uppercase text-rose-700">Coffee Map</p>
+              <h2 className="travel-display mt-2 text-2xl font-semibold">Latest coffee notes</h2>
             </div>
-            <Link className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-950" href="/coffee">
+            <Link className="travel-label rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-950" href="/coffee">
               View map
             </Link>
           </div>
