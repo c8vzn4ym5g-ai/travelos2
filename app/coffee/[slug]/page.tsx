@@ -51,7 +51,7 @@ export default async function CoffeeDetailPage({ params }: CoffeeDetailPageProps
             <Link className="text-sm font-medium text-teal-700" href="/coffee">
               Coffee Map
             </Link>
-            <span className="rounded-md bg-zinc-950 px-3 py-1 text-sm font-medium text-white">{shop.mood}</span>
+            <span className="rounded-md border border-amber-300 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-950">{shop.mood}</span>
           </div>
           <div className="grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-end">
             <div>
@@ -147,7 +147,7 @@ export default async function CoffeeDetailPage({ params }: CoffeeDetailPageProps
             <SectionHeader kicker="Quick actions" title="Useful links" />
             <div className="mt-6 grid gap-3">
               {shop.mapUrl ? (
-                <a className="rounded-md bg-zinc-950 px-4 py-3 text-center text-sm font-semibold text-white" href={shop.mapUrl}>
+                  <a className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-950" href={shop.mapUrl}>
                   Open map link
                 </a>
               ) : null}

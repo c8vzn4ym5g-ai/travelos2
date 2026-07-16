@@ -114,7 +114,7 @@ export default function NewCoffeePage() {
             <p className="text-xs font-semibold uppercase text-teal-700">Actions</p>
             <div className="mt-5 grid gap-3">
               <button
-                className="rounded-md bg-zinc-950 px-4 py-3 text-sm font-semibold text-white opacity-60"
+                className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950 opacity-60"
                 disabled
                 type="button"
               >

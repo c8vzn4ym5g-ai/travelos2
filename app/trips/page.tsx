@@ -59,13 +59,13 @@ function TripCard({ trip }: { trip: TripDetail }) {
   const href = articleHref(trip);
 
   return (
-    <article className="travel-panel grid overflow-hidden rounded-3xl transition hover:-translate-y-0.5 hover:shadow-[0_28px_70px_rgba(20,45,40,0.16)] lg:grid-cols-[18rem_1fr]">
+    <article className="travel-panel grid overflow-hidden rounded-3xl transition hover:-translate-y-0.5 hover:shadow-[0_28px_70px_rgba(20,45,40,0.16)] lg:grid-cols-[14rem_1fr]">
       <Link aria-label={`Open ${trip.title}`} className="block bg-[color:var(--paper-soft)]" href={href}>
         {coverPhoto ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img alt={coverPhoto.caption ?? trip.title} className="h-56 w-full object-cover sm:h-72 lg:h-full" src={coverPhoto.storageKey} />
+          <img alt={coverPhoto.caption ?? trip.title} className="h-48 w-full object-cover sm:h-56 lg:h-64" src={coverPhoto.storageKey} />
         ) : (
-          <div className="grid h-56 place-items-center bg-[color:var(--paper-soft)] p-4 text-sm font-medium text-[color:var(--muted)] sm:h-72 lg:h-full">
+          <div className="grid h-48 place-items-center bg-[color:var(--paper-soft)] p-4 text-sm font-medium text-[color:var(--muted)] sm:h-56 lg:h-64">
             Photo pending
           </div>
         )}

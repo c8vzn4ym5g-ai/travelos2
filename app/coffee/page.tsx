@@ -22,7 +22,7 @@ function CoffeeCard({ shop }: { shop: CoffeeShopListItem }) {
         <Link className="block overflow-hidden rounded-lg bg-stone-100" href={`/coffee/${shop.slug}`}>
           {shop.coverPhoto ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img alt={shop.coverPhoto.caption ?? shop.coverPhoto.originalFilename} className="h-44 w-full object-cover lg:h-full" src={shop.coverPhoto.storageKey} />
+            <img alt={shop.coverPhoto.caption ?? shop.coverPhoto.originalFilename} className="h-44 w-full object-cover lg:h-52" src={shop.coverPhoto.storageKey} />
           ) : (
             <div className="grid h-44 place-items-center px-4 text-center text-sm text-zinc-500">
               No photo yet
@@ -90,7 +90,7 @@ export default async function CoffeePage() {
                 <Link className="rounded-md border border-zinc-300 px-4 py-3 text-center text-sm font-semibold text-zinc-950" href="/coffee/map">
                   Map view
                 </Link>
-                <Link className="rounded-md bg-zinc-950 px-4 py-3 text-center text-sm font-semibold text-white" href="/coffee/new">
+                <Link className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-950" href="/coffee/new">
                   Add coffee shop
                 </Link>
                 <Link className="rounded-md border border-teal-700 px-4 py-3 text-center text-sm font-semibold text-teal-800" href="/coffee/admin">

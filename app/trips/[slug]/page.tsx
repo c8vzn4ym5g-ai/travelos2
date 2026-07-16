@@ -175,9 +175,9 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               </div>
             </div>
             {coverPhoto ? (
-              <div className="travel-photo overflow-hidden rounded-[1.75rem] bg-[color:var(--paper-soft)]">
+              <div className="travel-photo overflow-hidden rounded-[1.75rem] bg-[color:var(--paper-soft)] lg:max-w-[26rem]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img alt={coverPhoto.caption ?? trip.title} className="h-72 w-full object-cover sm:h-96 lg:h-[28rem]" src={coverPhoto.storageKey} />
+                <img alt={coverPhoto.caption ?? trip.title} className="aspect-[4/3] w-full object-cover" src={coverPhoto.storageKey} />
               </div>
             ) : null}
           </div>

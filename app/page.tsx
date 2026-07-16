@@ -86,19 +86,19 @@ function SessionCard({
   const supportingPhotos = visiblePhotos.slice(1);
 
   return (
-    <article className="flex min-h-[32rem] flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+    <article className="flex min-h-[29rem] flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
       <Link className="block border-b border-zinc-100 bg-stone-100 p-1" href={href}>
         {primaryPhoto ? (
           <div className="grid gap-1">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img alt={primaryPhoto.alt} className="h-44 w-full rounded-lg object-cover" src={primaryPhoto.src} />
+            <img alt={primaryPhoto.alt} className="h-40 w-full rounded-lg object-cover sm:h-44" src={primaryPhoto.src} />
             {supportingPhotos.length > 0 ? (
               <div className="grid grid-cols-2 gap-1">
                 {supportingPhotos.map((photo, index) => (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     alt={photo.alt}
-                    className="h-20 w-full rounded-md object-cover"
+                    className="h-16 w-full rounded-md object-cover"
                     key={`${photo.src}-${index}`}
                     src={photo.src}
                   />
@@ -107,17 +107,17 @@ function SessionCard({
             ) : null}
           </div>
         ) : (
-          <div className="grid h-64 place-items-center rounded-lg border border-zinc-200 bg-gradient-to-br from-slate-100 via-stone-50 to-amber-50 px-6 text-center text-sm text-zinc-500">
+          <div className="grid h-56 place-items-center rounded-lg border border-zinc-200 bg-gradient-to-br from-slate-100 via-stone-50 to-amber-50 px-6 text-center text-sm text-zinc-500">
             Visual preview coming soon
           </div>
         )}
       </Link>
       <div className="flex flex-1 flex-col p-6">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">{eyebrow}</p>
-        <h2 className="mt-3 text-2xl font-semibold leading-tight text-zinc-950">{title}</h2>
+        <h2 className="mt-3 text-xl font-semibold leading-tight text-zinc-950 sm:text-2xl">{title}</h2>
         <p className="mt-3 flex-1 text-sm leading-6 text-zinc-600">{description}</p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link className="rounded-full border border-slate-700 bg-slate-800 px-4 py-2.5 text-center text-sm font-semibold text-white" href={href}>
+          <Link className="rounded-full border border-amber-300 bg-amber-50 px-4 py-2.5 text-center text-sm font-semibold text-amber-950" href={href}>
             {action}
           </Link>
           <Link className="rounded-full border border-zinc-300 bg-white px-4 py-2.5 text-center text-sm font-semibold text-zinc-950" href={secondaryHref}>
@@ -239,12 +239,12 @@ export default async function Home() {
               <Link className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-800" href="/coffee">
                 Coffee
               </Link>
-              <Link className="rounded-full border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-semibold text-white" href="/drive">
+              <Link className="rounded-full border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-950" href="/drive">
                 Drive
               </Link>
             </div>
           </nav>
-          <div className="grid gap-4 xl:grid-cols-3">
+          <div className="grid gap-4 lg:grid-cols-3">
             {sessions.map((session) => (
               <SessionCard key={session.eyebrow} photos={sessionPhotosByHref[session.href] ?? []} {...session} />
             ))}

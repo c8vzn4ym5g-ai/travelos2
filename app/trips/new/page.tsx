@@ -6,7 +6,8 @@ import type { CostCategory, PlaceType, TravelVisibility, TripDetail } from "@/li
 
 const fieldClass =
   "mt-2 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-teal-700";
-const buttonClass = "rounded-md bg-zinc-950 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60";
+const buttonClass =
+  "rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950 disabled:cursor-not-allowed disabled:opacity-60";
 const secondaryButtonClass = "rounded-md border border-zinc-300 px-4 py-3 text-center text-sm font-semibold text-zinc-950";
 
 type DraftState = {

@@ -35,7 +35,7 @@ const textareaClass = `${inputClass} min-h-28 leading-6`;
 const smallButtonClass =
   "rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:border-teal-700 hover:text-teal-800 disabled:cursor-not-allowed disabled:opacity-40";
 const primaryButtonClass =
-  "rounded-full bg-zinc-950 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60";
+  "rounded-full border border-amber-300 bg-amber-50 px-5 py-3 text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60";
 const supportedUploadTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxUploadBytes = 4_500_000;
 
