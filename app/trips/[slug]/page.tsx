@@ -242,22 +242,21 @@ function VisitorScan({
   trip: { city: string; country: string; summary: string; slug: string; title: string };
 }) {
   return (
-    <section className="travel-soft-panel mt-5 rounded-[1.5rem] p-3">
-      <div className="grid gap-3">
+    <section className="travel-soft-panel mt-4 rounded-[1.25rem] p-2.5">
+      <div className="grid gap-2">
         <div>
           <p className="travel-kicker text-xs">Visitor scan</p>
-          <p className="mt-1 text-xs font-semibold text-amber-800">Before you read</p>
+          <p className="mt-0.5 text-[0.7rem] font-semibold text-amber-800">Before you read</p>
         </div>
-        <dl className="grid gap-2 text-sm sm:grid-cols-2">
+        <dl className="grid gap-1.5 text-xs sm:grid-cols-2">
         {[
-          ["Best for", "Winter mood, family memories, slow photos"],
           ["Season", season],
           ["Base", `${trip.city}, ${trip.country}`],
           ["Read", `${readingMinutes} min`],
-          ["Photo mood", featurePhotoCount > 0 ? "Snow, warm lights, Arctic quiet" : "Album ready"],
+          ["Photos", featurePhotoCount > 0 ? "Snow and warm lights" : "Album ready"],
         ].map(([label, value], index) => (
           <div
-            className={`rounded-2xl border px-3 py-2 ${
+            className={`rounded-xl border px-2.5 py-1.5 ${
               ["border-rose-100 bg-rose-50/80", "border-sky-100 bg-sky-50/80", "border-amber-100 bg-amber-50/80", "border-teal-100 bg-teal-50/80"][
                 index % 4
               ]
@@ -265,7 +264,7 @@ function VisitorScan({
             key={label}
           >
             <dt className="travel-kicker text-[0.65rem]">{label}</dt>
-            <dd className="mt-1 line-clamp-1 leading-5 text-[color:var(--muted)]">{value}</dd>
+            <dd className="mt-0.5 line-clamp-1 leading-4 text-[color:var(--muted)]">{value}</dd>
           </div>
         ))}
         </dl>
@@ -392,8 +391,8 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </Link>
             <span className="travel-chip rounded-full px-4 py-2 text-sm font-semibold">{trip.visibility}</span>
           </div>
-          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,26rem)] lg:items-start">
-            <div className="min-w-0">
+          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,26rem)] lg:items-stretch">
+            <div className="flex min-w-0 flex-col">
               <p className="travel-kicker text-sm">
                 {trip.country} / {trip.city}
               </p>
@@ -412,7 +411,9 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                   <MemoryChip key={label} label={label} tone={tone} value={value} />
                 ))}
               </div>
-              <VisitorScan featurePhotoCount={featurePhotos.length} readingMinutes={readingMinutes} season={seasonLabel} trip={trip} />
+              <div className="mt-auto pt-4">
+                <VisitorScan featurePhotoCount={featurePhotos.length} readingMinutes={readingMinutes} season={seasonLabel} trip={trip} />
+              </div>
             </div>
             <div className="grid gap-4 lg:max-w-[26rem]">
               {coverPhoto ? (
