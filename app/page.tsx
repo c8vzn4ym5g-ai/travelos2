@@ -72,26 +72,28 @@ function SessionCard({
   title: string;
 }) {
   const visiblePhotos = photos.slice(0, 3);
-  const primaryPhoto = visiblePhotos[0];
-  const supportingPhotos = visiblePhotos.slice(1);
+  const photoCount = visiblePhotos.length;
+  const rollDuration = `${Math.max(photoCount, 1) * 4}s`;
 
   return (
     <article className="flex min-h-[29rem] flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
       <Link className="block border-b border-zinc-100 bg-stone-100 p-1" href={href}>
-        {primaryPhoto ? (
-          <div className="grid gap-1">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img alt={primaryPhoto.alt} className="h-40 w-full rounded-lg object-cover sm:h-44" src={primaryPhoto.src} />
-            {supportingPhotos.length > 0 ? (
-              <div className="grid grid-cols-2 gap-1">
-                {supportingPhotos.map((photo, index) => (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    alt={photo.alt}
-                    className="h-16 w-full rounded-md object-cover"
-                    key={`${photo.src}-${index}`}
-                    src={photo.src}
-                  />
+        {photoCount > 0 ? (
+          <div className="session-photo-roll relative h-56 overflow-hidden rounded-lg">
+            {visiblePhotos.map((photo, index) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                alt={photo.alt}
+                className={`absolute inset-0 h-full w-full object-cover ${photoCount > 1 ? "session-photo-roll-image" : "opacity-100"}`}
+                key={`${photo.src}-${index}`}
+                src={photo.src}
+                style={photoCount > 1 ? { animationDelay: `${index * 4}s`, animationDuration: rollDuration } : undefined}
+              />
+            ))}
+            {photoCount > 1 ? (
+              <div className="absolute bottom-3 left-3 flex gap-1.5">
+                {visiblePhotos.map((photo, index) => (
+                  <span className="h-1.5 w-6 rounded-full bg-white/80 shadow-sm" key={`${photo.src}-dot-${index}`} />
                 ))}
               </div>
             ) : null}
@@ -200,7 +202,10 @@ export default async function Home() {
     .filter((item): item is { alt: string; href: string; label: string; src: string } => Boolean(item));
   const sessionPhotosByHref: Record<string, { alt: string; src: string }[]> = {
     "/coffee": coffeePhotoStrip.map((item) => ({ alt: item.alt, src: item.src })),
-    "/drive": [],
+    "/drive": [...travelPhotoStrip.slice(0, 2), ...coffeePhotoStrip.slice(0, 1)].map((item) => ({
+      alt: item.alt,
+      src: item.src,
+    })),
     "/trips": travelPhotoStrip.map((item) => ({ alt: item.alt, src: item.src })),
   };
 
