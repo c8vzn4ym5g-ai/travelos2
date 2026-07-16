@@ -353,7 +353,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
   const renderablePhotos = trip.photos.filter(isRenderablePhoto);
   const readingMinutes = getReadingMinutes(trip.journalEntries);
   const seasonLabel = getSeasonLabel(trip.startDate);
-  const heroSummary = clampWords(trip.summary, 58);
+  const heroSummary = clampWords(trip.summary, 88);
   const usedStoryPhotoIds = new Set<string>();
   const storyMoments = trip.journalEntries.map((entry, index) => {
     const photo = getBestStoryPhoto(entry, renderablePhotos, usedStoryPhotoIds);
@@ -392,16 +392,18 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             <span className="travel-chip rounded-full px-4 py-2 text-sm font-semibold">{trip.visibility}</span>
           </div>
           <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,26rem)] lg:items-stretch">
-            <div className="flex min-w-0 flex-col">
-              <p className="travel-kicker text-sm">
-                {trip.country} / {trip.city}
-              </p>
-              <h1 className="travel-hand mt-3 text-4xl font-semibold leading-tight sm:text-6xl">{trip.title}</h1>
-              <p className="travel-muted mt-5 max-w-3xl text-base leading-8 sm:text-lg">{heroSummary}</p>
-              <div className="mt-6">
-                <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
+            <div className="flex min-w-0 flex-col gap-4">
+              <div className="travel-soft-panel rounded-[1.5rem] p-4 sm:p-5">
+                <p className="travel-kicker text-sm">
+                  {trip.country} / {trip.city}
+                </p>
+                <h1 className="travel-hand mt-3 text-4xl font-semibold leading-tight sm:text-6xl">{trip.title}</h1>
+                <p className="travel-muted mt-5 max-w-none text-base leading-8 sm:text-lg">{heroSummary}</p>
+                <div className="mt-6">
+                  <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
+                </div>
               </div>
-              <div className="mt-5 flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2">
                 {[
                   ["Season", seasonLabel, "border-sky-100 bg-sky-50 text-sky-950"],
                   ["Mood", trip.journalEntries[0]?.mood ?? "Memory", "border-rose-100 bg-rose-50 text-rose-950"],
@@ -411,7 +413,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                   <MemoryChip key={label} label={label} tone={tone} value={value} />
                 ))}
               </div>
-              <div className="mt-auto pt-4">
+              <div className="mt-auto">
                 <VisitorScan featurePhotoCount={featurePhotos.length} readingMinutes={readingMinutes} season={seasonLabel} trip={trip} />
               </div>
             </div>
