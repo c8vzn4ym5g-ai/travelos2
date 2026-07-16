@@ -59,32 +59,32 @@ function TripCard({ trip }: { trip: TripDetail }) {
   const href = articleHref(trip);
 
   return (
-    <article className="travel-panel overflow-hidden rounded-[1.75rem] transition hover:scale-[1.003]">
-      <Link aria-label={`Open ${trip.title}`} className="block" href={href}>
+    <article className="travel-panel grid overflow-hidden rounded-3xl transition hover:-translate-y-0.5 hover:shadow-[0_28px_70px_rgba(20,45,40,0.16)] lg:grid-cols-[18rem_1fr]">
+      <Link aria-label={`Open ${trip.title}`} className="block bg-[color:var(--paper-soft)]" href={href}>
         {coverPhoto ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img alt={coverPhoto.caption ?? trip.title} className="h-52 w-full object-cover sm:h-72" src={coverPhoto.storageKey} />
+          <img alt={coverPhoto.caption ?? trip.title} className="h-56 w-full object-cover sm:h-72 lg:h-full" src={coverPhoto.storageKey} />
         ) : (
-          <div className="grid h-44 place-items-center bg-[color:var(--paper-soft)] p-4 text-sm font-medium text-[color:var(--muted)] sm:h-60">
+          <div className="grid h-56 place-items-center bg-[color:var(--paper-soft)] p-4 text-sm font-medium text-[color:var(--muted)] sm:h-72 lg:h-full">
             Photo pending
           </div>
         )}
       </Link>
 
       <div className="p-5 sm:p-7">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="grid gap-5 xl:grid-cols-[1fr_10rem]">
           <div className="min-w-0">
             <p className="travel-kicker text-xs">
               {trip.country} / {trip.city}
             </p>
-            <h2 className="travel-hand mt-2 text-2xl font-semibold text-[color:var(--ink)] sm:text-3xl">
+            <h2 className="travel-hand mt-2 text-2xl font-semibold leading-tight text-[color:var(--ink)] sm:text-3xl">
               <Link href={href}>{trip.title}</Link>
             </h2>
             <p className="travel-muted mt-3 text-sm leading-7">{trip.summary}</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-sm sm:min-w-36 sm:grid-cols-1">
-            <div className="travel-soft-panel rounded-2xl px-4 py-3">
+          <div className="grid grid-cols-2 gap-2 text-sm xl:grid-cols-1">
+            <div className="travel-soft-panel travel-accent rounded-2xl px-4 py-3">
               <p className="travel-muted text-xs">Rating</p>
               <p className="mt-1 font-semibold text-[color:var(--pine)]">{trip.rating ? `${trip.rating}/5` : "Unrated"}</p>
             </div>
@@ -115,7 +115,7 @@ export default async function TripsPage() {
   return (
     <main className="travel-shell">
       <section className="travel-hero">
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-9 lg:px-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Link className="travel-kicker text-sm" href="/">
               TravelOS
@@ -129,7 +129,7 @@ export default async function TripsPage() {
               </Link>
             </div>
           </div>
-          <div className="grid gap-4 lg:grid-cols-[1fr_18rem] lg:items-end">
+          <div className="grid gap-5 lg:grid-cols-[1fr_20rem] lg:items-end">
             <div className="min-w-0">
               <p className="travel-kicker text-sm">Journey library</p>
               <h1 className="travel-hand mt-2 text-4xl font-semibold tracking-normal sm:text-6xl">{ui.allJourneys}</h1>

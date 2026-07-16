@@ -53,7 +53,7 @@ function SectionHeader({ kicker, title }: { kicker: string; title: string }) {
   return (
     <div>
       <p className="travel-kicker text-xs">{kicker}</p>
-      <h2 className="travel-hand mt-2 text-3xl font-semibold text-[color:var(--ink)]">{title}</h2>
+      <h2 className="travel-hand mt-2 text-2xl font-semibold text-[color:var(--ink)] sm:text-3xl">{title}</h2>
     </div>
   );
 }
@@ -153,38 +153,38 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </Link>
             <span className="travel-chip rounded-full px-4 py-2 text-sm font-semibold">{trip.visibility}</span>
           </div>
-          <div className="grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-end">
+          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,26rem)] lg:items-start">
             <div className="min-w-0">
               <p className="travel-kicker text-sm">
                 {trip.country} / {trip.city}
               </p>
               <h1 className="travel-hand mt-3 text-4xl font-semibold leading-tight sm:text-6xl">{trip.title}</h1>
               <p className="travel-muted mt-5 max-w-3xl text-base leading-8 sm:text-lg">{trip.summary}</p>
+              <div className="mt-6 grid grid-cols-2 gap-3 text-sm lg:grid-cols-4">
+                {[
+                  ["Dates", formatDateRange(trip.startDate, trip.endDate)],
+                  ["Total", formatMoney(trip.totalCost)],
+                  ["Rating", trip.rating ? `${trip.rating}/5` : "Unrated"],
+                  ["Photos", String(trip.photos.length)],
+                ].map(([label, value], index) => (
+                  <div className={`travel-soft-panel rounded-2xl px-4 py-3 ${index === 0 ? "travel-accent" : ""}`} key={label}>
+                    <p className="travel-muted text-xs">{label}</p>
+                    <p className="mt-2 font-semibold text-[color:var(--pine)]">{value}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              {[
-                ["Dates", formatDateRange(trip.startDate, trip.endDate)],
-                ["Total", formatMoney(trip.totalCost)],
-                ["Rating", trip.rating ? `${trip.rating}/5` : "Unrated"],
-                ["Photos", String(trip.photos.length)],
-              ].map(([label, value]) => (
-                <div className="travel-soft-panel rounded-3xl px-4 py-3" key={label}>
-                  <p className="travel-muted text-xs">{label}</p>
-                  <p className="mt-2 font-semibold text-[color:var(--pine)]">{value}</p>
-                </div>
-              ))}
-            </div>
+            {coverPhoto ? (
+              <div className="travel-photo overflow-hidden rounded-[1.75rem] bg-[color:var(--paper-soft)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img alt={coverPhoto.caption ?? trip.title} className="h-72 w-full object-cover sm:h-96 lg:h-[28rem]" src={coverPhoto.storageKey} />
+              </div>
+            ) : null}
           </div>
-          {coverPhoto ? (
-            <div className="travel-photo overflow-hidden rounded-[2rem] bg-[color:var(--paper-soft)]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img alt={coverPhoto.caption ?? trip.title} className="h-72 w-full object-cover sm:h-[34rem]" src={coverPhoto.storageKey} />
-            </div>
-          ) : null}
           {featurePhotos.length > 1 ? (
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {featurePhotos.map((photo) => (
-                <article className="travel-soft-panel overflow-hidden rounded-[1.4rem]" data-music-zone={`${photo.caption ?? ""} ${photo.originalFilename}`} key={photo.id}>
+                <article className="travel-soft-panel overflow-hidden rounded-2xl" data-music-zone={`${photo.caption ?? ""} ${photo.originalFilename}`} key={photo.id}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img alt={photo.caption ?? photo.originalFilename} className="h-32 w-full object-cover sm:h-40" src={photo.storageKey} />
                   <p className="travel-muted p-3 text-xs leading-5 sm:text-sm">{photo.caption ?? photo.originalFilename}</p>
@@ -195,9 +195,9 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-6xl gap-7 px-4 py-7 sm:px-6 sm:py-10 lg:grid-cols-[1.1fr_0.9fr] lg:px-10">
-        <div className="space-y-7">
-          <section className="travel-panel rounded-[2rem] p-5 sm:p-7">
+      <section className="mx-auto grid max-w-6xl gap-6 px-4 py-7 sm:px-6 sm:py-10 lg:grid-cols-[minmax(0,1.25fr)_minmax(20rem,0.75fr)] lg:px-10">
+        <div className="space-y-6">
+          <section className="travel-panel rounded-3xl p-5 sm:p-7">
             <SectionHeader kicker="Overview" title="Trip memory" />
             <dl className="mt-6 grid gap-4 sm:grid-cols-2">
               {[
@@ -214,7 +214,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </dl>
           </section>
 
-          <section className="travel-panel rounded-[2rem] p-5 sm:p-7">
+          <section className="travel-panel rounded-3xl p-5 sm:p-7">
             <SectionHeader kicker="Journal" title="Narrative notes" />
             <div className="mt-7 space-y-6">
               {trip.journalEntries.map((entry) => (
@@ -232,7 +232,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </div>
           </section>
 
-          <section className="travel-panel rounded-[2rem] p-5 sm:p-7">
+          <section className="travel-panel rounded-3xl p-5 sm:p-7">
             <SectionHeader kicker="Album" title="Photo memories" />
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {trip.photos.map((photo) => (
@@ -242,8 +242,8 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           </section>
         </div>
 
-        <aside className="space-y-7">
-          <section className="travel-panel rounded-[2rem] p-5 sm:p-7">
+        <aside className="space-y-6">
+          <section className="travel-panel rounded-3xl p-5 sm:p-7">
             <SectionHeader kicker="Places" title="Saved stops" />
             <div className="mt-6">
               {trip.places.map((place) => (
@@ -251,7 +251,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               ))}
             </div>
           </section>
-          <section className="travel-panel rounded-[2rem] p-5 sm:p-7">
+          <section className="travel-panel rounded-3xl p-5 sm:p-7">
             <SectionHeader kicker="Costs" title="Tracked spend" />
             <div className="mt-6">
               {trip.costs.map((cost) => (
