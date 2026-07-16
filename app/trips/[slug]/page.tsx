@@ -241,12 +241,13 @@ function VisitorScan({
   trip: { city: string; country: string; summary: string; slug: string; title: string };
 }) {
   return (
-    <aside className="travel-soft-panel rounded-[1.5rem] p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="travel-kicker text-xs">Visitor scan</p>
-        <span className="rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-950">Before you read</span>
-      </div>
-      <dl className="mt-4 grid gap-2 text-sm">
+    <section className="travel-soft-panel rounded-[1.5rem] p-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-[9rem]">
+          <p className="travel-kicker text-xs">Visitor scan</p>
+          <p className="mt-1 text-xs font-semibold text-amber-800">Before you read</p>
+        </div>
+        <dl className="grid flex-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-5">
         {[
           ["Best for", "Winter mood, family memories, slow photos"],
           ["Season", season],
@@ -263,14 +264,12 @@ function VisitorScan({
             key={label}
           >
             <dt className="travel-kicker text-[0.65rem]">{label}</dt>
-            <dd className="mt-1 leading-5 text-[color:var(--muted)]">{value}</dd>
+            <dd className="mt-1 line-clamp-1 leading-5 text-[color:var(--muted)]">{value}</dd>
           </div>
         ))}
-      </dl>
-      <div className="mt-4">
-        <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
+        </dl>
       </div>
-    </aside>
+    </section>
   );
 }
 
@@ -414,17 +413,13 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               </div>
             </div>
             {coverPhoto ? (
-              <div className="grid gap-4 lg:max-w-[26rem]">
-                <div className="travel-photo overflow-hidden rounded-[1.75rem] bg-[color:var(--paper-soft)]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img alt={coverPhoto.caption ?? trip.title} className="aspect-[4/3] w-full object-cover" src={coverPhoto.storageKey} />
-                </div>
-                <VisitorScan featurePhotoCount={featurePhotos.length} readingMinutes={readingMinutes} season={seasonLabel} trip={trip} />
+              <div className="travel-photo overflow-hidden rounded-[1.75rem] bg-[color:var(--paper-soft)] lg:max-w-[26rem]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img alt={coverPhoto.caption ?? trip.title} className="aspect-[4/3] w-full object-cover" src={coverPhoto.storageKey} />
               </div>
-            ) : (
-              <VisitorScan featurePhotoCount={featurePhotos.length} readingMinutes={readingMinutes} season={seasonLabel} trip={trip} />
-            )}
+            ) : null}
           </div>
+          <VisitorScan featurePhotoCount={featurePhotos.length} readingMinutes={readingMinutes} season={seasonLabel} trip={trip} />
           {featurePhotos.length > 1 ? (
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {featurePhotos.map((photo) => (
