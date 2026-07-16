@@ -202,10 +202,7 @@ export default async function Home() {
     .filter((item): item is { alt: string; href: string; label: string; src: string } => Boolean(item));
   const sessionPhotosByHref: Record<string, { alt: string; src: string }[]> = {
     "/coffee": coffeePhotoStrip.map((item) => ({ alt: item.alt, src: item.src })),
-    "/drive": [...travelPhotoStrip.slice(0, 2), ...coffeePhotoStrip.slice(0, 1)].map((item) => ({
-      alt: item.alt,
-      src: item.src,
-    })),
+    "/drive": [],
     "/trips": travelPhotoStrip.map((item) => ({ alt: item.alt, src: item.src })),
   };
 
