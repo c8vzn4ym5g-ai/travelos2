@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { TravelOSContent } from "@/lib/editable-store";
-import type { TravelVisibility, TripDetail } from "@/lib/types";
+import type { JournalEntry, Photo, TravelVisibility, TripDetail } from "@/lib/types";
 
 type TravelContentResponse = {
   content: TravelOSContent;
@@ -15,6 +15,8 @@ type TravelContentResponse = {
 
 type TripTextField = "city" | "country" | "slug" | "summary" | "title";
 type TripDateField = "endDate" | "startDate";
+type JournalTextField = "body" | "entryDate" | "mood" | "title" | "weatherSummary";
+type PhotoTextField = "caption" | "originalFilename" | "takenAt";
 
 const adminSessionKey = "travelos-admin-pin";
 const inputClass =
@@ -24,6 +26,16 @@ const primaryButtonClass =
   "travel-label rounded-full border border-sky-300 bg-sky-50 px-5 py-3 text-sm font-semibold text-sky-950 shadow-sm transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60";
 const smallButtonClass =
   "travel-label rounded-full border border-sky-200 bg-white px-3 py-2 text-xs font-semibold text-sky-900 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-40";
+const supportedUploadTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const maxUploadBytes = 4_500_000;
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function makeId(prefix: string) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
 function Field({
   label,
@@ -66,6 +78,160 @@ function toDateInput(value: string) {
   return value ? value.slice(0, 10) : "";
 }
 
+function toDateTimeInput(value: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function fromDateTimeInput(value: string) {
+  return value ? new Date(value).toISOString() : null;
+}
+
+function isRenderablePhoto(photo: Photo) {
+  return photo.storageKey.startsWith("http") || photo.storageKey.startsWith("/");
+}
+
+function replaceTrip(trips: TripDetail[], tripId: string, updater: (trip: TripDetail) => TripDetail) {
+  return trips.map((trip) =>
+    trip.id === tripId
+      ? {
+          ...updater(trip),
+          updatedAt: nowIso(),
+        }
+      : trip,
+  );
+}
+
+function moveItem<T>(items: T[], index: number, direction: -1 | 1) {
+  const nextIndex = index + direction;
+  if (nextIndex < 0 || nextIndex >= items.length) {
+    return items;
+  }
+
+  const next = [...items];
+  const [item] = next.splice(index, 1);
+  next.splice(nextIndex, 0, item);
+  return next;
+}
+
+function waitWithTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeout);
+        resolve(value);
+      },
+      (error: unknown) => {
+        window.clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
+}
+
+async function resizePhotoForUpload(file: File) {
+  if (!supportedUploadTypes.has(file.type)) {
+    throw new Error("Please use JPG, PNG, or WebP. Phone HEIC photos need to be converted before upload.");
+  }
+
+  if (!file.type.startsWith("image/") || file.size < 1_500_000) {
+    return file;
+  }
+
+  const imageUrl = URL.createObjectURL(file);
+
+  try {
+    const image = new Image();
+    image.src = imageUrl;
+    await waitWithTimeout(image.decode(), 12000, "Photo preparation timed out. Try a smaller JPG photo.");
+
+    const maxSide = 1800;
+    const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return file;
+    }
+
+    context.drawImage(image, 0, 0, width, height);
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
+    if (!blob || blob.size >= file.size) {
+      return file;
+    }
+
+    const filename = file.name.replace(/\.[^.]+$/, "") || "trip-photo";
+    return new File([blob], `${filename}.jpg`, { type: "image/jpeg" });
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
+
+function uploadTripPhotoWithProgress(
+  formData: FormData,
+  pin: string,
+  onProgress: (progress: number) => void,
+): Promise<{ content: TravelOSContent; photo: Photo }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const timeout = window.setTimeout(() => {
+      xhr.abort();
+      reject(new DOMException("Photo upload timed out.", "AbortError"));
+    }, 45000);
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) {
+        onProgress(1);
+        return;
+      }
+
+      onProgress(Math.max(1, Math.min(99, Math.round((event.loaded / event.total) * 100))));
+    };
+
+    xhr.onload = () => {
+      window.clearTimeout(timeout);
+      const data = JSON.parse(xhr.responseText || "{}") as { content?: TravelOSContent; error?: string; photo?: Photo };
+
+      if (xhr.status < 200 || xhr.status >= 300 || !data.content || !data.photo) {
+        reject(new Error(data.error ?? "Photo upload failed."));
+        return;
+      }
+
+      onProgress(100);
+      resolve({ content: data.content, photo: data.photo });
+    };
+
+    xhr.onerror = () => {
+      window.clearTimeout(timeout);
+      reject(new Error("Network failed during photo upload."));
+    };
+
+    xhr.onabort = () => {
+      window.clearTimeout(timeout);
+      reject(new DOMException("Photo upload timed out.", "AbortError"));
+    };
+
+    xhr.open("POST", "/api/trips/photos");
+    xhr.setRequestHeader("x-travelos-admin-pin", pin);
+    xhr.send(formData);
+  });
+}
+
 export default function TravelAdminPage() {
   const [pin, setPin] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
@@ -75,6 +241,8 @@ export default function TravelAdminPage() {
   const [configured, setConfigured] = useState(false);
   const [source, setSource] = useState<"blob" | "seed">("seed");
   const [saving, setSaving] = useState(false);
+  const [uploadingTripId, setUploadingTripId] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [message, setMessage] = useState("Unlock admin to edit existing trips or create a new draft.");
 
   useEffect(() => {
@@ -151,6 +319,14 @@ export default function TravelAdminPage() {
     );
   }
 
+  function updateActiveTrip(updater: (trip: TripDetail) => TripDetail) {
+    if (!activeTrip) {
+      return;
+    }
+
+    setTrips((current) => replaceTrip(current, activeTrip.id, updater));
+  }
+
   function updateVisibility(value: TravelVisibility) {
     if (!activeTrip) {
       return;
@@ -185,6 +361,156 @@ export default function TravelAdminPage() {
           : trip,
       ),
     );
+  }
+
+  function addJournalEntry() {
+    if (!activeTrip) {
+      return;
+    }
+
+    const now = nowIso();
+    const entry: JournalEntry = {
+      id: makeId("journal"),
+      tripId: activeTrip.id,
+      title: "New journal note",
+      body: "Write the memory here.",
+      entryDate: activeTrip.startDate || now.slice(0, 10),
+      mood: null,
+      weatherSummary: null,
+      aiSummary: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    updateActiveTrip((trip) => ({ ...trip, journalEntries: [entry, ...trip.journalEntries] }));
+    setMessage("New journal entry added. Edit it, then save trip changes.");
+  }
+
+  function updateJournalEntry(entryId: string, field: JournalTextField, value: string) {
+    updateActiveTrip((trip) => ({
+      ...trip,
+      journalEntries: trip.journalEntries.map((entry) =>
+        entry.id === entryId
+          ? {
+              ...entry,
+              [field]: field === "mood" || field === "weatherSummary" ? value || null : value,
+              updatedAt: nowIso(),
+            }
+          : entry,
+      ),
+    }));
+  }
+
+  function removeJournalEntry(entryId: string) {
+    updateActiveTrip((trip) => ({
+      ...trip,
+      journalEntries: trip.journalEntries.filter((entry) => entry.id !== entryId),
+    }));
+  }
+
+  function moveJournalEntry(index: number, direction: -1 | 1) {
+    updateActiveTrip((trip) => ({ ...trip, journalEntries: moveItem(trip.journalEntries, index, direction) }));
+  }
+
+  function updatePhoto(photoId: string, field: PhotoTextField, value: string) {
+    updateActiveTrip((trip) => ({
+      ...trip,
+      photos: trip.photos.map((photo) =>
+        photo.id === photoId
+          ? {
+              ...photo,
+              [field]: field === "caption" ? value || null : field === "takenAt" ? fromDateTimeInput(value) : value,
+            }
+          : photo,
+      ),
+    }));
+  }
+
+  function removePhoto(photoId: string) {
+    updateActiveTrip((trip) => ({
+      ...trip,
+      coverPhotoId: trip.coverPhotoId === photoId ? null : trip.coverPhotoId,
+      photos: trip.photos.filter((photo) => photo.id !== photoId),
+    }));
+  }
+
+  function movePhoto(index: number, direction: -1 | 1) {
+    updateActiveTrip((trip) => ({ ...trip, photos: moveItem(trip.photos, index, direction) }));
+  }
+
+  function setCoverPhoto(photoId: string) {
+    updateActiveTrip((trip) => ({ ...trip, coverPhotoId: photoId }));
+  }
+
+  async function uploadPhoto(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!activeTrip) {
+      return;
+    }
+
+    setUploadingTripId(activeTrip.id);
+    setUploadProgress(null);
+    setMessage("Preparing selected trip photo...");
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const selectedFile = formData.get("file");
+
+    if (!(selectedFile instanceof File)) {
+      setMessage("Choose a photo file first.");
+      setUploadingTripId(null);
+      return;
+    }
+
+    try {
+      const uploadFile = await resizePhotoForUpload(selectedFile);
+      if (uploadFile.size > maxUploadBytes) {
+        setMessage("Photo is still too large after compression. Please choose a smaller JPG, PNG, or WebP photo.");
+        return;
+      }
+
+      formData.set("file", uploadFile);
+      formData.set("tripId", activeTrip.id);
+      setMessage("Saving trip before photo upload...");
+
+      const saveResponse = await fetch("/api/trips/content", {
+        body: JSON.stringify({ trip: activeTrip }),
+        headers: {
+          "content-type": "application/json",
+          "x-travelos-admin-pin": pin,
+        },
+        method: "PUT",
+      });
+
+      if (!saveResponse.ok) {
+        const data = (await saveResponse.json()) as { error?: string };
+        setMessage(data.error ?? "Save before photo upload failed.");
+        return;
+      }
+
+      setUploadProgress(0);
+      setMessage("Uploading trip photo: 0%");
+
+      const data = await uploadTripPhotoWithProgress(formData, pin, (progress) => {
+        setUploadProgress(progress);
+        setMessage(`Uploading trip photo: ${progress}%`);
+      });
+      setTrips(data.content.trips);
+      setActiveTripId(activeTrip.id);
+      form.reset();
+      setMessage(`Photo uploaded: ${data.photo.originalFilename}`);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : error instanceof DOMException && error.name === "AbortError"
+            ? "Photo upload timed out. Try a smaller photo."
+            : "Photo upload failed. Try another image.",
+      );
+    } finally {
+      setUploadingTripId(null);
+      setUploadProgress(null);
+    }
   }
 
   async function saveActiveTrip() {
@@ -360,6 +686,130 @@ export default function TravelAdminPage() {
                 </p>
               </div>
             </div>
+            <section className="mt-8 rounded-xl border border-sky-100 bg-sky-50/40 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <SectionTitle eyebrow="Journal" title="Trip journal entries" />
+                <button className={smallButtonClass} onClick={addJournalEntry} type="button">
+                  Add journal entry
+                </button>
+              </div>
+              <div className="mt-5 grid gap-4">
+                {activeTrip.journalEntries.map((entry, index) => (
+                  <article className="rounded-xl border border-sky-100 bg-white p-4" key={entry.id}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="travel-label text-xs font-semibold uppercase text-sky-700">Entry {index + 1}</p>
+                      <div className="flex flex-wrap gap-2">
+                        <button className={smallButtonClass} disabled={index === 0} onClick={() => moveJournalEntry(index, -1)} type="button">
+                          Move up
+                        </button>
+                        <button
+                          className={smallButtonClass}
+                          disabled={index === activeTrip.journalEntries.length - 1}
+                          onClick={() => moveJournalEntry(index, 1)}
+                          type="button"
+                        >
+                          Move down
+                        </button>
+                        <button className={smallButtonClass} onClick={() => removeJournalEntry(entry.id)} type="button">
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-4">
+                      <Field label="Entry title" onChange={(value) => updateJournalEntry(entry.id, "title", value)} value={entry.title} />
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <Field label="Entry date" onChange={(value) => updateJournalEntry(entry.id, "entryDate", value)} type="date" value={toDateInput(entry.entryDate)} />
+                        <Field label="Mood" onChange={(value) => updateJournalEntry(entry.id, "mood", value)} value={entry.mood ?? ""} />
+                        <Field label="Weather" onChange={(value) => updateJournalEntry(entry.id, "weatherSummary", value)} value={entry.weatherSummary ?? ""} />
+                      </div>
+                      <TextArea label="Journal body" onChange={(value) => updateJournalEntry(entry.id, "body", value)} value={entry.body} />
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+            <section className="mt-8 rounded-xl border border-sky-100 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <SectionTitle eyebrow="Album" title="Trip photos" />
+                <span className="rounded-full bg-sky-50 px-3 py-2 text-xs font-semibold text-zinc-600">{activeTrip.photos.length} photos</span>
+              </div>
+              <form className="mt-5 rounded-xl border border-dashed border-sky-200 bg-sky-50/60 p-4" onSubmit={uploadPhoto}>
+                <div className="grid gap-4 xl:grid-cols-[minmax(22rem,1.4fr)_minmax(16rem,1fr)_13rem] xl:items-end">
+                  <label className="block min-w-0">
+                    <span className="travel-label text-sm font-semibold text-zinc-700">Upload photo</span>
+                    <input
+                      accept="image/jpeg,image/png,image/webp"
+                      className={`${inputClass} file:mr-3 file:rounded-full file:border-0 file:bg-sky-800 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white`}
+                      name="file"
+                      required
+                      type="file"
+                    />
+                  </label>
+                  <label className="block min-w-0">
+                    <span className="travel-label text-sm font-semibold text-zinc-700">Caption</span>
+                    <input className={inputClass} name="caption" placeholder="Snow road outside Rovaniemi" />
+                  </label>
+                  <label className="block">
+                    <span className="travel-label text-sm font-semibold text-zinc-700">Taken at</span>
+                    <input className={inputClass} name="takenAt" type="datetime-local" />
+                  </label>
+                </div>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs leading-5 text-zinc-500">JPG, PNG, or WebP only. Large photos are compressed before upload.</p>
+                  <button className={`${primaryButtonClass} min-w-32`} disabled={uploadingTripId === activeTrip.id} type="submit">
+                    {uploadingTripId === activeTrip.id ? "Uploading" : "Upload"}
+                  </button>
+                </div>
+              </form>
+              {uploadingTripId === activeTrip.id && uploadProgress !== null ? (
+                <div className="mt-4 rounded-xl border border-sky-100 bg-white p-3">
+                  <div className="h-2 overflow-hidden rounded-full bg-sky-100">
+                    <div className="h-full rounded-full bg-sky-700 transition-all" style={{ width: `${uploadProgress}%` }} />
+                  </div>
+                  <p className="mt-2 text-xs font-semibold text-zinc-600">{uploadProgress}% uploaded</p>
+                </div>
+              ) : null}
+              <div className="mt-5 grid gap-4">
+                {activeTrip.photos.map((photo, index) => (
+                  <article className="grid gap-4 rounded-xl border border-sky-100 bg-sky-50/50 p-4 lg:grid-cols-[14rem_1fr]" key={photo.id}>
+                    <div className="overflow-hidden rounded-xl bg-white">
+                      {isRenderablePhoto(photo) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img alt={photo.caption ?? photo.originalFilename} className="h-44 w-full object-cover" src={photo.storageKey} />
+                      ) : (
+                        <div className="grid h-44 place-items-center text-sm text-zinc-500">Photo pending</div>
+                      )}
+                    </div>
+                    <div className="grid gap-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-zinc-700">
+                          Photo {index + 1} {photo.id === activeTrip.coverPhotoId ? "/ Cover" : ""}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <button className={smallButtonClass} disabled={photo.id === activeTrip.coverPhotoId} onClick={() => setCoverPhoto(photo.id)} type="button">
+                            Set cover
+                          </button>
+                          <button className={smallButtonClass} disabled={index === 0} onClick={() => movePhoto(index, -1)} type="button">
+                            Move up
+                          </button>
+                          <button className={smallButtonClass} disabled={index === activeTrip.photos.length - 1} onClick={() => movePhoto(index, 1)} type="button">
+                            Move down
+                          </button>
+                          <button className={smallButtonClass} onClick={() => removePhoto(photo.id)} type="button">
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                      <TextArea label="Caption" onChange={(value) => updatePhoto(photo.id, "caption", value)} value={photo.caption ?? ""} />
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="Filename" onChange={(value) => updatePhoto(photo.id, "originalFilename", value)} value={photo.originalFilename} />
+                        <Field label="Taken at" onChange={(value) => updatePhoto(photo.id, "takenAt", value)} type="datetime-local" value={toDateTimeInput(photo.takenAt)} />
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
           </section>
         ) : (
           <section className="rounded-xl border border-sky-100 bg-white/95 p-5 shadow-sm">
