@@ -45,31 +45,100 @@ function transportLabel(transport: TravelRouteSegment["transport"]) {
   return labels[transport];
 }
 
-function getBounds(points: GeoPoint[]) {
+function getGeoBounds(points: GeoPoint[]) {
   const latitudes = points.map((point) => point.latitude);
   const longitudes = points.map((point) => point.longitude);
-  const minLat = Math.min(...latitudes);
-  const maxLat = Math.max(...latitudes);
-  const minLng = Math.min(...longitudes);
-  const maxLng = Math.max(...longitudes);
-  const latPad = Math.max((maxLat - minLat) * 0.18, 0.03);
-  const lngPad = Math.max((maxLng - minLng) * 0.18, 0.03);
 
   return {
-    maxLat: maxLat + latPad,
-    maxLng: maxLng + lngPad,
-    minLat: minLat - latPad,
-    minLng: minLng - lngPad,
+    maxLat: Math.max(...latitudes),
+    maxLng: Math.max(...longitudes),
+    minLat: Math.min(...latitudes),
+    minLng: Math.min(...longitudes),
   };
 }
 
-function project(point: GeoPoint, bounds: ReturnType<typeof getBounds>) {
-  const x = ((point.longitude - bounds.minLng) / Math.max(bounds.maxLng - bounds.minLng, 0.0001)) * 100;
-  const y = (1 - (point.latitude - bounds.minLat) / Math.max(bounds.maxLat - bounds.minLat, 0.0001)) * 100;
+function chooseZoom(points: GeoPoint[]) {
+  const bounds = getGeoBounds(points);
+  const span = Math.max(bounds.maxLat - bounds.minLat, bounds.maxLng - bounds.minLng);
+
+  if (span > 8) {
+    return 5;
+  }
+
+  if (span > 3) {
+    return 6;
+  }
+
+  if (span > 1.2) {
+    return 7;
+  }
+
+  if (span > 0.45) {
+    return 9;
+  }
+
+  return 11;
+}
+
+function longitudeToTileX(longitude: number, zoom: number) {
+  return ((longitude + 180) / 360) * 2 ** zoom;
+}
+
+function latitudeToTileY(latitude: number, zoom: number) {
+  const radians = (latitude * Math.PI) / 180;
+  return ((1 - Math.log(Math.tan(radians) + 1 / Math.cos(radians)) / Math.PI) / 2) * 2 ** zoom;
+}
+
+function getTileBounds(points: GeoPoint[]) {
+  const zoom = chooseZoom(points);
+  const xs = points.map((point) => longitudeToTileX(point.longitude, zoom));
+  const ys = points.map((point) => latitudeToTileY(point.latitude, zoom));
+  const xSpan = Math.max(...xs) - Math.min(...xs);
+  const ySpan = Math.max(...ys) - Math.min(...ys);
+  const pad = Math.max(0.35, Math.max(xSpan, ySpan) * 0.18);
 
   return {
-    x: Math.min(94, Math.max(6, x)),
-    y: Math.min(88, Math.max(12, y)),
+    maxX: Math.max(...xs) + pad,
+    maxY: Math.max(...ys) + pad,
+    minX: Math.min(...xs) - pad,
+    minY: Math.min(...ys) - pad,
+    zoom,
+  };
+}
+
+function getMapTiles(bounds: ReturnType<typeof getTileBounds>) {
+  const tileCount = 2 ** bounds.zoom;
+  const minX = Math.floor(bounds.minX);
+  const maxX = Math.floor(bounds.maxX);
+  const minY = Math.max(0, Math.floor(bounds.minY));
+  const maxY = Math.min(tileCount - 1, Math.floor(bounds.maxY));
+
+  return Array.from({ length: maxY - minY + 1 }).flatMap((_, rowIndex) =>
+    Array.from({ length: maxX - minX + 1 }).map((__, columnIndex) => {
+      const x = minX + columnIndex;
+      const y = minY + rowIndex;
+      const wrappedX = ((x % tileCount) + tileCount) % tileCount;
+      return {
+        key: `${bounds.zoom}-${wrappedX}-${y}`,
+        src: `https://tile.openstreetmap.org/${bounds.zoom}/${wrappedX}/${y}.png`,
+        style: {
+          height: `${(1 / Math.max(bounds.maxY - bounds.minY, 0.0001)) * 100}%`,
+          left: `${((x - bounds.minX) / Math.max(bounds.maxX - bounds.minX, 0.0001)) * 100}%`,
+          top: `${((y - bounds.minY) / Math.max(bounds.maxY - bounds.minY, 0.0001)) * 100}%`,
+          width: `${(1 / Math.max(bounds.maxX - bounds.minX, 0.0001)) * 100}%`,
+        },
+      };
+    }),
+  );
+}
+
+function project(point: GeoPoint, bounds: ReturnType<typeof getTileBounds>) {
+  const x = ((longitudeToTileX(point.longitude, bounds.zoom) - bounds.minX) / Math.max(bounds.maxX - bounds.minX, 0.0001)) * 100;
+  const y = ((latitudeToTileY(point.latitude, bounds.zoom) - bounds.minY) / Math.max(bounds.maxY - bounds.minY, 0.0001)) * 100;
+
+  return {
+    x: Math.min(96, Math.max(4, x)),
+    y: Math.min(92, Math.max(8, y)),
   };
 }
 
@@ -120,7 +189,8 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
     ...pins.map((pin) => pin.point),
     ...visibleRoute.flatMap((segment) => [segment.from, segment.to]),
   ];
-  const bounds = getBounds(mapPoints.length > 0 ? mapPoints : center ? [center] : [{ latitude: 0, longitude: 0 }]);
+  const bounds = getTileBounds(mapPoints.length > 0 ? mapPoints : center ? [center] : [{ latitude: 0, longitude: 0 }]);
+  const mapTiles = getMapTiles(bounds);
   const defaultSelection = pins[1]?.id ?? pins[0]?.id ?? visibleRoute[0]?.id ?? null;
   const [selectedId, setSelectedId] = useState<string | null>(defaultSelection);
   const selectedPin = pins.find((pin) => pin.id === selectedId);
@@ -151,10 +221,23 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
       </div>
 
       <div className="grid gap-0 lg:grid-cols-[1fr_11rem]">
-        <div className="relative min-h-[18rem] bg-[linear-gradient(135deg,#e0f2fe_0%,#fef3c7_48%,#dcfce7_100%)]">
-          <div className="absolute inset-0 opacity-35 [background-image:linear-gradient(rgba(255,255,255,.7)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.7)_1px,transparent_1px)] [background-size:22px_22px]" />
+        <div className="relative min-h-[18rem] overflow-hidden bg-[#dbeafe]">
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,#dbeafe_0%,#dcfce7_100%)]" />
+          {mapTiles.map((tile) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt=""
+              className="absolute max-w-none select-none object-cover"
+              draggable={false}
+              key={tile.key}
+              loading="lazy"
+              src={tile.src}
+              style={tile.style}
+            />
+          ))}
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.28))]" />
           <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-            {visibleRoute.map((segment, index) => {
+            {visibleRoute.map((segment) => {
               const from = project(segment.from, bounds);
               const to = project(segment.to, bounds);
               const isSelected = selectedId === segment.id;
@@ -165,10 +248,27 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
                   fill="none"
                   key={segment.id}
                   onClick={() => setSelectedId(segment.id)}
-                  stroke={isSelected ? "#0f766e" : "#2563eb"}
+                  stroke="rgba(255,255,255,.92)"
+                  strokeLinecap="round"
+                  strokeWidth={isSelected ? 2.6 : 2}
+                />
+              );
+            })}
+            {visibleRoute.map((segment, index) => {
+              const from = project(segment.from, bounds);
+              const to = project(segment.to, bounds);
+              const isSelected = selectedId === segment.id;
+              return (
+                <path
+                  className="cursor-pointer transition"
+                  d={getRoutePath(from, to)}
+                  fill="none"
+                  key={`${segment.id}-line`}
+                  onClick={() => setSelectedId(segment.id)}
+                  stroke={isSelected ? "#dc2626" : "#2563eb"}
                   strokeDasharray={segment.transport === "flight" ? "3 3" : undefined}
                   strokeLinecap="round"
-                  strokeWidth={isSelected ? 1.6 : 1.05}
+                  strokeWidth={isSelected ? 1.65 : 1.15}
                 >
                   <title>{`${index + 1}. ${segment.fromLabel} to ${segment.toLabel}`}</title>
                 </path>
@@ -199,6 +299,14 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
           <div className="absolute bottom-3 left-3 rounded-2xl border border-white/80 bg-white/85 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm">
             Tap pins or route lines
           </div>
+          <a
+            className="absolute bottom-3 right-3 rounded-full bg-white/85 px-2 py-1 text-[0.62rem] font-semibold text-slate-600 shadow-sm"
+            href="https://www.openstreetmap.org/copyright"
+            rel="noreferrer"
+            target="_blank"
+          >
+            OpenStreetMap
+          </a>
         </div>
 
         <aside className="border-t border-white/70 bg-white/75 p-3 lg:border-l lg:border-t-0">
