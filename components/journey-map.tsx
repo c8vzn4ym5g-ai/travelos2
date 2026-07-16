@@ -9,6 +9,7 @@ type MapPin = {
   point: GeoPoint;
   note: string | null;
   kind: "base" | "place" | "photo";
+  routeOrder?: number;
   photo?: Photo;
   journal?: JournalEntry;
 };
@@ -153,13 +154,34 @@ function getRoutePath(from: ReturnType<typeof project>, to: ReturnType<typeof pr
   return `M ${from.x} ${from.y} Q ${controlX} ${controlY} ${to.x} ${to.y}`;
 }
 
+function pointKey(point: GeoPoint) {
+  return `${point.latitude.toFixed(4)},${point.longitude.toFixed(4)}`;
+}
+
+function getRoutePointOrder(route: TravelRouteSegment[]) {
+  const order = new Map<string, number>();
+
+  route.forEach((segment) => {
+    [segment.from, segment.to].forEach((point) => {
+      const key = pointKey(point);
+      if (!order.has(key)) {
+        order.set(key, order.size + 1);
+      }
+    });
+  });
+
+  return order;
+}
+
 export function JourneyMap({ center, city, country, journalEntries, photos, places, route, title }: JourneyMapProps) {
   const visibleRoute = route.filter(isVisibleRoute);
   const pins = useMemo<MapPin[]>(() => {
+    const routePointOrder = getRoutePointOrder(visibleRoute);
     const placePins = places
       .filter((place) => place.coordinates)
       .map((place) => {
         const linkedPhoto = photos.find((photo) => photo.coordinates && photo.coordinates.latitude === place.coordinates?.latitude && photo.coordinates.longitude === place.coordinates?.longitude);
+        const routeOrder = place.coordinates ? routePointOrder.get(pointKey(place.coordinates)) : undefined;
         return {
           id: place.id,
           kind: "place" as const,
@@ -167,7 +189,23 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
           note: place.notes,
           photo: linkedPhoto,
           point: place.coordinates as GeoPoint,
+          routeOrder,
         };
+      })
+      .sort((first, second) => {
+        if (first.routeOrder && second.routeOrder) {
+          return first.routeOrder - second.routeOrder;
+        }
+
+        if (first.routeOrder) {
+          return -1;
+        }
+
+        if (second.routeOrder) {
+          return 1;
+        }
+
+        return first.label.localeCompare(second.label);
       });
     const basePin = center
       ? [
@@ -182,7 +220,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
       : [];
 
     return [...basePin, ...placePins];
-  }, [center, city, country, photos, places]);
+  }, [center, city, country, photos, places, visibleRoute]);
   const routePhotos = useMemo(() => new Map(photos.map((photo) => [photo.id, photo])), [photos]);
   const routeEntries = useMemo(() => new Map(journalEntries.map((entry) => [entry.id, entry])), [journalEntries]);
   const mapPoints = [
@@ -292,7 +330,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
                 style={{ left: `${position.x}%`, top: `${position.y}%` }}
                 type="button"
               >
-                {pin.kind === "base" ? "B" : index}
+                {pin.kind === "base" ? "B" : (pin.routeOrder ?? index)}
               </button>
             );
           })}
