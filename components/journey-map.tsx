@@ -175,6 +175,50 @@ function spreadOverlappingPins<T extends { point: GeoPoint }>(pins: T[]) {
   });
 }
 
+function getPositionedPins<T extends MapPin>(pins: (T & { spreadIndex: number; spreadTotal: number })[], bounds: ReturnType<typeof getTileBounds>) {
+  const projectedPins = pins.map((pin) => ({
+    ...pin,
+    offsetX: 0,
+    offsetY: 0,
+    position: project(pin.point, bounds),
+  }));
+  const clusters: typeof projectedPins[] = [];
+
+  projectedPins.forEach((pin) => {
+    const cluster = clusters.find((items) => {
+      const anchor = items[0];
+      return Math.hypot(anchor.position.x - pin.position.x, anchor.position.y - pin.position.y) < 8;
+    });
+
+    if (cluster) {
+      cluster.push(pin);
+      return;
+    }
+
+    clusters.push([pin]);
+  });
+
+  clusters.forEach((cluster) => {
+    if (cluster.length < 2) {
+      return;
+    }
+
+    const radius = Math.min(34, 16 + cluster.length * 4);
+    const sortedCluster = cluster.sort((first, second) => (first.routeOrder ?? 99) - (second.routeOrder ?? 99));
+    sortedCluster.forEach((pin, index) => {
+      const angle = (-115 + (230 / Math.max(sortedCluster.length - 1, 1)) * index) * (Math.PI / 180);
+      pin.offsetX = Math.cos(angle) * radius;
+      pin.offsetY = Math.sin(angle) * radius;
+    });
+  });
+
+  return projectedPins;
+}
+
+function getRouteStopLabel(label: string) {
+  return label.replace(/\s+(International\s+)?Airport$/i, "").replace(/\s+Line$/i, "");
+}
+
 function getRoutePointOrder(route: TravelRouteSegment[]) {
   const order = new Map<string, number>();
 
@@ -246,6 +290,10 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
   ];
   const bounds = getTileBounds(mapPoints.length > 0 ? mapPoints : center ? [center] : [{ latitude: 0, longitude: 0 }]);
   const mapTiles = getMapTiles(bounds);
+  const positionedPins = getPositionedPins(pins, bounds);
+  const routeStops = positionedPins
+    .filter((pin) => pin.kind !== "base" && pin.routeOrder)
+    .sort((first, second) => (first.routeOrder ?? 99) - (second.routeOrder ?? 99));
   const defaultSelection = pins[1]?.id ?? pins[0]?.id ?? visibleRoute[0]?.id ?? null;
   const [selectedId, setSelectedId] = useState<string | null>(defaultSelection);
   const selectedPin = pins.find((pin) => pin.id === selectedId);
@@ -330,12 +378,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
               );
             })}
           </svg>
-          {pins.map((pin, index) => {
-            const position = project(pin.point, bounds);
-            const spreadRadius = pin.spreadTotal > 1 ? 4.2 : 0;
-            const spreadAngle = pin.spreadTotal > 1 ? (-90 + (360 / pin.spreadTotal) * pin.spreadIndex) * (Math.PI / 180) : 0;
-            const spreadX = Math.cos(spreadAngle) * spreadRadius;
-            const spreadY = Math.sin(spreadAngle) * spreadRadius;
+          {positionedPins.map((pin, index) => {
             const selected = selectedId === pin.id;
             const tone =
               pin.kind === "base"
@@ -348,13 +391,33 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
                 className={`absolute grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 text-sm font-bold shadow-[0_12px_30px_rgba(15,23,42,.22)] transition hover:scale-105 ${tone} ${selected ? "ring-4 ring-white/80" : ""}`}
                 key={pin.id}
                 onClick={() => setSelectedId(pin.id)}
-                style={{ left: `calc(${position.x}% + ${spreadX}px)`, top: `calc(${position.y}% + ${spreadY}px)` }}
+                style={{
+                  left: `calc(${pin.position.x}% + ${pin.offsetX}px)`,
+                  top: `calc(${pin.position.y}% + ${pin.offsetY}px)`,
+                  zIndex: selected ? 35 : 12 + (pin.routeOrder ?? 0),
+                }}
+                title={pin.label}
                 type="button"
               >
                 {pin.kind === "base" ? "B" : (pin.routeOrder ?? index)}
               </button>
             );
           })}
+          <div className="absolute left-3 right-3 top-3 z-40 flex gap-1 overflow-x-auto rounded-2xl border border-white/80 bg-white/88 p-1.5 shadow-sm">
+            {routeStops.map((pin) => (
+              <button
+                className={`shrink-0 rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold transition ${
+                  selectedId === pin.id ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-white text-slate-700 hover:bg-sky-50"
+                }`}
+                key={`route-stop-${pin.id}`}
+                onClick={() => setSelectedId(pin.id)}
+                title={pin.label}
+                type="button"
+              >
+                {pin.routeOrder}. {getRouteStopLabel(pin.label)}
+              </button>
+            ))}
+          </div>
           <div className="absolute bottom-3 left-3 rounded-2xl border border-white/80 bg-white/85 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm">
             Tap pins or route lines
           </div>
