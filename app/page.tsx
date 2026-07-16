@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import { SessionPhotoCarousel } from "@/components/session-photo-carousel";
 import { getCoffeeShopsByVisitDate, getCoffeeStats } from "@/lib/coffee";
 import { readCoffeeContent } from "@/lib/coffee-store";
 import { readContent } from "@/lib/editable-store";
@@ -107,42 +107,13 @@ function SessionCard({
   photos: { alt: string; src: string }[];
   title: string;
 }) {
-  const visiblePhotos = photos.slice(0, 3);
-  const photoCount = visiblePhotos.length;
-  const rollDuration = `${Math.max(photoCount, 1) * 10}s`;
+  const photoCount = photos.length;
 
   return (
     <article className="flex min-h-[29rem] flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
       <Link className="block border-b border-zinc-100 bg-stone-100 p-1" href={href}>
         {photoCount > 0 ? (
-          <div className="relative h-56 overflow-hidden rounded-lg bg-stone-100">
-            {visiblePhotos.map((photo, index) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                alt={photo.alt}
-                className={`absolute inset-0 h-full w-full object-cover ${
-                  photoCount > 1 ? `session-photo-fade-image session-photo-fade-count-${photoCount}` : "opacity-100"
-                }`}
-                key={`${photo.src}-${index}`}
-                src={photo.src}
-                style={
-                  photoCount > 1
-                    ? ({
-                        animationDelay: `${index * 10}s`,
-                        animationDuration: rollDuration,
-                      } as CSSProperties)
-                    : undefined
-                }
-              />
-            ))}
-            {photoCount > 1 ? (
-              <div className="absolute bottom-3 left-3 flex gap-1.5">
-                {visiblePhotos.map((photo, index) => (
-                  <span className="h-1.5 w-6 rounded-full bg-white/80 shadow-sm" key={`${photo.src}-dot-${index}`} />
-                ))}
-              </div>
-            ) : null}
-          </div>
+          <SessionPhotoCarousel photos={photos} />
         ) : (
           <div className="grid h-56 place-items-center rounded-lg border border-zinc-200 bg-gradient-to-br from-slate-100 via-stone-50 to-amber-50 px-6 text-center text-sm text-zinc-500">
             Visual preview coming soon
