@@ -220,6 +220,51 @@ function MemoryChip({ label, tone, value }: { label: string; tone: string; value
   );
 }
 
+function VisitorScan({
+  featurePhotoCount,
+  readingMinutes,
+  season,
+  trip,
+}: {
+  featurePhotoCount: number;
+  readingMinutes: number;
+  season: string;
+  trip: { city: string; country: string; summary: string; slug: string; title: string };
+}) {
+  return (
+    <aside className="travel-soft-panel rounded-[1.5rem] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="travel-kicker text-xs">Visitor scan</p>
+        <span className="rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-950">Before you read</span>
+      </div>
+      <dl className="mt-4 grid gap-2 text-sm">
+        {[
+          ["Best for", "Winter mood, family memories, slow photos"],
+          ["Season", season],
+          ["Base", `${trip.city}, ${trip.country}`],
+          ["Read", `${readingMinutes} min`],
+          ["Photo mood", featurePhotoCount > 0 ? "Snow, warm lights, Arctic quiet" : "Album ready"],
+        ].map(([label, value], index) => (
+          <div
+            className={`rounded-2xl border px-3 py-2 ${
+              ["border-rose-100 bg-rose-50/80", "border-sky-100 bg-sky-50/80", "border-amber-100 bg-amber-50/80", "border-teal-100 bg-teal-50/80"][
+                index % 4
+              ]
+            }`}
+            key={label}
+          >
+            <dt className="travel-kicker text-[0.65rem]">{label}</dt>
+            <dd className="mt-1 leading-5 text-[color:var(--muted)]">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="mt-4">
+        <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
+      </div>
+    </aside>
+  );
+}
+
 export function generateStaticParams() {
   return getTripDetailsByStartDate().map((trip) => ({ slug: trip.slug }));
 }
@@ -267,6 +312,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
   const featurePhotos = trip.photos.filter(isRenderablePhoto).slice(0, 4);
   const renderablePhotos = trip.photos.filter(isRenderablePhoto);
   const readingMinutes = getReadingMinutes(trip.journalEntries);
+  const seasonLabel = getSeasonLabel(trip.startDate);
   const usedStoryPhotoIds = new Set<string>();
   const storyMoments = trip.journalEntries.map((entry, index) => {
     const photo = getBestStoryPhoto(entry, renderablePhotos, usedStoryPhotoIds);
@@ -316,7 +362,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
                 {[
-                  ["Season", getSeasonLabel(trip.startDate), "border-sky-100 bg-sky-50 text-sky-950"],
+                  ["Season", seasonLabel, "border-sky-100 bg-sky-50 text-sky-950"],
                   ["Mood", trip.journalEntries[0]?.mood ?? "Memory", "border-rose-100 bg-rose-50 text-rose-950"],
                   ["Photos", `${trip.photos.length}`, "border-amber-100 bg-amber-50 text-amber-950"],
                   ["Cost", formatMoney(trip.totalCost), "border-teal-100 bg-teal-50 text-teal-950"],
@@ -326,11 +372,16 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               </div>
             </div>
             {coverPhoto ? (
-              <div className="travel-photo overflow-hidden rounded-[1.75rem] bg-[color:var(--paper-soft)] lg:max-w-[26rem]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img alt={coverPhoto.caption ?? trip.title} className="aspect-[4/3] w-full object-cover" src={coverPhoto.storageKey} />
+              <div className="grid gap-4 lg:max-w-[26rem]">
+                <div className="travel-photo overflow-hidden rounded-[1.75rem] bg-[color:var(--paper-soft)]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img alt={coverPhoto.caption ?? trip.title} className="aspect-[4/3] w-full object-cover" src={coverPhoto.storageKey} />
+                </div>
+                <VisitorScan featurePhotoCount={featurePhotos.length} readingMinutes={readingMinutes} season={seasonLabel} trip={trip} />
               </div>
-            ) : null}
+            ) : (
+              <VisitorScan featurePhotoCount={featurePhotos.length} readingMinutes={readingMinutes} season={seasonLabel} trip={trip} />
+            )}
           </div>
           {featurePhotos.length > 1 ? (
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -427,33 +478,6 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
         </div>
 
         <aside className="space-y-6">
-          <section className="travel-panel rounded-3xl p-5 sm:p-7 lg:sticky lg:top-6">
-            <SectionHeader kicker="Visitor scan" title="Before you read" />
-            <dl className="mt-6 grid gap-4">
-              {[
-                ["Best for", "Winter atmosphere, family memories, slow photo browsing"],
-                ["Memory season", getSeasonLabel(trip.startDate)],
-                ["Base", `${trip.city}, ${trip.country}`],
-                ["Read time", `${readingMinutes} min`],
-                ["Photo mood", featurePhotos.length > 0 ? "Snow, warm lights, Arctic quiet" : "Album ready"],
-              ].map(([label, value], index) => (
-                <div
-                  className={`rounded-2xl border p-4 shadow-sm ${
-                    ["border-rose-100 bg-rose-50/80", "border-sky-100 bg-sky-50/80", "border-amber-100 bg-amber-50/80", "border-teal-100 bg-teal-50/80"][
-                      index % 4
-                    ]
-                  }`}
-                  key={label}
-                >
-                  <dt className="travel-kicker text-xs">{label}</dt>
-                  <dd className="travel-muted mt-2 text-sm leading-6">{value}</dd>
-                </div>
-              ))}
-            </dl>
-            <div className="mt-5">
-              <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
-            </div>
-          </section>
           <section className="travel-panel rounded-3xl p-5 sm:p-7">
             <SectionHeader kicker="Places" title="Saved stops" />
             <div className="mt-6">
