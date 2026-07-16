@@ -17,6 +17,7 @@ const travelStats = [
 const sessions = [
   {
     eyebrow: "Travel Journal",
+    note: "little roads, big memories",
     title: "Trips, routes, and long-form memories",
     description:
       "Keep journeys, daily notes, places, photos, and trip costs in the original TravelOS journal area.",
@@ -25,6 +26,7 @@ const sessions = [
   },
   {
     eyebrow: "Coffee Map",
+    note: "coffee, pause, life",
     title: "Coffee shops, taste notes, and life moments",
     description:
       "Collect cafes across countries without mixing them into trip journals. Add links, photos, comments, and personal notes from the shop.",
@@ -33,6 +35,7 @@ const sessions = [
   },
   {
     eyebrow: "Drive",
+    note: "road tools, kept separate",
     title: "Car rental and road-trip booking tools",
     description:
       "Open the Travelpayouts Drive workspace for rental-car searches and road-trip planning without mixing it into journals or coffee notes.",
@@ -97,6 +100,7 @@ function SessionCard({
   description,
   eyebrow,
   href,
+  note,
   photos,
   title,
 }: {
@@ -104,6 +108,7 @@ function SessionCard({
   description: string;
   eyebrow: string;
   href: string;
+  note: string;
   photos: { alt: string; src: string }[];
   title: string;
 }) {
@@ -114,6 +119,7 @@ function SessionCard({
           action: "border-sky-200 bg-sky-50 text-sky-950 hover:bg-sky-100",
           card: "border-sky-100",
           eyebrow: "text-sky-700",
+          note: "text-sky-700",
           photoBg: "from-sky-100 via-amber-50 to-white",
         }
       : href === "/coffee"
@@ -121,12 +127,14 @@ function SessionCard({
             action: "border-rose-200 bg-rose-50 text-rose-950 hover:bg-rose-100",
             card: "border-rose-100",
             eyebrow: "text-rose-700",
+            note: "text-rose-700",
             photoBg: "from-rose-100 via-amber-50 to-white",
           }
         : {
             action: "border-indigo-200 bg-indigo-50 text-indigo-950 hover:bg-indigo-100",
             card: "border-indigo-100",
             eyebrow: "text-indigo-700",
+            note: "text-indigo-700",
             photoBg: "from-indigo-100 via-sky-50 to-white",
           };
 
@@ -144,6 +152,7 @@ function SessionCard({
       <div className="flex flex-1 flex-col p-6">
         <p className={`travel-label text-xs font-semibold uppercase tracking-[0.14em] ${tone.eyebrow}`}>{eyebrow}</p>
         <h2 className="travel-display mt-3 text-xl font-semibold leading-tight text-zinc-950 sm:text-2xl">{title}</h2>
+        <p className={`travel-script mt-2 text-base leading-6 ${tone.note}`}>{note}</p>
         <p className="mt-3 flex-1 text-sm leading-6 text-zinc-600">{description}</p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link className={`travel-label rounded-full border px-4 py-2.5 text-center text-sm font-semibold transition ${tone.action}`} href={href}>
@@ -229,6 +238,9 @@ export default async function Home() {
               <h1 className="travel-display mt-2 max-w-4xl text-4xl font-semibold tracking-normal text-zinc-950 sm:text-6xl">
                 Your travel and coffee memory system.
               </h1>
+              <p className="travel-script mt-3 text-2xl leading-8 text-rose-700 sm:text-3xl">
+                collected slowly, remembered beautifully
+              </p>
               <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-600">
                 Two separate workspaces on one first page: Travel Journal for trips, Coffee Map for cafes, taste notes,
                 photos, and the life moments that happen between destinations.

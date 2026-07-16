@@ -93,6 +93,10 @@ a {
   font-family: "Trebuchet MS", "Segoe UI", Arial, Helvetica, sans-serif;
 }
 
+.travel-script {
+  font-family: "Segoe Print", "Bradley Hand ITC", "Lucida Handwriting", cursive;
+}
+
 .travel-kicker {
   color: var(--teal);
   font-weight: 700;
