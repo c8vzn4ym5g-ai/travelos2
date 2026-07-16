@@ -14,6 +14,12 @@ type MapPin = {
   journal?: JournalEntry;
 };
 
+type RouteStop = {
+  label: string;
+  order: number;
+  point: GeoPoint;
+};
+
 type JourneyMapProps = {
   city: string;
   country: string;
@@ -219,30 +225,53 @@ function getRouteStopLabel(label: string) {
   return label.replace(/\s+(International\s+)?Airport$/i, "").replace(/\s+Line$/i, "");
 }
 
-function getRoutePointOrder(route: TravelRouteSegment[]) {
-  const order = new Map<string, number>();
+function getRouteStops(route: TravelRouteSegment[]) {
+  const stops: RouteStop[] = [];
+  const seenLabels = new Set<string>();
 
   route.forEach((segment) => {
-    [segment.from, segment.to].forEach((point) => {
-      const key = pointKey(point);
-      if (!order.has(key)) {
-        order.set(key, order.size + 1);
+    [
+      { label: segment.fromLabel, point: segment.from },
+      { label: segment.toLabel, point: segment.to },
+    ].forEach((stop) => {
+      const normalizedLabel = stop.label.toLowerCase();
+      if (!seenLabels.has(normalizedLabel)) {
+        stops.push({ ...stop, order: stops.length + 1 });
+        seenLabels.add(normalizedLabel);
       }
     });
   });
 
-  return order;
+  return stops;
+}
+
+function findRouteStopForPin(pinLabel: string, point: GeoPoint, routeStops: RouteStop[]) {
+  const normalizedPinLabel = pinLabel.toLowerCase();
+  const exactMatch = routeStops.find((stop) => stop.label.toLowerCase() === normalizedPinLabel);
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  const labelMatch = routeStops.find((stop) => {
+    const normalizedStopLabel = stop.label.toLowerCase();
+    return normalizedStopLabel.includes(normalizedPinLabel) || normalizedPinLabel.includes(normalizedStopLabel);
+  });
+  if (labelMatch) {
+    return labelMatch;
+  }
+
+  return routeStops.find((stop) => pointKey(stop.point) === pointKey(point));
 }
 
 export function JourneyMap({ center, city, country, journalEntries, photos, places, route, title }: JourneyMapProps) {
   const visibleRoute = route.filter(isVisibleRoute);
+  const orderedRouteStops = useMemo(() => getRouteStops(visibleRoute), [visibleRoute]);
   const pins = useMemo(() => {
-    const routePointOrder = getRoutePointOrder(visibleRoute);
     const placePins = places
       .filter((place) => place.coordinates)
       .map((place) => {
         const linkedPhoto = photos.find((photo) => photo.coordinates && photo.coordinates.latitude === place.coordinates?.latitude && photo.coordinates.longitude === place.coordinates?.longitude);
-        const routeOrder = place.coordinates ? routePointOrder.get(pointKey(place.coordinates)) : undefined;
+        const routeStop = place.coordinates ? findRouteStopForPin(place.name, place.coordinates, orderedRouteStops) : undefined;
         return {
           id: place.id,
           kind: "place" as const,
@@ -250,7 +279,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
           note: place.notes,
           photo: linkedPhoto,
           point: place.coordinates as GeoPoint,
-          routeOrder,
+          routeOrder: routeStop?.order,
         };
       })
       .sort((first, second) => {
@@ -276,12 +305,13 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
             label: `${city}, ${country}`,
             note: "Trip base",
             point: center,
+            routeOrder: findRouteStopForPin(city, center, orderedRouteStops)?.order,
           },
         ]
       : [];
 
     return spreadOverlappingPins([...basePin, ...placePins]);
-  }, [center, city, country, photos, places, visibleRoute]);
+  }, [center, city, country, orderedRouteStops, photos, places]);
   const routePhotos = useMemo(() => new Map(photos.map((photo) => [photo.id, photo])), [photos]);
   const routeEntries = useMemo(() => new Map(journalEntries.map((entry) => [entry.id, entry])), [journalEntries]);
   const mapPoints = [
@@ -292,7 +322,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
   const mapTiles = getMapTiles(bounds);
   const positionedPins = getPositionedPins(pins, bounds);
   const routeStops = positionedPins
-    .filter((pin) => pin.kind !== "base" && pin.routeOrder)
+    .filter((pin) => pin.routeOrder)
     .sort((first, second) => (first.routeOrder ?? 99) - (second.routeOrder ?? 99));
   const defaultSelection = pins[1]?.id ?? pins[0]?.id ?? visibleRoute[0]?.id ?? null;
   const [selectedId, setSelectedId] = useState<string | null>(defaultSelection);
@@ -388,7 +418,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
                   : "border-amber-100 bg-amber-500 text-white";
             return (
               <button
-                className={`absolute grid h-7 w-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 text-[0.7rem] font-bold shadow-[0_10px_24px_rgba(15,23,42,.22)] transition hover:scale-110 ${tone} ${selected ? "ring-4 ring-white/80" : ""}`}
+                className={`absolute grid h-9 w-9 -translate-x-1/2 -translate-y-full place-items-center transition hover:scale-110 ${selected ? "z-40" : ""}`}
                 key={pin.id}
                 onClick={() => setSelectedId(pin.id)}
                 style={{
@@ -399,7 +429,13 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
                 title={pin.label}
                 type="button"
               >
-                {pin.kind === "base" ? "B" : (pin.routeOrder ?? index)}
+                <span
+                  className={`grid h-7 w-7 rotate-45 place-items-center rounded-[50%_50%_50%_0] border-2 text-[0.64rem] font-bold shadow-[0_10px_24px_rgba(15,23,42,.25)] ${tone} ${
+                    selected ? "ring-4 ring-white/80" : ""
+                  }`}
+                >
+                  <span className="-rotate-45">{pin.routeOrder ?? (pin.kind === "base" ? "B" : index)}</span>
+                </span>
               </button>
             );
           })}
