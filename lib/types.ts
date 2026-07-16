@@ -31,6 +31,8 @@ export interface Money {
   currency: CurrencyCode;
 }
 
+export type RouteTransport = "flight" | "train" | "car" | "walk" | "boat" | "other";
+
 export interface TimestampedRecord {
   createdAt: string;
   updatedAt: string;
@@ -51,6 +53,21 @@ export interface Trip extends TimestampedRecord {
   rating: number | null;
   totalCost: Money | null;
   coordinates: GeoPoint | null;
+}
+
+export interface TravelRouteSegment extends TimestampedRecord {
+  id: string;
+  tripId: string;
+  fromLabel: string;
+  toLabel: string;
+  from: GeoPoint;
+  to: GeoPoint;
+  transport: RouteTransport;
+  note: string | null;
+  linkedPlaceId: string | null;
+  linkedJournalEntryId: string | null;
+  linkedPhotoId: string | null;
+  visibility: TravelVisibility;
 }
 
 export interface JournalEntry extends TimestampedRecord {
@@ -118,6 +135,7 @@ export interface TripDetail extends Trip {
   journalEntries: JournalEntry[];
   photos: Photo[];
   places: Place[];
+  travelRoute: TravelRouteSegment[];
   costs: Cost[];
   musicTracks: MusicTrack[];
 }

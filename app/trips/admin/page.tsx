@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { TravelOSContent } from "@/lib/editable-store";
-import type { JournalEntry, Photo, TravelVisibility, TripDetail } from "@/lib/types";
+import type { GeoPoint, JournalEntry, Photo, Place, PlaceType, RouteTransport, TravelRouteSegment, TravelVisibility, TripDetail } from "@/lib/types";
 
 type TravelContentResponse = {
   content: TravelOSContent;
@@ -17,6 +17,8 @@ type TripTextField = "city" | "country" | "slug" | "summary" | "title";
 type TripDateField = "endDate" | "startDate";
 type JournalTextField = "body" | "entryDate" | "mood" | "storyPhotoId" | "title" | "weatherSummary";
 type PhotoTextField = "caption" | "originalFilename" | "takenAt";
+type PlaceTextField = "address" | "city" | "country" | "name" | "notes";
+type RouteTextField = "fromLabel" | "linkedJournalEntryId" | "linkedPhotoId" | "linkedPlaceId" | "note" | "toLabel";
 
 const adminSessionKey = "travelos-admin-pin";
 const inputClass =
@@ -94,6 +96,29 @@ function toDateTimeInput(value: string | null) {
 
 function fromDateTimeInput(value: string) {
   return value ? new Date(value).toISOString() : null;
+}
+
+function formatCoordinate(value: number | undefined) {
+  return typeof value === "number" ? String(value) : "";
+}
+
+function parseCoordinate(value: string) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function updatePoint(point: GeoPoint | null, field: keyof GeoPoint, value: string): GeoPoint | null {
+  const parsed = parseCoordinate(value);
+  const next = point ?? { latitude: 0, longitude: 0 };
+
+  if (parsed === null) {
+    return point;
+  }
+
+  return {
+    ...next,
+    [field]: parsed,
+  };
 }
 
 function isRenderablePhoto(photo: Photo) {
@@ -361,6 +386,181 @@ export default function TravelAdminPage() {
           : trip,
       ),
     );
+  }
+
+  function updateTripCoordinate(field: keyof GeoPoint, value: string) {
+    updateActiveTrip((trip) => ({
+      ...trip,
+      coordinates: updatePoint(trip.coordinates, field, value),
+    }));
+  }
+
+  function addPlace() {
+    if (!activeTrip) {
+      return;
+    }
+
+    const now = nowIso();
+    const place: Place = {
+      address: null,
+      city: activeTrip.city,
+      coordinates: activeTrip.coordinates,
+      country: activeTrip.country,
+      createdAt: now,
+      id: makeId("place"),
+      name: "New map pin",
+      notes: "Add a short visitor note for this stop.",
+      rating: null,
+      tripId: activeTrip.id,
+      type: "attraction",
+      updatedAt: now,
+    };
+
+    updateActiveTrip((trip) => ({ ...trip, places: [...trip.places, place] }));
+    setMessage("New map pin added. Edit the details and save trip changes.");
+  }
+
+  function updatePlace(placeId: string, field: PlaceTextField, value: string) {
+    updateActiveTrip((trip) => ({
+      ...trip,
+      places: trip.places.map((place) =>
+        place.id === placeId
+          ? {
+              ...place,
+              [field]: field === "address" || field === "notes" ? value || null : value,
+              updatedAt: nowIso(),
+            }
+          : place,
+      ),
+    }));
+  }
+
+  function updatePlaceType(placeId: string, value: PlaceType) {
+    updateActiveTrip((trip) => ({
+      ...trip,
+      places: trip.places.map((place) => (place.id === placeId ? { ...place, type: value, updatedAt: nowIso() } : place)),
+    }));
+  }
+
+  function updatePlaceRating(placeId: string, value: string) {
+    updateActiveTrip((trip) => ({
+      ...trip,
+      places: trip.places.map((place) =>
+        place.id === placeId
+          ? {
+              ...place,
+              rating: value ? Number(value) : null,
+              updatedAt: nowIso(),
+            }
+          : place,
+      ),
+    }));
+  }
+
+  function updatePlaceCoordinate(placeId: string, field: keyof GeoPoint, value: string) {
+    updateActiveTrip((trip) => ({
+      ...trip,
+      places: trip.places.map((place) =>
+        place.id === placeId
+          ? {
+              ...place,
+              coordinates: updatePoint(place.coordinates, field, value),
+              updatedAt: nowIso(),
+            }
+          : place,
+      ),
+    }));
+  }
+
+  function removePlace(placeId: string) {
+    updateActiveTrip((trip) => ({
+      ...trip,
+      places: trip.places.filter((place) => place.id !== placeId),
+      travelRoute: (trip.travelRoute ?? []).map((segment) =>
+        segment.linkedPlaceId === placeId ? { ...segment, linkedPlaceId: null, updatedAt: nowIso() } : segment,
+      ),
+    }));
+  }
+
+  function addRouteSegment() {
+    if (!activeTrip) {
+      return;
+    }
+
+    const now = nowIso();
+    const start = activeTrip.coordinates ?? activeTrip.places.find((place) => place.coordinates)?.coordinates ?? { latitude: 0, longitude: 0 };
+    const end = activeTrip.places.find((place) => place.coordinates)?.coordinates ?? start;
+    const segment: TravelRouteSegment = {
+      createdAt: now,
+      from: start,
+      fromLabel: activeTrip.city || "Start",
+      id: makeId("route"),
+      linkedJournalEntryId: activeTrip.journalEntries[0]?.id ?? null,
+      linkedPhotoId: activeTrip.photos[0]?.id ?? null,
+      linkedPlaceId: activeTrip.places[0]?.id ?? null,
+      note: "Describe why this movement matters.",
+      to: end,
+      toLabel: activeTrip.places[0]?.name ?? "Next stop",
+      transport: "car",
+      tripId: activeTrip.id,
+      updatedAt: now,
+      visibility: "public",
+    };
+
+    updateActiveTrip((trip) => ({ ...trip, travelRoute: [...(trip.travelRoute ?? []), segment] }));
+    setMessage("New route segment added. Edit it, then save trip changes.");
+  }
+
+  function updateRouteSegment(segmentId: string, field: RouteTextField, value: string) {
+    updateActiveTrip((trip) => ({
+      ...trip,
+      travelRoute: (trip.travelRoute ?? []).map((segment) =>
+        segment.id === segmentId
+          ? {
+              ...segment,
+              [field]: field.startsWith("linked") || field === "note" ? value || null : value,
+              updatedAt: nowIso(),
+            }
+          : segment,
+      ),
+    }));
+  }
+
+  function updateRouteCoordinate(segmentId: string, pointName: "from" | "to", field: keyof GeoPoint, value: string) {
+    updateActiveTrip((trip) => ({
+      ...trip,
+      travelRoute: (trip.travelRoute ?? []).map((segment) =>
+        segment.id === segmentId
+          ? {
+              ...segment,
+              [pointName]: updatePoint(segment[pointName], field, value) ?? segment[pointName],
+              updatedAt: nowIso(),
+            }
+          : segment,
+      ),
+    }));
+  }
+
+  function updateRouteTransport(segmentId: string, value: RouteTransport) {
+    updateActiveTrip((trip) => ({
+      ...trip,
+      travelRoute: (trip.travelRoute ?? []).map((segment) =>
+        segment.id === segmentId ? { ...segment, transport: value, updatedAt: nowIso() } : segment,
+      ),
+    }));
+  }
+
+  function updateRouteVisibility(segmentId: string, value: TravelVisibility) {
+    updateActiveTrip((trip) => ({
+      ...trip,
+      travelRoute: (trip.travelRoute ?? []).map((segment) =>
+        segment.id === segmentId ? { ...segment, visibility: value, updatedAt: nowIso() } : segment,
+      ),
+    }));
+  }
+
+  function removeRouteSegment(segmentId: string) {
+    updateActiveTrip((trip) => ({ ...trip, travelRoute: (trip.travelRoute ?? []).filter((segment) => segment.id !== segmentId) }));
   }
 
   function addJournalEntry() {
@@ -696,6 +896,165 @@ export default function TravelAdminPage() {
                 </p>
               </div>
             </div>
+            <section className="mt-8 rounded-xl border border-sky-100 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <SectionTitle eyebrow="Map" title="Pins and route" />
+                <div className="flex flex-wrap gap-2">
+                  <button className={smallButtonClass} onClick={addPlace} type="button">
+                    Add place pin
+                  </button>
+                  <button className={smallButtonClass} onClick={addRouteSegment} type="button">
+                    Add route segment
+                  </button>
+                </div>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-zinc-600">
+                Use this to power the visitor journey map. Public/shared routes show on the trip page; private routes stay hidden.
+              </p>
+              <div className="mt-5 rounded-xl border border-amber-100 bg-amber-50/60 p-4">
+                <p className="travel-label text-xs font-semibold uppercase text-amber-800">Trip map center</p>
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                  <Field
+                    label="Center latitude"
+                    onChange={(value) => updateTripCoordinate("latitude", value)}
+                    type="number"
+                    value={formatCoordinate(activeTrip.coordinates?.latitude)}
+                  />
+                  <Field
+                    label="Center longitude"
+                    onChange={(value) => updateTripCoordinate("longitude", value)}
+                    type="number"
+                    value={formatCoordinate(activeTrip.coordinates?.longitude)}
+                  />
+                </div>
+              </div>
+              <div className="mt-5 grid gap-4">
+                {activeTrip.places.map((place, index) => (
+                  <article className="rounded-xl border border-sky-100 bg-sky-50/40 p-4" key={place.id}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="travel-label text-xs font-semibold uppercase text-sky-700">Pin {index + 1}</p>
+                      <button className={smallButtonClass} onClick={() => removePlace(place.id)} type="button">
+                        Delete pin
+                      </button>
+                    </div>
+                    <div className="mt-4 grid gap-4">
+                      <Field label="Place name" onChange={(value) => updatePlace(place.id, "name", value)} value={place.name} />
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <label className="block">
+                          <span className="travel-label text-sm font-semibold text-zinc-700">Type</span>
+                          <select className={inputClass} onChange={(event) => updatePlaceType(place.id, event.target.value as PlaceType)} value={place.type}>
+                            {["hotel", "restaurant", "attraction", "airport", "station", "shopping", "other"].map((type) => (
+                              <option key={type} value={type}>
+                                {type}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <Field label="City" onChange={(value) => updatePlace(place.id, "city", value)} value={place.city} />
+                        <Field label="Country" onChange={(value) => updatePlace(place.id, "country", value)} value={place.country} />
+                      </div>
+                      <Field label="Address" onChange={(value) => updatePlace(place.id, "address", value)} value={place.address ?? ""} />
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <Field
+                          label="Latitude"
+                          onChange={(value) => updatePlaceCoordinate(place.id, "latitude", value)}
+                          type="number"
+                          value={formatCoordinate(place.coordinates?.latitude)}
+                        />
+                        <Field
+                          label="Longitude"
+                          onChange={(value) => updatePlaceCoordinate(place.id, "longitude", value)}
+                          type="number"
+                          value={formatCoordinate(place.coordinates?.longitude)}
+                        />
+                        <Field label="Rating" onChange={(value) => updatePlaceRating(place.id, value)} type="number" value={place.rating ? String(place.rating) : ""} />
+                      </div>
+                      <TextArea label="Visitor pin note" onChange={(value) => updatePlace(place.id, "notes", value)} value={place.notes ?? ""} />
+                    </div>
+                  </article>
+                ))}
+              </div>
+              <div className="mt-5 grid gap-4">
+                {(activeTrip.travelRoute ?? []).map((segment, index) => (
+                  <article className="rounded-xl border border-teal-100 bg-teal-50/40 p-4" key={segment.id}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="travel-label text-xs font-semibold uppercase text-teal-800">Route {index + 1}</p>
+                      <button className={smallButtonClass} onClick={() => removeRouteSegment(segment.id)} type="button">
+                        Delete route
+                      </button>
+                    </div>
+                    <div className="mt-4 grid gap-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="From label" onChange={(value) => updateRouteSegment(segment.id, "fromLabel", value)} value={segment.fromLabel} />
+                        <Field label="To label" onChange={(value) => updateRouteSegment(segment.id, "toLabel", value)} value={segment.toLabel} />
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-4">
+                        <Field label="From latitude" onChange={(value) => updateRouteCoordinate(segment.id, "from", "latitude", value)} type="number" value={formatCoordinate(segment.from.latitude)} />
+                        <Field label="From longitude" onChange={(value) => updateRouteCoordinate(segment.id, "from", "longitude", value)} type="number" value={formatCoordinate(segment.from.longitude)} />
+                        <Field label="To latitude" onChange={(value) => updateRouteCoordinate(segment.id, "to", "latitude", value)} type="number" value={formatCoordinate(segment.to.latitude)} />
+                        <Field label="To longitude" onChange={(value) => updateRouteCoordinate(segment.id, "to", "longitude", value)} type="number" value={formatCoordinate(segment.to.longitude)} />
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <label className="block">
+                          <span className="travel-label text-sm font-semibold text-zinc-700">Transport</span>
+                          <select className={inputClass} onChange={(event) => updateRouteTransport(segment.id, event.target.value as RouteTransport)} value={segment.transport}>
+                            {["flight", "train", "car", "walk", "boat", "other"].map((transport) => (
+                              <option key={transport} value={transport}>
+                                {transport}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="travel-label text-sm font-semibold text-zinc-700">Visibility</span>
+                          <select className={inputClass} onChange={(event) => updateRouteVisibility(segment.id, event.target.value as TravelVisibility)} value={segment.visibility}>
+                            <option value="public">Public</option>
+                            <option value="shared">Shared</option>
+                            <option value="private">Private</option>
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="travel-label text-sm font-semibold text-zinc-700">Linked place</span>
+                          <select className={inputClass} onChange={(event) => updateRouteSegment(segment.id, "linkedPlaceId", event.target.value)} value={segment.linkedPlaceId ?? ""}>
+                            <option value="">No place link</option>
+                            {activeTrip.places.map((place) => (
+                              <option key={place.id} value={place.id}>
+                                {place.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="block">
+                          <span className="travel-label text-sm font-semibold text-zinc-700">Linked story</span>
+                          <select className={inputClass} onChange={(event) => updateRouteSegment(segment.id, "linkedJournalEntryId", event.target.value)} value={segment.linkedJournalEntryId ?? ""}>
+                            <option value="">No story link</option>
+                            {activeTrip.journalEntries.map((entry) => (
+                              <option key={entry.id} value={entry.id}>
+                                {entry.title}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="travel-label text-sm font-semibold text-zinc-700">Linked photo</span>
+                          <select className={inputClass} onChange={(event) => updateRouteSegment(segment.id, "linkedPhotoId", event.target.value)} value={segment.linkedPhotoId ?? ""}>
+                            <option value="">No photo link</option>
+                            {activeTrip.photos.map((photo, photoIndex) => (
+                              <option key={photo.id} value={photo.id}>
+                                {photoIndex + 1}. {photo.caption ?? photo.originalFilename}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <TextArea label="Route note" onChange={(value) => updateRouteSegment(segment.id, "note", value)} value={segment.note ?? ""} />
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
             <section className="mt-8 rounded-xl border border-sky-100 bg-sky-50/40 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <SectionTitle eyebrow="Journal" title="Trip journal entries" />

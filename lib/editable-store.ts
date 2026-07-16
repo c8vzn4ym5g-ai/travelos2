@@ -3,7 +3,7 @@ import { seedTripDetails } from "@/lib/trips";
 import type { MusicTrack, Photo, TripDetail } from "@/lib/types";
 
 const DATA_BLOB_PATH = "travelos/content.json";
-const CONTENT_SCHEMA_VERSION = 4;
+const CONTENT_SCHEMA_VERSION = 5;
 
 export type TravelOSContent = {
   trips: TripDetail[];
@@ -165,6 +165,7 @@ function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
       !trip.coverPhotoId ||
       !trip.photos.some((photo) => photo.id === trip.coverPhotoId && photoIsRenderable(photo));
     const savedMusicTracks = Array.isArray(trip.musicTracks) ? trip.musicTracks : [];
+    const savedTravelRoute = Array.isArray(trip.travelRoute) ? trip.travelRoute : [];
 
     const mergedTrip = {
       ...trip,
@@ -183,6 +184,7 @@ function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
       places: mergeByIdWithRepair(trip.places, seedTrip.places, (place) =>
         recordLooksCorrupted(place) || shouldMigrateSeedItemCopy(place, seedTrip, savedSchemaVersion),
       ),
+      travelRoute: mergeByIdWithRepair(savedTravelRoute, seedTrip.travelRoute, recordLooksCorrupted),
       costs: mergeByIdWithRepair(trip.costs, seedTrip.costs, recordLooksCorrupted),
       musicTracks: mergeByIdWithRepair(savedMusicTracks, seedTrip.musicTracks, musicTrackNeedsSeedRepair),
     };

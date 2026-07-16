@@ -225,6 +225,7 @@ function buildTrip(draft: DraftState): TripDetail {
           },
         ]
       : [],
+    travelRoute: [],
     costs: draft.amount
       ? [
           {

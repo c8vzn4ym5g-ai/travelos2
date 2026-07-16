@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { JourneyMap } from "@/components/journey-map";
 import { JourneyMusicPlayer } from "@/components/journey-music-player";
 import { ShareActions } from "@/components/share-actions";
 import { readContent } from "@/lib/editable-store";
@@ -412,12 +413,24 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                 ))}
               </div>
             </div>
-            {coverPhoto ? (
-              <div className="travel-photo overflow-hidden rounded-[1.75rem] bg-[color:var(--paper-soft)] lg:max-w-[26rem]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img alt={coverPhoto.caption ?? trip.title} className="aspect-[4/3] w-full object-cover" src={coverPhoto.storageKey} />
-              </div>
-            ) : null}
+            <div className="grid gap-4 lg:max-w-[26rem]">
+              {coverPhoto ? (
+                <div className="travel-photo overflow-hidden rounded-[1.75rem] bg-[color:var(--paper-soft)]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img alt={coverPhoto.caption ?? trip.title} className="aspect-[4/3] w-full object-cover" src={coverPhoto.storageKey} />
+                </div>
+              ) : null}
+              <JourneyMap
+                center={trip.coordinates}
+                city={trip.city}
+                country={trip.country}
+                journalEntries={trip.journalEntries}
+                photos={trip.photos}
+                places={trip.places}
+                route={trip.travelRoute ?? []}
+                title={trip.title}
+              />
+            </div>
           </div>
           <VisitorScan featurePhotoCount={featurePhotos.length} readingMinutes={readingMinutes} season={seasonLabel} trip={trip} />
           {featurePhotos.length > 1 ? (
