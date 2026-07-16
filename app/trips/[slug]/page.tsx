@@ -242,7 +242,7 @@ function VisitorScan({
   trip: { city: string; country: string; summary: string; slug: string; title: string };
 }) {
   return (
-    <section className="travel-soft-panel mt-4 rounded-[1.25rem] p-2.5">
+    <section className="travel-soft-panel mt-4 min-h-[8.5rem] rounded-[1.25rem] p-2.5">
       <div className="grid gap-2">
         <div>
           <p className="travel-kicker text-xs">Visitor scan</p>
@@ -393,12 +393,12 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           </div>
           <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,26rem)] lg:items-stretch">
             <div className="flex min-w-0 flex-col gap-4">
-              <div className="travel-soft-panel rounded-[1.5rem] p-4 sm:p-5">
+              <div className="travel-soft-panel min-h-[24rem] rounded-[1.5rem] p-4 sm:p-5 lg:min-h-[28rem]">
                 <p className="travel-kicker text-sm">
                   {trip.country} / {trip.city}
                 </p>
                 <h1 className="travel-hand mt-3 text-4xl font-semibold leading-tight sm:text-6xl">{trip.title}</h1>
-                <p className="travel-muted mt-5 max-w-none text-base leading-8 sm:text-lg">{heroSummary}</p>
+                <p className="travel-muted mt-5 max-w-none text-base leading-8 sm:text-lg lg:line-clamp-8">{heroSummary}</p>
                 <div className="mt-6">
                   <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
                 </div>
@@ -417,7 +417,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                 <VisitorScan featurePhotoCount={featurePhotos.length} readingMinutes={readingMinutes} season={seasonLabel} trip={trip} />
               </div>
             </div>
-            <div className="grid gap-4 lg:max-w-[26rem]">
+            <div className="grid content-start gap-4 lg:min-h-[41rem] lg:max-w-[26rem]">
               {coverPhoto ? (
                 <div className="travel-photo overflow-hidden rounded-[1.75rem] bg-[color:var(--paper-soft)]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
