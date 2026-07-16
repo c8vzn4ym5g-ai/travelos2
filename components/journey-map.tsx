@@ -158,6 +158,23 @@ function pointKey(point: GeoPoint) {
   return `${point.latitude.toFixed(4)},${point.longitude.toFixed(4)}`;
 }
 
+function spreadOverlappingPins<T extends { point: GeoPoint }>(pins: T[]) {
+  const counts = new Map<string, number>();
+
+  return pins.map((pin) => {
+    const key = pointKey(pin.point);
+    const index = counts.get(key) ?? 0;
+    counts.set(key, index + 1);
+    const total = pins.filter((item) => pointKey(item.point) === key).length;
+
+    return {
+      ...pin,
+      spreadIndex: index,
+      spreadTotal: total,
+    };
+  });
+}
+
 function getRoutePointOrder(route: TravelRouteSegment[]) {
   const order = new Map<string, number>();
 
@@ -175,7 +192,7 @@ function getRoutePointOrder(route: TravelRouteSegment[]) {
 
 export function JourneyMap({ center, city, country, journalEntries, photos, places, route, title }: JourneyMapProps) {
   const visibleRoute = route.filter(isVisibleRoute);
-  const pins = useMemo<MapPin[]>(() => {
+  const pins = useMemo(() => {
     const routePointOrder = getRoutePointOrder(visibleRoute);
     const placePins = places
       .filter((place) => place.coordinates)
@@ -207,7 +224,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
 
         return first.label.localeCompare(second.label);
       });
-    const basePin = center
+    const basePin: MapPin[] = center
       ? [
           {
             id: "trip_base",
@@ -219,7 +236,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
         ]
       : [];
 
-    return [...basePin, ...placePins];
+    return spreadOverlappingPins([...basePin, ...placePins]);
   }, [center, city, country, photos, places, visibleRoute]);
   const routePhotos = useMemo(() => new Map(photos.map((photo) => [photo.id, photo])), [photos]);
   const routeEntries = useMemo(() => new Map(journalEntries.map((entry) => [entry.id, entry])), [journalEntries]);
@@ -315,6 +332,10 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
           </svg>
           {pins.map((pin, index) => {
             const position = project(pin.point, bounds);
+            const spreadRadius = pin.spreadTotal > 1 ? 4.2 : 0;
+            const spreadAngle = pin.spreadTotal > 1 ? (-90 + (360 / pin.spreadTotal) * pin.spreadIndex) * (Math.PI / 180) : 0;
+            const spreadX = Math.cos(spreadAngle) * spreadRadius;
+            const spreadY = Math.sin(spreadAngle) * spreadRadius;
             const selected = selectedId === pin.id;
             const tone =
               pin.kind === "base"
@@ -327,7 +348,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
                 className={`absolute grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 text-sm font-bold shadow-[0_12px_30px_rgba(15,23,42,.22)] transition hover:scale-105 ${tone} ${selected ? "ring-4 ring-white/80" : ""}`}
                 key={pin.id}
                 onClick={() => setSelectedId(pin.id)}
-                style={{ left: `${position.x}%`, top: `${position.y}%` }}
+                style={{ left: `calc(${position.x}% + ${spreadX}px)`, top: `calc(${position.y}% + ${spreadY}px)` }}
                 type="button"
               >
                 {pin.kind === "base" ? "B" : (pin.routeOrder ?? index)}
