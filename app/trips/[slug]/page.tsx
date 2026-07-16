@@ -23,8 +23,20 @@ function formatDate(date: string): string {
   return dateFormatter.format(new Date(date));
 }
 
-function formatDateRange(startDate: string, endDate: string): string {
-  return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+function getSeasonLabel(date: string): string {
+  const parsedDate = new Date(date);
+  const year = Number.isNaN(parsedDate.getTime()) ? date.slice(0, 4) : String(parsedDate.getFullYear());
+  const month = Number.isNaN(parsedDate.getTime()) ? Number(date.slice(5, 7)) : parsedDate.getMonth() + 1;
+  const season =
+    month === 12 || month <= 2
+      ? "Winter"
+      : month <= 5
+        ? "Spring"
+        : month <= 8
+          ? "Summer"
+          : "Autumn";
+
+  return `${season} ${year}`;
 }
 
 function formatMoney(totalCost: Money | null): string {
@@ -199,6 +211,15 @@ function StoryMomentCard({ entry, index, photo }: { entry: JournalEntry; index: 
   );
 }
 
+function MemoryChip({ label, tone, value }: { label: string; tone: string; value: string }) {
+  return (
+    <div className={`rounded-full border px-3 py-2 text-sm shadow-sm ${tone}`}>
+      <span className="travel-kicker mr-2 text-[0.65rem]">{label}</span>
+      <span className="font-semibold">{value}</span>
+    </div>
+  );
+}
+
 export function generateStaticParams() {
   return getTripDetailsByStartDate().map((trip) => ({ slug: trip.slug }));
 }
@@ -293,17 +314,14 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               <div className="mt-6">
                 <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
               </div>
-              <div className="mt-6 grid grid-cols-2 gap-3 text-sm lg:grid-cols-4">
+              <div className="mt-5 flex flex-wrap gap-2">
                 {[
-                  ["Dates", formatDateRange(trip.startDate, trip.endDate)],
-                  ["Total", formatMoney(trip.totalCost)],
-                  ["Rating", trip.rating ? `${trip.rating}/5` : "Unrated"],
-                  ["Photos", String(trip.photos.length)],
-                ].map(([label, value], index) => (
-                  <div className={`travel-soft-panel rounded-2xl px-4 py-3 ${index === 0 ? "travel-accent" : ""}`} key={label}>
-                    <p className="travel-muted text-xs">{label}</p>
-                    <p className="mt-2 font-semibold text-[color:var(--pine)]">{value}</p>
-                  </div>
+                  ["Season", getSeasonLabel(trip.startDate), "border-sky-100 bg-sky-50 text-sky-950"],
+                  ["Mood", trip.journalEntries[0]?.mood ?? "Memory", "border-rose-100 bg-rose-50 text-rose-950"],
+                  ["Photos", `${trip.photos.length}`, "border-amber-100 bg-amber-50 text-amber-950"],
+                  ["Cost", formatMoney(trip.totalCost), "border-teal-100 bg-teal-50 text-teal-950"],
+                ].map(([label, value, tone]) => (
+                  <MemoryChip key={label} label={label} tone={tone} value={value} />
                 ))}
               </div>
             </div>
@@ -414,11 +432,19 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             <dl className="mt-6 grid gap-4">
               {[
                 ["Best for", "Winter atmosphere, family memories, slow photo browsing"],
+                ["Memory season", getSeasonLabel(trip.startDate)],
                 ["Base", `${trip.city}, ${trip.country}`],
                 ["Read time", `${readingMinutes} min`],
                 ["Photo mood", featurePhotos.length > 0 ? "Snow, warm lights, Arctic quiet" : "Album ready"],
-              ].map(([label, value]) => (
-                <div className="travel-soft-panel rounded-2xl p-4" key={label}>
+              ].map(([label, value], index) => (
+                <div
+                  className={`rounded-2xl border p-4 shadow-sm ${
+                    ["border-rose-100 bg-rose-50/80", "border-sky-100 bg-sky-50/80", "border-amber-100 bg-amber-50/80", "border-teal-100 bg-teal-50/80"][
+                      index % 4
+                    ]
+                  }`}
+                  key={label}
+                >
                   <dt className="travel-kicker text-xs">{label}</dt>
                   <dd className="travel-muted mt-2 text-sm leading-6">{value}</dd>
                 </div>
