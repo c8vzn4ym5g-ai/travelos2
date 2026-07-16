@@ -242,13 +242,13 @@ function VisitorScan({
   trip: { city: string; country: string; summary: string; slug: string; title: string };
 }) {
   return (
-    <section className="travel-soft-panel rounded-[1.5rem] p-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-[9rem]">
+    <section className="travel-soft-panel mt-5 rounded-[1.5rem] p-3">
+      <div className="grid gap-3">
+        <div>
           <p className="travel-kicker text-xs">Visitor scan</p>
           <p className="mt-1 text-xs font-semibold text-amber-800">Before you read</p>
         </div>
-        <dl className="grid flex-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-5">
+        <dl className="grid gap-2 text-sm sm:grid-cols-2">
         {[
           ["Best for", "Winter mood, family memories, slow photos"],
           ["Season", season],
@@ -412,6 +412,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                   <MemoryChip key={label} label={label} tone={tone} value={value} />
                 ))}
               </div>
+              <VisitorScan featurePhotoCount={featurePhotos.length} readingMinutes={readingMinutes} season={seasonLabel} trip={trip} />
             </div>
             <div className="grid gap-4 lg:max-w-[26rem]">
               {coverPhoto ? (
@@ -432,7 +433,6 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               />
             </div>
           </div>
-          <VisitorScan featurePhotoCount={featurePhotos.length} readingMinutes={readingMinutes} season={seasonLabel} trip={trip} />
           {featurePhotos.length > 1 ? (
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {featurePhotos.map((photo) => (
