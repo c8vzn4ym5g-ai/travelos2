@@ -73,6 +73,15 @@ function getFirstSentence(text: string) {
   return sentence || text.slice(0, 140);
 }
 
+function clampWords(text: string, maxWords: number) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length <= maxWords) {
+    return text;
+  }
+
+  return `${words.slice(0, maxWords).join(" ")}...`;
+}
+
 function getStoryKeywords(entry: JournalEntry) {
   const text = `${entry.id} ${entry.title}`.toLowerCase();
 
@@ -190,19 +199,19 @@ function PhotoTile({ photo }: { photo: Photo }) {
 
 function StoryMomentCard({ entry, index, photo }: { entry: JournalEntry; index: number; photo: Photo | undefined }) {
   return (
-    <article className="travel-soft-panel grid overflow-hidden rounded-[1.5rem] lg:grid-cols-[13rem_1fr]" data-music-zone={`${entry.title} ${entry.body}`}>
+    <article className="travel-soft-panel grid overflow-hidden rounded-[1.25rem] lg:grid-cols-[11rem_1fr]" data-music-zone={`${entry.title} ${entry.body}`}>
       <div className="bg-[color:var(--paper-soft)]">
         {photo && isRenderablePhoto(photo) ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img alt={photo.caption ?? entry.title} className="h-48 w-full object-cover lg:h-full" src={photo.storageKey} />
+          <img alt={photo.caption ?? entry.title} className="h-40 w-full object-cover lg:h-full" src={photo.storageKey} />
         ) : (
-          <div className="grid h-48 place-items-center p-4 text-center text-sm text-[color:var(--muted)] lg:h-full">Photo moment ready</div>
+          <div className="grid h-40 place-items-center p-4 text-center text-sm text-[color:var(--muted)] lg:h-full">Photo moment ready</div>
         )}
       </div>
-      <div className="p-5">
+      <div className="p-4">
         <p className="travel-kicker text-xs">Moment {index + 1}</p>
-        <h3 className="travel-hand mt-2 text-2xl font-semibold text-[color:var(--ink)]">{entry.title}</h3>
-        <p className="travel-muted mt-3 text-sm leading-7">{getFirstSentence(entry.body)}</p>
+        <h3 className="travel-hand mt-2 line-clamp-2 text-xl font-semibold leading-tight text-[color:var(--ink)]">{entry.title}</h3>
+        <p className="travel-muted mt-3 line-clamp-3 text-sm leading-6">{clampWords(getFirstSentence(entry.body), 34)}</p>
         <p className="travel-kicker mt-4 text-xs">
           {formatDate(entry.entryDate)} / {entry.mood ?? "memory"}
         </p>
@@ -279,9 +288,9 @@ function CompactReaderGuide({
   return (
     <section className="travel-soft-panel rounded-2xl px-4 py-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div className="max-w-[18rem]">
           <p className="travel-kicker text-xs">Reader guide</p>
-          <p className="travel-muted mt-1 text-sm">A quick read on what this page contains.</p>
+          <p className="travel-muted mt-1 line-clamp-2 text-sm">Support text stays short here; the main story carries the emotion.</p>
         </div>
         <div className="flex flex-wrap gap-2 text-sm">
           {[
@@ -345,6 +354,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
   const renderablePhotos = trip.photos.filter(isRenderablePhoto);
   const readingMinutes = getReadingMinutes(trip.journalEntries);
   const seasonLabel = getSeasonLabel(trip.startDate);
+  const heroSummary = clampWords(trip.summary, 58);
   const usedStoryPhotoIds = new Set<string>();
   const storyMoments = trip.journalEntries.map((entry, index) => {
     const photo = getBestStoryPhoto(entry, renderablePhotos, usedStoryPhotoIds);
@@ -388,7 +398,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                 {trip.country} / {trip.city}
               </p>
               <h1 className="travel-hand mt-3 text-4xl font-semibold leading-tight sm:text-6xl">{trip.title}</h1>
-              <p className="travel-muted mt-5 max-w-3xl text-base leading-8 sm:text-lg">{trip.summary}</p>
+              <p className="travel-muted mt-5 max-w-3xl text-base leading-8 sm:text-lg">{heroSummary}</p>
               <div className="mt-6">
                 <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
               </div>
@@ -429,14 +439,17 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-6xl gap-6 px-4 py-7 sm:px-6 sm:py-10 lg:grid-cols-[minmax(0,1.25fr)_minmax(20rem,0.75fr)] lg:px-10">
-        <div className="space-y-6">
-          <section className="travel-panel rounded-3xl p-5 sm:p-7">
+      <section className="mx-auto grid max-w-6xl gap-5 px-4 py-7 sm:px-6 sm:py-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:px-10">
+        <div className="space-y-5">
+          <section className="travel-panel rounded-2xl p-4 sm:p-5">
             <SectionHeader kicker="Overview" title="Trip memory" />
-            <p className="travel-muted mt-4 text-base leading-8">
-              This page is shaped for readers first: the story, useful stops, photo memories, and practical records stay together so it can work as both a family archive and a public travel note.
+            <p className="travel-muted mt-3 line-clamp-3 text-sm leading-6">
+              {clampWords(
+                "This page is shaped for readers first: the story, useful stops, photo memories, and practical records stay together so it can work as both a family archive and a public travel note.",
+                42,
+              )}
             </p>
-            <dl className="mt-6 grid gap-4 sm:grid-cols-2">
+            <dl className="mt-4 grid gap-3 sm:grid-cols-4">
               {[
                 ["Base city", trip.city],
                 ["Coordinates", trip.coordinates ? `${trip.coordinates.latitude}, ${trip.coordinates.longitude}` : "Not mapped"],
@@ -444,8 +457,8 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                 ["Saved places", String(trip.places.length)],
               ].map(([label, value]) => (
                 <div key={label}>
-                  <dt className="travel-muted text-sm">{label}</dt>
-                  <dd className="mt-1 font-semibold text-[color:var(--ink)]">{value}</dd>
+                  <dt className="travel-kicker text-[0.65rem]">{label}</dt>
+                  <dd className="mt-1 line-clamp-1 text-sm font-semibold text-[color:var(--ink)]">{value}</dd>
                 </div>
               ))}
             </dl>
@@ -459,12 +472,12 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           />
 
           {trip.journalEntries.length > 0 ? (
-            <section className="travel-panel rounded-3xl p-5 sm:p-7">
+            <section className="travel-panel rounded-2xl p-4 sm:p-5">
               <SectionHeader kicker="Story route" title="Read the journey through its key moments" />
-              <p className="travel-muted mt-4 text-base leading-8">
-                A visitor should be able to understand the emotional path before reading every note. These moments turn the trip into a guided story.
+              <p className="travel-muted mt-3 line-clamp-2 text-sm leading-6">
+                A visitor should understand the emotional path quickly. Each moment keeps one photo and one short text preview.
               </p>
-              <div className="mt-6 grid gap-4">
+              <div className="mt-5 grid gap-3">
                 {storyMoments.map(({ entry, index, photo }) => (
                   <StoryMomentCard entry={entry} index={index} key={entry.id} photo={photo} />
                 ))}
@@ -500,10 +513,11 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           </section>
         </div>
 
-        <aside className="space-y-6">
-          <section className="travel-panel rounded-3xl p-5 sm:p-7">
+        <aside className="space-y-5 lg:sticky lg:top-5">
+          <section className="travel-panel rounded-2xl p-4">
             <SectionHeader kicker="Story contents" title="On this page" />
-            <div className="mt-5 grid gap-3">
+            <p className="travel-muted mt-2 text-xs leading-5">Writing guide: keep each moment title under 12 words and preview text under 35 words.</p>
+            <div className="mt-4 grid gap-2">
               {storyMoments.map(({ entry, photo }, index) => (
                 <article className="grid grid-cols-[3.25rem_1fr] gap-3 rounded-2xl border border-[color:var(--line)] bg-white/60 p-2" key={entry.id}>
                   <div className="overflow-hidden rounded-xl bg-[color:var(--paper-soft)]">
@@ -522,17 +536,17 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               ))}
             </div>
           </section>
-          <section className="travel-panel rounded-3xl p-5 sm:p-7">
+          <section className="travel-panel rounded-2xl p-4">
             <SectionHeader kicker="Places" title="Saved stops" />
-            <div className="mt-6">
+            <div className="mt-4">
               {trip.places.map((place) => (
                 <PlaceRow key={place.id} place={place} />
               ))}
             </div>
           </section>
-          <section className="travel-panel rounded-3xl p-5 sm:p-7">
+          <section className="travel-panel rounded-2xl p-4">
             <SectionHeader kicker="Costs" title="Tracked spend" />
-            <div className="mt-6">
+            <div className="mt-4">
               {trip.costs.map((cost) => (
                 <CostRow key={cost.id} cost={cost} />
               ))}
