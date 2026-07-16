@@ -323,7 +323,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
         </span>
       </div>
 
-      <div className="grid gap-0 lg:grid-cols-[1fr_11rem]">
+      <div className="grid gap-0 lg:grid-cols-[1fr_13rem]">
         <div className="relative min-h-[18rem] overflow-hidden bg-[#dbeafe]">
           <div className="absolute inset-0 bg-[linear-gradient(135deg,#dbeafe_0%,#dcfce7_100%)]" />
           {mapTiles.map((tile) => (
@@ -388,7 +388,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
                   : "border-amber-100 bg-amber-500 text-white";
             return (
               <button
-                className={`absolute grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 text-sm font-bold shadow-[0_12px_30px_rgba(15,23,42,.22)] transition hover:scale-105 ${tone} ${selected ? "ring-4 ring-white/80" : ""}`}
+                className={`absolute grid h-7 w-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 text-[0.7rem] font-bold shadow-[0_10px_24px_rgba(15,23,42,.22)] transition hover:scale-110 ${tone} ${selected ? "ring-4 ring-white/80" : ""}`}
                 key={pin.id}
                 onClick={() => setSelectedId(pin.id)}
                 style={{
@@ -403,21 +403,6 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
               </button>
             );
           })}
-          <div className="absolute left-3 right-3 top-3 z-40 flex gap-1 overflow-x-auto rounded-2xl border border-white/80 bg-white/88 p-1.5 shadow-sm">
-            {routeStops.map((pin) => (
-              <button
-                className={`shrink-0 rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold transition ${
-                  selectedId === pin.id ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-white text-slate-700 hover:bg-sky-50"
-                }`}
-                key={`route-stop-${pin.id}`}
-                onClick={() => setSelectedId(pin.id)}
-                title={pin.label}
-                type="button"
-              >
-                {pin.routeOrder}. {getRouteStopLabel(pin.label)}
-              </button>
-            ))}
-          </div>
           <div className="absolute bottom-3 left-3 rounded-2xl border border-white/80 bg-white/85 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm">
             Tap pins or route lines
           </div>
@@ -431,7 +416,28 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
           </a>
         </div>
 
-        <aside className="border-t border-white/70 bg-white/75 p-3 lg:border-l lg:border-t-0">
+        <aside className="space-y-3 border-t border-white/70 bg-white/75 p-3 lg:border-l lg:border-t-0">
+          {routeStops.length > 0 ? (
+            <div className="rounded-2xl border border-white/80 bg-white/80 p-2">
+              <p className="travel-kicker px-1 text-[0.62rem]">Route stops</p>
+              <div className="mt-2 grid gap-1.5">
+                {routeStops.map((pin) => (
+                  <button
+                    className={`flex items-center gap-2 rounded-xl border px-2 py-1.5 text-left text-[0.72rem] font-semibold leading-4 transition ${
+                      selectedId === pin.id ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-white text-slate-700 hover:bg-sky-50"
+                    }`}
+                    key={`route-stop-${pin.id}`}
+                    onClick={() => setSelectedId(pin.id)}
+                    title={pin.label}
+                    type="button"
+                  >
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-slate-900 text-[0.65rem] text-white">{pin.routeOrder}</span>
+                    <span className="line-clamp-2">{getRouteStopLabel(pin.label)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {selectedPin || selectedRoute ? (
             <div>
               <p className="travel-kicker text-[0.65rem]">{selectedRoute ? transportLabel(selectedRoute.transport) : selectedPin?.kind}</p>
