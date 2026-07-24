@@ -13,3 +13,13 @@ Show high-level travel stats, latest journeys, a map-ready visual region, and cl
 ## Component Rules
 
 Use compact cards only for repeated records and dashboard panels. Avoid nested cards. Use stable dimensions for map, list, and stat regions. Keep color restrained with clear contrast.
+
+## Family Workspace Rules
+
+- `/family` is the single authentication layer for every family department.
+  Travel and Coffee editors must never render their own PIN form.
+- A direct visit to a protected department without a family session returns the
+  user to `/family`.
+- Content cards and editing surfaces use light backgrounds with dark text.
+  Dark color may be used as a small accent, not as a large content box that can
+  make labels or entered content appear obscured.

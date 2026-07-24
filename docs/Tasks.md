@@ -38,6 +38,9 @@ Latest family-entry correction:
 - Commit `421b23e` is deployed. Live `/family` verification confirms the
   password field, both direct editor buttons, and the lighter action treatment
   are visible at phone width.
+- The authentication hierarchy is now enforced in code: `/family` is the only
+  PIN entry, while direct unauthenticated visits to Travel or Coffee editing
+  redirect upward. Department-level PIN forms were removed.
 
 Production evidence:
 

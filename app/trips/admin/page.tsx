@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TravelOSContent } from "@/lib/editable-store";
 import type { GeoPoint, JournalEntry, Photo, Place, PlaceType, RouteTransport, TravelRouteSegment, TravelVisibility, TripDetail } from "@/lib/types";
@@ -258,9 +259,9 @@ function uploadTripPhotoWithProgress(
 }
 
 export default function TravelAdminPage() {
+  const router = useRouter();
   const [pin, setPin] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
-  const [checkingPin, setCheckingPin] = useState(false);
   const [trips, setTrips] = useState<TripDetail[]>([]);
   const [activeTripId, setActiveTripId] = useState<string | null>(null);
   const [configured, setConfigured] = useState(false);
@@ -276,8 +277,11 @@ export default function TravelAdminPage() {
       setPin(storedPin);
       setAuthenticated(true);
       setMessage("Admin session unlocked from the shared admin workspace.");
+      return;
     }
-  }, []);
+
+    router.replace("/family");
+  }, [router]);
 
   const loadContent = useCallback(async () => {
     setMessage("Loading Travel content...");
@@ -304,27 +308,6 @@ export default function TravelAdminPage() {
 
     loadContent().catch(() => setMessage("Could not load Travel content."));
   }, [authenticated, loadContent]);
-
-  async function verifyPin(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setCheckingPin(true);
-    setMessage("Checking admin PIN...");
-
-    const response = await fetch("/api/coffee/admin", {
-      headers: { "x-travelos-admin-pin": pin },
-      method: "POST",
-    });
-
-    setCheckingPin(false);
-    if (!response.ok) {
-      const data = (await response.json()) as { error?: string };
-      setMessage(data.error ?? "Admin PIN check failed.");
-      return;
-    }
-
-    window.sessionStorage.setItem(adminSessionKey, pin);
-    setAuthenticated(true);
-  }
 
   const sortedTrips = useMemo(
     () => [...trips].sort((first, second) => second.startDate.localeCompare(first.startDate)),
@@ -766,28 +749,11 @@ export default function TravelAdminPage() {
   if (!authenticated) {
     return (
       <main className="travel-body min-h-screen bg-[#f8f3ea] text-zinc-950">
-        <section className="border-b border-sky-100 bg-white/90">
-          <div className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-8 lg:px-10">
-            <Link className="travel-label inline-flex min-h-11 items-center text-sm font-semibold text-sky-800" href="/admin">
-              Admin
-            </Link>
-            <div>
-              <p className="travel-label text-sm font-semibold uppercase text-sky-700">Travel admin</p>
-              <h1 className="travel-display mt-2 text-4xl font-semibold tracking-normal sm:text-5xl">Unlock Travel editor</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">
-                Use the shared admin PIN to edit existing trips or create a new Travel draft.
-              </p>
-            </div>
-          </div>
-        </section>
         <section className="mx-auto max-w-md px-6 py-8 lg:px-10">
-          <form className="rounded-xl border border-sky-100 bg-white/95 p-6 shadow-sm" onSubmit={verifyPin}>
-            <Field label="Admin PIN" onChange={setPin} type="password" value={pin} />
-            <button className={`${primaryButtonClass} mt-4 w-full`} disabled={checkingPin || !pin.trim()} type="submit">
-              {checkingPin ? "Checking" : "Unlock editor"}
-            </button>
-            <p className="mt-4 text-sm leading-6 text-zinc-600">{message}</p>
-          </form>
+          <div className="rounded-3xl border border-sky-200 bg-white p-6 text-center shadow-sm">
+            <p className="travel-label text-sm font-semibold text-sky-900">正在返回家庭登入…</p>
+            <p className="mt-3 text-sm leading-6 text-zinc-600">旅行部門不再另外要求密碼。</p>
+          </div>
         </section>
       </main>
     );
@@ -798,8 +764,8 @@ export default function TravelAdminPage() {
       <section className="border-b border-sky-100 bg-[linear-gradient(135deg,_#eff6ff_0%,_#fff7ed_100%)]">
         <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-8 lg:px-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link className="travel-label inline-flex min-h-11 items-center text-sm font-semibold text-sky-800" href="/admin">
-              Admin
+            <Link className="travel-label inline-flex min-h-11 items-center text-sm font-semibold text-sky-800" href="/family">
+              家庭入口
             </Link>
             <div className="flex flex-wrap gap-2">
               <Link className={smallButtonClass} href="/trips/new">

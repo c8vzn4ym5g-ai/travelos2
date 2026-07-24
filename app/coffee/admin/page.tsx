@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { CoffeeMood, CoffeePhoto, CoffeeShop } from "@/lib/types";
 
@@ -313,9 +314,9 @@ function TextArea({ label, onChange, value }: { label: string; onChange: (value:
 }
 
 export default function CoffeeAdminPage() {
+  const router = useRouter();
   const [pin, setPin] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
-  const [checkingPin, setCheckingPin] = useState(false);
   const [shops, setShops] = useState<CoffeeShop[]>([]);
   const [configured, setConfigured] = useState(false);
   const [source, setSource] = useState<"blob" | "seed">("seed");
@@ -331,8 +332,11 @@ export default function CoffeeAdminPage() {
       setPin(storedPin);
       setAuthenticated(true);
       setMessage("Admin session unlocked from the shared admin workspace.");
+      return;
     }
-  }, []);
+
+    router.replace("/family");
+  }, [router]);
 
   async function loadContent() {
     setMessage("Loading coffee content...");
@@ -354,30 +358,6 @@ export default function CoffeeAdminPage() {
     loadContent().catch(() => setMessage("Could not load coffee content."));
   }, [authenticated]);
 
-  async function verifyPin(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setCheckingPin(true);
-    setMessage("Checking admin PIN...");
-
-    const response = await fetch("/api/coffee/admin", {
-      headers: {
-        "x-travelos-admin-pin": pin,
-      },
-      method: "POST",
-    });
-
-    if (!response.ok) {
-      const data = (await response.json()) as { error?: string };
-      setMessage(data.error ?? "Admin PIN check failed.");
-      setCheckingPin(false);
-      return;
-    }
-
-    setAuthenticated(true);
-    window.sessionStorage.setItem(adminSessionKey, pin);
-    setCheckingPin(false);
-  }
-
   const sortedShops = useMemo(
     () => [...shops].sort((first, second) => second.visitedAt.localeCompare(first.visitedAt)),
     [shops],
@@ -387,34 +367,11 @@ export default function CoffeeAdminPage() {
   if (!authenticated) {
     return (
       <main className="min-h-screen bg-[#f7f2ea] text-zinc-950">
-        <section className="border-b border-stone-200 bg-white/85">
-          <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-10">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <Link className="inline-flex min-h-11 min-w-11 items-center justify-center text-sm font-semibold text-teal-800" href="/admin">
-                Admin
-              </Link>
-              <Link className={smallButtonClass} href="/coffee">
-                Public coffee
-              </Link>
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-800">Coffee Admin</p>
-              <h1 className="mt-2 text-4xl font-semibold tracking-normal sm:text-5xl">Security check</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">
-                Enter the admin PIN first. The editing workspace opens only after the code is accepted.
-              </p>
-            </div>
-          </div>
-        </section>
         <section className="mx-auto max-w-md px-4 py-8 sm:px-6 lg:px-10">
-          <form className="rounded-3xl border border-stone-200 bg-white/90 p-5 shadow-sm" onSubmit={verifyPin}>
-            <SectionTitle eyebrow="Security" title="Admin PIN" />
-            <Field label="PIN" onChange={setPin} value={pin} />
-            <button className={`${primaryButtonClass} mt-4 w-full`} disabled={checkingPin || pin.trim().length === 0} type="submit">
-              {checkingPin ? "Checking" : "Unlock editor"}
-            </button>
-            <p className="mt-4 text-sm leading-6 text-zinc-600">{message}</p>
-          </form>
+          <div className="rounded-3xl border border-rose-200 bg-white p-6 text-center shadow-sm">
+            <p className="text-sm font-semibold text-rose-950">正在返回家庭登入…</p>
+            <p className="mt-3 text-sm leading-6 text-zinc-600">咖啡部門不再另外要求密碼。</p>
+          </div>
         </section>
       </main>
     );
@@ -598,8 +555,8 @@ export default function CoffeeAdminPage() {
       <section className="border-b border-stone-200 bg-white/85">
         <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link className="text-sm font-semibold text-teal-800" href="/admin">
-              Admin
+            <Link className="inline-flex min-h-11 min-w-11 items-center text-sm font-semibold text-teal-800" href="/family">
+              家庭入口
             </Link>
             <div className="flex flex-wrap gap-2">
               <Link className={smallButtonClass} href="/coffee">

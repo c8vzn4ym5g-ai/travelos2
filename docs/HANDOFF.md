@@ -18,6 +18,18 @@
   hashes match the verified working copy.
 - Exact next action: complete authenticated editor and photo-upload acceptance.
 
+## 2026-07-25 Single top-level authentication rule
+
+- Product rule is now explicit in `docs/UI.md`: `/family` owns authentication;
+  Travel and Coffee are departments below it and cannot show their own PIN
+  form.
+- Both editor routes now read the shared family session. Without it they
+  redirect to `/family` and show only a brief light-background transition.
+- Regression coverage fails if a department reintroduces a password input,
+  PIN form, or stops redirecting upward.
+- Large content surfaces remain light with dark text; dark colors are limited
+  to small accents.
+
 ## 2026-07-25 Responsive mobile and desktop app shell
 
 - Production audit at 390x844 and 1440x900 found no horizontal overflow and a
