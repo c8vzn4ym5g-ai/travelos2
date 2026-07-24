@@ -38,3 +38,16 @@ test("core travel, coffee, booking, and editor routes keep touch controls at 44p
 
   assert.match(routeSources[4], /min-w-11/);
 });
+
+test("family workspace exposes its shared unlock form without dark content boxes", async () => {
+  const family = await readFile(resolve(root, "app/family/page.tsx"), "utf8");
+  const unlockPanel = await readFile(resolve(root, "app/family/family-unlock-panel.tsx"), "utf8");
+
+  assert.match(family, /FamilyUnlockPanel/);
+  assert.match(unlockPanel, /輸入家庭編輯密碼/);
+  assert.match(unlockPanel, /type="password"/);
+  assert.match(unlockPanel, /前往旅行編輯/);
+  assert.match(unlockPanel, /前往咖啡編輯/);
+  assert.doesNotMatch(family, /bg-zinc-950/);
+  assert.doesNotMatch(family, /bg-emerald-800/);
+});

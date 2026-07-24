@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FamilyUnlockPanel } from "./family-unlock-panel";
 
 const sections = [
   {
@@ -37,6 +38,8 @@ export default function FamilyWorkspacePage() {
         </div>
       </section>
 
+      <FamilyUnlockPanel />
+
       <section className="mx-auto grid max-w-5xl gap-5 px-6 py-8 lg:grid-cols-2 lg:px-10">
         {sections.map((section) => (
           <article className={`rounded-3xl border p-6 shadow-sm ${section.accent}`} key={section.title}>
@@ -46,7 +49,7 @@ export default function FamilyWorkspacePage() {
               <Link className="rounded-2xl border border-white bg-white px-4 py-3 text-center font-semibold shadow-sm" href={section.viewHref}>
                 {section.viewLabel}
               </Link>
-              <Link className="rounded-2xl bg-zinc-950 px-4 py-3 text-center font-semibold text-white" href={section.editHref}>
+              <Link className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-center font-semibold text-emerald-950" href={section.editHref}>
                 {section.editLabel}
               </Link>
             </div>
@@ -62,7 +65,7 @@ export default function FamilyWorkspacePage() {
             需要 Codex 整理照片、潤飾遊記或協助寫作時，直接送進 JDB Sana；完成後會回到家庭收件箱。
           </p>
           <a
-            className="mt-5 block rounded-2xl bg-emerald-800 px-4 py-3 text-center font-semibold text-white"
+            className="mt-5 block rounded-2xl border border-emerald-300 bg-white px-4 py-3 text-center font-semibold text-emerald-950"
             href="https://jdb-family-entry.exact-flute-2594.chatgpt.site/"
           >
             開啟 JDB Sana

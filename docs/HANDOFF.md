@@ -1,5 +1,19 @@
 # TravelOS Handoff
 
+## 2026-07-25 Family entry login and contrast correction
+
+- Confirmed the reported problem on the live `/family` route: it was only a
+  directory, while the PIN input was hidden one level deeper in each editor.
+- Added one shared family PIN field to `/family` with direct Travel and Coffee
+  editor actions. A successful check stores the existing session credential and
+  opens the selected durable editor.
+- Replaced the nearly black and dark-green family action boxes with light
+  bordered controls and dark text to prevent the appearance of obscured labels.
+- Regression test, full tests 9/9, TypeScript, ESLint, and production build all
+  pass.
+- Exact next action: synchronize, deploy, live-check `/family` at phone width,
+  then complete authenticated editor and photo-upload acceptance.
+
 ## 2026-07-25 Responsive mobile and desktop app shell
 
 - Production audit at 390x844 and 1440x900 found no horizontal overflow and a

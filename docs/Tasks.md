@@ -25,6 +25,17 @@ Remaining:
 - Unlock both editors for authenticated layout/photo-upload verification, then
   complete real iPhone installation/edit acceptance.
 
+Latest family-entry correction:
+
+- Added the shared family PIN field directly to `/family`; after one successful
+  check, Jason or Sana can enter either Travel or Coffee editing without first
+  finding a second hidden login screen.
+- Replaced the nearly black and dark-green family action boxes with light,
+  bordered controls and dark text so labels remain clear on iPhone displays.
+- Added regression coverage for the visible unlock form and light action
+  treatment. Full tests pass 9/9, followed by TypeScript, ESLint, and the
+  production build.
+
 Production evidence:
 
 - Commits `0487078`, `b946e09`, and `19f368c` are deployed through
