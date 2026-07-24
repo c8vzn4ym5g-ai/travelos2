@@ -3,6 +3,7 @@ import { SessionPhotoCarousel } from "@/components/session-photo-carousel";
 import { getCoffeeShopsByVisitDate, getCoffeeStats } from "@/lib/coffee";
 import { readCoffeeContent } from "@/lib/coffee-store";
 import { readContent } from "@/lib/editable-store";
+import { isTripPublic } from "@/lib/trip-visibility";
 import type { CoffeePhoto, CoffeeShop, CoffeeShopListItem, Photo, TripDetail } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -217,10 +218,10 @@ export default async function Home() {
   const { content: coffeeContent } = await readCoffeeContent();
   const coffeeStats = getCoffeeStats(coffeeContent.shops);
   const trips = [...travelContent.trips].sort((first, second) => second.startDate.localeCompare(first.startDate));
-  const publicTrips = trips.filter((trip) => trip.visibility !== "private");
-  const visibleTrips = (publicTrips.length > 0 ? publicTrips : trips).slice(0, 3);
+  const publicTrips = trips.filter(isTripPublic);
+  const visibleTrips = publicTrips.slice(0, 3);
   const latestCoffee = getCoffeeShopsByVisitDate(coffeeContent.shops).slice(0, 3);
-  const travelPhotoStrip = getTravelSessionPhotos(publicTrips.length > 0 ? publicTrips : trips);
+  const travelPhotoStrip = getTravelSessionPhotos(publicTrips);
   const coffeePhotoStrip = getCoffeeSessionPhotos(coffeeContent.shops);
   const sessionPhotosByHref: Record<string, { alt: string; src: string }[]> = {
     "/coffee": coffeePhotoStrip,
