@@ -867,11 +867,10 @@ export default function TravelAdminPage() {
               </div>
               <div className="grid gap-5 sm:grid-cols-2">
                 <label className="block">
-                  <span className="travel-label text-sm font-semibold text-zinc-700">Visibility</span>
+                  <span className="travel-label text-sm font-semibold text-zinc-700">公開狀態</span>
                   <select className={inputClass} onChange={(event) => updateVisibility(event.target.value as TravelVisibility)} value={activeTrip.visibility}>
-                    <option value="private">Private</option>
-                    <option value="shared">Shared</option>
-                    <option value="public">Public</option>
+                    <option value="public">公開：任何人都能閱讀</option>
+                    <option value="private">私人：只保留在家庭編輯</option>
                   </select>
                 </label>
                 <Field label="Rating" onChange={updateRating} type="number" value={activeTrip.rating ? String(activeTrip.rating) : ""} />
