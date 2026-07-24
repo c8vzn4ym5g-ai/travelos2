@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { TravelpayoutsDrive } from "@/components/travelpayouts-drive";
 import "./globals.css";
 
 const appName = "TravelOS";
@@ -57,7 +58,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <TravelpayoutsDrive />
+      </body>
     </html>
   );
 }

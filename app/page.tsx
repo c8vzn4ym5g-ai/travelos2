@@ -35,13 +35,13 @@ const sessions = [
     action: "Open coffee map",
   },
   {
-    eyebrow: "Drive",
-    note: "road tools, kept separate",
-    title: "Car rental and road-trip booking tools",
+    eyebrow: "Plan & Book",
+    note: "useful tools, honest placement",
+    title: "Flights, stays, activities, and local transport",
     description:
-      "Open the Travelpayouts Drive workspace for rental-car searches and road-trip planning without mixing it into journals or coffee notes.",
+      "See how TravelOS connects useful booking tools to relevant public travel content while keeping journals readable.",
     href: "/drive",
-    action: "Open Drive",
+    action: "Open travel tools",
   },
 ];
 
