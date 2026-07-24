@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { readContent } from "@/lib/editable-store";
+import { isTripPublic } from "@/lib/trip-visibility";
 import type { Money, Photo, TripDetail } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -108,8 +109,8 @@ function TripCard({ trip }: { trip: TripDetail }) {
 export default async function TripsPage() {
   const { content } = await readContent();
   const trips = [...content.trips].sort((first, second) => second.startDate.localeCompare(first.startDate));
-  const publicTrips = trips.filter((trip) => trip.visibility !== "private");
-  const visibleTrips = publicTrips.length > 0 ? publicTrips : trips;
+  const publicTrips = trips.filter(isTripPublic);
+  const visibleTrips = publicTrips;
 
   return (
     <main className="travel-shell">
@@ -137,7 +138,7 @@ export default async function TripsPage() {
                 <p className="mt-2 text-3xl font-semibold text-[color:var(--pine)]">{visibleTrips.length}</p>
               </div>
               <div className="travel-soft-panel rounded-3xl px-5 py-4">
-                <p className="travel-muted text-xs">Shared</p>
+                <p className="travel-muted text-xs">Public</p>
                 <p className="mt-2 text-3xl font-semibold text-[color:var(--pine)]">{publicTrips.length}</p>
               </div>
             </div>
@@ -147,9 +148,14 @@ export default async function TripsPage() {
 
       <section className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-10 lg:px-10">
         <div className="grid gap-6">
-          {visibleTrips.map((trip) => (
-            <TripCard key={trip.id} trip={trip} />
-          ))}
+          {visibleTrips.length > 0 ? (
+            visibleTrips.map((trip) => <TripCard key={trip.id} trip={trip} />)
+          ) : (
+            <div className="travel-panel rounded-3xl p-8 text-center">
+              <h2 className="travel-hand text-2xl font-semibold">目前沒有公開旅行</h2>
+              <p className="travel-muted mt-3 text-sm">私人旅行仍保留在家庭編輯中，不會顯示在公開頁面。</p>
+            </div>
+          )}
         </div>
       </section>
     </main>
