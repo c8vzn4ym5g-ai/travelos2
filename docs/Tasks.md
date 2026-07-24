@@ -1,5 +1,71 @@
 # TravelOS Codex Tasks
 
+## TASK-014: Add a sustainable Travelpayouts monetization layer
+
+Status: in_progress
+
+Current verified result:
+
+- Travelpayouts Drive now loads once from the application root instead of only
+  on an empty page.
+- `/drive` accurately explains the Plan & Book product area and includes an
+  affiliate disclosure.
+- Removed the incorrect claim that Drive is a car-rental widget and removed the
+  non-functional widget placeholder.
+- Focused tests passed 2/2; navigation, TypeScript, ESLint, and production build
+  passed in a clean validation copy.
+
+Remaining:
+
+- Synchronize and deploy the verified source.
+- Run Travelpayouts `Check setup` against the live TravelOS project.
+- Add official program-generated flight and stay/activity tools with stable
+  placement SubIDs; do not guess widget code or expose API credentials.
+
+## JDB-066: Add the installable Family Editing workspace
+
+Status: in_progress
+
+Current verified result:
+
+- Added `/family` as a bilingual, mobile-first shared family workspace.
+- Home now exposes one clear `家庭編輯` entry.
+- Jason and Sana can browse Trips/Coffee, enter both durable admin editors, open JDB Sana,
+  and follow the one-time Safari `加入主畫面` installation path.
+- Added a `家庭編輯` PWA shortcut while preserving the existing TravelOS icon,
+  manifest, routes, Bangkok, and Lapland.
+- Navigation regression passed; TypeScript passed; ESLint passed; production
+  build passed and generated `/family`.
+- Rendered production HTML contains the Family Editing title, both editor routes, and the
+  JDB Sana link.
+
+Remaining:
+
+- Synchronize this verified slice to canonical TravelOS.
+- Publish the canonical source to the existing production target.
+- Verify `/family` on the live URL and complete one real iPhone install/edit
+  acceptance.
+- Replace the shared admin PIN with separate Jason/Sana Passkeys inside one
+  Family Workspace; use a shared Family Join Code only for enrollment/recovery.
+
+## JDB-046: Import the authoritative 73-photo batch into TravelOS
+
+Status: done
+
+Current verified result:
+
+- The replacement JDB command `20260722110104868-e8606f91` was accepted and
+  routed as JDB-046; its 73 photos are now the authoritative source set.
+- Verified 73 non-empty files with 73 unique SHA-256 hashes.
+- Added three typed TravelOS travelogues with eight journal entries and all 73
+  photos: one complete nine-day Bangkok journey and two Tainan short journals.
+- Preserved capture time, GPS, camera data, original filenames, bytes, and
+  hashes; unknown venue names are explicitly left unclaimed instead of invented.
+- Passed the integrity verifier, TypeScript, ESLint, production build, and HTTP
+  200 smoke checks for all three generated routes.
+- Synchronized to canonical TravelOS and verified against its clean production
+  build and all three real target routes. See `docs/JDB-042.md`.
+
 ## Status Legend
 
 - `pending`: not started
@@ -186,3 +252,45 @@ Result:
 - Added `/api/coffee/photos` for uploading Coffee photos.
 - Updated Coffee public pages and the homepage to read saved Coffee content.
 - Kept Trip admin/storage and Travel photo/music files separate and unchanged.
+## TASK-012: Restore Owner Journey Navigation
+
+Status: done
+
+Goal: Make the TravelOS home the scalable hub and ensure the owner can reach both Bangkok and Lapland through Trips.
+
+Result:
+
+- Kept Home as the hub for Trips, Coffee, and Drive.
+- Corrected the private-first visibility behavior so private journeys remain visible to the owner.
+- Added readable `Home / 首頁` and `Trips / 遊記` navigation to Coffee.
+- Added a regression check for the Home, Coffee, Trips, Bangkok, and Lapland paths.
+- Passed typecheck, lint, production build, and real HTTP route verification.
+
+Acceptance Criteria:
+
+- Home links to Trips and Coffee.
+- Trips includes both Bangkok and Lapland.
+- Both journey detail routes return HTTP 200.
+- Coffee returns to Home and links to Trips without hard-coding a single journey.
+
+## TASK-013: Add Public/Private Trip Control
+
+Status: done
+
+Goal: Let the family choose whether each trip is public or private without
+removing it from the editor.
+
+Result:
+
+- New trips default to public.
+- Trip admin exposes two Chinese choices: public or private.
+- Public home/list/detail/metadata use one visibility rule.
+- Private trips remain editable but are hidden from public lists, photo strips,
+  metadata, and direct public slug access.
+- Unauthenticated reads of `/api/trips/content` return 401; the unlocked admin
+  editor supplies its PIN when loading all trips.
+- Legacy shared trips remain public for backward compatibility.
+- Trip visibility tests, navigation regression, typecheck, lint, and production
+  build passed.
+- Production verification passed: unauthenticated content API 401, public trip
+  detail 200, and private trip detail 404.
