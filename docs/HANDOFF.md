@@ -11,8 +11,12 @@
   bordered controls and dark text to prevent the appearance of obscured labels.
 - Regression test, full tests 9/9, TypeScript, ESLint, and production build all
   pass.
-- Exact next action: synchronize, deploy, live-check `/family` at phone width,
-  then complete authenticated editor and photo-upload acceptance.
+- Commit `421b23e` is deployed. Live phone-width inspection confirms the PIN
+  field, direct editor buttons, and light high-contrast action controls render
+  clearly.
+- The canonical OneDrive project was synchronized and all five touched file
+  hashes match the verified working copy.
+- Exact next action: complete authenticated editor and photo-upload acceptance.
 
 ## 2026-07-25 Responsive mobile and desktop app shell
 

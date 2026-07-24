@@ -35,6 +35,9 @@ Latest family-entry correction:
 - Added regression coverage for the visible unlock form and light action
   treatment. Full tests pass 9/9, followed by TypeScript, ESLint, and the
   production build.
+- Commit `421b23e` is deployed. Live `/family` verification confirms the
+  password field, both direct editor buttons, and the lighter action treatment
+  are visible at phone width.
 
 Production evidence:
 
