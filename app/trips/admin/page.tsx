@@ -22,12 +22,12 @@ type RouteTextField = "fromLabel" | "linkedJournalEntryId" | "linkedPhotoId" | "
 
 const adminSessionKey = "travelos-admin-pin";
 const inputClass =
-  "mt-2 w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-sm text-zinc-950 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100";
+  "mt-2 min-h-11 w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-sm text-zinc-950 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100";
 const textareaClass = `${inputClass} min-h-28 leading-6`;
 const primaryButtonClass =
   "travel-label rounded-full border border-sky-300 bg-sky-50 px-5 py-3 text-sm font-semibold text-sky-950 shadow-sm transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60";
 const smallButtonClass =
-  "travel-label rounded-full border border-sky-200 bg-white px-3 py-2 text-xs font-semibold text-sky-900 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-40";
+  "travel-label inline-flex min-h-11 items-center rounded-full border border-sky-200 bg-white px-3 py-2 text-xs font-semibold text-sky-900 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-40";
 const supportedUploadTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxUploadBytes = 4_500_000;
 
@@ -768,7 +768,7 @@ export default function TravelAdminPage() {
       <main className="travel-body min-h-screen bg-[#f8f3ea] text-zinc-950">
         <section className="border-b border-sky-100 bg-white/90">
           <div className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-8 lg:px-10">
-            <Link className="travel-label text-sm font-semibold text-sky-800" href="/admin">
+            <Link className="travel-label inline-flex min-h-11 items-center text-sm font-semibold text-sky-800" href="/admin">
               Admin
             </Link>
             <div>
@@ -798,7 +798,7 @@ export default function TravelAdminPage() {
       <section className="border-b border-sky-100 bg-[linear-gradient(135deg,_#eff6ff_0%,_#fff7ed_100%)]">
         <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-8 lg:px-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link className="travel-label text-sm font-semibold text-sky-800" href="/admin">
+            <Link className="travel-label inline-flex min-h-11 items-center text-sm font-semibold text-sky-800" href="/admin">
               Admin
             </Link>
             <div className="flex flex-wrap gap-2">

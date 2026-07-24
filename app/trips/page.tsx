@@ -97,7 +97,7 @@ function TripCard({ trip }: { trip: TripDetail }) {
 
         <div className="mt-6 flex flex-col gap-3 border-t border-[color:var(--line)] pt-5 text-sm text-[color:var(--muted)] sm:flex-row sm:items-center sm:justify-between">
           <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
-          <Link className="travel-primary rounded-full px-5 py-2 text-center font-semibold sm:px-5 sm:py-2" href={href}>
+          <Link className="travel-primary inline-flex min-h-11 items-center justify-center rounded-full px-5 py-2 text-center font-semibold sm:px-5 sm:py-2" href={href}>
             {ui.read}
           </Link>
         </div>
@@ -117,11 +117,11 @@ export default async function TripsPage() {
       <section className="travel-hero">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-9 lg:px-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link className="travel-kicker text-sm" href="/">
+            <Link className="travel-kicker inline-flex min-h-11 items-center text-sm" href="/">
               TravelOS
             </Link>
             <div className="flex flex-wrap gap-2">
-              <Link className="travel-chip rounded-full px-4 py-2 text-sm font-semibold" href="/timeline">
+              <Link className="travel-chip inline-flex min-h-11 items-center rounded-full px-4 py-2 text-sm font-semibold" href="/timeline">
                 {ui.timeline}
               </Link>
             </div>

@@ -31,10 +31,10 @@ type CoffeeDateField = "visitedAt";
 type CoffeePhotoTextField = "caption" | "originalFilename" | "takenAt";
 
 const inputClass =
-  "mt-2 w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-zinc-950 outline-none transition focus:border-teal-700 focus:ring-2 focus:ring-teal-100";
+  "mt-2 min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-zinc-950 outline-none transition focus:border-teal-700 focus:ring-2 focus:ring-teal-100";
 const textareaClass = `${inputClass} min-h-28 leading-6`;
 const smallButtonClass =
-  "rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:border-teal-700 hover:text-teal-800 disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex min-h-11 items-center rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:border-teal-700 hover:text-teal-800 disabled:cursor-not-allowed disabled:opacity-40";
 const primaryButtonClass =
   "rounded-full border border-amber-300 bg-amber-50 px-5 py-3 text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60";
 const supportedUploadTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -390,7 +390,7 @@ export default function CoffeeAdminPage() {
         <section className="border-b border-stone-200 bg-white/85">
           <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-10">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <Link className="text-sm font-semibold text-teal-800" href="/admin">
+              <Link className="inline-flex min-h-11 items-center text-sm font-semibold text-teal-800" href="/admin">
                 Admin
               </Link>
               <Link className={smallButtonClass} href="/coffee">

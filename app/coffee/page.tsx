@@ -35,7 +35,7 @@ function CoffeeCard({ shop }: { shop: CoffeeShopListItem }) {
             {shop.country} / {shop.city}
           </p>
           <h2 className="mt-2 text-2xl font-semibold text-zinc-950">
-            <Link href={`/coffee/${shop.slug}`}>{shop.name}</Link>
+            <Link className="inline-flex min-h-11 items-center" href={`/coffee/${shop.slug}`}>{shop.name}</Link>
           </h2>
           <p className="mt-2 text-sm leading-6 text-zinc-600">{shop.comments}</p>
           <p className="mt-3 text-sm leading-6 text-zinc-700">{shop.lifeNote}</p>
@@ -56,7 +56,7 @@ function CoffeeCard({ shop }: { shop: CoffeeShopListItem }) {
         <span>
           {formatDate(shop.visitedAt)} / {shop.address} / {shop.photoCount} photos
         </span>
-        <Link className="font-medium text-zinc-950" href={`/coffee/${shop.slug}`}>
+        <Link className="inline-flex min-h-11 items-center font-medium text-zinc-950" href={`/coffee/${shop.slug}`}>
           Open note
         </Link>
       </div>
@@ -73,7 +73,7 @@ export default async function CoffeePage() {
     <main className="min-h-screen bg-stone-50 text-zinc-950">
       <section className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8 lg:px-10">
-          <Link className="text-sm font-medium text-teal-700" href="/">
+          <Link className="inline-flex min-h-11 items-center text-sm font-medium text-teal-700" href="/">
             TravelOS
           </Link>
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -86,7 +86,13 @@ export default async function CoffeePage() {
               </p>
             </div>
             <div className="flex flex-col gap-3">
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                <Link className="rounded-md bg-teal-700 px-4 py-3 text-center text-sm font-semibold text-white" href="/">
+                  Home / 首頁
+                </Link>
+                <Link className="rounded-md border border-zinc-300 px-4 py-3 text-center text-sm font-semibold text-zinc-950" href="/trips">
+                  Trips / 遊記
+                </Link>
                 <Link className="rounded-md border border-zinc-300 px-4 py-3 text-center text-sm font-semibold text-zinc-950" href="/coffee/map">
                   Map view
                 </Link>

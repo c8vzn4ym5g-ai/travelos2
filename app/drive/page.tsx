@@ -29,14 +29,14 @@ export default function DrivePage() {
       <section className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8 lg:px-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link className="text-sm font-medium text-teal-700" href="/">
+            <Link className="inline-flex min-h-11 items-center text-sm font-medium text-teal-700" href="/">
               TravelOS
             </Link>
             <div className="flex flex-wrap gap-2">
-              <Link className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950" href="/trips">
+              <Link className="inline-flex min-h-11 items-center rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950" href="/trips">
                 Travel
               </Link>
-              <Link className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950" href="/coffee">
+              <Link className="inline-flex min-h-11 items-center rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950" href="/coffee">
                 Coffee
               </Link>
             </div>

@@ -13,16 +13,22 @@ Current verified result:
   Workspace back link to reliable 44px touch targets.
 - Removed the portrait-only PWA restriction so the installed app can follow
   the device orientation on phones, tablets, and desktop displays.
+- Audited Trips, Coffee, Plan & Book, and both locked family editors at
+  390x844. All five routes avoid horizontal overflow.
+- Raised undersized route navigation, card actions, editor navigation, and
+  editor form controls to the same 44px mobile interaction baseline.
 - Added a responsive app-shell regression test. The full test suite passes
-  7/7, followed by TypeScript, ESLint, and the Next.js production build.
+  8/8, followed by TypeScript, ESLint, and the Next.js production build.
 
 Remaining:
 
 - Publish the verified slice to `travelos2-63r3`.
 - Repeat the 390x844 and 1440x900 production measurements and confirm the live
   manifest no longer declares portrait-only orientation.
-- Continue the responsive audit through Trips, Coffee, Family editors, and
-  photo-upload flows, then complete real iPhone installation/edit acceptance.
+- Publish the second verified responsive slice and repeat the five-route live
+  mobile audit.
+- Unlock both editors for authenticated layout/photo-upload verification, then
+  complete real iPhone installation/edit acceptance.
 
 ## TASK-014: Add a sustainable Travelpayouts monetization layer
 

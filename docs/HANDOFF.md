@@ -10,11 +10,18 @@
 - Removed the manifest's portrait-only restriction so the installed PWA can
   follow phone, tablet, and desktop orientation.
 - Added `tests/responsive-app-shell.test.mjs`.
-- Verification passed: full tests 7/7, TypeScript, ESLint, and production
+- The second mobile audit covered Trips, Coffee, Plan & Book, and both locked
+  editors at 390x844. All avoid horizontal overflow. Their small navigation,
+  actions, inputs, and shared editor control styles now use the 44px baseline.
+- Verification passed: full tests 8/8, TypeScript, ESLint, and production
   build.
-- Exact next action: publish to `travelos2-63r3`, remeasure the live home and
-  Family routes at both target viewports, verify the live manifest, then
-  continue the editor/photo-upload responsive audit.
+- Commit `0487078` is live for the first slice. Live verification passed for
+  Home and Family at 390x844 and 1440x900, and the deployed manifest returns
+  HTTP 200 with no orientation lock, `display=standalone`, `start_url=/family`,
+  and the Family shortcut intact.
+- Exact next action: publish the second slice, repeat the five-route mobile
+  measurements, then unlock both editors for authenticated photo-upload layout
+  verification and real iPhone acceptance.
 
 ## 2026-07-24 Travelpayouts sustainable monetization layer
 

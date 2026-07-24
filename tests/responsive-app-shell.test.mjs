@@ -20,3 +20,19 @@ test("the installable app supports both portrait and landscape use", async () =>
 
   assert.doesNotMatch(manifest, /orientation:\s*"portrait"/);
 });
+
+test("core travel, coffee, booking, and editor routes keep touch controls at 44px", async () => {
+  const routeSources = await Promise.all(
+    [
+      "app/trips/page.tsx",
+      "app/coffee/page.tsx",
+      "app/drive/page.tsx",
+      "app/trips/admin/page.tsx",
+      "app/coffee/admin/page.tsx",
+    ].map((path) => readFile(resolve(root, path), "utf8")),
+  );
+
+  for (const source of routeSources) {
+    assert.match(source, /min-h-11/);
+  }
+});
