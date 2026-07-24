@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TravelOSContent } from "@/lib/editable-store";
 import type { GeoPoint, JournalEntry, Photo, Place, PlaceType, RouteTransport, TravelRouteSegment, TravelVisibility, TripDetail } from "@/lib/types";
 
@@ -279,9 +279,15 @@ export default function TravelAdminPage() {
     }
   }, []);
 
-  async function loadContent() {
+  const loadContent = useCallback(async () => {
     setMessage("Loading Travel content...");
-    const response = await fetch("/api/trips/content", { cache: "no-store" });
+    const response = await fetch("/api/trips/content", {
+      cache: "no-store",
+      headers: { "x-travelos-admin-pin": pin },
+    });
+    if (!response.ok) {
+      throw new Error("Travel content access denied");
+    }
     const data = (await response.json()) as TravelContentResponse;
     const sortedTrips = [...data.content.trips].sort((first, second) => second.startDate.localeCompare(first.startDate));
     setTrips(sortedTrips);
@@ -289,7 +295,7 @@ export default function TravelAdminPage() {
     setConfigured(data.status.configured);
     setSource(data.status.source);
     setMessage(data.status.configured ? "Ready to edit existing trips." : "Storage setup needed before saves work on Vercel.");
-  }
+  }, [pin]);
 
   useEffect(() => {
     if (!authenticated) {
@@ -297,7 +303,7 @@ export default function TravelAdminPage() {
     }
 
     loadContent().catch(() => setMessage("Could not load Travel content."));
-  }, [authenticated]);
+  }, [authenticated, loadContent]);
 
   async function verifyPin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
