@@ -247,6 +247,9 @@ export default async function Home() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Link className="travel-label rounded-full border border-emerald-300 bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800" href="/family">
+                家庭編輯
+              </Link>
               <Link className="travel-label rounded-full border border-sky-200 bg-white/80 px-4 py-2 text-sm font-semibold text-sky-950 transition hover:bg-sky-50" href="/trips">
                 Travel
               </Link>
