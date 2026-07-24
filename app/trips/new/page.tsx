@@ -53,7 +53,7 @@ const initialDraft: DraftState = {
   startDate: "",
   summary: "",
   title: "",
-  visibility: "private",
+  visibility: "public",
   weather: "",
 };
 
@@ -388,9 +388,8 @@ export default function NewTripPage() {
                 name="visibility"
                 onChange={updateDraft}
                 options={[
-                  { label: "Private", value: "private" },
-                  { label: "Shared", value: "shared" },
-                  { label: "Public", value: "public" },
+                  { label: "公開", value: "public" },
+                  { label: "私人", value: "private" },
                 ]}
                 value={draft.visibility}
               />
