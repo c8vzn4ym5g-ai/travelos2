@@ -29,6 +29,8 @@
   PIN form, or stops redirecting upward.
 - Large content surfaces remain light with dark text; dark colors are limited
   to small accents.
+- The top-level family password field now includes a 48px
+  `顯示密碼 / 隱藏密碼` control; regression coverage protects the toggle.
 
 ## 2026-07-25 Responsive mobile and desktop app shell
 

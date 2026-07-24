@@ -18,6 +18,8 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
 
 - `/family` is the single authentication layer for every family department.
   Travel and Coffee editors must never render their own PIN form.
+- The family password field must include a visible `顯示密碼 / 隱藏密碼`
+  control so phone users can confirm exactly what they typed before submitting.
 - A direct visit to a protected department without a family session returns the
   user to `/family`.
 - Content cards and editing surfaces use light backgrounds with dark text.

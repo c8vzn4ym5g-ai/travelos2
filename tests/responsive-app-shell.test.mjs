@@ -45,7 +45,10 @@ test("family workspace exposes its shared unlock form without dark content boxes
 
   assert.match(family, /FamilyUnlockPanel/);
   assert.match(unlockPanel, /輸入家庭編輯密碼/);
-  assert.match(unlockPanel, /type="password"/);
+  assert.match(unlockPanel, /type=\{showPin \? "text" : "password"\}/);
+  assert.match(unlockPanel, /顯示密碼/);
+  assert.match(unlockPanel, /隱藏密碼/);
+  assert.match(unlockPanel, /aria-pressed=\{showPin\}/);
   assert.match(unlockPanel, /前往旅行編輯/);
   assert.match(unlockPanel, /前往咖啡編輯/);
   assert.doesNotMatch(family, /bg-zinc-950/);
