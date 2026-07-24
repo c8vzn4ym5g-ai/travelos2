@@ -22,13 +22,22 @@ Current verified result:
 
 Remaining:
 
-- Publish the verified slice to `travelos2-63r3`.
-- Repeat the 390x844 and 1440x900 production measurements and confirm the live
-  manifest no longer declares portrait-only orientation.
-- Publish the second verified responsive slice and repeat the five-route live
-  mobile audit.
 - Unlock both editors for authenticated layout/photo-upload verification, then
   complete real iPhone installation/edit acceptance.
+
+Production evidence:
+
+- Commits `0487078`, `b946e09`, and `19f368c` are deployed through
+  `travelos2-63r3`.
+- Live Home and Family checks pass at 390x844 and 1440x900.
+- Live Trips, Coffee, Plan & Book, Travel Admin, and Coffee Admin checks pass
+  at 390x844 with no horizontal overflow and no visible interactive control
+  smaller than 44x44.
+- The same five routes pass the desktop audit at 1280x720 with no horizontal
+  overflow; public content uses a stable 1152px region and locked editor
+  screens use a focused 768px region.
+- Live manifest returns HTTP 200, has no orientation lock, keeps
+  `display=standalone`, starts at `/family`, and retains the Family shortcut.
 
 ## TASK-014: Add a sustainable Travelpayouts monetization layer
 

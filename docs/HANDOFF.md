@@ -22,6 +22,15 @@
 - Exact next action: publish the second slice, repeat the five-route mobile
   measurements, then unlock both editors for authenticated photo-upload layout
   verification and real iPhone acceptance.
+- Second-slice commits `b946e09` and `19f368c` are now live. Production
+  measurements at 390x844 show no horizontal overflow and no visible
+  interactive control below 44x44 on Trips, Coffee, Plan & Book, Travel Admin,
+  or Coffee Admin.
+- Desktop production checks at 1280x720 pass on the same five routes with no
+  horizontal overflow. Public screens use the intended 1152px content width;
+  locked editor screens stay focused at 768px.
+- Exact next action is now authenticated editor/photo-upload responsive
+  verification, followed by real iPhone install/edit acceptance.
 
 ## 2026-07-24 Travelpayouts sustainable monetization layer
 
