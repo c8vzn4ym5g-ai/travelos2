@@ -5,6 +5,7 @@ import { JourneyMap } from "@/components/journey-map";
 import { JourneyMusicPlayer } from "@/components/journey-music-player";
 import { ShareActions } from "@/components/share-actions";
 import { readContent } from "@/lib/editable-store";
+import { isTripPublic } from "@/lib/trip-visibility";
 import { getTripDetailsByStartDate } from "@/lib/trips";
 import type { Cost, JournalEntry, Money, Photo, Place } from "@/lib/types";
 
@@ -314,7 +315,7 @@ export async function generateMetadata({ params }: TripDetailPageProps): Promise
   const { content } = await readContent();
   const trip = content.trips.find((item) => item.slug === slug);
 
-  if (!trip) {
+  if (!trip || !isTripPublic(trip)) {
     return {};
   }
 
@@ -342,7 +343,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
   const { content } = await readContent();
   const trip = content.trips.find((item) => item.slug === slug);
 
-  if (!trip) {
+  if (!trip || !isTripPublic(trip)) {
     notFound();
   }
 
