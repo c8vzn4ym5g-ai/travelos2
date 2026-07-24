@@ -156,7 +156,7 @@ function SessionCard({
         <p className={`travel-script mt-2 text-base leading-6 ${tone.note}`}>{note}</p>
         <p className="mt-3 flex-1 text-sm leading-6 text-zinc-600">{description}</p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link className={`travel-label rounded-full border px-4 py-2.5 text-center text-sm font-semibold transition ${tone.action}`} href={href}>
+          <Link className={`travel-label inline-flex min-h-11 items-center justify-center rounded-full border px-4 py-2.5 text-center text-sm font-semibold transition ${tone.action}`} href={href}>
             {action}
           </Link>
         </div>
@@ -248,16 +248,16 @@ export default async function Home() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link className="travel-label rounded-full border border-emerald-300 bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800" href="/family">
+              <Link className="travel-label inline-flex min-h-11 items-center rounded-full border border-emerald-300 bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800" href="/family">
                 家庭編輯
               </Link>
-              <Link className="travel-label rounded-full border border-sky-200 bg-white/80 px-4 py-2 text-sm font-semibold text-sky-950 transition hover:bg-sky-50" href="/trips">
+              <Link className="travel-label inline-flex min-h-11 items-center rounded-full border border-sky-200 bg-white/80 px-4 py-2 text-sm font-semibold text-sky-950 transition hover:bg-sky-50" href="/trips">
                 Travel
               </Link>
-              <Link className="travel-label rounded-full border border-rose-200 bg-white/80 px-4 py-2 text-sm font-semibold text-rose-950 transition hover:bg-rose-50" href="/coffee">
+              <Link className="travel-label inline-flex min-h-11 items-center rounded-full border border-rose-200 bg-white/80 px-4 py-2 text-sm font-semibold text-rose-950 transition hover:bg-rose-50" href="/coffee">
                 Coffee
               </Link>
-              <Link className="travel-label rounded-full border border-indigo-200 bg-white/80 px-4 py-2 text-sm font-semibold text-indigo-950 transition hover:bg-indigo-50" href="/drive">
+              <Link className="travel-label inline-flex min-h-11 items-center rounded-full border border-indigo-200 bg-white/80 px-4 py-2 text-sm font-semibold text-indigo-950 transition hover:bg-indigo-50" href="/drive">
                 Drive
               </Link>
             </div>

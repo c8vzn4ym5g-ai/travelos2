@@ -26,7 +26,7 @@ export default function FamilyWorkspacePage() {
     <main className="travel-body min-h-screen bg-[#f8f3ea] text-zinc-950">
       <section className="border-b border-emerald-100 bg-[radial-gradient(circle_at_top_left,_#d1fae5_0,_transparent_34%),linear-gradient(180deg,_#fffdf7_0%,_#f8f3ea_100%)]">
         <div className="mx-auto max-w-5xl px-6 py-10 lg:px-10">
-          <Link className="travel-label text-sm font-semibold text-emerald-800" href="/">
+          <Link className="travel-label inline-flex min-h-11 items-center text-sm font-semibold text-emerald-800" href="/">
             ← TravelOS 首頁
           </Link>
           <p className="travel-script mt-8 text-2xl text-rose-700">our family workspace</p>

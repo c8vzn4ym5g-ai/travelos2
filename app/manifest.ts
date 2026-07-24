@@ -24,7 +24,6 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     lang: "en",
     name: "TravelOS",
-    orientation: "portrait",
     scope: "/",
     screenshots: [
       {

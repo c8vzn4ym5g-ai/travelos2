@@ -1,5 +1,21 @@
 # TravelOS Handoff
 
+## 2026-07-25 Responsive mobile and desktop app shell
+
+- Production audit at 390x844 and 1440x900 found no horizontal overflow and a
+  stable desktop three-column layout.
+- Corrected undersized mobile touch targets on the home navigation, session
+  actions, and Family Workspace back link; these controls now have a 44px
+  minimum height.
+- Removed the manifest's portrait-only restriction so the installed PWA can
+  follow phone, tablet, and desktop orientation.
+- Added `tests/responsive-app-shell.test.mjs`.
+- Verification passed: full tests 7/7, TypeScript, ESLint, and production
+  build.
+- Exact next action: publish to `travelos2-63r3`, remeasure the live home and
+  Family routes at both target viewports, verify the live manifest, then
+  continue the editor/photo-upload responsive audit.
+
 ## 2026-07-24 Travelpayouts sustainable monetization layer
 
 - Corrected a product-model error: Travelpayouts Drive is an AI affiliate-link
@@ -19,10 +35,19 @@
   advance notice, not a credential or integration code.
 - Verification passed in a clean dependency copy: focused tests 2/2,
   navigation regression, TypeScript, ESLint, and Next.js production build.
-- Exact next action: synchronize and deploy this slice, run Travelpayouts
-  `Check setup` against production, then generate and integrate one official
-  flight search form and one official accommodation/activity tool with stable
-  SubIDs.
+- Production deployment completed through GitHub/Vercel. Commit
+  `c36b2b28ccaab2111ab8e60ab1bef2a1f5da8ac8` is active in
+  `Production – travelos2-63r3`.
+- Live `/drive` renders the corrected Plan & Book page and disclosure. Browser
+  assertions found exactly one Drive loader and one public Drive script, with
+  no fake widget container. The same one-script invariant passed on the public
+  Lapland travelogue.
+- Travelpayouts `Check setup` was opened, but the Windows browser-control
+  channel timed out before the result could be read. This is a technical
+  verification blocker, not an Owner approval or credential blocker.
+- Exact next action: read the Drive setup result when browser control recovers,
+  then generate and integrate one official Aviasales flight search form and one
+  official accommodation/activity tool with stable SubIDs.
 
 ## 2026-07-24 Public/private trip visibility
 

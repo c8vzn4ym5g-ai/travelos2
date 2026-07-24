@@ -1,5 +1,29 @@
 # TravelOS Codex Tasks
 
+## TASK-015: Complete the responsive mobile and desktop app shell
+
+Status: in_progress
+
+Current verified result:
+
+- Audited the production home and Family Editing routes at 390x844 and
+  1440x900. Neither viewport has horizontal overflow, and the desktop home
+  retains its three-column session layout.
+- Raised the small mobile home navigation, session actions, and Family
+  Workspace back link to reliable 44px touch targets.
+- Removed the portrait-only PWA restriction so the installed app can follow
+  the device orientation on phones, tablets, and desktop displays.
+- Added a responsive app-shell regression test. The full test suite passes
+  7/7, followed by TypeScript, ESLint, and the Next.js production build.
+
+Remaining:
+
+- Publish the verified slice to `travelos2-63r3`.
+- Repeat the 390x844 and 1440x900 production measurements and confirm the live
+  manifest no longer declares portrait-only orientation.
+- Continue the responsive audit through Trips, Coffee, Family editors, and
+  photo-upload flows, then complete real iPhone installation/edit acceptance.
+
 ## TASK-014: Add a sustainable Travelpayouts monetization layer
 
 Status: in_progress
@@ -14,11 +38,15 @@ Current verified result:
   non-functional widget placeholder.
 - Focused tests passed 2/2; navigation, TypeScript, ESLint, and production build
   passed in a clean validation copy.
+- GitHub/Vercel production deployment is active at commit
+  `c36b2b28ccaab2111ab8e60ab1bef2a1f5da8ac8`.
+- Live `/drive` and public Lapland checks confirm exactly one Drive loader and
+  script, a visible disclosure, and no fake widget container.
 
 Remaining:
 
-- Synchronize and deploy the verified source.
-- Run Travelpayouts `Check setup` against the live TravelOS project.
+- Read the result of Travelpayouts `Check setup`; the check was opened, but the
+  Windows browser-control channel timed out before the result could be read.
 - Add official program-generated flight and stay/activity tools with stable
   placement SubIDs; do not guess widget code or expose API credentials.
 
