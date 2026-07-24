@@ -390,7 +390,7 @@ export default function CoffeeAdminPage() {
         <section className="border-b border-stone-200 bg-white/85">
           <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-10">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <Link className="inline-flex min-h-11 items-center text-sm font-semibold text-teal-800" href="/admin">
+              <Link className="inline-flex min-h-11 min-w-11 items-center justify-center text-sm font-semibold text-teal-800" href="/admin">
                 Admin
               </Link>
               <Link className={smallButtonClass} href="/coffee">

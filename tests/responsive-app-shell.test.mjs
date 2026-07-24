@@ -35,4 +35,6 @@ test("core travel, coffee, booking, and editor routes keep touch controls at 44p
   for (const source of routeSources) {
     assert.match(source, /min-h-11/);
   }
+
+  assert.match(routeSources[4], /min-w-11/);
 });
