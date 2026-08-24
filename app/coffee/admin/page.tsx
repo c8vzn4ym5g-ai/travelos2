@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CoffeeMood, CoffeePhoto, CoffeeShop } from "@/lib/types";
 
 type CoffeeContentResponse = {
@@ -338,9 +338,16 @@ export default function CoffeeAdminPage() {
     router.replace("/family");
   }, [router]);
 
-  async function loadContent() {
+  const loadContent = useCallback(async () => {
     setMessage("Loading coffee content...");
-    const response = await fetch("/api/coffee/content", { cache: "no-store" });
+    const sessionPin = window.sessionStorage.getItem(adminSessionKey) ?? pin;
+    const response = await fetch("/api/coffee/content", {
+      cache: "no-store",
+      headers: { "x-travelos-admin-pin": sessionPin },
+    });
+    if (!response.ok) {
+      throw new Error("Coffee content access denied");
+    }
     const data = (await response.json()) as CoffeeContentResponse;
     const sortedShops = [...data.content.shops].sort((first, second) => second.visitedAt.localeCompare(first.visitedAt));
     setShops(sortedShops);
@@ -348,7 +355,7 @@ export default function CoffeeAdminPage() {
     setConfigured(data.status.configured);
     setSource(data.status.source);
     setMessage(data.status.configured ? "Ready to edit." : "Storage setup needed before saves work on Vercel.");
-  }
+  }, [pin]);
 
   useEffect(() => {
     if (!authenticated) {
@@ -356,7 +363,7 @@ export default function CoffeeAdminPage() {
     }
 
     loadContent().catch(() => setMessage("Could not load coffee content."));
-  }, [authenticated]);
+  }, [authenticated, loadContent]);
 
   const sortedShops = useMemo(
     () => [...shops].sort((first, second) => second.visitedAt.localeCompare(first.visitedAt)),

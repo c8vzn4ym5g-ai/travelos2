@@ -1,5 +1,21 @@
 # TravelOS Codex Tasks
 
+## TASK-016: Family phone capture onto a new private trip
+
+Status: in_progress
+
+Current verified result:
+
+- Added `/family/capture` after the shared family PIN session.
+- Photos accumulate from Take Photo and Choose Photos; HEIC converts to JPEG
+  on the phone; save uses the existing Blob trip APIs for a new private trip.
+- Coffee content GET now requires the family admin PIN.
+
+Remaining:
+
+- Real iPhone capture acceptance after family unlock.
+- Do not deploy this slice to production from the coding agent.
+
 ## TASK-015: Complete the responsive mobile and desktop app shell
 
 Status: in_progress

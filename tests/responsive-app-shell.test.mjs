@@ -56,12 +56,13 @@ test("family workspace exposes its shared unlock form without dark content boxes
 });
 
 test("family workspace is the only PIN entry and department editors redirect upward", async () => {
-  const [travelAdmin, coffeeAdmin] = await Promise.all([
+  const [travelAdmin, coffeeAdmin, capture] = await Promise.all([
     readFile(resolve(root, "app/trips/admin/page.tsx"), "utf8"),
     readFile(resolve(root, "app/coffee/admin/page.tsx"), "utf8"),
+    readFile(resolve(root, "app/family/capture/page.tsx"), "utf8"),
   ]);
 
-  for (const editor of [travelAdmin, coffeeAdmin]) {
+  for (const editor of [travelAdmin, coffeeAdmin, capture]) {
     assert.match(editor, /router\.replace\("\/family"\)/);
     assert.doesNotMatch(editor, /function verifyPin/);
     assert.doesNotMatch(editor, /type="password"/);

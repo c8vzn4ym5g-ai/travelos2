@@ -1,5 +1,29 @@
 # TravelOS Handoff
 
+## 2026-08-24 Family phone capture onto a new private trip
+
+- Smallest next change: a family-session capture surface on `/family/capture`,
+  reachable after the existing `/family` PIN unlock. `/family` remains the only
+  PIN entry. Capture redirects back to `/family` when the session is missing.
+- Take Photo (`capture=environment`) and Choose Photos (library, `multiple`)
+  both stay on the card after each add. Photos accumulate; they are not
+  replaced. Desktop `/trips/admin` still uses the single-file JPEG/PNG/WebP
+  upload path.
+- iPhone HEIC is converted to JPEG in the client before upload. Existing
+  4.5MB JPEG/PNG/WebP compression still runs after conversion.
+- Save creates a new `visibility: private` trip, POSTs each photo to
+  `/api/trips/photos` with `x-travelos-admin-pin`, then PUTs a
+  `JournalEntry.body` through `/api/trips/content`. The public Lapland trip
+  (`trip_lapland_2020` / `finland-lapland-winter-journal-2020`) is not a
+  write target.
+- Tiny protect: `GET /api/coffee/content` now requires the same admin PIN as
+  trips GET. Coffee admin sends the family session PIN. Public coffee pages
+  still read Blob through the server store, not this GET.
+- No Prisma, R2, Obsidian, voice/transcript, or second store. Production was
+  not deployed from this slice.
+- Exact next action: open the draft PR, then run one real iPhone capture after
+  family unlock (take a photo, add a library photo, save private journal).
+
 ## 2026-07-25 Family entry login and contrast correction
 
 - Confirmed the reported problem on the live `/family` route: it was only a
