@@ -4,6 +4,8 @@ import { heicJpegFilename, isHeicPhoto } from "@/lib/moments";
 
 const supportedUploadTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 export const maxUploadBytes = 4_500_000;
+export const displayMaxEdge = 1600;
+export const displayJpegQuality = 0.72;
 
 function waitWithTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
   return new Promise<T>((resolve, reject) => {
@@ -87,38 +89,33 @@ async function renderFileAsJpeg(file: File, maxSide: number, quality: number) {
 }
 
 async function convertPhonePhotoToJpeg(file: File) {
-  return renderFileAsJpeg(file, Number.POSITIVE_INFINITY, 0.9);
+  return renderFileAsJpeg(file, displayMaxEdge, displayJpegQuality);
 }
 
-async function resizeJpegPngWebp(file: File) {
-  if (!supportedUploadTypes.has(file.type)) {
-    return file;
+export async function prepareDisplayPhoto(file: File) {
+  let display: File;
+  try {
+    display = await convertPhonePhotoToJpeg(file);
+  } catch {
+    display = file;
+    if (!supportedUploadTypes.has(display.type) || display.size > maxUploadBytes) {
+      throw new Error("Could not prepare this photo for upload.");
+    }
   }
 
-  if (!file.type.startsWith("image/") || file.size < 1_500_000) {
-    return file;
+  if (display.size > maxUploadBytes) {
+    display = await renderFileAsJpeg(display, 1280, 0.65);
   }
 
-  return renderFileAsJpeg(file, 1800, 0.82);
+  return display;
+}
+
+export function shouldKeepOriginal(original: File, display: File) {
+  return original !== display && (isHeicPhoto(original) || original.size !== display.size || original.name !== display.name);
 }
 
 export async function preparePhotoForUpload(file: File) {
   const original = file;
-  let display = file;
-
-  if (isHeicPhoto(file) || !supportedUploadTypes.has(file.type)) {
-    try {
-      display = await convertPhonePhotoToJpeg(file);
-    } catch {
-      display = file;
-    }
-  } else {
-    display = await resizeJpegPngWebp(file);
-  }
-
-  if (display.size > maxUploadBytes) {
-    display = await renderFileAsJpeg(display, 1400, 0.72);
-  }
-
+  const display = await prepareDisplayPhoto(file);
   return { display, original };
 }

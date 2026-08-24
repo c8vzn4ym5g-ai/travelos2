@@ -11,6 +11,9 @@ Current verified result:
   audio without writing a new trip.
 - `/family/capture` is named Capture, reuses the family session, keeps camera
   and library after each add, previews immediately, and supports retake/remove.
+- Capture now starts display-JPEG upload in the background on add (and audio
+  when recording stops). Save does not wait on original files or a per-photo
+  sequential Blob JSON rewrite.
 - `/trips/write` lists warehouse moments as assets and saves only the
   human-typed draft. No generated journal copy.
 - A Capture note that is clearly a job becomes a warehouse job pointing at the
@@ -20,14 +23,15 @@ Current verified result:
   by place. A day/place found set becomes the writing photos together. Saving
   that set stores a warehouse job with the human draft so it survives reload.
 - Existing trip Blob APIs, live Lapland, coffee, and family PIN are unchanged.
-- PR #2 remains held; this warehouse work is merged to `main` from PR #3
-  without merging PR #2.
+- PR #2 remains held; warehouse Capture/Write/moments APIs merged to `main`
+  from PR #3 without merging PR #2. Public booking PR #8 and the Lapland
+  poster are untouched.
 
 Remaining:
 
-- Do not merge PR #2.
+- Do not merge this speed-fix PR; do not merge PR #2 or PR #8.
 - Real iPhone Capture acceptance on the live family door after Vercel
-  `travelos2-63r3` deploys this merge.
+  `travelos2-63r3` deploys: a photo must not be a 10-second wait.
 
 
 ## TASK-017: Swap Lapland itinerary basemap to labeled Carto Voyager streets

@@ -3,20 +3,35 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import {
+  clearMomentAudioInBackground,
+  createCaptureMoment,
+  finalizeCaptureMoment,
+  removeUploadedPhotoInBackground,
+  uploadDisplayPhoto,
+  uploadMomentAudio,
+  uploadOriginalPhotoInBackground,
+} from "@/lib/capture-upload";
 import { FAMILY_ADMIN_SESSION_KEY } from "@/lib/family-session";
 import { appendMomentPhotos, classifyCaptureNote, isHeicPhoto } from "@/lib/moments";
-import { maxUploadBytes, preparePhotoForUpload } from "@/lib/prepare-photo";
-import type { GeoPoint, TravelJob, TravelMoment } from "@/lib/types";
+import type { GeoPoint, TravelJob } from "@/lib/types";
+
+type UploadStatus = "uploading" | "uploaded" | "failed";
 
 type StagedPhoto = {
+  abort: AbortController;
   file: File;
   id: string;
   previewUrl: string;
+  serverPhotoId: string | null;
+  status: UploadStatus;
 };
 
 type StagedAudio = {
+  abort: AbortController;
   blob: Blob;
   previewUrl: string;
+  status: UploadStatus;
 };
 
 const controlClass =
@@ -27,14 +42,17 @@ function makeStagedPhotos(files: File[]) {
   return files
     .filter((file) => file.type.startsWith("image/") || isHeicPhoto(file))
     .map((file) => ({
+      abort: new AbortController(),
       file,
       id: `staged_${file.name}_${file.size}_${file.lastModified}_${Math.random().toString(36).slice(2, 6)}`,
       previewUrl: URL.createObjectURL(file),
+      serverPhotoId: null,
+      status: "uploading" as const,
     }));
 }
 
-function pinHeaders(pin: string) {
-  return { "x-travelos-admin-pin": pin };
+function sessionPin(fallback: string) {
+  return window.sessionStorage.getItem(FAMILY_ADMIN_SESSION_KEY) ?? fallback;
 }
 
 export default function CapturePage() {
@@ -44,21 +62,30 @@ export default function CapturePage() {
   const audioRef = useRef<StagedAudio | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+  const pinRef = useRef("");
+  const coordinatesRef = useRef<GeoPoint | null>(null);
+  const momentIdRef = useRef<string | null>(null);
+  const momentPromiseRef = useRef<Promise<string> | null>(null);
+  const photoUploadsRef = useRef(new Map<string, Promise<void>>());
+  const audioUploadRef = useRef<Promise<void> | null>(null);
+  const savingRef = useRef(false);
   const [pin, setPin] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
   const [photos, setPhotos] = useState<StagedPhoto[]>([]);
   const [note, setNote] = useState("");
   const [audio, setAudio] = useState<StagedAudio | null>(null);
   const [recording, setRecording] = useState(false);
-  const [coordinates, setCoordinates] = useState<GeoPoint | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedJobId, setSavedJobId] = useState<string | null>(null);
   const [message, setMessage] = useState("拍一張、選一張，或錄一小段。先看剛留下的，不好就重拍。");
+
+  const hasCapture = note.trim().length > 0 || photos.length > 0 || Boolean(audio);
 
   useEffect(() => {
     const storedPin = window.sessionStorage.getItem(FAMILY_ADMIN_SESSION_KEY);
     if (storedPin) {
       setPin(storedPin);
+      pinRef.current = storedPin;
       setAuthenticated(true);
       return;
     }
@@ -67,16 +94,21 @@ export default function CapturePage() {
   }, [router]);
 
   useEffect(() => {
+    pinRef.current = pin;
+  }, [pin]);
+
+  useEffect(() => {
     if (!authenticated || !("geolocation" in navigator)) {
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setCoordinates({
+        const next = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
-        });
+        };
+        coordinatesRef.current = next;
       },
       () => {
         // Capture still works without GPS.
@@ -105,6 +137,133 @@ export default function CapturePage() {
     };
   }, []);
 
+  function resetDraft() {
+    momentIdRef.current = null;
+    momentPromiseRef.current = null;
+    photoUploadsRef.current = new Map();
+    audioUploadRef.current = null;
+  }
+
+  async function ensureMoment(time: string) {
+    if (momentIdRef.current) {
+      return momentIdRef.current;
+    }
+
+    momentPromiseRef.current ??= createCaptureMoment({
+      coordinates: coordinatesRef.current,
+      pin: sessionPin(pinRef.current),
+      time,
+    }).then((created) => {
+      momentIdRef.current = created.moment.id;
+      return created.moment.id;
+    });
+
+    return momentPromiseRef.current;
+  }
+
+  function patchPhoto(photoId: string, patch: Partial<StagedPhoto>) {
+    setPhotos((current) => {
+      const next = current.map((photo) => (photo.id === photoId ? { ...photo, ...patch } : photo));
+      photosRef.current = next;
+      return next;
+    });
+  }
+
+  async function startBackgroundPhotoUpload(photo: StagedPhoto) {
+    const run = (async () => {
+      try {
+        const momentId = await ensureMoment(new Date(photo.file.lastModified).toISOString());
+        if (photo.abort.signal.aborted) {
+          return;
+        }
+
+        const uploaded = await uploadDisplayPhoto({
+          coordinates: coordinatesRef.current,
+          file: photo.file,
+          momentId,
+          pin: sessionPin(pinRef.current),
+          signal: photo.abort.signal,
+          takenAt: new Date(photo.file.lastModified).toISOString(),
+        });
+
+        if (photo.abort.signal.aborted) {
+          removeUploadedPhotoInBackground({
+            momentId,
+            photoId: uploaded.photo.id,
+            pin: sessionPin(pinRef.current),
+          });
+          return;
+        }
+
+        patchPhoto(photo.id, { serverPhotoId: uploaded.photo.id, status: "uploaded" });
+        uploadOriginalPhotoInBackground({
+          display: uploaded.display,
+          momentId,
+          original: photo.file,
+          photoId: uploaded.photo.id,
+          pin: sessionPin(pinRef.current),
+        });
+      } catch (error) {
+        if (photo.abort.signal.aborted) {
+          return;
+        }
+        patchPhoto(photo.id, { status: "failed" });
+        throw error;
+      }
+    })();
+
+    photoUploadsRef.current.set(photo.id, run.then(() => undefined, () => undefined));
+    return run;
+  }
+
+  async function startBackgroundAudioUpload(staged: StagedAudio) {
+    const run = (async () => {
+      try {
+        const momentId = await ensureMoment(new Date().toISOString());
+        if (staged.abort.signal.aborted) {
+          return;
+        }
+
+        await uploadMomentAudio({
+          blob: staged.blob,
+          momentId,
+          pin: sessionPin(pinRef.current),
+          signal: staged.abort.signal,
+        });
+
+        if (staged.abort.signal.aborted) {
+          clearMomentAudioInBackground({ momentId, pin: sessionPin(pinRef.current) });
+          return;
+        }
+
+        setAudio((current) => {
+          if (current?.previewUrl !== staged.previewUrl) {
+            return current;
+          }
+          const next = { ...current, status: "uploaded" as const };
+          audioRef.current = next;
+          return next;
+        });
+      } catch (error) {
+        if (staged.abort.signal.aborted) {
+          return;
+        }
+        setAudio((current) => {
+          if (current?.previewUrl !== staged.previewUrl) {
+            return current;
+          }
+          const next = { ...current, status: "failed" as const };
+          audioRef.current = next;
+          return next;
+        });
+        throw error;
+      }
+    })();
+
+    audioUploadRef.current = run.then(() => undefined, () => undefined);
+    return run;
+  }
+
   function addIncomingFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) {
       return;
@@ -112,15 +271,19 @@ export default function CapturePage() {
 
     const incoming = makeStagedPhotos([...fileList]);
     if (incoming.length === 0) {
-      setMessage("請選照片。iPhone HEIC 會在儲存時轉成 JPEG，或直接收下原檔。");
+      setMessage("請選照片。iPhone HEIC 會轉成 JPEG 上傳，原檔稍後另存。");
       return;
     }
 
     setPhotos((current) => {
       const next = appendMomentPhotos(current, incoming);
-      setMessage(`已加入 ${next.length} 張。可再拍、再選，或重拍不好的那張。`);
+      setMessage(`已加入 ${next.length} 張，正在背景上傳。可再拍、再選，或重拍不好的那張。`);
       return next;
     });
+
+    for (const photo of incoming) {
+      void startBackgroundPhotoUpload(photo);
+    }
   }
 
   function onTakePhoto(event: React.ChangeEvent<HTMLInputElement>) {
@@ -135,12 +298,20 @@ export default function CapturePage() {
 
   function removePhoto(photoId: string) {
     setPhotos((current) => {
-      const next = current.filter((photo) => photo.id !== photoId);
       const removed = current.find((photo) => photo.id === photoId);
       if (removed) {
+        removed.abort.abort();
         URL.revokeObjectURL(removed.previewUrl);
+        photoUploadsRef.current.delete(photoId);
+        if (removed.serverPhotoId && momentIdRef.current) {
+          removeUploadedPhotoInBackground({
+            momentId: momentIdRef.current,
+            photoId: removed.serverPhotoId,
+            pin: sessionPin(pinRef.current),
+          });
+        }
       }
-      return next;
+      return current.filter((photo) => photo.id !== photoId);
     });
   }
 
@@ -150,8 +321,15 @@ export default function CapturePage() {
   }
 
   function clearAudio() {
-    if (audio) {
-      URL.revokeObjectURL(audio.previewUrl);
+    if (!audio) {
+      return;
+    }
+
+    audio.abort.abort();
+    URL.revokeObjectURL(audio.previewUrl);
+    audioUploadRef.current = null;
+    if (momentIdRef.current) {
+      clearMomentAudioInBackground({ momentId: momentIdRef.current, pin: sessionPin(pinRef.current) });
     }
     setAudio(null);
   }
@@ -176,11 +354,19 @@ export default function CapturePage() {
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
         const previewUrl = URL.createObjectURL(blob);
         if (audioRef.current) {
+          audioRef.current.abort.abort();
           URL.revokeObjectURL(audioRef.current.previewUrl);
         }
-        setAudio({ blob, previewUrl });
+        const staged: StagedAudio = {
+          abort: new AbortController(),
+          blob,
+          previewUrl,
+          status: "uploading",
+        };
+        setAudio(staged);
         setRecording(false);
-        setMessage("聽一下剛錄的。若是雜音就重錄。");
+        setMessage("聽一下剛錄的。若是雜音就重錄。聲音已開始上傳。");
+        void startBackgroundAudioUpload(staged);
       };
       recorderRef.current = recorder;
       recorder.start();
@@ -207,101 +393,75 @@ export default function CapturePage() {
       return;
     }
 
+    if (savingRef.current) {
+      return;
+    }
+
+    savingRef.current = true;
     setSaving(true);
     setMessage("正在存成 Moment…");
 
     try {
-      const sessionPin = window.sessionStorage.getItem(FAMILY_ADMIN_SESSION_KEY) ?? pin;
       const classified = classifyCaptureNote(note);
       const time = photos[0]?.file.lastModified
         ? new Date(photos[0].file.lastModified).toISOString()
         : new Date().toISOString();
 
-      const createResponse = await fetch("/api/moments", {
-        body: JSON.stringify({
+      await Promise.all([...photoUploadsRef.current.values()]);
+      if (audioUploadRef.current) {
+        await audioUploadRef.current;
+      }
+
+      const failedPhoto = photosRef.current.find((photo) => photo.status === "failed");
+      if (failedPhoto) {
+        throw new Error("有照片還沒傳上去，請再試一次。");
+      }
+      if (audioRef.current?.status === "failed") {
+        throw new Error("聲音還沒傳上去，請再試一次。");
+      }
+
+      let createdJob: TravelJob | null = null;
+      if (momentIdRef.current) {
+        const saved = await finalizeCaptureMoment({
           command: classified.command,
-          coordinates,
+          coordinates: coordinatesRef.current,
+          momentId: momentIdRef.current,
           note: classified.note,
+          pin: sessionPin(pinRef.current),
           time,
-        }),
-        headers: {
-          "content-type": "application/json",
-          ...pinHeaders(sessionPin),
-        },
-        method: "POST",
-      });
-
-      if (!createResponse.ok) {
-        const data = (await createResponse.json()) as { error?: string };
-        throw new Error(data.error ?? "Could not save this moment.");
-      }
-
-      const created = (await createResponse.json()) as { job: TravelJob | null; moment: TravelMoment };
-      const momentId = created.moment.id;
-
-      if (audio) {
-        const audioData = new FormData();
-        audioData.set("momentId", momentId);
-        audioData.set("file", new File([audio.blob], "moment-audio.webm", { type: audio.blob.type || "audio/webm" }));
-        const audioResponse = await fetch("/api/moments/audio", {
-          body: audioData,
-          headers: pinHeaders(sessionPin),
-          method: "POST",
         });
-        if (!audioResponse.ok) {
-          const data = (await audioResponse.json()) as { error?: string };
-          throw new Error(data.error ?? "Audio upload failed.");
-        }
-      }
-
-      for (const [index, staged] of photos.entries()) {
-        setMessage(`正在存第 ${index + 1} / ${photos.length} 張…`);
-        const prepared = await preparePhotoForUpload(staged.file);
-        if (prepared.display.size > maxUploadBytes) {
-          throw new Error("Photo is still too large after compression. Please choose a smaller photo.");
-        }
-
-        const formData = new FormData();
-        formData.set("file", prepared.display);
-        formData.set("momentId", momentId);
-        formData.set("takenAt", new Date(staged.file.lastModified).toISOString());
-        if (prepared.original !== prepared.display && prepared.original.size <= maxUploadBytes) {
-          formData.set("original", prepared.original);
-        }
-        if (coordinates) {
-          formData.set("latitude", String(coordinates.latitude));
-          formData.set("longitude", String(coordinates.longitude));
-        }
-
-        const photoResponse = await fetch("/api/moments/photos", {
-          body: formData,
-          headers: pinHeaders(sessionPin),
-          method: "POST",
+        createdJob = saved.job;
+      } else {
+        const created = await createCaptureMoment({
+          command: classified.command,
+          coordinates: coordinatesRef.current,
+          note: classified.note,
+          pin: sessionPin(pinRef.current),
+          time,
         });
-        if (!photoResponse.ok) {
-          const data = (await photoResponse.json()) as { error?: string };
-          throw new Error(data.error ?? "Photo upload failed.");
-        }
+        createdJob = created.job;
       }
 
-      for (const photo of photos) {
+      for (const photo of photosRef.current) {
         URL.revokeObjectURL(photo.previewUrl);
       }
-      if (audio) {
-        URL.revokeObjectURL(audio.previewUrl);
+      if (audioRef.current) {
+        URL.revokeObjectURL(audioRef.current.previewUrl);
       }
       setPhotos([]);
       setAudio(null);
       setNote("");
-      setSavedJobId(created.job?.id ?? null);
+      setSavedJobId(createdJob?.id ?? null);
+      resetDraft();
       setMessage(
-        created.job
+        createdJob
           ? "已存成工作。照片在倉庫裡，打開 Write 看那些照片自己寫。"
           : "已存成 Moment。可再拍一張補上。",
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "儲存失敗，請再試一次。");
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
@@ -338,7 +498,7 @@ export default function CapturePage() {
         <article className="rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm">
           <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">拍照與相簿都留著</p>
           <h2 className="travel-display mt-2 text-2xl font-semibold">Take Photo / Choose Photos</h2>
-          <p className="mt-3 text-sm leading-6 text-zinc-600">加入之後兩個按鈕都還在。新的會接在後面，不會蓋掉剛拍的。</p>
+          <p className="mt-3 text-sm leading-6 text-zinc-600">加入之後兩個按鈕都還在。新的會接在後面，不會蓋掉剛拍的。預覽立刻出現，上傳在背景做。</p>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <label className={`${controlClass} border-sky-300 bg-sky-50 text-sky-950`}>
@@ -370,6 +530,9 @@ export default function CapturePage() {
                 <li className="overflow-hidden rounded-2xl bg-stone-100" key={photo.id}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img alt="" className="h-40 w-full object-cover" src={photo.previewUrl} />
+                  <p className="px-2 pt-2 text-center text-xs font-semibold text-zinc-600">
+                    {photo.status === "uploaded" ? "已上傳" : photo.status === "failed" ? "上傳失敗" : "上傳中"}
+                  </p>
                   <div className="grid grid-cols-2 gap-1 p-2">
                     <button
                       className="inline-flex min-h-11 items-center justify-center rounded-xl bg-white text-xs font-semibold text-zinc-800"
@@ -436,6 +599,9 @@ export default function CapturePage() {
             {audio ? (
               <div className="mt-3 grid gap-2">
                 <audio className="w-full" controls src={audio.previewUrl} />
+                <p className="text-xs font-semibold text-zinc-600">
+                  {audio.status === "uploaded" ? "已上傳" : audio.status === "failed" ? "上傳失敗" : "上傳中"}
+                </p>
                 <button
                   className="min-h-11 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold text-zinc-800"
                   onClick={clearAudio}
@@ -473,7 +639,7 @@ export default function CapturePage() {
 
           <button
             className="mt-5 min-h-12 w-full rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 font-semibold text-emerald-950 disabled:opacity-60"
-            disabled={saving}
+            disabled={!hasCapture}
             onClick={() => void saveMoment()}
             type="button"
           >

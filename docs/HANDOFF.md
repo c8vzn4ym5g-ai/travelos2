@@ -1,5 +1,24 @@
 # TravelOS Handoff
 
+## 2026-08-24 Capture upload speed (display-first, background)
+
+- Live owner test: photo/recording Save on `/family/capture` took 10+ seconds
+  because Save sequentially converted HEIC, uploaded display AND original, then
+  rewrote `travelos/moments.json` once per photo.
+- Preview stays instant (object URL). Background upload starts as soon as a
+  photo is added or recording stops. The Moment is created on the first asset,
+  then photos/audio append. Retake/remove aborts or skips that upload.
+- Critical path is a phone-sized display JPEG only (max edge 1600px, quality
+  0.72). Original HEIC/file is fire-and-forget after display lands. Save waits
+  only for in-flight display/audio, never for originals. If uploads already
+  finished, Save is a small note/command PUT.
+- Photo POSTs no longer rewrite the warehouse once per overlapping upload;
+  appends are queued and applied in one JSON write. Indexing stays
+  fire-and-forget. Family PIN session only. No TravelOS admin capture. No
+  Drive/ads on this page.
+- Do not merge. Do not touch PR #2, public booking PR #8, or the Lapland
+  poster.
+
 ## 2026-08-24 Merge PR #3 to main for live Capture
 
 - Owner instruction: merge GitHub PR #3 into `main` with a regular merge

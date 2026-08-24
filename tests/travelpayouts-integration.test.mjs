@@ -15,6 +15,7 @@ test("Travelpayouts Drive loads once at the public app boundary", async () => {
   assert.match(layout, /<TravelpayoutsDrive \/>/);
   assert.match(integration, /https:\/\/emrldtp\.cc\/NTUwMzEz\.js\?t=550313/);
   assert.match(integration, /id="travelpayouts-drive"/);
+  assert.match(integration, /pathname\?\.startsWith\("\/family\/capture"\)/);
   assert.doesNotMatch(drivePage, /<Script/);
 });
 

@@ -10,16 +10,17 @@ async function readSource(path) {
 }
 
 test("capture does not create trips and photos append to a moment", async () => {
-  const [capture, momentsApi, photosApi, helpers] = await Promise.all([
+  const [capture, upload, momentsApi, photosApi, helpers] = await Promise.all([
     readSource("app/family/capture/page.tsx"),
+    readSource("lib/capture-upload.ts"),
     readSource("app/api/moments/route.ts"),
     readSource("app/api/moments/photos/route.ts"),
     readSource("lib/moments.ts"),
   ]);
 
   assert.match(capture, /appendMomentPhotos\(current, incoming\)/);
-  assert.match(capture, /fetch\("\/api\/moments"/);
-  assert.match(capture, /\/api\/moments\/photos/);
+  assert.match(upload, /fetch\("\/api\/moments"/);
+  assert.match(upload, /\/api\/moments\/photos/);
   assert.match(capture, /Save as Moment/);
   assert.doesNotMatch(capture, /\/api\/trips/);
   assert.doesNotMatch(capture, /buildPrivateCaptureTrip/);
@@ -156,27 +157,106 @@ test("existing trips API is unchanged and capture cannot use it", async () => {
 });
 
 test("iPhone HEIC converts or is accepted without blocking the capture preview", async () => {
-  const [prepare, helpers, capture] = await Promise.all([
+  const [prepare, helpers, capture, upload] = await Promise.all([
     readSource("lib/prepare-photo.ts"),
     readSource("lib/moments.ts"),
     readSource("app/family/capture/page.tsx"),
+    readSource("lib/capture-upload.ts"),
   ]);
 
   assert.match(helpers, /image\/heic/);
   assert.match(helpers, /heicJpegFilename/);
-  assert.match(prepare, /isHeicPhoto\(file\)/);
+  assert.match(prepare, /isHeicPhoto\(original\)/);
   assert.match(prepare, /convertPhonePhotoToJpeg/);
   assert.match(prepare, /canvas\.toBlob\(resolve, "image\/jpeg"/);
+  assert.match(prepare, /displayMaxEdge = 1600/);
+  assert.match(prepare, /displayJpegQuality = 0.72/);
   assert.match(prepare, /maxUploadBytes = 4_500_000/);
+  assert.doesNotMatch(prepare, /POSITIVE_INFINITY/);
   assert.match(capture, /image\/heic,image\/heif,\.heic,\.heif/);
-  assert.match(capture, /preparePhotoForUpload/);
   assert.match(capture, /URL\.createObjectURL\(file\)/);
+  assert.match(upload, /prepareDisplayPhoto/);
+  assert.match(upload, /uploadOriginalPhotoInBackground/);
   const addIndex = capture.indexOf("function addIncomingFiles");
   const saveIndex = capture.indexOf("async function saveMoment");
-  const prepareIndex = capture.indexOf("preparePhotoForUpload(");
-  assert.ok(addIndex !== -1 && saveIndex !== -1 && prepareIndex !== -1);
+  const previewIndex = capture.indexOf("URL.createObjectURL(file)");
+  assert.ok(addIndex !== -1 && saveIndex !== -1 && previewIndex !== -1);
   assert.ok(addIndex < saveIndex);
-  assert.ok(prepareIndex > saveIndex);
+  assert.ok(previewIndex < saveIndex);
+});
+
+test("background upload starts on add and Save does not wait on originals", async () => {
+  const [capture, upload, photosApi, prepare, store] = await Promise.all([
+    readSource("app/family/capture/page.tsx"),
+    readSource("lib/capture-upload.ts"),
+    readSource("app/api/moments/photos/route.ts"),
+    readSource("lib/prepare-photo.ts"),
+    readSource("lib/moment-store.ts"),
+  ]);
+
+  const addBlock = capture.slice(
+    capture.indexOf("function addIncomingFiles"),
+    capture.indexOf("function onTakePhoto"),
+  );
+  const saveBlock = capture.slice(capture.indexOf("async function saveMoment"));
+  const displayPost = photosApi.slice(
+    photosApi.indexOf("if (!(file instanceof File))"),
+    photosApi.indexOf("export async function DELETE"),
+  );
+  const displayUpload = upload.slice(
+    upload.indexOf("export async function uploadDisplayPhoto"),
+    upload.indexOf("export function uploadOriginalPhotoInBackground"),
+  );
+
+  assert.match(addBlock, /void startBackgroundPhotoUpload\(photo\)/);
+  assert.match(capture, /void startBackgroundAudioUpload\(staged\)/);
+  assert.match(capture, /ensureMoment/);
+  assert.match(capture, /上傳中/);
+  assert.match(capture, /已上傳/);
+  assert.match(capture, /disabled=\{!hasCapture\}/);
+  assert.doesNotMatch(saveBlock, /preparePhotoForUpload/);
+  assert.doesNotMatch(saveBlock, /prepareDisplayPhoto/);
+  assert.doesNotMatch(saveBlock, /formData\.set\("original"/);
+  assert.doesNotMatch(saveBlock, /for \(const \[index, staged\] of photos\.entries\(\)\)/);
+  assert.match(saveBlock, /Promise\.all\(\[\.\.\.photoUploadsRef\.current\.values\(\)\]\)/);
+  assert.doesNotMatch(saveBlock, /uploadOriginalPhotoInBackground/);
+  assert.match(displayUpload, /formData\.set\("file", display\)/);
+  assert.doesNotMatch(displayUpload, /formData\.set\("original"/);
+  assert.match(upload, /void fetch\("\/api\/moments\/photos"/);
+  assert.match(upload, /Originals are durable when they land; they must never block Capture/);
+  assert.match(displayPost, /originalStorageKey: null/);
+  assert.doesNotMatch(displayPost, /setPhotoOriginal/);
+  assert.doesNotMatch(displayPost, /formData\.get\("original"\)/);
+  assert.match(photosApi, /setPhotoOriginal/);
+  assert.match(store, /withWarehouseLock/);
+  assert.match(store, /flushPhotoAppends/);
+  assert.match(store, /applyMomentPhotoAppends/);
+  assert.match(prepare, /prepareDisplayPhoto/);
+});
+
+test("capture speed path does not touch public Lapland", async () => {
+  const [capture, upload, photosApi, laplandPage, seed, poster] = await Promise.all([
+    readSource("app/family/capture/page.tsx"),
+    readSource("lib/capture-upload.ts"),
+    readSource("app/api/moments/photos/route.ts"),
+    readSource("app/trips/[slug]/page.tsx"),
+    readSource("lib/trips.ts"),
+    readSource("scripts/generate-lapland-poster.mjs"),
+  ]);
+
+  assert.doesNotMatch(capture, /from "@\/lib\/trips"/);
+  assert.doesNotMatch(capture, /trip_lapland_2020/);
+  assert.doesNotMatch(capture, /generate-lapland-poster/);
+  assert.doesNotMatch(capture, /Travel admin/);
+  assert.doesNotMatch(capture, /travelpayouts/i);
+  assert.doesNotMatch(capture, /emrldtp/);
+  assert.doesNotMatch(upload, /trip_lapland_2020/);
+  assert.doesNotMatch(photosApi, /trip_lapland_2020/);
+  assert.doesNotMatch(laplandPage, /moment-store/);
+  assert.doesNotMatch(laplandPage, /family\/capture/);
+  assert.match(seed, /trip_lapland_2020/);
+  assert.match(seed, /laplandTitle: "拉普蘭冬日記憶"/);
+  assert.match(poster, /basemaps\.cartocdn\.com\/rastertiles\/voyager/);
 });
 
 test("capture and save paths are not blocked by indexing or geocoding", async () => {
