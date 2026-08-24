@@ -1,5 +1,28 @@
 # TravelOS Handoff
 
+## 2026-08-24 JDB Capture and TravelMoment warehouse
+
+- Owner path confirmed: Capture is the family phone front door; TravelOS
+  warehouses originals as reusable assets; sit-and-write is human text only.
+- Canonical warehouse: Vercel Blob path `travelos/moments.json`. Portable JSON.
+  Obsidian is not a runtime dependency. No Prisma, no vector DB, no production
+  deploy in this slice.
+- PIN-gated APIs: `GET/POST/PUT /api/moments`, `POST /api/moments/photos`
+  (append), `POST /api/moments/audio`. Existing `/api/trips/content` and
+  `/api/trips/photos` are unchanged. Live Lapland, coffee, and family PIN stay.
+- Capture (`/family/capture`) reuses the family session key
+  `travelos-admin-pin`, has no PIN form, names the surface Capture, keeps
+  camera + library after each add, shows an immediate preview, and supports
+  retake/remove. Save creates a TravelMoment, never a new Trip.
+- TravelOS `/trips/write` lists warehouse moments as assets, shows selected
+  photos, and saves only the human-typed draft (optional PUT onto an existing
+  trip journal). No generated story.
+- PR #2 (`cursor/family-moment-capture-f495`) is still held. This slice
+  reimplements HEIC/append/session ideas on `main` without merging that PR.
+- Exact next action: family iPhone Capture acceptance against a Blob-backed
+  preview, then decide whether to keep PR #2 closed. Do not deploy production
+  from this handoff.
+
 ## 2026-07-25 Family entry login and contrast correction
 
 - Confirmed the reported problem on the live `/family` route: it was only a

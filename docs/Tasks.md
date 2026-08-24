@@ -1,5 +1,27 @@
 # TravelOS Codex Tasks
 
+## TASK-016: JDB Capture, TravelMoment warehouse, and sit-and-write
+
+Status: in_progress
+
+Current verified result:
+
+- Added a TravelMoment warehouse at Vercel Blob `travelos/moments.json`.
+- PIN-gated moment APIs create a moment, append photos, and store original
+  audio without writing a new trip.
+- `/family/capture` is named Capture, reuses the family session, keeps camera
+  and library after each add, previews immediately, and supports retake/remove.
+- `/trips/write` lists warehouse moments as assets and saves only human-typed
+  text. No generated journal copy.
+- Existing trip Blob APIs, live Lapland, coffee, and family PIN are unchanged.
+- PR #2 remains held; this work is a new branch off `main`.
+
+Remaining:
+
+- Do not merge PR #2.
+- Do not deploy production from this slice.
+- Real iPhone Capture acceptance after a Blob-backed preview.
+
 ## TASK-015: Complete the responsive mobile and desktop app shell
 
 Status: in_progress
