@@ -65,11 +65,6 @@ function isRenderablePhoto(photo: Photo) {
   return photo.storageKey.startsWith("http") || photo.storageKey.startsWith("/");
 }
 
-function getReadingMinutes(entries: JournalEntry[]) {
-  const words = entries.reduce((total, entry) => total + entry.body.split(/\s+/).filter(Boolean).length, 0);
-  return Math.max(1, Math.ceil(words / 180));
-}
-
 function getFirstSentence(text: string) {
   const sentence = text.split(/\n\n|\. |! |\? /)[0]?.trim();
   return sentence || text.slice(0, 140);
@@ -231,81 +226,6 @@ function MemoryChip({ label, tone, value }: { label: string; tone: string; value
   );
 }
 
-function VisitorScan({
-  featurePhotoCount,
-  readingMinutes,
-  season,
-  trip,
-}: {
-  featurePhotoCount: number;
-  readingMinutes: number;
-  season: string;
-  trip: { city: string; country: string; summary: string; slug: string; title: string };
-}) {
-  return (
-    <section className="travel-soft-panel mt-4 min-h-[8.5rem] rounded-[1.25rem] p-2.5">
-      <div className="grid gap-2">
-        <div>
-          <p className="travel-kicker text-xs">Visitor scan</p>
-          <p className="mt-0.5 text-[0.7rem] font-semibold text-amber-800">Before you read</p>
-        </div>
-        <dl className="grid gap-1.5 text-xs sm:grid-cols-2">
-        {[
-          ["Season", season],
-          ["Base", `${trip.city}, ${trip.country}`],
-          ["Read", `${readingMinutes} min`],
-          ["Photos", featurePhotoCount > 0 ? "Snow and warm lights" : "Album ready"],
-        ].map(([label, value], index) => (
-          <div
-            className={`rounded-xl border px-2.5 py-1.5 ${
-              ["border-rose-100 bg-rose-50/80", "border-sky-100 bg-sky-50/80", "border-amber-100 bg-amber-50/80", "border-teal-100 bg-teal-50/80"][
-                index % 4
-              ]
-            }`}
-            key={label}
-          >
-            <dt className="travel-kicker text-[0.65rem]">{label}</dt>
-            <dd className="mt-0.5 line-clamp-1 leading-4 text-[color:var(--muted)]">{value}</dd>
-          </div>
-        ))}
-        </dl>
-      </div>
-    </section>
-  );
-}
-
-function CompactReaderGuide({
-  featurePhotoCount,
-  placesCount,
-  readingMinutes,
-  storyCount,
-}: {
-  featurePhotoCount: number;
-  placesCount: number;
-  readingMinutes: number;
-  storyCount: number;
-}) {
-  return (
-    <section className="travel-soft-panel rounded-2xl px-4 py-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="max-w-[18rem]">
-          <p className="travel-kicker text-xs">Reader guide</p>
-          <p className="travel-muted mt-1 line-clamp-2 text-sm">Support text stays short here; the main story carries the emotion.</p>
-        </div>
-        <div className="flex flex-wrap gap-2 text-sm">
-          {[
-            ["Story", storyCount > 0 ? `${storyCount} notes / ${readingMinutes} min` : "Draft ready", "border-rose-100 bg-rose-50 text-rose-950"],
-            ["Photos", featurePhotoCount > 0 ? `${featurePhotoCount} featured` : "Album ready", "border-amber-100 bg-amber-50 text-amber-950"],
-            ["Stops", placesCount > 0 ? `${placesCount} saved` : "Add later", "border-teal-100 bg-teal-50 text-teal-950"],
-          ].map(([label, value, tone]) => (
-            <MemoryChip key={label} label={label} tone={tone} value={value} />
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export function generateStaticParams() {
   return getTripDetailsByStartDate().map((trip) => ({ slug: trip.slug }));
 }
@@ -352,7 +272,6 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     trip.photos.find(isRenderablePhoto);
   const featurePhotos = trip.photos.filter(isRenderablePhoto).slice(0, 4);
   const renderablePhotos = trip.photos.filter(isRenderablePhoto);
-  const readingMinutes = getReadingMinutes(trip.journalEntries);
   const seasonLabel = getSeasonLabel(trip.startDate);
   const heroSummary = clampWords(trip.summary, 88);
   const usedStoryPhotoIds = new Set<string>();
@@ -414,9 +333,6 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                   <MemoryChip key={label} label={label} tone={tone} value={value} />
                 ))}
               </div>
-              <div className="mt-auto">
-                <VisitorScan featurePhotoCount={featurePhotos.length} readingMinutes={readingMinutes} season={seasonLabel} trip={trip} />
-              </div>
             </div>
             <div className="grid content-start gap-4 lg:min-h-[41rem] lg:max-w-[26rem]">
               {coverPhoto ? (
@@ -455,12 +371,6 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
         <div className="space-y-5">
           <section className="travel-panel rounded-2xl p-4 sm:p-5">
             <SectionHeader kicker="Overview" title="Trip memory" />
-            <p className="travel-muted mt-3 line-clamp-3 text-sm leading-6">
-              {clampWords(
-                "This page is shaped for readers first: the story, useful stops, photo memories, and practical records stay together so it can work as both a family archive and a public travel note.",
-                42,
-              )}
-            </p>
             <dl className="mt-4 grid gap-3 sm:grid-cols-4">
               {[
                 ["Base city", trip.city],
@@ -475,13 +385,6 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               ))}
             </dl>
           </section>
-
-          <CompactReaderGuide
-            featurePhotoCount={featurePhotos.length}
-            placesCount={trip.places.length}
-            readingMinutes={readingMinutes}
-            storyCount={trip.journalEntries.length}
-          />
 
           {trip.journalEntries.length > 0 ? (
             <section className="travel-panel rounded-2xl p-4 sm:p-5">
@@ -528,7 +431,6 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
         <aside className="space-y-5 lg:sticky lg:top-5">
           <section className="travel-panel rounded-2xl p-4">
             <SectionHeader kicker="Story contents" title="On this page" />
-            <p className="travel-muted mt-2 text-xs leading-5">Writing guide: keep each moment title under 12 words and preview text under 35 words.</p>
             <div className="mt-4 grid gap-2">
               {storyMoments.map(({ entry, photo }, index) => (
                 <article className="grid grid-cols-[3.25rem_1fr] gap-3 rounded-2xl border border-[color:var(--line)] bg-white/60 p-2" key={entry.id}>

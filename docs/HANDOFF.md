@@ -1,5 +1,26 @@
 # TravelOS Handoff
 
+## 2026-08-24 Lapland public-copy slice
+
+- Public Lapland trip copy is rewritten in a professional bilingual style:
+  Traditional Chinese first, then English. Short, concrete sentences. Places,
+  dates, and photo contents are named. No invented diary, no abstract
+  philosophy.
+- Seed source is `lib/trips.ts` (`trip_lapland_2020`, slug
+  `finland-lapland-winter-journal-2020`). Photos, dates, costs, coordinates,
+  places, route, and music IDs are unchanged. Totals are unchanged.
+- Public layout `app/trips/[slug]/page.tsx` no longer shows writer/editor
+  chrome: Visitor scan / Before you read, the "shaped for readers first"
+  line, "Support text stays short", "Draft ready", and the Writing guide.
+  Hero, photos, journal, map, album, places, costs, music, and share remain.
+- Blob schema is `CONTENT_SCHEMA_VERSION = 8`. On the next content read after
+  deploy, `shouldMigrateSeedTripCopy` / `shouldMigrateSeedItemCopy` replace
+  saved Lapland title, summary, journal bodies, captions, and place notes
+  from seed. Only `trip_lapland_2020`. Other trips are not wiped.
+- This is a public-copy slice only. Do not merge. Do not production-deploy.
+  Do not touch Capture, `/family/capture`, the moments warehouse, PR #2, or
+  PR #3.
+
 ## 2026-07-25 Family entry login and contrast correction
 
 - Confirmed the reported problem on the live `/family` route: it was only a
