@@ -101,6 +101,47 @@ function getStraightPath(from: { x: number; y: number }, to: { x: number; y: num
   return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
 }
 
+function spaceMapPins(stops: ItineraryStop[], bounds: ReturnType<typeof getTileBounds>) {
+  const items = stops.map((stop) => ({
+    ...stop,
+    position: project(stop.point, bounds),
+  }));
+
+  for (let pass = 0; pass < 3; pass += 1) {
+    for (let index = 0; index < items.length; index += 1) {
+      for (let other = index + 1; other < items.length; other += 1) {
+        const dx = items[other].position.x - items[index].position.x;
+        const dy = items[other].position.y - items[index].position.y;
+        const distance = Math.hypot(dx, dy) || 0.01;
+        const minDistance = 12;
+        if (distance >= minDistance) {
+          continue;
+        }
+
+        const push = (minDistance - distance) / 2;
+        const ux = dx / distance;
+        const uy = dy / distance;
+        items[index].position = {
+          x: items[index].position.x - ux * push,
+          y: items[index].position.y - uy * push,
+        };
+        items[other].position = {
+          x: items[other].position.x + ux * push,
+          y: items[other].position.y + uy * push,
+        };
+      }
+    }
+  }
+
+  return items.map((item) => ({
+    ...item,
+    position: {
+      x: Math.min(93, Math.max(7, item.position.x)),
+      y: Math.min(88, Math.max(12, item.position.y)),
+    },
+  }));
+}
+
 function ArrivalLocator({ cities }: { cities: { id: string; label: string; shortLabel: string }[] }) {
   return (
     <div className="border-b border-[color:var(--line)] bg-white/55 px-4 py-2.5" data-arrival-locator>
@@ -145,6 +186,7 @@ function RegionalMap({
   );
   const mapTiles = getMapTiles(bounds);
   const scaleBar = getScaleBar(bounds, stops[0]?.point.latitude ?? 66.5);
+  const spacedStops = spaceMapPins(stops, bounds);
 
   return (
     <div
@@ -185,8 +227,7 @@ function RegionalMap({
           );
         })}
       </svg>
-      {stops.map((stop) => {
-        const position = project(stop.point, bounds);
+      {spacedStops.map((stop) => {
         const selected = selectedId === stop.id;
         const tone = stop.leg === "side" ? "bg-[#b65f44] border-[#f3d6c8]" : "bg-[#0f4f48] border-[#d7ebe6]";
         return (
@@ -199,7 +240,7 @@ function RegionalMap({
             data-map-pin={stop.number}
             key={stop.id}
             onClick={() => onSelect(stop.id)}
-            style={{ left: `${position.x}%`, top: `${position.y}%`, zIndex: selected ? 35 : 12 + stop.number }}
+            style={{ left: `${stop.position.x}%`, top: `${stop.position.y}%`, zIndex: selected ? 35 : 12 + stop.number }}
             title={stop.listLabel}
             type="button"
           >
