@@ -2,7 +2,7 @@
 
 ## TASK-017: Swap Lapland itinerary basemap to labeled Carto Voyager streets
 
-Status: in_progress
+Status: done
 
 Current result:
 
