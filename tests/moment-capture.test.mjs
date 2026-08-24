@@ -26,6 +26,7 @@ test("capture does not create trips and photos append to a moment", async () => 
   assert.doesNotMatch(capture, /visibility: "private"/);
   assert.match(momentsApi, /createTravelMoment/);
   assert.match(photosApi, /addPhotoToMoment\(momentId, photo\)/);
+  assert.match(photosApi, /storeMomentBinary/);
   assert.match(helpers, /MOMENTS_BLOB_PATH = "travelos\/moments.json"/);
 });
 

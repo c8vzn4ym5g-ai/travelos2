@@ -91,6 +91,25 @@ export async function writeMoments(moments: TravelMoment[]) {
   return content;
 }
 
+export async function storeMomentBinary(pathname: string, file: File) {
+  if (!isBlobConfigured()) {
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const mime = file.type || "application/octet-stream";
+    return { url: `data:${mime};base64,${bytes.toString("base64")}` };
+  }
+
+  const blob = await put(pathname, file, {
+    access: "public",
+    addRandomSuffix: true,
+  });
+  return { url: blob.url };
+}
+
+export async function momentExists(momentId: string) {
+  const { content } = await readMoments();
+  return content.moments.some((moment) => moment.id === momentId);
+}
+
 export async function addMoment(moment: TravelMoment) {
   const { content } = await readMoments();
   if (content.moments.some((item) => item.id === moment.id)) {

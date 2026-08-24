@@ -1,5 +1,4 @@
-import { put } from "@vercel/blob";
-import { addPhotoToMoment, isAdminPinValid } from "@/lib/moment-store";
+import { addPhotoToMoment, isAdminPinValid, momentExists, storeMomentBinary } from "@/lib/moment-store";
 import { makeMomentId } from "@/lib/moments";
 import type { GeoPoint, MomentPhoto } from "@/lib/types";
 
@@ -40,24 +39,20 @@ export async function POST(request: Request) {
     return Response.json({ error: "Moment and photo file are required" }, { status: 400 });
   }
 
-  const displayBlob = await put(
+  if (!(await momentExists(momentId))) {
+    return Response.json({ error: "Moment not found" }, { status: 404 });
+  }
+
+  const displayBlob = await storeMomentBinary(
     `travelos/moments/photos/${momentId}/${Date.now()}-${cleanFilename(file.name)}`,
     file,
-    {
-      access: "public",
-      addRandomSuffix: true,
-    },
   );
 
   let originalStorageKey: string | null = null;
   if (original instanceof File && (original.name !== file.name || original.size !== file.size)) {
-    const originalBlob = await put(
+    const originalBlob = await storeMomentBinary(
       `travelos/moments/photos/${momentId}/original-${Date.now()}-${cleanFilename(original.name)}`,
       original,
-      {
-        access: "public",
-        addRandomSuffix: true,
-      },
     );
     originalStorageKey = originalBlob.url;
   }

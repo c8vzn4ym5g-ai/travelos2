@@ -1,5 +1,4 @@
-import { put } from "@vercel/blob";
-import { isAdminPinValid, setMomentAudio } from "@/lib/moment-store";
+import { isAdminPinValid, momentExists, setMomentAudio, storeMomentBinary } from "@/lib/moment-store";
 
 export const runtime = "nodejs";
 
@@ -21,10 +20,14 @@ export async function POST(request: Request) {
     return Response.json({ error: "Moment and audio file are required" }, { status: 400 });
   }
 
-  const blob = await put(`travelos/moments/audio/${momentId}/${Date.now()}-${cleanFilename(file.name || "moment-audio.webm")}`, file, {
-    access: "public",
-    addRandomSuffix: true,
-  });
+  if (!(await momentExists(momentId))) {
+    return Response.json({ error: "Moment not found" }, { status: 404 });
+  }
+
+  const blob = await storeMomentBinary(
+    `travelos/moments/audio/${momentId}/${Date.now()}-${cleanFilename(file.name || "moment-audio.webm")}`,
+    file,
+  );
 
   const saved = await setMomentAudio(momentId, blob.url);
   if (!saved) {
