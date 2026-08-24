@@ -23,7 +23,19 @@ export type MomentStoreStatus = {
 
 export { isAdminPinValid, MOMENTS_BLOB_PATH };
 
-let memoryContent: MomentContent | null = null;
+const memoryKey = "__travelosMomentWarehouse";
+
+type GlobalWarehouse = typeof globalThis & { [memoryKey]?: MomentContent };
+
+function getMemoryContent() {
+  const globalStore = globalThis as GlobalWarehouse;
+  globalStore[memoryKey] ??= createEmptyContent();
+  return globalStore[memoryKey];
+}
+
+function setMemoryContent(content: MomentContent) {
+  (globalThis as GlobalWarehouse)[memoryKey] = content;
+}
 
 function createEmptyContent(): MomentContent {
   return {
@@ -45,9 +57,8 @@ function withNormalizedContent(content: MomentContent): MomentContent {
 
 export async function readMoments(): Promise<{ content: MomentContent; status: MomentStoreStatus }> {
   if (!isBlobConfigured()) {
-    memoryContent ??= createEmptyContent();
     return {
-      content: withNormalizedContent(memoryContent),
+      content: withNormalizedContent(getMemoryContent()),
       status: { configured: false, source: "memory" },
     };
   }
@@ -88,7 +99,7 @@ export async function writeWarehouse(moments: TravelMoment[], jobs: TravelJob[])
   };
 
   if (!isBlobConfigured()) {
-    memoryContent = content;
+    setMemoryContent(content);
     return content;
   }
 
