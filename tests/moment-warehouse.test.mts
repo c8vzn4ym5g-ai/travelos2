@@ -14,6 +14,8 @@ import {
 } from "../lib/moments.ts";
 import {
   filterMomentsByDayAndPlace,
+  findFoundSetJob,
+  foundSetCommand,
   hasWarehouseFoundSet,
   indexTravelMoment,
   momentCalendarDay,
@@ -288,4 +290,34 @@ test("a found set supplies writing photos from every matching moment", () => {
     photosFromMoments(found).some((photo) => photo.id === "photo_d"),
     false,
   );
+});
+
+test("a found-set draft persists on a warehouse job without becoming diary prose", () => {
+  const first = createTravelMoment({
+    coordinates: { latitude: 66.502, longitude: 25.73 },
+    time: "2026-08-20T04:00:00.000Z",
+  });
+  const second = createTravelMoment({
+    coordinates: { latitude: 66.5, longitude: 25.72 },
+    time: "2026-08-20T06:00:00.000Z",
+  });
+  const filters = { day: "2026-08-20", place: "Rovaniemi" };
+  const command = foundSetCommand(filters);
+  const humanDraft = "the lake was quiet";
+  const job = createTravelJob({
+    command,
+    draft: humanDraft,
+    momentIds: [first.id, second.id],
+    sourceMomentId: first.id,
+  });
+  const reloaded = findFoundSetJob([job], filters);
+
+  assert.equal(command, "2026-08-20 · Rovaniemi");
+  assert.equal(job.draft, humanDraft);
+  assert.notEqual(job.draft, job.command);
+  assert.equal(job.draft.includes("travel log"), false);
+  assert.equal(job.draft.includes("meal log"), false);
+  assert.equal(reloaded?.id, job.id);
+  assert.equal(reloaded?.draft, humanDraft);
+  assert.deepEqual(reloaded?.momentIds.sort(), [first.id, second.id].sort());
 });

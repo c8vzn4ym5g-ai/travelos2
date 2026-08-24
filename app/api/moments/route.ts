@@ -82,12 +82,18 @@ export async function PUT(request: Request) {
 
   const body = (await request.json()) as { job?: TravelJob; moment?: TravelMoment };
   if (body.job?.id) {
-    const saved = await updateJob(normalizeTravelJob(body.job));
-    if (!saved) {
-      return Response.json({ error: "Job not found" }, { status: 404 });
+    const nextJob = normalizeTravelJob(body.job);
+    const saved = await updateJob(nextJob);
+    if (saved) {
+      return Response.json({ content: saved.content, job: saved.job });
     }
 
-    return Response.json({ content: saved.content, job: saved.job });
+    const created = await addJob(nextJob);
+    if (created.conflict) {
+      return Response.json({ error: "A job with this id already exists" }, { status: 409 });
+    }
+
+    return Response.json({ content: created.content, job: created.job });
   }
 
   if (!body.moment || !body.moment.id) {

@@ -114,6 +114,11 @@ test("sit-and-write has no generated story and lists warehouse photos", async ()
   assert.match(write, /All days/);
   assert.match(write, /All places/);
   assert.match(write, /Found set/);
+  assert.match(write, /setDraft\(foundSetJob\?\.draft \?\? ""\)/);
+  assert.match(write, /createTravelJob/);
+  assert.match(write, /JSON.stringify\(\{ job: nextJob \}\)/);
+  assert.doesNotMatch(write, /foundSetDraftsRef/);
+  assert.doesNotMatch(write, /setDraft\(foundSetJob.command\)/);
   assert.doesNotMatch(write, /setDraft\(dayFilter\)/);
   assert.doesNotMatch(write, /setDraft\(placeFilter\)/);
   assert.doesNotMatch(write, /setDraft\(activeJob.command\)/);
@@ -210,11 +215,18 @@ test("write uses a found set for photos and does not fill the writing area", asy
 
   assert.match(write, /writingMoments = activeJob \? jobMoments : usingFoundSet \? visibleWarehouseMoments/);
   assert.match(write, /photosFromMoments\(writingMoments\)/);
-  assert.match(write, /foundSetDraftsRef\.current\[foundSetKey\] \?\? ""/);
-  assert.doesNotMatch(write, /createTravelJob/);
+  assert.match(write, /setDraft\(foundSetJob\?\.draft \?\? ""\)/);
+  assert.match(write, /createTravelJob\(\{/);
+  assert.match(write, /JSON.stringify\(\{ job: nextJob \}\)/);
+  assert.match(write, /method: "PUT"/);
+  assert.match(momentsApi, /const created = await addJob\(nextJob\)/);
+  assert.doesNotMatch(write, /foundSetDraftsRef/);
+  assert.doesNotMatch(write, /setDraft\(foundSetJob.command\)/);
+  assert.doesNotMatch(write, /setDraft\(foundSetCommand/);
   assert.doesNotMatch(write, /\/api\/trips\/photos/);
   assert.doesNotMatch(write, /method: "POST"/);
   assert.doesNotMatch(write, /placeholder=/);
+  assert.doesNotMatch(write, /\/api\/trips\/content[\s\S]*method: "POST"/);
   assert.doesNotMatch(capture, /usingFoundSet/);
   assert.doesNotMatch(capture, /photosFromMoments/);
   assert.doesNotMatch(momentsApi, /await scheduleMomentIndex/);

@@ -154,6 +154,25 @@ export function hasWarehouseFoundSet(filters: { day?: string; place?: string }) 
   return Boolean(filters.day?.trim() || filters.place?.trim());
 }
 
+export function foundSetCommand(filters: { day?: string; place?: string }) {
+  const day = filters.day?.trim() ?? "";
+  const place = filters.place?.trim() ?? "";
+  if (day && place) {
+    return `${day} · ${place}`;
+  }
+
+  return day || place;
+}
+
+export function findFoundSetJob<T extends { command: string }>(jobs: T[], filters: { day?: string; place?: string }) {
+  const command = foundSetCommand(filters);
+  if (!command) {
+    return null;
+  }
+
+  return jobs.find((job) => job.command === command) ?? null;
+}
+
 export function photosFromMoments(moments: Array<Pick<TravelMoment, "photos">>) {
   return moments.flatMap((moment) => moment.photos);
 }

@@ -154,6 +154,7 @@ export function createTravelMoment(
 export function createTravelJob(input: {
   command: string;
   createdAt?: string;
+  draft?: string;
   momentIds: string[];
   sourceMomentId: string;
 }): TravelJob {
@@ -163,7 +164,7 @@ export function createTravelJob(input: {
   return {
     command: input.command.trim(),
     createdAt,
-    draft: "",
+    draft: input.draft ?? "",
     id: makeMomentId("job"),
     momentIds,
     sourceMomentId: input.sourceMomentId,

@@ -1,5 +1,19 @@
 # TravelOS Handoff
 
+## 2026-08-24 Persist found-set drafts in the warehouse
+
+- Saving a day/place found set now writes a durable `TravelJob` into
+  `travelos/moments.json`. `momentIds` are the visible warehouse moments.
+  `command` is a short retrieval label (day/place) for the Jobs list and
+  Found set banner. `draft` is the human-typed text.
+- Reload reads that job by the same day/place label, so the writing
+  survives refresh. The textarea is filled from `job.draft` only, never
+  from the filter label, a travel log, or a meal log. No new Trip.
+- Capture stays unblocked. Optional attach-to-existing-trip remains human
+  text only. Family PIN session only. PR #2 stays held. Continue on PR #3
+  (`cursor/moment-warehouse-capture-abda`). Do not merge. Do not
+  production-deploy from this handoff.
+
 ## 2026-08-24 Found-set writing on /trips/write
 
 - A day and/or place filter is a temporary writing set. Photos on Write come

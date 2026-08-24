@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TravelOSContent } from "@/lib/editable-store";
 import { FAMILY_ADMIN_SESSION_KEY } from "@/lib/family-session";
 import {
   filterMomentsByDayAndPlace,
+  findFoundSetJob,
+  foundSetCommand,
   hasWarehouseFoundSet,
   momentCalendarDay,
   momentPlaceLabels,
@@ -15,6 +17,7 @@ import {
   warehousePlaces,
 } from "@/lib/moment-index";
 import type { MomentContent } from "@/lib/moment-store";
+import { createTravelJob } from "@/lib/moments";
 import type { JournalEntry, TravelJob, TravelMoment, TripDetail } from "@/lib/types";
 
 type MomentsResponse = {
@@ -57,7 +60,6 @@ export default function SitAndWritePage() {
   const [placeFilter, setPlaceFilter] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("選一個 Moment 或工作，看著照片慢慢寫。這裡不會代寫。");
-  const foundSetDraftsRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
     const storedPin = window.sessionStorage.getItem(FAMILY_ADMIN_SESSION_KEY);
@@ -132,6 +134,10 @@ export default function SitAndWritePage() {
   );
   const foundSetKey = `${dayFilter}\0${placeFilter}`;
   const usingFoundSet = !activeJob && hasWarehouseFoundSet({ day: dayFilter, place: placeFilter });
+  const foundSetJob = useMemo(
+    () => findFoundSetJob(jobs, { day: dayFilter, place: placeFilter }),
+    [dayFilter, jobs, placeFilter],
+  );
   const writingMoments = activeJob ? jobMoments : usingFoundSet ? visibleWarehouseMoments : activeMoment ? [activeMoment] : [];
   const writingPhotos = photosFromMoments(writingMoments);
 
@@ -148,10 +154,10 @@ export default function SitAndWritePage() {
       return;
     }
 
-    setDraft(foundSetDraftsRef.current[foundSetKey] ?? "");
+    setDraft(foundSetJob?.draft ?? "");
     setHiddenPhotoIds([]);
     setAttachTripId("");
-  }, [activeJob, foundSetKey, usingFoundSet]);
+  }, [activeJob, foundSetJob, foundSetKey, usingFoundSet]);
 
   useEffect(() => {
     if (activeJob || usingFoundSet) {
@@ -171,19 +177,11 @@ export default function SitAndWritePage() {
 
   const visiblePhotos = writingPhotos.filter((photo) => !hiddenPhotoIds.includes(photo.id));
 
-  function stashFoundSetDraft() {
-    if (usingFoundSet) {
-      foundSetDraftsRef.current[foundSetKey] = draft;
-    }
-  }
-
   function changeDayFilter(day: string) {
-    stashFoundSetDraft();
     setDayFilter(day);
   }
 
   function changePlaceFilter(place: string) {
-    stashFoundSetDraft();
     setPlaceFilter(place);
   }
 
@@ -194,7 +192,6 @@ export default function SitAndWritePage() {
   }
 
   function openJob(jobId: string) {
-    stashFoundSetDraft();
     setActiveJobId(jobId);
     const job = jobs.find((item) => item.id === jobId);
     if (job) {
@@ -203,7 +200,6 @@ export default function SitAndWritePage() {
   }
 
   function openMoment(momentId: string) {
-    stashFoundSetDraft();
     setActiveJobId(null);
     setActiveMomentId(momentId);
   }
@@ -246,7 +242,40 @@ export default function SitAndWritePage() {
         setJobs(savedJob.content.jobs);
         setMoments(savedJob.content.moments);
       } else if (usingFoundSet) {
-        foundSetDraftsRef.current[foundSetKey] = draft;
+        const sourceMoment = visibleWarehouseMoments[0];
+        if (!sourceMoment) {
+          throw new Error("這個日子或地點沒有 Moment。");
+        }
+
+        const momentIds = visibleWarehouseMoments.map((moment) => moment.id);
+        const nextJob: TravelJob = foundSetJob
+          ? {
+              ...foundSetJob,
+              draft,
+              momentIds,
+              sourceMomentId: sourceMoment.id,
+            }
+          : createTravelJob({
+              command: foundSetCommand({ day: dayFilter, place: placeFilter }),
+              draft,
+              momentIds,
+              sourceMomentId: sourceMoment.id,
+            });
+        const jobResponse = await fetch("/api/moments", {
+          body: JSON.stringify({ job: nextJob }),
+          headers: {
+            "content-type": "application/json",
+            ...pinHeaders(sessionPin),
+          },
+          method: "PUT",
+        });
+        if (!jobResponse.ok) {
+          const data = (await jobResponse.json()) as { error?: string };
+          throw new Error(data.error ?? "Could not save this writing.");
+        }
+        const savedJob = (await jobResponse.json()) as { content: MomentContent; job: TravelJob };
+        setJobs(savedJob.content.jobs);
+        setMoments(savedJob.content.moments);
       } else if (activeMoment) {
         const nextMoment: TravelMoment = {
           ...activeMoment,
