@@ -1,3 +1,4 @@
+import { calendarDayInTimeZone, momentCalendarDay, shiftCalendarDay } from "@/lib/moment-index";
 import type { GeoPoint, TravelJob, TravelMoment } from "@/lib/types";
 
 export const MOMENTS_BLOB_PATH = "travelos/moments.json";
@@ -94,17 +95,15 @@ export function selectMomentIdsForCommand(
 ) {
   const selected = new Set<string>([sourceMomentId]);
   const window = parseCommandAssetWindow(command);
-  const nowDay = now.toISOString().slice(0, 10);
+  const nowDay = calendarDayInTimeZone(now.toISOString());
   let startDay = nowDay;
 
   if (window.days != null) {
-    const start = new Date(`${nowDay}T00:00:00.000Z`);
-    start.setUTCDate(start.getUTCDate() - Math.max(0, window.days - 1));
-    startDay = start.toISOString().slice(0, 10);
+    startDay = shiftCalendarDay(nowDay, -Math.max(0, window.days - 1));
   }
 
   for (const moment of moments) {
-    const day = (moment.time || moment.createdAt).slice(0, 10);
+    const day = momentCalendarDay(moment);
     if (window.todayOnly && day === nowDay) {
       selected.add(moment.id);
     }

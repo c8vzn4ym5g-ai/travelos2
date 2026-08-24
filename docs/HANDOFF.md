@@ -1,5 +1,25 @@
 # TravelOS Handoff
 
+## 2026-08-24 Find warehouse Moments by day and place
+
+- TravelOS is the sit-and-write back door. Capture stays the phone front
+  door. Originals stay reusable. Owner has not taught writing method, so
+  this slice does not generate a travel log, meal log, or any diary prose.
+- Warehouse Moments are findable on `/trips/write` by Asia/Taipei calendar
+  day and by place. Day uses the moment time (photo `takenAt` / `createdAt`).
+  Place uses stored labels when present, else a label derived from stored
+  coordinates. `people` / `food` / `scenery` / `topics` may stay empty.
+- Indexing is fire-and-forget after `POST /api/moments` and
+  `POST /api/moments/photos`. Capture, photo upload, and the Capture UI do
+  not wait on geocoding or the index pass. Job date windows now use
+  Asia/Taipei calendar days.
+- Canonical warehouse remains Vercel Blob `travelos/moments.json`. No Prisma,
+  no vector DB, no Obsidian runtime. Existing trip APIs, Lapland, coffee, and
+  family PIN stay unchanged.
+- PR #2 (`cursor/family-moment-capture-f495`) stays held and untouched.
+  Continue on PR #3 (`cursor/moment-warehouse-capture-abda`). Do not merge.
+  Do not production-deploy from this handoff.
+
 ## 2026-08-24 JDB Capture and TravelMoment warehouse
 
 - Owner path confirmed: Capture is the family phone front door; TravelOS

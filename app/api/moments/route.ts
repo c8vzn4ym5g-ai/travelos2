@@ -1,4 +1,12 @@
-import { addJob, addMoment, isAdminPinValid, readMoments, updateJob, updateMoment } from "@/lib/moment-store";
+import {
+  addJob,
+  addMoment,
+  isAdminPinValid,
+  readMoments,
+  scheduleMomentIndex,
+  updateJob,
+  updateMoment,
+} from "@/lib/moment-store";
 import { createTravelJob, createTravelMoment, normalizeTravelJob, normalizeTravelMoment, selectMomentIdsForCommand } from "@/lib/moments";
 import type { GeoPoint, TravelJob, TravelMoment } from "@/lib/types";
 
@@ -47,6 +55,7 @@ export async function POST(request: Request) {
   }
 
   if (!moment.command) {
+    scheduleMomentIndex(saved.moment.id);
     return Response.json({ content: saved.content, job: null, moment: saved.moment });
   }
 
@@ -58,9 +67,11 @@ export async function POST(request: Request) {
   });
   const withJob = await addJob(job);
   if (withJob.conflict) {
+    scheduleMomentIndex(saved.moment.id);
     return Response.json({ content: withJob.content, job: null, moment: saved.moment });
   }
 
+  scheduleMomentIndex(saved.moment.id);
   return Response.json({ content: withJob.content, job: withJob.job, moment: saved.moment });
 }
 

@@ -1,4 +1,10 @@
-import { addPhotoToMoment, isAdminPinValid, momentExists, storeMomentBinary } from "@/lib/moment-store";
+import {
+  addPhotoToMoment,
+  isAdminPinValid,
+  momentExists,
+  scheduleMomentIndex,
+  storeMomentBinary,
+} from "@/lib/moment-store";
 import { makeMomentId } from "@/lib/moments";
 import type { GeoPoint, MomentPhoto } from "@/lib/types";
 
@@ -73,6 +79,8 @@ export async function POST(request: Request) {
   if (!content) {
     return Response.json({ error: "Moment not found" }, { status: 404 });
   }
+
+  scheduleMomentIndex(momentId);
 
   return Response.json({ content, photo });
 }

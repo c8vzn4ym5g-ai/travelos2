@@ -106,6 +106,11 @@ test("sit-and-write has no generated story and lists warehouse photos", async ()
   assert.match(write, /get\("job"\)/);
   assert.match(write, /jobMoments.flatMap\(\(moment\) => moment.photos\)/);
   assert.match(write, /setDraft\(activeJob.draft\)/);
+  assert.match(write, /filterMomentsByDayAndPlace/);
+  assert.match(write, />Day</);
+  assert.match(write, />Place</);
+  assert.match(write, /All days/);
+  assert.match(write, /All places/);
   assert.doesNotMatch(write, /setDraft\(activeJob.command\)/);
   assert.doesNotMatch(write, /exciting travel log/);
   assert.doesNotMatch(write, /meal log/);
@@ -161,4 +166,30 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   assert.ok(addIndex !== -1 && saveIndex !== -1 && prepareIndex !== -1);
   assert.ok(addIndex < saveIndex);
   assert.ok(prepareIndex > saveIndex);
+});
+
+test("capture and save paths are not blocked by indexing or geocoding", async () => {
+  const [capture, momentsApi, photosApi, store] = await Promise.all([
+    readSource("app/family/capture/page.tsx"),
+    readSource("app/api/moments/route.ts"),
+    readSource("app/api/moments/photos/route.ts"),
+    readSource("lib/moment-store.ts"),
+  ]);
+
+  assert.match(store, /export function scheduleMomentIndex\(momentId: string\)/);
+  assert.match(store, /void indexSavedMoment\(momentId\)/);
+  assert.doesNotMatch(store, /await indexSavedMoment/);
+  assert.match(momentsApi, /scheduleMomentIndex\(saved\.moment\.id\)/);
+  assert.doesNotMatch(momentsApi, /await scheduleMomentIndex/);
+  assert.match(photosApi, /scheduleMomentIndex\(momentId\)/);
+  assert.doesNotMatch(photosApi, /await scheduleMomentIndex/);
+  assert.doesNotMatch(capture, /scheduleMomentIndex/);
+  assert.doesNotMatch(capture, /indexTravelMoment/);
+  assert.doesNotMatch(capture, /nominatim/i);
+  assert.doesNotMatch(capture, /geocod/i);
+  assert.doesNotMatch(capture, /\/api\/moments\/index/);
+  const saveIndex = capture.indexOf("async function saveMoment");
+  const geolocationIndex = capture.indexOf("navigator.geolocation.getCurrentPosition");
+  assert.ok(saveIndex !== -1 && geolocationIndex !== -1);
+  assert.ok(geolocationIndex < saveIndex);
 });

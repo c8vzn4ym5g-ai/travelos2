@@ -12,6 +12,13 @@ import {
   looksLikeSystemCommand,
   selectMomentIdsForCommand,
 } from "../lib/moments.ts";
+import {
+  filterMomentsByDayAndPlace,
+  indexTravelMoment,
+  momentCalendarDay,
+  momentPlaceLabels,
+  placeLabelFromCoordinates,
+} from "../lib/moment-index.ts";
 
 test("warehouse moments live at travelos/moments.json", () => {
   assert.equal(MOMENTS_BLOB_PATH, "travelos/moments.json");
@@ -88,10 +95,10 @@ test("owner capture examples are jobs, not diary prose", () => {
 });
 
 test("a job points at relevant moments and keeps an empty draft", () => {
-  const now = new Date("2026-08-24T18:00:00.000Z");
-  const today = createTravelMoment({ note: "today", time: "2026-08-24T12:00:00.000Z" });
-  const lastWeek = createTravelMoment({ note: "week", time: "2026-08-17T12:00:00.000Z" });
-  const older = createTravelMoment({ note: "old", time: "2026-07-01T12:00:00.000Z" });
+  const now = new Date("2026-08-24T10:00:00.000Z");
+  const today = createTravelMoment({ note: "today", time: "2026-08-24T04:00:00.000Z" });
+  const lastWeek = createTravelMoment({ note: "week", time: "2026-08-17T04:00:00.000Z" });
+  const older = createTravelMoment({ note: "old", time: "2026-07-01T04:00:00.000Z" });
   const moments = [today, lastWeek, older];
 
   const eightDayIds = selectMomentIdsForCommand(
@@ -114,4 +121,103 @@ test("a job points at relevant moments and keeps an empty draft", () => {
   assert.notEqual(job.draft, job.command);
   assert.ok(job.momentIds.includes(today.id));
   assert.equal(job.id.startsWith("job_"), true);
+});
+
+test("warehouse moments are filterable by Asia/Taipei calendar day", () => {
+  const taipeiDay = createTravelMoment({
+    note: "taipei afternoon",
+    time: "2026-08-24T04:00:00.000Z",
+  });
+  const utcSameClockNextTaipeiDay = createTravelMoment({
+    note: "utc evening",
+    time: "2026-08-24T18:00:00.000Z",
+  });
+  const earlier = createTravelMoment({
+    note: "previous day",
+    time: "2026-08-23T10:00:00.000Z",
+  });
+  const moments = [taipeiDay, utcSameClockNextTaipeiDay, earlier];
+
+  assert.equal(momentCalendarDay(taipeiDay), "2026-08-24");
+  assert.equal(momentCalendarDay(utcSameClockNextTaipeiDay), "2026-08-25");
+  assert.deepEqual(
+    filterMomentsByDayAndPlace(moments, { day: "2026-08-24" }).map((moment) => moment.id),
+    [taipeiDay.id],
+  );
+  assert.deepEqual(
+    filterMomentsByDayAndPlace(moments, { day: "2026-08-25" }).map((moment) => moment.id),
+    [utcSameClockNextTaipeiDay.id],
+  );
+});
+
+test("warehouse moments are filterable by stored coordinates as place", () => {
+  const rovaniemi = createTravelMoment({
+    coordinates: { latitude: 66.502, longitude: 25.73 },
+    note: "arctic",
+    time: "2026-08-20T04:00:00.000Z",
+  });
+  const unknown = createTravelMoment({
+    coordinates: { latitude: 1.234, longitude: 4.567 },
+    note: "elsewhere",
+    time: "2026-08-20T05:00:00.000Z",
+  });
+  const named = createTravelMoment({
+    coordinates: { latitude: 66.502, longitude: 25.73 },
+    note: "already labeled",
+    time: "2026-08-20T06:00:00.000Z",
+  });
+  named.place = ["Home kitchen"];
+  const noPlace = createTravelMoment({
+    note: "indoors",
+    time: "2026-08-20T07:00:00.000Z",
+  });
+  const fromPhoto = createTravelMoment({
+    note: "photo gps",
+    time: "2026-08-20T08:00:00.000Z",
+  });
+  fromPhoto.photos = [
+    {
+      coordinates: { latitude: 60.3172, longitude: 24.9633 },
+      createdAt: "2026-08-20T08:00:00.000Z",
+      id: "moment_photo_helsinki",
+      momentId: fromPhoto.id,
+      originalFilename: "helsinki.jpg",
+      originalStorageKey: null,
+      storageKey: "helsinki.jpg",
+      takenAt: "2026-08-20T08:00:00.000Z",
+    },
+  ];
+
+  assert.equal(placeLabelFromCoordinates({ latitude: 66.502, longitude: 25.73 }), "Rovaniemi");
+  assert.deepEqual(momentPlaceLabels(rovaniemi), ["Rovaniemi"]);
+  assert.deepEqual(momentPlaceLabels(unknown), ["1.23, 4.57"]);
+  assert.deepEqual(momentPlaceLabels(named), ["Home kitchen"]);
+  assert.deepEqual(momentPlaceLabels(noPlace), []);
+  assert.deepEqual(momentPlaceLabels(fromPhoto), ["Helsinki"]);
+
+  const indexed = indexTravelMoment(rovaniemi);
+  assert.deepEqual(indexed.place, ["Rovaniemi"]);
+  assert.deepEqual(indexed.people, []);
+  assert.deepEqual(indexed.food, []);
+  assert.deepEqual(indexed.scenery, []);
+  assert.deepEqual(indexed.topics, []);
+  assert.equal(typeof (indexed as { then?: unknown }).then, "undefined");
+
+  const moments = [rovaniemi, unknown, named, noPlace, fromPhoto];
+  assert.deepEqual(
+    filterMomentsByDayAndPlace(moments, { place: "Rovaniemi" }).map((moment) => moment.id),
+    [rovaniemi.id],
+  );
+  assert.deepEqual(
+    filterMomentsByDayAndPlace(moments, { place: "Helsinki" }).map((moment) => moment.id),
+    [fromPhoto.id],
+  );
+  assert.deepEqual(
+    filterMomentsByDayAndPlace(moments, { place: "Home kitchen" }).map((moment) => moment.id),
+    [named.id],
+  );
+  assert.deepEqual(
+    filterMomentsByDayAndPlace(moments, { day: "2026-08-20", place: "Rovaniemi" }).map((moment) => moment.id),
+    [rovaniemi.id],
+  );
 });

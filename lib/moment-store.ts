@@ -1,5 +1,6 @@
 import { list, put } from "@vercel/blob";
 import { isAdminPinValid, isBlobConfigured } from "@/lib/editable-store";
+import { indexTravelMoment } from "@/lib/moment-index";
 import {
   MOMENTS_BLOB_PATH,
   MOMENTS_SCHEMA_VERSION,
@@ -214,4 +215,37 @@ export async function setMomentAudio(momentId: string, originalAudioUrl: string)
     content.jobs,
   );
   return { content: saved, moment: next };
+}
+
+export function scheduleMomentIndex(momentId: string) {
+  void indexSavedMoment(momentId);
+}
+
+async function indexSavedMoment(momentId: string) {
+  try {
+    const { content } = await readMoments();
+    const current = content.moments.find((moment) => moment.id === momentId);
+    if (!current) {
+      return;
+    }
+
+    const indexed = indexTravelMoment(current);
+    if (JSON.stringify(indexed) === JSON.stringify(current)) {
+      return;
+    }
+
+    const latest = await readMoments();
+    const latestMoment = latest.content.moments.find((moment) => moment.id === momentId);
+    if (!latestMoment) {
+      return;
+    }
+
+    const next = indexTravelMoment(latestMoment);
+    await writeWarehouse(
+      latest.content.moments.map((moment) => (moment.id === momentId ? next : moment)),
+      latest.content.jobs,
+    );
+  } catch {
+    // Indexing must never fail capture or photo upload.
+  }
 }

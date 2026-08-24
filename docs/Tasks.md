@@ -16,6 +16,8 @@ Current verified result:
 - A Capture note that is clearly a job becomes a warehouse job pointing at the
   relevant moments. `/trips/write?job=` opens those photos without generating
   a travel log or meal log.
+- `/trips/write` can list and filter warehouse moments by Asia/Taipei day and
+  by place. Capture save does not wait on indexing or geocode.
 - Existing trip Blob APIs, live Lapland, coffee, and family PIN are unchanged.
 - PR #2 remains held; this work is a new branch off `main`.
 

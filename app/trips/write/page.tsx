@@ -3,9 +3,16 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { MomentContent } from "@/lib/moment-store";
-import { FAMILY_ADMIN_SESSION_KEY } from "@/lib/family-session";
 import type { TravelOSContent } from "@/lib/editable-store";
+import { FAMILY_ADMIN_SESSION_KEY } from "@/lib/family-session";
+import {
+  filterMomentsByDayAndPlace,
+  momentCalendarDay,
+  momentPlaceLabels,
+  warehouseDays,
+  warehousePlaces,
+} from "@/lib/moment-index";
+import type { MomentContent } from "@/lib/moment-store";
 import type { JournalEntry, TravelJob, TravelMoment, TripDetail } from "@/lib/types";
 
 type MomentsResponse = {
@@ -44,6 +51,8 @@ export default function SitAndWritePage() {
   const [hiddenPhotoIds, setHiddenPhotoIds] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const [attachTripId, setAttachTripId] = useState("");
+  const [dayFilter, setDayFilter] = useState("");
+  const [placeFilter, setPlaceFilter] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("選一個 Moment 或工作，看著照片慢慢寫。這裡不會代寫。");
 
@@ -113,6 +122,12 @@ export default function SitAndWritePage() {
     [activeMomentId, moments],
   );
   const writingPhotos = activeJob ? jobMoments.flatMap((moment) => moment.photos) : (activeMoment?.photos ?? []);
+  const availableDays = useMemo(() => warehouseDays(moments), [moments]);
+  const availablePlaces = useMemo(() => warehousePlaces(moments), [moments]);
+  const visibleWarehouseMoments = useMemo(
+    () => filterMomentsByDayAndPlace(moments, { day: dayFilter, place: placeFilter }),
+    [dayFilter, moments, placeFilter],
+  );
 
   useEffect(() => {
     if (activeJob) {
@@ -307,7 +322,7 @@ export default function SitAndWritePage() {
             <p className="travel-label text-sm font-semibold uppercase text-sky-700">TravelOS</p>
             <h1 className="travel-display mt-2 text-4xl font-semibold">Write</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">
-              倉庫裡的 Moment 當素材。工作只指出要用哪些照片。空白寫字區只放人手打的字，不會產生文章。
+              倉庫裡的 Moment 當素材。用日子和地點找。工作只指出要用哪些照片。空白寫字區只放人手打的字，不會產生文章。
             </p>
           </div>
         </div>
@@ -341,27 +356,65 @@ export default function SitAndWritePage() {
 
           <p className="travel-label mt-6 text-xs font-semibold uppercase tracking-[0.14em] text-sky-700">Moment assets</p>
           <h2 className="travel-display mt-2 text-2xl font-semibold">Warehouse</h2>
+          <div className="mt-4 grid gap-3">
+            <label className="block">
+              <span className="travel-label text-xs font-semibold text-zinc-700">Day</span>
+              <select
+                className="mt-1 min-h-11 w-full rounded-2xl border border-sky-200 bg-white px-3 py-2 text-sm text-zinc-950"
+                onChange={(event) => setDayFilter(event.target.value)}
+                value={dayFilter}
+              >
+                <option value="">All days</option>
+                {availableDays.map((day) => (
+                  <option key={day} value={day}>
+                    {day}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="travel-label text-xs font-semibold text-zinc-700">Place</span>
+              <select
+                className="mt-1 min-h-11 w-full rounded-2xl border border-sky-200 bg-white px-3 py-2 text-sm text-zinc-950"
+                onChange={(event) => setPlaceFilter(event.target.value)}
+                value={placeFilter}
+              >
+                <option value="">All places</option>
+                {availablePlaces.map((place) => (
+                  <option key={place} value={place}>
+                    {place}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <div className="mt-4 grid gap-2">
-            {moments.length > 0 ? (
-              moments.map((moment) => (
-                <button
-                  className={`rounded-2xl border px-3 py-3 text-left text-sm transition ${
-                    !activeJob && moment.id === activeMoment?.id
-                      ? "border-sky-300 bg-sky-50 text-sky-950"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:bg-sky-50/60"
-                  }`}
-                  key={moment.id}
-                  onClick={() => openMoment(moment.id)}
-                  type="button"
-                >
-                  <span className="block font-semibold">{moment.time?.slice(0, 16).replace("T", " ") || moment.id}</span>
-                  <span className="mt-1 block text-xs text-zinc-500">
-                    {moment.photos.length} photos{moment.note ? ` / ${moment.note}` : ""}
-                  </span>
-                </button>
-              ))
-            ) : (
+            {moments.length === 0 ? (
               <p className="text-sm leading-6 text-zinc-600">還沒有 Moment 素材。</p>
+            ) : visibleWarehouseMoments.length > 0 ? (
+              visibleWarehouseMoments.map((moment) => {
+                const places = momentPlaceLabels(moment);
+                return (
+                  <button
+                    className={`rounded-2xl border px-3 py-3 text-left text-sm transition ${
+                      !activeJob && moment.id === activeMoment?.id
+                        ? "border-sky-300 bg-sky-50 text-sky-950"
+                        : "border-zinc-200 bg-white text-zinc-700 hover:bg-sky-50/60"
+                    }`}
+                    key={moment.id}
+                    onClick={() => openMoment(moment.id)}
+                    type="button"
+                  >
+                    <span className="block font-semibold">{momentCalendarDay(moment)}</span>
+                    <span className="mt-1 block text-xs text-zinc-500">
+                      {places.length > 0 ? places.join(" · ") : "no place yet"} / {moment.photos.length} photos
+                      {moment.note ? ` / ${moment.note}` : ""}
+                    </span>
+                  </button>
+                );
+              })
+            ) : (
+              <p className="text-sm leading-6 text-zinc-600">這個日子或地點沒有 Moment。</p>
             )}
           </div>
         </aside>
