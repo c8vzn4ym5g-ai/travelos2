@@ -106,15 +106,15 @@ function ArrivalLocator({ cities }: { cities: { id: string; label: string; short
     <div className="border-b border-[color:var(--line)] bg-white/55 px-4 py-2.5" data-arrival-locator>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="travel-kicker text-[0.62rem]">How we arrived</p>
-        <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto text-[0.72rem] font-semibold text-slate-600">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[0.72rem] font-semibold text-slate-600">
           {cities.map((city, index) => (
             <span className="flex items-center gap-1.5" key={city.id}>
               {index > 0 ? (
-                <svg aria-hidden="true" className="h-3 w-8 shrink-0 text-slate-400" viewBox="0 0 32 12">
+                <svg aria-hidden="true" className="h-3 w-7 shrink-0 text-slate-400" viewBox="0 0 32 12">
                   <path d="M1 6h30" fill="none" stroke={FLIGHT_STROKE} strokeDasharray="2 2.5" strokeLinecap="round" strokeWidth="1.4" />
                 </svg>
               ) : null}
-              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">
+              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">
                 <span className="text-[0.62rem] tracking-wide text-slate-500">{city.shortLabel}</span>
                 <span className="text-slate-800">{city.label}</span>
               </span>
@@ -314,7 +314,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
                     {stop.number}
                   </span>
                   <span className="min-w-0">
-                    {stop.dateLabel ? <span className="mr-1.5 text-[0.62rem] font-bold tracking-wide text-teal-800">{stop.dateLabel}</span> : null}
+                    {stop.dateLabel ? <span className="mr-1.5 whitespace-nowrap text-[0.62rem] font-bold tracking-wide text-teal-800">{stop.dateLabel}</span> : null}
                     <span className="block truncate text-[0.8rem] font-semibold leading-5">{stop.listLabel}</span>
                   </span>
                   <span className={selected ? "text-teal-800" : "text-slate-400"}>
