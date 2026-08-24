@@ -59,7 +59,16 @@ export function momentCalendarDay(moment: Pick<TravelMoment, "createdAt" | "phot
 }
 
 export function momentCoordinates(moment: Pick<TravelMoment, "coordinates" | "photos">): GeoPoint | null {
-  return moment.coordinates ?? moment.photos.find((photo) => photo.coordinates)?.coordinates ?? null;
+  const candidates = [moment.coordinates, ...moment.photos.map((photo) => photo.coordinates)];
+  return candidates.find((point) => isUsablePoint(point)) ?? null;
+}
+
+function isUsablePoint(point: GeoPoint | null | undefined): point is GeoPoint {
+  if (!point) {
+    return false;
+  }
+
+  return !(point.latitude === 0 && point.longitude === 0);
 }
 
 function distanceKm(from: GeoPoint, to: KnownPlace) {

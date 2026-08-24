@@ -195,6 +195,24 @@ test("warehouse moments are filterable by stored coordinates as place", () => {
   assert.deepEqual(momentPlaceLabels(noPlace), []);
   assert.deepEqual(momentPlaceLabels(fromPhoto), ["Helsinki"]);
 
+  const zeroGps = createTravelMoment({
+    note: "zero gps",
+    time: "2026-08-20T09:00:00.000Z",
+  });
+  zeroGps.photos = [
+    {
+      coordinates: { latitude: 0, longitude: 0 },
+      createdAt: "2026-08-20T09:00:00.000Z",
+      id: "moment_photo_zero",
+      momentId: zeroGps.id,
+      originalFilename: "zero.jpg",
+      originalStorageKey: null,
+      storageKey: "zero.jpg",
+      takenAt: "2026-08-20T09:00:00.000Z",
+    },
+  ];
+  assert.deepEqual(momentPlaceLabels(zeroGps), []);
+
   const indexed = indexTravelMoment(rovaniemi);
   assert.deepEqual(indexed.place, ["Rovaniemi"]);
   assert.deepEqual(indexed.people, []);
