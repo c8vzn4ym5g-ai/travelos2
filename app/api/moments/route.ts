@@ -1,6 +1,6 @@
-import { addMoment, isAdminPinValid, readMoments, updateMoment } from "@/lib/moment-store";
-import { createTravelMoment, normalizeTravelMoment } from "@/lib/moments";
-import type { GeoPoint, TravelMoment } from "@/lib/types";
+import { addJob, addMoment, isAdminPinValid, readMoments, updateJob, updateMoment } from "@/lib/moment-store";
+import { createTravelJob, createTravelMoment, normalizeTravelJob, normalizeTravelMoment, selectMomentIdsForCommand } from "@/lib/moments";
+import type { GeoPoint, TravelJob, TravelMoment } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -46,7 +46,22 @@ export async function POST(request: Request) {
     return Response.json({ error: "A moment with this id already exists" }, { status: 409 });
   }
 
-  return Response.json({ content: saved.content, moment: saved.moment });
+  if (!moment.command) {
+    return Response.json({ content: saved.content, job: null, moment: saved.moment });
+  }
+
+  const momentIds = selectMomentIdsForCommand(moment.command, saved.content.moments, saved.moment.id);
+  const job = createTravelJob({
+    command: moment.command,
+    momentIds,
+    sourceMomentId: saved.moment.id,
+  });
+  const withJob = await addJob(job);
+  if (withJob.conflict) {
+    return Response.json({ content: withJob.content, job: null, moment: saved.moment });
+  }
+
+  return Response.json({ content: withJob.content, job: withJob.job, moment: saved.moment });
 }
 
 export async function PUT(request: Request) {
@@ -54,7 +69,16 @@ export async function PUT(request: Request) {
     return Response.json({ error: "Invalid admin PIN" }, { status: 401 });
   }
 
-  const body = (await request.json()) as { moment?: TravelMoment };
+  const body = (await request.json()) as { job?: TravelJob; moment?: TravelMoment };
+  if (body.job?.id) {
+    const saved = await updateJob(normalizeTravelJob(body.job));
+    if (!saved) {
+      return Response.json({ error: "Job not found" }, { status: 404 });
+    }
+
+    return Response.json({ content: saved.content, job: saved.job });
+  }
+
   if (!body.moment || !body.moment.id) {
     return Response.json({ error: "Moment payload is required" }, { status: 400 });
   }

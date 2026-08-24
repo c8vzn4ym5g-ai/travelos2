@@ -24,7 +24,9 @@ test("capture does not create trips and photos append to a moment", async () => 
   assert.doesNotMatch(capture, /\/api\/trips/);
   assert.doesNotMatch(capture, /buildPrivateCaptureTrip/);
   assert.doesNotMatch(capture, /visibility: "private"/);
-  assert.match(momentsApi, /createTravelMoment/);
+  assert.match(momentsApi, /createTravelJob/);
+  assert.match(momentsApi, /selectMomentIdsForCommand/);
+  assert.match(capture, /trips\/write\?job=/);
   assert.match(photosApi, /addPhotoToMoment\(momentId, photo\)/);
   assert.match(photosApi, /storeMomentBinary/);
   assert.match(helpers, /MOMENTS_BLOB_PATH = "travelos\/moments.json"/);
@@ -53,7 +55,7 @@ test("capture has no tag form and is named Capture", async () => {
   const capture = await readSource("app/family/capture/page.tsx");
 
   assert.match(capture, /<h1 className="travel-display mt-2 text-4xl font-semibold">Capture<\/h1>/);
-  assert.match(capture, /心情 \/ Mood/);
+  assert.match(capture, /心情或交代 \/ Mood or a job/);
   assert.doesNotMatch(capture, />People</);
   assert.doesNotMatch(capture, />Place</);
   assert.doesNotMatch(capture, />Food</);
@@ -101,6 +103,12 @@ test("sit-and-write has no generated story and lists warehouse photos", async ()
   assert.match(write, /method: "PUT"/);
   assert.match(write, /\/api\/moments/);
   assert.match(write, /aiSummary: null/);
+  assert.match(write, /get\("job"\)/);
+  assert.match(write, /jobMoments.flatMap\(\(moment\) => moment.photos\)/);
+  assert.match(write, /setDraft\(activeJob.draft\)/);
+  assert.doesNotMatch(write, /setDraft\(activeJob.command\)/);
+  assert.doesNotMatch(write, /exciting travel log/);
+  assert.doesNotMatch(write, /meal log/);
   assert.doesNotMatch(write, /Write the memory here/);
   assert.doesNotMatch(write, /Dear diary/);
   assert.doesNotMatch(write, /Once upon/);

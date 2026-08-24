@@ -1,13 +1,14 @@
-import type { GeoPoint, TravelMoment } from "@/lib/types";
+import type { GeoPoint, TravelJob, TravelMoment } from "@/lib/types";
 
 export const MOMENTS_BLOB_PATH = "travelos/moments.json";
-export const MOMENTS_SCHEMA_VERSION = 1;
+export const MOMENTS_SCHEMA_VERSION = 2;
 
 const heicTypes = new Set(["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"]);
 
-const commandStartPattern =
-  /^(please\s+)?(add|save|put|move|delete|remove|tag|attach)\b/i;
-const commandChinesePattern = /^(幫我|請)(把|將|存|刪|加入|移到)/;
+const instructionVerbPattern = /^(please\s+)?(add|save|put|move|delete|remove|tag|attach)\b/i;
+const writeLogPattern = /\bwrite\b[\s\S]{0,80}\b(log|journal)\b/i;
+const travelosImportPattern = /\binto\s+travelos\b/i;
+const commandChinesePattern = /^(幫我|請)(把|將|存|刪|加入|移到|寫)/;
 
 export function makeMomentId(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -48,7 +49,15 @@ export function looksLikeSystemCommand(text: string) {
     return true;
   }
 
-  return commandStartPattern.test(trimmed) || commandChinesePattern.test(trimmed);
+  if (instructionVerbPattern.test(trimmed) || commandChinesePattern.test(trimmed)) {
+    return true;
+  }
+
+  if (writeLogPattern.test(trimmed)) {
+    return true;
+  }
+
+  return travelosImportPattern.test(trimmed) && /\b(put|save|add|photos?)\b/i.test(trimmed);
 }
 
 export function classifyCaptureNote(text: string): { command: string | null; note: string } {
@@ -62,6 +71,50 @@ export function classifyCaptureNote(text: string): { command: string | null; not
   }
 
   return { command: null, note: trimmed };
+}
+
+export function parseCommandAssetWindow(command: string): { days: number | null; todayOnly: boolean } {
+  const dayMatch = command.match(/\b(\d+)\s*-?\s*days?\b/i);
+  if (dayMatch) {
+    return { days: Number(dayMatch[1]), todayOnly: false };
+  }
+
+  if (/\btoday\b/i.test(command) || command.includes("今天")) {
+    return { days: null, todayOnly: true };
+  }
+
+  return { days: null, todayOnly: false };
+}
+
+export function selectMomentIdsForCommand(
+  command: string,
+  moments: TravelMoment[],
+  sourceMomentId: string,
+  now = new Date(),
+) {
+  const selected = new Set<string>([sourceMomentId]);
+  const window = parseCommandAssetWindow(command);
+  const nowDay = now.toISOString().slice(0, 10);
+  let startDay = nowDay;
+
+  if (window.days != null) {
+    const start = new Date(`${nowDay}T00:00:00.000Z`);
+    start.setUTCDate(start.getUTCDate() - Math.max(0, window.days - 1));
+    startDay = start.toISOString().slice(0, 10);
+  }
+
+  for (const moment of moments) {
+    const day = (moment.time || moment.createdAt).slice(0, 10);
+    if (window.todayOnly && day === nowDay) {
+      selected.add(moment.id);
+    }
+
+    if (window.days != null && day >= startDay && day <= nowDay) {
+      selected.add(moment.id);
+    }
+  }
+
+  return [...selected];
 }
 
 export function createTravelMoment(
@@ -99,6 +152,25 @@ export function createTravelMoment(
   };
 }
 
+export function createTravelJob(input: {
+  command: string;
+  createdAt?: string;
+  momentIds: string[];
+  sourceMomentId: string;
+}): TravelJob {
+  const createdAt = input.createdAt ?? new Date().toISOString();
+  const momentIds = [...new Set([input.sourceMomentId, ...input.momentIds])];
+
+  return {
+    command: input.command.trim(),
+    createdAt,
+    draft: "",
+    id: makeMomentId("job"),
+    momentIds,
+    sourceMomentId: input.sourceMomentId,
+  };
+}
+
 export function normalizeTravelMoment(moment: TravelMoment): TravelMoment {
   const labels = emptyMomentLabels();
 
@@ -119,5 +191,19 @@ export function normalizeTravelMoment(moment: TravelMoment): TravelMoment {
     topics: Array.isArray(moment.topics) ? moment.topics : labels.topics,
     transcript: moment.transcript ?? null,
     tripId: moment.tripId ?? null,
+  };
+}
+
+export function normalizeTravelJob(job: TravelJob): TravelJob {
+  const sourceMomentId = job.sourceMomentId;
+  const momentIds = Array.isArray(job.momentIds) ? job.momentIds : [sourceMomentId];
+
+  return {
+    command: job.command,
+    createdAt: job.createdAt,
+    draft: job.draft ?? "",
+    id: job.id,
+    momentIds: [...new Set([sourceMomentId, ...momentIds])],
+    sourceMomentId,
   };
 }

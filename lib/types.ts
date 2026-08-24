@@ -244,3 +244,12 @@ export interface TravelMoment {
   tripId: string | null;
   draft: string;
 }
+
+export interface TravelJob {
+  id: string;
+  createdAt: string;
+  command: string;
+  draft: string;
+  momentIds: string[];
+  sourceMomentId: string;
+}

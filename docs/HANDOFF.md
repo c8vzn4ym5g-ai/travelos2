@@ -17,6 +17,9 @@
 - TravelOS `/trips/write` lists warehouse moments as assets, shows selected
   photos, and saves only the human-typed draft (optional PUT onto an existing
   trip journal). No generated story.
+- Capture notes may be mood or a job. A job is stored in the same warehouse and
+  points at the relevant moments. Opening `/trips/write?job=` shows those
+  photos and keeps the command out of the writing area.
 - PR #2 (`cursor/family-moment-capture-f495`) is still held. This slice
   reimplements HEIC/append/session ideas on `main` without merging that PR.
 - Exact next action: family iPhone Capture acceptance against a Blob-backed

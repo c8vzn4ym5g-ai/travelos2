@@ -13,6 +13,9 @@ Current verified result:
   and library after each add, previews immediately, and supports retake/remove.
 - `/trips/write` lists warehouse moments as assets and saves only human-typed
   text. No generated journal copy.
+- A Capture note that is clearly a job becomes a warehouse job pointing at the
+  relevant moments. `/trips/write?job=` opens those photos without generating
+  a travel log or meal log.
 - Existing trip Blob APIs, live Lapland, coffee, and family PIN are unchanged.
 - PR #2 remains held; this work is a new branch off `main`.
 

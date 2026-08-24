@@ -4,11 +4,13 @@ import {
   MOMENTS_BLOB_PATH,
   appendMomentPhotos,
   classifyCaptureNote,
+  createTravelJob,
   createTravelMoment,
   emptyMomentLabels,
   heicJpegFilename,
   isHeicPhoto,
   looksLikeSystemCommand,
+  selectMomentIdsForCommand,
 } from "../lib/moments.ts";
 
 test("warehouse moments live at travelos/moments.json", () => {
@@ -74,4 +76,42 @@ test("text is mood unless it clearly starts as a system instruction", () => {
     command: "please add this to the Hokkaido trip",
     note: "",
   });
+});
+
+test("owner capture examples are jobs, not diary prose", () => {
+  const eightDay = "put all my 8-day travel photos into TravelOS and write an exciting travel log";
+  const meal = "write a meal log for my restaurant today.";
+
+  assert.deepEqual(classifyCaptureNote(eightDay), { command: eightDay, note: "" });
+  assert.deepEqual(classifyCaptureNote(meal), { command: meal, note: "" });
+  assert.equal(looksLikeSystemCommand("I loved that quiet lunch"), false);
+});
+
+test("a job points at relevant moments and keeps an empty draft", () => {
+  const now = new Date("2026-08-24T18:00:00.000Z");
+  const today = createTravelMoment({ note: "today", time: "2026-08-24T12:00:00.000Z" });
+  const lastWeek = createTravelMoment({ note: "week", time: "2026-08-17T12:00:00.000Z" });
+  const older = createTravelMoment({ note: "old", time: "2026-07-01T12:00:00.000Z" });
+  const moments = [today, lastWeek, older];
+
+  const eightDayIds = selectMomentIdsForCommand(
+    "put all my 8-day travel photos into TravelOS and write an exciting travel log",
+    moments,
+    today.id,
+    now,
+  );
+  const todayIds = selectMomentIdsForCommand("write a meal log for my restaurant today.", moments, today.id, now);
+  const job = createTravelJob({
+    command: "write a meal log for my restaurant today.",
+    momentIds: todayIds,
+    sourceMomentId: today.id,
+  });
+
+  assert.deepEqual(eightDayIds.sort(), [today.id, lastWeek.id].sort());
+  assert.deepEqual(todayIds, [today.id]);
+  assert.ok(!eightDayIds.includes(older.id));
+  assert.equal(job.draft, "");
+  assert.notEqual(job.draft, job.command);
+  assert.ok(job.momentIds.includes(today.id));
+  assert.equal(job.id.startsWith("job_"), true);
 });

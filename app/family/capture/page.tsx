@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { FAMILY_ADMIN_SESSION_KEY } from "@/lib/family-session";
 import { appendMomentPhotos, classifyCaptureNote, isHeicPhoto } from "@/lib/moments";
 import { maxUploadBytes, preparePhotoForUpload } from "@/lib/prepare-photo";
-import type { GeoPoint, TravelMoment } from "@/lib/types";
+import type { GeoPoint, TravelJob, TravelMoment } from "@/lib/types";
 
 type StagedPhoto = {
   file: File;
@@ -52,6 +52,7 @@ export default function CapturePage() {
   const [recording, setRecording] = useState(false);
   const [coordinates, setCoordinates] = useState<GeoPoint | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savedJobId, setSavedJobId] = useState<string | null>(null);
   const [message, setMessage] = useState("拍一張、選一張，或錄一小段。先看剛留下的，不好就重拍。");
 
   useEffect(() => {
@@ -235,7 +236,7 @@ export default function CapturePage() {
         throw new Error(data.error ?? "Could not save this moment.");
       }
 
-      const created = (await createResponse.json()) as { moment: TravelMoment };
+      const created = (await createResponse.json()) as { job: TravelJob | null; moment: TravelMoment };
       const momentId = created.moment.id;
 
       if (audio) {
@@ -292,7 +293,12 @@ export default function CapturePage() {
       setPhotos([]);
       setAudio(null);
       setNote("");
-      setMessage("已存成 Moment。可再拍一張補上。");
+      setSavedJobId(created.job?.id ?? null);
+      setMessage(
+        created.job
+          ? "已存成工作。照片在倉庫裡，打開 Write 看那些照片自己寫。"
+          : "已存成 Moment。可再拍一張補上。",
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "儲存失敗，請再試一次。");
     } finally {
@@ -323,7 +329,7 @@ export default function CapturePage() {
           <p className="travel-script mt-8 text-2xl text-rose-700">JDB Capture</p>
           <h1 className="travel-display mt-2 text-4xl font-semibold">Capture</h1>
           <p className="mt-4 text-base leading-7 text-zinc-600">
-            打開就能拍或錄。先看剛留下的，不好就重拍或重錄，缺的再補一張。存成 Moment，不是新的旅程。
+            打開就能拍或錄。先看剛留下的，不好就重拍或重錄，缺的再補一張。存成 Moment，不是新的旅程。一句話可以是心情，也可以是交代給 TravelOS 的工作。
           </p>
         </div>
       </section>
@@ -442,12 +448,12 @@ export default function CapturePage() {
           </div>
 
           <label className="mt-6 block">
-            <span className="travel-label text-sm font-semibold text-zinc-700">心情 / Mood</span>
-            <input
-              className="mt-2 min-h-12 w-full rounded-2xl border border-emerald-300 bg-white px-4 py-3 text-base text-zinc-950 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            <span className="travel-label text-sm font-semibold text-zinc-700">心情或交代 / Mood or a job</span>
+            <textarea
+              className="mt-2 min-h-20 w-full rounded-2xl border border-emerald-300 bg-white px-4 py-3 text-base text-zinc-950 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
               onChange={(event) => setNote(event.target.value)}
-              placeholder="一句心情，可留空"
-              type="text"
+              placeholder="一句心情，或交代一件事。不確定就當心情。"
+              rows={3}
               value={note}
             />
           </label>
@@ -455,6 +461,15 @@ export default function CapturePage() {
           <p aria-live="polite" className="mt-3 text-sm leading-6 text-zinc-600">
             {message}
           </p>
+
+          {savedJobId ? (
+            <Link
+              className="mt-3 flex min-h-12 items-center justify-center rounded-2xl border border-sky-300 bg-sky-50 px-4 py-3 font-semibold text-sky-950"
+              href={`/trips/write?job=${savedJobId}`}
+            >
+              Open job in Write
+            </Link>
+          ) : null}
 
           <button
             className="mt-5 min-h-12 w-full rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 font-semibold text-emerald-950 disabled:opacity-60"

@@ -1,9 +1,16 @@
 import { list, put } from "@vercel/blob";
 import { isAdminPinValid, isBlobConfigured } from "@/lib/editable-store";
-import { MOMENTS_BLOB_PATH, MOMENTS_SCHEMA_VERSION, appendMomentPhotos, normalizeTravelMoment } from "@/lib/moments";
-import type { MomentPhoto, TravelMoment } from "@/lib/types";
+import {
+  MOMENTS_BLOB_PATH,
+  MOMENTS_SCHEMA_VERSION,
+  appendMomentPhotos,
+  normalizeTravelJob,
+  normalizeTravelMoment,
+} from "@/lib/moments";
+import type { MomentPhoto, TravelJob, TravelMoment } from "@/lib/types";
 
 export type MomentContent = {
+  jobs: TravelJob[];
   moments: TravelMoment[];
   schemaVersion?: number;
   updatedAt: string;
@@ -20,15 +27,17 @@ let memoryContent: MomentContent | null = null;
 
 function createEmptyContent(): MomentContent {
   return {
+    jobs: [],
     moments: [],
     schemaVersion: MOMENTS_SCHEMA_VERSION,
     updatedAt: new Date().toISOString(),
   };
 }
 
-function withNormalizedMoments(content: MomentContent): MomentContent {
+function withNormalizedContent(content: MomentContent): MomentContent {
   return {
-    moments: content.moments.map(normalizeTravelMoment),
+    jobs: (content.jobs ?? []).map(normalizeTravelJob),
+    moments: (content.moments ?? []).map(normalizeTravelMoment),
     schemaVersion: content.schemaVersion ?? MOMENTS_SCHEMA_VERSION,
     updatedAt: content.updatedAt,
   };
@@ -38,7 +47,7 @@ export async function readMoments(): Promise<{ content: MomentContent; status: M
   if (!isBlobConfigured()) {
     memoryContent ??= createEmptyContent();
     return {
-      content: withNormalizedMoments(memoryContent),
+      content: withNormalizedContent(memoryContent),
       status: { configured: false, source: "memory" },
     };
   }
@@ -48,7 +57,7 @@ export async function readMoments(): Promise<{ content: MomentContent; status: M
 
   if (!dataBlob) {
     const content = createEmptyContent();
-    await writeMoments(content.moments);
+    await writeWarehouse(content.moments, content.jobs);
     return {
       content,
       status: { configured: true, source: "blob" },
@@ -63,15 +72,16 @@ export async function readMoments(): Promise<{ content: MomentContent; status: M
     };
   }
 
-  const content = withNormalizedMoments((await response.json()) as MomentContent);
+  const content = withNormalizedContent((await response.json()) as MomentContent);
   return {
     content,
     status: { configured: true, source: "blob" },
   };
 }
 
-export async function writeMoments(moments: TravelMoment[]) {
+export async function writeWarehouse(moments: TravelMoment[], jobs: TravelJob[]) {
   const content: MomentContent = {
+    jobs: jobs.map(normalizeTravelJob),
     moments: moments.map(normalizeTravelMoment),
     schemaVersion: MOMENTS_SCHEMA_VERSION,
     updatedAt: new Date().toISOString(),
@@ -116,7 +126,7 @@ export async function addMoment(moment: TravelMoment) {
     return { conflict: true as const, content };
   }
 
-  const saved = await writeMoments([normalizeTravelMoment(moment), ...content.moments]);
+  const saved = await writeWarehouse([normalizeTravelMoment(moment), ...content.moments], content.jobs);
   return { conflict: false as const, content: saved, moment: normalizeTravelMoment(moment) };
 }
 
@@ -128,8 +138,31 @@ export async function updateMoment(moment: TravelMoment) {
 
   const next = normalizeTravelMoment(moment);
   const moments = content.moments.map((item) => (item.id === next.id ? next : item));
-  const saved = await writeMoments(moments);
+  const saved = await writeWarehouse(moments, content.jobs);
   return { content: saved, moment: next };
+}
+
+export async function addJob(job: TravelJob) {
+  const { content } = await readMoments();
+  if (content.jobs.some((item) => item.id === job.id)) {
+    return { conflict: true as const, content };
+  }
+
+  const next = normalizeTravelJob(job);
+  const saved = await writeWarehouse(content.moments, [next, ...content.jobs]);
+  return { conflict: false as const, content: saved, job: next };
+}
+
+export async function updateJob(job: TravelJob) {
+  const { content } = await readMoments();
+  if (!content.jobs.some((item) => item.id === job.id)) {
+    return null;
+  }
+
+  const next = normalizeTravelJob(job);
+  const jobs = content.jobs.map((item) => (item.id === next.id ? next : item));
+  const saved = await writeWarehouse(content.moments, jobs);
+  return { content: saved, job: next };
 }
 
 export async function addPhotoToMoment(momentId: string, photo: MomentPhoto) {
@@ -151,7 +184,7 @@ export async function addPhotoToMoment(momentId: string, photo: MomentPhoto) {
     return null;
   }
 
-  return writeMoments(moments);
+  return writeWarehouse(moments, content.jobs);
 }
 
 export async function setMomentAudio(momentId: string, originalAudioUrl: string) {
@@ -165,6 +198,9 @@ export async function setMomentAudio(momentId: string, originalAudioUrl: string)
     ...current,
     originalAudioUrl,
   };
-  const saved = await writeMoments(content.moments.map((moment) => (moment.id === momentId ? next : moment)));
+  const saved = await writeWarehouse(
+    content.moments.map((moment) => (moment.id === momentId ? next : moment)),
+    content.jobs,
+  );
   return { content: saved, moment: next };
 }
