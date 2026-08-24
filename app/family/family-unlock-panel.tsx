@@ -2,10 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { FAMILY_ADMIN_SESSION_KEY } from "@/lib/family-session";
 
-const adminSessionKey = "travelos-admin-pin";
-
-type EditorPath = "/coffee/admin" | "/trips/admin";
+type EditorPath = "/coffee/admin" | "/family/capture" | "/trips/admin";
 
 export function FamilyUnlockPanel() {
   const router = useRouter();
@@ -35,7 +34,7 @@ export function FamilyUnlockPanel() {
         return;
       }
 
-      window.sessionStorage.setItem(adminSessionKey, pin);
+      window.sessionStorage.setItem(FAMILY_ADMIN_SESSION_KEY, pin);
       router.push(editorPath);
     } catch {
       setMessage("目前無法連線確認，請檢查網路後再試。");
@@ -79,23 +78,33 @@ export function FamilyUnlockPanel() {
         <p aria-live="polite" className="mt-3 text-sm leading-6 text-zinc-600">
           {message}
         </p>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <div className="mt-5 grid gap-3">
           <button
-            className="min-h-12 rounded-2xl border border-sky-300 bg-sky-50 px-4 py-3 font-semibold text-sky-950 transition hover:bg-sky-100 disabled:opacity-60"
+            className="min-h-12 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 font-semibold text-emerald-950 transition hover:bg-emerald-100 disabled:opacity-60"
             disabled={checking}
-            onClick={() => unlock("/trips/admin")}
+            onClick={() => unlock("/family/capture")}
             type="button"
           >
-            前往旅行編輯
+            Capture
           </button>
-          <button
-            className="min-h-12 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 font-semibold text-rose-950 transition hover:bg-rose-100 disabled:opacity-60"
-            disabled={checking}
-            onClick={() => unlock("/coffee/admin")}
-            type="button"
-          >
-            前往咖啡編輯
-          </button>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              className="min-h-12 rounded-2xl border border-sky-300 bg-sky-50 px-4 py-3 font-semibold text-sky-950 transition hover:bg-sky-100 disabled:opacity-60"
+              disabled={checking}
+              onClick={() => unlock("/trips/admin")}
+              type="button"
+            >
+              前往旅行編輯
+            </button>
+            <button
+              className="min-h-12 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 font-semibold text-rose-950 transition hover:bg-rose-100 disabled:opacity-60"
+              disabled={checking}
+              onClick={() => unlock("/coffee/admin")}
+              type="button"
+            >
+              前往咖啡編輯
+            </button>
+          </div>
         </div>
       </div>
     </section>

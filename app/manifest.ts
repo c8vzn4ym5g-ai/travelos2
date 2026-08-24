@@ -37,6 +37,13 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "TravelOS",
     shortcuts: [
       {
+        description: "Open Capture after the family session",
+        icons: [{ sizes: "512x512", src: "/travelos-icon.png", type: "image/png" }],
+        name: "Capture",
+        short_name: "Capture",
+        url: "/family/capture",
+      },
+      {
         description: "Browse, add, and edit our family travel memories",
         icons: [{ sizes: "512x512", src: "/travelos-icon.png", type: "image/png" }],
         name: "家庭編輯",

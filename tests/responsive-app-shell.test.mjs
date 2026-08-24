@@ -29,6 +29,8 @@ test("core travel, coffee, booking, and editor routes keep touch controls at 44p
       "app/drive/page.tsx",
       "app/trips/admin/page.tsx",
       "app/coffee/admin/page.tsx",
+      "app/family/capture/page.tsx",
+      "app/trips/write/page.tsx",
     ].map((path) => readFile(resolve(root, path), "utf8")),
   );
 

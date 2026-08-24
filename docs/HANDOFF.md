@@ -1,5 +1,79 @@
 # TravelOS Handoff
 
+## 2026-08-24 Merge PR #3 to main for live Capture
+
+- Owner instruction: merge GitHub PR #3 into `main` with a regular merge
+  commit so family Capture works on the phone this week (Kyushu).
+- This branch first merged current `main` (Lapland bilingual copy, quiet CC0
+  music, regional itinerary poster). Warehouse Capture/Write/moments APIs
+  stay. Live Lapland public work stays. PR #2 stays held. PR #8 untouched.
+- Live door after deploy: `https://travelos2-63r3.vercel.app/family`, then
+  Capture at `/family/capture` after PIN. `/trips/write` is sit-and-write.
+
+## 2026-08-24 Persist found-set drafts in the warehouse
+
+- Saving a day/place found set now writes a durable `TravelJob` into
+  `travelos/moments.json`. `momentIds` are the visible warehouse moments.
+  `command` is a short retrieval label (day/place) for the Jobs list and
+  Found set banner. `draft` is the human-typed text.
+- Reload reads that job by the same day/place label, so the writing
+  survives refresh. The textarea is filled from `job.draft` only, never
+  from the filter label, a travel log, or a meal log. No new Trip.
+- Capture stays unblocked. Optional attach-to-existing-trip remains human
+  text only. Family PIN session only. PR #2 stays held.
+
+## 2026-08-24 Found-set writing on /trips/write
+
+- A day and/or place filter is a temporary writing set. Photos on Write come
+  from the visible warehouse moments together, the same way a Capture job
+  already points at several moments. No new Trip.
+- The writing area stays blank until a person types. Filter labels stay in the
+  Found set banner, not in the textarea. No travel log, meal log, or diary
+  prose is produced.
+- Originals stay in the warehouse. Capture remains the front door and is not
+  blocked by this retrieval path. Family PIN session only.
+- PR #2 stays held.
+
+## 2026-08-24 Find warehouse Moments by day and place
+
+- TravelOS is the sit-and-write back door. Capture stays the phone front
+  door. Originals stay reusable. Owner has not taught writing method, so
+  this slice does not generate a travel log, meal log, or any diary prose.
+- Warehouse Moments are findable on `/trips/write` by Asia/Taipei calendar
+  day and by place. Day uses the moment time (photo `takenAt` / `createdAt`).
+  Place uses stored labels when present, else a label derived from stored
+  coordinates. `people` / `food` / `scenery` / `topics` may stay empty.
+- Indexing is fire-and-forget after `POST /api/moments` and
+  `POST /api/moments/photos`. Capture, photo upload, and the Capture UI do
+  not wait on geocoding or the index pass. Job date windows now use
+  Asia/Taipei calendar days.
+- Canonical warehouse remains Vercel Blob `travelos/moments.json`. No Prisma,
+  no vector DB, no Obsidian runtime. Existing trip APIs, Lapland, coffee, and
+  family PIN stay unchanged.
+- PR #2 (`cursor/family-moment-capture-f495`) stays held and untouched.
+
+## 2026-08-24 JDB Capture and TravelMoment warehouse
+
+- Owner path confirmed: Capture is the family phone front door; TravelOS
+  warehouses originals as reusable assets; sit-and-write is human text only.
+- Canonical warehouse: Vercel Blob path `travelos/moments.json`. Portable JSON.
+  Obsidian is not a runtime dependency. No Prisma, no vector DB.
+- PIN-gated APIs: `GET/POST/PUT /api/moments`, `POST /api/moments/photos`
+  (append), `POST /api/moments/audio`. Existing `/api/trips/content` and
+  `/api/trips/photos` are unchanged. Live Lapland, coffee, and family PIN stay.
+- Capture (`/family/capture`) reuses the family session key
+  `travelos-admin-pin`, has no PIN form, names the surface Capture, keeps
+  camera + library after each add, shows an immediate preview, and supports
+  retake/remove. Save creates a TravelMoment, never a new Trip.
+- TravelOS `/trips/write` lists warehouse moments as assets, shows selected
+  photos, and saves only the human-typed draft (optional PUT onto an existing
+  trip journal). No generated story.
+- Capture notes may be mood or a job. A job is stored in the same warehouse and
+  points at the relevant moments. Opening `/trips/write?job=` shows those
+  photos and keeps the command out of the writing area.
+- PR #2 (`cursor/family-moment-capture-f495`) is still held. This slice
+  reimplements HEIC/append/session ideas on `main` without merging that PR.
+
 ## 2026-08-24 Lapland itinerary raster poster
 
 - Owner correction: do not use a live tiled map in the browser, and do not
@@ -98,7 +172,6 @@
 - This is a public-copy slice only. Do not merge. Do not production-deploy.
   Do not touch Capture, `/family/capture`, the moments warehouse, PR #2, or
   PR #3.
-
 ## 2026-07-25 Family entry login and contrast correction
 
 - Confirmed the reported problem on the live `/family` route: it was only a

@@ -215,3 +215,42 @@ export interface CoffeeShopListItem {
   coverPhoto: CoffeePhoto | null;
   photoCount: number;
 }
+
+export interface MomentPhoto {
+  id: string;
+  momentId: string;
+  storageKey: string;
+  originalStorageKey: string | null;
+  originalFilename: string;
+  takenAt: string | null;
+  coordinates: GeoPoint | null;
+  createdAt: string;
+}
+
+export interface TravelMoment {
+  id: string;
+  createdAt: string;
+  time: string | null;
+  coordinates: GeoPoint | null;
+  place: string[];
+  people: string[];
+  food: string[];
+  scenery: string[];
+  topics: string[];
+  photos: MomentPhoto[];
+  originalAudioUrl: string | null;
+  transcript: string | null;
+  note: string;
+  command: string | null;
+  tripId: string | null;
+  draft: string;
+}
+
+export interface TravelJob {
+  id: string;
+  createdAt: string;
+  command: string;
+  draft: string;
+  momentIds: string[];
+  sourceMomentId: string;
+}

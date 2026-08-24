@@ -1,5 +1,35 @@
 # TravelOS Codex Tasks
 
+## TASK-018: JDB Capture, TravelMoment warehouse, and sit-and-write
+
+Status: in_progress
+
+Current verified result:
+
+- Added a TravelMoment warehouse at Vercel Blob `travelos/moments.json`.
+- PIN-gated moment APIs create a moment, append photos, and store original
+  audio without writing a new trip.
+- `/family/capture` is named Capture, reuses the family session, keeps camera
+  and library after each add, previews immediately, and supports retake/remove.
+- `/trips/write` lists warehouse moments as assets and saves only the
+  human-typed draft. No generated journal copy.
+- A Capture note that is clearly a job becomes a warehouse job pointing at the
+  relevant moments. `/trips/write?job=` opens those photos without generating
+  a travel log or meal log.
+- `/trips/write` can list and filter warehouse moments by Asia/Taipei day and
+  by place. A day/place found set becomes the writing photos together. Saving
+  that set stores a warehouse job with the human draft so it survives reload.
+- Existing trip Blob APIs, live Lapland, coffee, and family PIN are unchanged.
+- PR #2 remains held; this warehouse work is merged to `main` from PR #3
+  without merging PR #2.
+
+Remaining:
+
+- Do not merge PR #2.
+- Real iPhone Capture acceptance on the live family door after Vercel
+  `travelos2-63r3` deploys this merge.
+
+
 ## TASK-017: Swap Lapland itinerary basemap to labeled Carto Voyager streets
 
 Status: done

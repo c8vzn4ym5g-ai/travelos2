@@ -40,6 +40,22 @@ export default function FamilyWorkspacePage() {
 
       <FamilyUnlockPanel />
 
+      <section className="mx-auto max-w-5xl px-6 pt-8 lg:px-10">
+        <article className="rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm">
+          <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">JDB Capture</p>
+          <h2 className="travel-display mt-2 text-2xl font-semibold">Capture</h2>
+          <p className="mt-3 text-sm leading-6 text-zinc-600">
+            家庭密碼解鎖後打開 Capture：拍照、選照片或錄音，立刻看到剛留下的，不好就重拍。存成 Moment，不是新的旅程。
+          </p>
+          <Link
+            className="mt-5 flex min-h-12 items-center justify-center rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-center font-semibold text-emerald-950"
+            href="/family/capture"
+          >
+            打開 Capture
+          </Link>
+        </article>
+      </section>
+
       <section className="mx-auto grid max-w-5xl gap-5 px-6 py-8 lg:grid-cols-2 lg:px-10">
         {sections.map((section) => (
           <article className={`rounded-3xl border p-6 shadow-sm ${section.accent}`} key={section.title}>
@@ -52,6 +68,11 @@ export default function FamilyWorkspacePage() {
               <Link className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-center font-semibold text-emerald-950" href={section.editHref}>
                 {section.editLabel}
               </Link>
+              {section.editHref === "/trips/admin" ? (
+                <Link className="rounded-2xl border border-sky-200 bg-white px-4 py-3 text-center font-semibold text-sky-950" href="/trips/write">
+                  Sit and write
+                </Link>
+              ) : null}
             </div>
           </article>
         ))}

@@ -768,6 +768,9 @@ export default function TravelAdminPage() {
               家庭入口
             </Link>
             <div className="flex flex-wrap gap-2">
+              <Link className={smallButtonClass} href="/trips/write">
+                Sit and write
+              </Link>
               <Link className={smallButtonClass} href="/trips/new">
                 New trip draft
               </Link>
