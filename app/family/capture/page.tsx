@@ -79,8 +79,11 @@ export default function FamilyCapturePage() {
       return;
     }
 
-    setPhotos((current) => appendCapturePhotos(current, incoming));
-    setMessage(`已加入 ${incoming.length} 張照片，可繼續拍照或從相簿再選。`);
+    setPhotos((current) => {
+      const next = appendCapturePhotos(current, incoming);
+      setMessage(`已加入 ${next.length} 張照片，可繼續拍照或從相簿再選。`);
+      return next;
+    });
   }
 
   function onTakePhoto(event: React.ChangeEvent<HTMLInputElement>) {
