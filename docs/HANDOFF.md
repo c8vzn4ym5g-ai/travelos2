@@ -1,5 +1,21 @@
 # TravelOS Handoff
 
+## 2026-08-24 Lapland itinerary raster poster
+
+- Owner correction: do not use a live tiled map in the browser, and do not
+  use Google Maps or any API key. The regional hero is one generated PNG
+  poster, like a printed itinerary. If stops change, regenerate the image.
+- Keep the HTML stop list, HK→HEL→RVN arrival strip, and photo/wording card.
+  Overlay 44px hit targets on the poster pins so tap still selects a stop.
+- Generator: `scripts/generate-lapland-poster.mjs` (`pnpm generate:lapland-poster`).
+  It fetches Carto Voyager tiles
+  (`https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png`),
+  stitches one raster, and draws numbered pins, winter route, sled side-leg,
+  legend, scale, north, and short labels. No grayscale/wash.
+- Output: `public/travelos/maps/lapland-rovaniemi.png`. Attribution
+  © OpenStreetMap contributors © CARTO. Photos, costs, and quiet CC0 music
+  unchanged. Do not merge. Do not touch Capture, PR #2, or PR #3.
+
 ## 2026-08-24 Lapland itinerary streets basemap
 
 - Owner: the regional itinerary still looked empty after PR #6 because the
