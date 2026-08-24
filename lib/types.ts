@@ -103,6 +103,7 @@ export interface MusicTrack {
   triggerLabel: string;
   volume: number;
   enabled: boolean;
+  credit?: string;
   createdAt: string;
 }
 
