@@ -11,6 +11,7 @@ import {
   getTileBounds,
   isRenderablePhoto,
   project,
+  STREET_BASEMAP,
   type ItineraryStop,
   type RegionalLeg,
   type StopIcon,
@@ -190,15 +191,17 @@ function RegionalMap({
 
   return (
     <div
-      className="relative min-h-[22rem] overflow-hidden rounded-2xl bg-[#d7e3dc] sm:min-h-[26rem] lg:min-h-[32rem]"
+      className="relative min-h-[22rem] overflow-hidden rounded-2xl bg-[#e8f0e4] sm:min-h-[26rem] lg:min-h-[32rem]"
+      data-basemap="carto-voyager"
       data-map-frame="regional"
     >
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,#e7eee8_0%,#d5e4ea_100%)]" />
+      <div className="absolute inset-0 bg-[#e8f0e4]" />
       {mapTiles.map((tile) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           alt=""
-          className="absolute max-w-none select-none object-cover opacity-55 grayscale-[42%] saturate-[0.42] contrast-[0.9]"
+          className="absolute max-w-none select-none object-cover"
+          data-map-tile
           draggable={false}
           key={tile.key}
           loading="lazy"
@@ -206,7 +209,7 @@ function RegionalMap({
           style={tile.style}
         />
       ))}
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(251,250,246,.34),rgba(255,255,252,.22)_46%,rgba(247,242,232,.38))]" />
+      <div className="pointer-events-none absolute inset-0 bg-[rgba(251,247,240,0.08)]" data-map-overlay="warm-8" />
       <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none" viewBox="0 0 100 100">
         {legs.map((leg) => {
           const from = project(leg.from, bounds);
@@ -277,14 +280,14 @@ function RegionalMap({
           <span>{scaleBar.label}</span>
         </div>
       </div>
-      <a
-        className="absolute bottom-3 right-3 rounded-full bg-white/85 px-2 py-1 text-[0.58rem] font-semibold text-slate-600 shadow-sm"
-        href="https://www.openstreetmap.org/copyright"
-        rel="noreferrer"
-        target="_blank"
-      >
-        OpenStreetMap
-      </a>
+      <p className="absolute bottom-3 right-3 max-w-[11rem] rounded-lg bg-white/90 px-2 py-1 text-right text-[0.52rem] font-semibold leading-4 text-slate-600 shadow-sm">
+        <a href={STREET_BASEMAP.attributionUrl} rel="noreferrer" target="_blank">
+          © OpenStreetMap contributors
+        </a>{" "}
+        <a href={STREET_BASEMAP.cartoAttributionUrl} rel="noreferrer" target="_blank">
+          © CARTO
+        </a>
+      </p>
     </div>
   );
 }

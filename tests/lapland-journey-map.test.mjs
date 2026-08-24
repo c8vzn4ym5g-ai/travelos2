@@ -5,8 +5,13 @@ import test from "node:test";
 import {
   buildJourneyItinerary,
   chooseZoom,
+  getMapTiles,
+  getScaleBar,
   getStopCardContent,
+  getStreetTileUrl,
+  getTileBounds,
   isRegionalPointSet,
+  STREET_BASEMAP,
 } from "../lib/journey-map-model.ts";
 import { seedTripDetails } from "../lib/trips.ts";
 
@@ -29,7 +34,11 @@ test("JourneyMap source makes the regional map the large frame", async () => {
   assert.match(source, /data-stop-card/);
   assert.match(source, /data-stop-title/);
   assert.match(source, /data-stop-wording/);
-  assert.match(model, /tile\.openstreetmap\.org/);
+  assert.match(model, /basemaps\.cartocdn\.com\/rastertiles\/voyager\/\{z\}\/\{x\}\/\{y\}\.png/);
+  assert.doesNotMatch(model, /tile\.openstreetmap\.org/);
+  assert.doesNotMatch(source, /tile\.openstreetmap\.org/);
+  assert.doesNotMatch(source, /maps\.googleapis|mt\d\.google|@googlemaps/);
+  assert.doesNotMatch(model, /maps\.googleapis|mt\d\.google|@googlemaps/);
   const layout = source.slice(source.indexOf("export function JourneyMap"));
   assert.match(layout, /data-stop-list[\s\S]*<RegionalMap[\s\S]*data-stop-card/);
   assert.doesNotMatch(source, /data-map-scale=\{slice\.scale\}/);
@@ -48,11 +57,41 @@ test("arrival locator is not an equal-size second map", async () => {
 
   assert.match(locatorBlock, /data-arrival-locator/);
   assert.doesNotMatch(locatorBlock, /tile\.openstreetmap\.org/);
+  assert.doesNotMatch(locatorBlock, /basemaps\.cartocdn\.com/);
   assert.doesNotMatch(locatorBlock, /min-h-\[22rem\]/);
   assert.match(regionalBlock, /data-map-frame="regional"/);
+  assert.match(regionalBlock, /data-basemap="carto-voyager"/);
   assert.match(regionalBlock, /getMapTiles/);
   assert.match(regionalBlock, /min-h-\[22rem\]/);
   assert.match(source, /How we arrived/);
+});
+
+test("regional tiles use a labeled Carto Voyager streets layer, not a washed OSM field", async () => {
+  const [source, pkg] = await Promise.all([
+    readFile(resolve(root, "components/journey-map.tsx"), "utf8"),
+    readFile(resolve(root, "package.json"), "utf8"),
+  ]);
+  const regionalBlock = source.slice(source.indexOf("function RegionalMap"), source.indexOf("export function JourneyMap"));
+  const tileImg = regionalBlock.slice(regionalBlock.indexOf("<img"), regionalBlock.indexOf("/>") + 2);
+
+  assert.equal(STREET_BASEMAP.name, "Carto Voyager");
+  assert.equal(STREET_BASEMAP.urlTemplate, "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png");
+  assert.match(STREET_BASEMAP.attribution, /OpenStreetMap contributors/);
+  assert.match(STREET_BASEMAP.attribution, /CARTO/);
+  assert.match(getStreetTileUrl(12, 1165, 452), /basemaps\.cartocdn\.com\/rastertiles\/voyager\/12\/1165\/452\.png/);
+  assert.doesNotMatch(pkg, /@googlemaps/);
+  assert.doesNotMatch(tileImg, /opacity-55|grayscale|saturate-\[0\.42\]|contrast-\[0\.9\]/);
+  assert.doesNotMatch(regionalBlock, /grayscale|saturate-\[|opacity-55/);
+  assert.match(regionalBlock, /data-map-overlay="warm-8"/);
+  assert.match(regionalBlock, /rgba\(251,247,240,0\.08\)/);
+  assert.match(regionalBlock, /data-map-pin=\{stop\.number\}/);
+  assert.match(regionalBlock, /Winter route/);
+  assert.match(regionalBlock, /Side leg/);
+  assert.match(regionalBlock, /© OpenStreetMap contributors/);
+  assert.match(regionalBlock, /© CARTO/);
+  assert.match(source, /data-stop-list/);
+  assert.match(source, /data-arrival-locator/);
+  assert.doesNotMatch(source, /Writing guide/);
 });
 
 test("Lapland default music stays one quiet CC0 winter bed", async () => {
@@ -106,6 +145,15 @@ test("Lapland itinerary is a Rovaniemi regional map, not a Hong Kong-scale overv
   assert.ok(chooseZoom(itinerary.regionalPoints, "regional") >= 10);
   assert.ok(itinerary.regionalLegs.some((leg) => leg.style === "solid" && leg.kind === "winter"));
   assert.ok(itinerary.regionalLegs.some((leg) => leg.style === "dotted" && leg.kind === "side"));
+
+  const bounds = getTileBounds(itinerary.regionalPoints, "regional");
+  const tiles = getMapTiles(bounds);
+  const scaleBar = getScaleBar(bounds, itinerary.regionalPoints[0].latitude);
+  assert.ok(tiles.length > 0);
+  assert.match(tiles[0].src, /basemaps\.cartocdn\.com\/rastertiles\/voyager\/\d+\/\d+\/\d+\.png/);
+  assert.doesNotMatch(tiles[0].src, /tile\.openstreetmap\.org|maps\.googleapis|mt\d\.google/);
+  assert.ok(tiles.every((tile) => tile.src.startsWith("https://basemaps.cartocdn.com/rastertiles/voyager/")));
+  assert.ok(scaleBar.km <= 5, `expected a local scale bar, got ${scaleBar.label}`);
 });
 
 test("selecting stop N shows bilingual wording and the linked photo", () => {

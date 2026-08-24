@@ -1,5 +1,18 @@
 # TravelOS Codex Tasks
 
+## TASK-017: Swap Lapland itinerary basemap to labeled Carto Voyager streets
+
+Status: in_progress
+
+Current result:
+
+- Keep the PR #6 itinerary chrome (arrival strip, numbered list, circular
+  pins, winter route, sled side-leg, legend, scale, north, stop cards).
+- Replace the washed OSM terrain with no-key Carto Voyager tiles so roads,
+  parks, water, and place labels stay fully colored and readable.
+- Attribution is © OpenStreetMap contributors © CARTO. No Google Maps key,
+  SDK, or Google tile URLs. Photos, costs, and quiet CC0 music unchanged.
+
 ## TASK-016: Rebuild Lapland JourneyMap as a regional itinerary
 
 Status: done

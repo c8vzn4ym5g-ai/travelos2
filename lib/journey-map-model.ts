@@ -74,6 +74,21 @@ export type TileBounds = {
   zoom: number;
 };
 
+export const STREET_BASEMAP = {
+  attribution: "© OpenStreetMap contributors © CARTO",
+  attributionUrl: "https://www.openstreetmap.org/copyright",
+  cartoAttributionUrl: "https://carto.com/attributions",
+  name: "Carto Voyager",
+  urlTemplate: "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+} as const;
+
+export function getStreetTileUrl(zoom: number, x: number, y: number) {
+  return STREET_BASEMAP.urlTemplate
+    .replace("{z}", String(zoom))
+    .replace("{x}", String(x))
+    .replace("{y}", String(y));
+}
+
 const LOCAL_SPAN_DEGREES = 2.5;
 const LONG_HAUL_SPAN_DEGREES = 8;
 const MIN_REGIONAL_SPAN_DEGREES = 0.1;
@@ -543,7 +558,7 @@ export function getMapTiles(bounds: TileBounds) {
       const wrappedX = ((x % tileCount) + tileCount) % tileCount;
       return {
         key: `${bounds.zoom}-${wrappedX}-${y}`,
-        src: `https://tile.openstreetmap.org/${bounds.zoom}/${wrappedX}/${y}.png`,
+        src: getStreetTileUrl(bounds.zoom, wrappedX, y),
         style: {
           height: `${(1 / Math.max(bounds.maxY - bounds.minY, 0.0001)) * 100}%`,
           left: `${((x - bounds.minX) / Math.max(bounds.maxX - bounds.minX, 0.0001)) * 100}%`,
