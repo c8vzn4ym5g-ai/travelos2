@@ -121,7 +121,7 @@ function getPositionedPins(pins: MapPin[], bounds: ReturnType<typeof getTileBoun
 }
 
 function getRouteStopLabel(label: string) {
-  return label.replace(/\s+(International\s+)?Airport$/i, "").replace(/\s+Line$/i, "");
+  return label.replace(/\s+International(?=\s+Airport$)/i, "").replace(/\s+Line$/i, "");
 }
 
 function scaleCopy(scale: MapScale, city: string) {
