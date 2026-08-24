@@ -1,5 +1,38 @@
 # TravelOS Handoff
 
+## 2026-08-24 Lapland itinerary raster poster
+
+- Owner correction: do not use a live tiled map in the browser, and do not
+  use Google Maps or any API key. The regional hero is one generated PNG
+  poster, like a printed itinerary. If stops change, regenerate the image.
+- Keep the HTML stop list, HK→HEL→RVN arrival strip, and photo/wording card.
+  Overlay 44px hit targets on the poster pins so tap still selects a stop.
+- Generator: `scripts/generate-lapland-poster.mjs` (`pnpm generate:lapland-poster`).
+  It fetches Carto Voyager tiles
+  (`https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png`),
+  stitches one raster, and draws numbered pins, winter route, sled side-leg,
+  legend, scale, north, and short labels. No grayscale/wash.
+- Output: `public/travelos/maps/lapland-rovaniemi.png`. Attribution
+  © OpenStreetMap contributors © CARTO. Photos, costs, and quiet CC0 music
+  unchanged. Do not merge. Do not touch Capture, PR #2, or PR #3.
+
+## 2026-08-24 Lapland itinerary streets basemap
+
+- Owner: the regional itinerary still looked empty after PR #6 because the
+  OSM tiles were grayscale, desaturated, and faded. Keep the itinerary
+  chrome. Change the BASE MAP only. Do not merge. Do not production-deploy.
+  Do not touch Capture, `/family/capture`, the moments warehouse, PR #2, or
+  PR #3. Photos, costs, and the quiet CC0 music file are unchanged.
+- No Google Maps key or SDK. Tiles are Carto Voyager (no-key labeled
+  streets): `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png`.
+  Attribution: © OpenStreetMap contributors © CARTO.
+- Tile `<img>` classes no longer use opacity, grayscale, saturate, or
+  contrast filters. Overlay is at most ~8% warm so roads, parks, water,
+  town names, and POI labels stay readable.
+- Numbered circular pins, solid winter route, dotted sled side-leg, legend,
+  scale bar, north, HK→HEL→RVN arrival strip, and tap list/pin → photo +
+  bilingual wording stay. Frame remains Rovaniemi regional (~2 km scale).
+
 ## 2026-08-24 Lapland itinerary map (regional poster)
 
 - Follow-up after the map/music slice. Owner liked the quiet CC0 winter bed;

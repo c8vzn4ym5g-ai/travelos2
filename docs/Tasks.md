@@ -1,5 +1,18 @@
 # TravelOS Codex Tasks
 
+## TASK-017: Swap Lapland itinerary basemap to labeled Carto Voyager streets
+
+Status: done
+
+Current result:
+
+- Keep the PR #6 itinerary chrome (arrival strip, numbered list, circular
+  pins, winter route, sled side-leg, legend, scale, north, stop cards).
+- Hero is one generated Rovaniemi poster PNG, not a live OSM/Carto tile
+  collage. Generator stitches Carto Voyager tiles and draws the itinerary.
+- Attribution is © OpenStreetMap contributors © CARTO. No Google Maps key,
+  SDK, or Google tile URLs. Photos, costs, and quiet CC0 music unchanged.
+
 ## TASK-016: Rebuild Lapland JourneyMap as a regional itinerary
 
 Status: done

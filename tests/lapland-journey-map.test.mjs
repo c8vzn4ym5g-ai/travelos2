@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
 import {
   buildJourneyItinerary,
-  chooseZoom,
+  buildPosterLayout,
   getStopCardContent,
   isRegionalPointSet,
+  LAPLAND_POSTER,
+  STREET_BASEMAP,
 } from "../lib/journey-map-model.ts";
 import { seedTripDetails } from "../lib/trips.ts";
 
@@ -14,22 +16,33 @@ const root = resolve(import.meta.dirname, "..");
 const lapland = seedTripDetails.find((trip) => trip.id === "trip_lapland_2020");
 const hongKong = { latitude: 22.308, longitude: 113.9185 };
 
-test("JourneyMap source makes the regional map the large frame", async () => {
-  const [source, model, page] = await Promise.all([
+test("JourneyMap hero is the generated itinerary poster, not a live tile collage", async () => {
+  const [source, model, page, pkg] = await Promise.all([
     readFile(resolve(root, "components/journey-map.tsx"), "utf8"),
     readFile(resolve(root, "lib/journey-map-model.ts"), "utf8"),
     readFile(resolve(root, "app/trips/[slug]/page.tsx"), "utf8"),
+    readFile(resolve(root, "package.json"), "utf8"),
   ]);
 
   assert.match(source, /data-map-frame="regional"/);
-  assert.match(source, /min-h-\[22rem\].*lg:min-h-\[32rem\]/);
+  assert.match(source, /data-map-poster-image/);
+  assert.match(source, /LAPLAND_POSTER\.src/);
+  assert.match(model, /\/travelos\/maps\/lapland-rovaniemi\.png/);
   assert.match(source, /data-arrival-locator/);
   assert.match(source, /data-stop-list/);
-  assert.match(source, /min-h-11/);
+  assert.match(source, /min-h-11 min-w-11/);
+  assert.match(source, /data-map-pin=\{pin\.number\}/);
   assert.match(source, /data-stop-card/);
   assert.match(source, /data-stop-title/);
   assert.match(source, /data-stop-wording/);
-  assert.match(model, /tile\.openstreetmap\.org/);
+  assert.doesNotMatch(source, /getMapTiles/);
+  assert.doesNotMatch(source, /data-map-tile/);
+  assert.doesNotMatch(source, /tile\.openstreetmap\.org/);
+  assert.doesNotMatch(source, /basemaps\.cartocdn\.com/);
+  assert.doesNotMatch(source, /maps\.googleapis|mt\d\.google|@googlemaps/);
+  assert.doesNotMatch(model, /tile\.openstreetmap\.org/);
+  assert.doesNotMatch(model, /maps\.googleapis|mt\d\.google|@googlemaps/);
+  assert.doesNotMatch(pkg, /@googlemaps/);
   const layout = source.slice(source.indexOf("export function JourneyMap"));
   assert.match(layout, /data-stop-list[\s\S]*<RegionalMap[\s\S]*data-stop-card/);
   assert.doesNotMatch(source, /data-map-scale=\{slice\.scale\}/);
@@ -48,11 +61,37 @@ test("arrival locator is not an equal-size second map", async () => {
 
   assert.match(locatorBlock, /data-arrival-locator/);
   assert.doesNotMatch(locatorBlock, /tile\.openstreetmap\.org/);
+  assert.doesNotMatch(locatorBlock, /basemaps\.cartocdn\.com/);
   assert.doesNotMatch(locatorBlock, /min-h-\[22rem\]/);
   assert.match(regionalBlock, /data-map-frame="regional"/);
-  assert.match(regionalBlock, /getMapTiles/);
-  assert.match(regionalBlock, /min-h-\[22rem\]/);
+  assert.match(regionalBlock, /data-map-poster-image/);
+  assert.match(regionalBlock, /LAPLAND_POSTER/);
   assert.match(source, /How we arrived/);
+});
+
+test("poster generator stitches Carto Voyager tiles and the PNG is committed", async () => {
+  const [generator, pkg, png] = await Promise.all([
+    readFile(resolve(root, "scripts/generate-lapland-poster.mjs"), "utf8"),
+    readFile(resolve(root, "package.json"), "utf8"),
+    readFile(resolve(root, LAPLAND_POSTER.relativeFile)),
+  ]);
+  const info = await stat(resolve(root, LAPLAND_POSTER.relativeFile));
+
+  assert.match(pkg, /generate:lapland-poster/);
+  assert.match(generator, /lib\/journey-map-model\.ts/);
+  assert.match(generator, /basemaps\.cartocdn\.com\/rastertiles\/voyager\/\{z\}\/\{x\}\/\{y\}\.png/);
+  assert.match(generator, /getStreetTileUrl/);
+  assert.match(generator, /buildPosterLayout/);
+  assert.doesNotMatch(generator, /grayscale|desaturat|opacity-55|saturate-\[/);
+  assert.doesNotMatch(generator, /maps\.googleapis|mt\d\.google|@googlemaps|tile\.openstreetmap\.org/);
+  assert.equal(STREET_BASEMAP.urlTemplate, "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png");
+  assert.match(STREET_BASEMAP.attribution, /OpenStreetMap contributors/);
+  assert.match(STREET_BASEMAP.attribution, /CARTO/);
+  assert.equal(png[0], 0x89);
+  assert.equal(png[1], 0x50);
+  assert.equal(png[2], 0x4e);
+  assert.equal(png[3], 0x47);
+  assert.ok(info.size > 80_000, `poster too small to be a street raster (${info.size} bytes)`);
 });
 
 test("Lapland default music stays one quiet CC0 winter bed", async () => {
@@ -70,7 +109,7 @@ test("Lapland default music stays one quiet CC0 winter bed", async () => {
   assert.match(player, /activeTrack\.credit/);
 });
 
-test("Lapland itinerary is a Rovaniemi regional map, not a Hong Kong-scale overview", () => {
+test("Lapland itinerary is a Rovaniemi regional poster layout, not a Hong Kong-scale overview", () => {
   assert.ok(lapland);
   const itinerary = buildJourneyItinerary({
     center: lapland.coordinates,
@@ -80,6 +119,7 @@ test("Lapland itinerary is a Rovaniemi regional map, not a Hong Kong-scale overv
     places: lapland.places,
     route: lapland.travelRoute,
   });
+  const layout = buildPosterLayout(itinerary, lapland.city);
 
   assert.ok(itinerary.arrival);
   assert.deepEqual(
@@ -103,9 +143,13 @@ test("Lapland itinerary is a Rovaniemi regional map, not a Hong Kong-scale overv
   assert.ok(itinerary.regionalStops.every((stop) => isRegionalPointSet([stop.point, itinerary.regionalPoints[0]])));
   assert.ok(!itinerary.regionalPoints.some((point) => point.latitude === hongKong.latitude && point.longitude === hongKong.longitude));
   assert.ok(isRegionalPointSet(itinerary.regionalPoints));
-  assert.ok(chooseZoom(itinerary.regionalPoints, "regional") >= 10);
+  assert.equal(layout.pins.length, 6);
+  assert.ok(layout.pins.every((pin) => pin.x >= 6 && pin.x <= 94 && pin.y >= 8 && pin.y <= 92));
+  assert.ok(layout.bounds.zoom >= 12);
   assert.ok(itinerary.regionalLegs.some((leg) => leg.style === "solid" && leg.kind === "winter"));
   assert.ok(itinerary.regionalLegs.some((leg) => leg.style === "dotted" && leg.kind === "side"));
+  assert.ok(layout.scaleBar.km <= 5, `expected a local scale bar, got ${layout.scaleBar.label}`);
+  assert.equal(LAPLAND_POSTER.src, "/travelos/maps/lapland-rovaniemi.png");
 });
 
 test("selecting stop N shows bilingual wording and the linked photo", () => {

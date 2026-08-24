@@ -4,15 +4,14 @@ import { useMemo, useState } from "react";
 import type { GeoPoint, JournalEntry, Photo, Place, TravelRouteSegment } from "@/lib/types";
 import {
   buildJourneyItinerary,
+  buildPosterLayout,
   getFirstWordingBlock,
-  getMapTiles,
-  getScaleBar,
   getStopCardContent,
-  getTileBounds,
+  isLaplandPosterCity,
   isRenderablePhoto,
-  project,
-  type ItineraryStop,
-  type RegionalLeg,
+  LAPLAND_POSTER,
+  STREET_BASEMAP,
+  type PosterPin,
   type StopIcon,
 } from "@/lib/journey-map-model";
 
@@ -27,8 +26,6 @@ type JourneyMapProps = {
   title: string;
 };
 
-const WINTER_STROKE = "#0f4f48";
-const SIDE_STROKE = "#b65f44";
 const FLIGHT_STROKE = "#64748b";
 
 function StopGlyph({ icon }: { icon: StopIcon }) {
@@ -97,51 +94,6 @@ function StopGlyph({ icon }: { icon: StopIcon }) {
   );
 }
 
-function getStraightPath(from: { x: number; y: number }, to: { x: number; y: number }) {
-  return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
-}
-
-function spaceMapPins(stops: ItineraryStop[], bounds: ReturnType<typeof getTileBounds>) {
-  const items = stops.map((stop) => ({
-    ...stop,
-    position: project(stop.point, bounds),
-  }));
-
-  for (let pass = 0; pass < 3; pass += 1) {
-    for (let index = 0; index < items.length; index += 1) {
-      for (let other = index + 1; other < items.length; other += 1) {
-        const dx = items[other].position.x - items[index].position.x;
-        const dy = items[other].position.y - items[index].position.y;
-        const distance = Math.hypot(dx, dy) || 0.01;
-        const minDistance = 12;
-        if (distance >= minDistance) {
-          continue;
-        }
-
-        const push = (minDistance - distance) / 2;
-        const ux = dx / distance;
-        const uy = dy / distance;
-        items[index].position = {
-          x: items[index].position.x - ux * push,
-          y: items[index].position.y - uy * push,
-        };
-        items[other].position = {
-          x: items[other].position.x + ux * push,
-          y: items[other].position.y + uy * push,
-        };
-      }
-    }
-  }
-
-  return items.map((item) => ({
-    ...item,
-    position: {
-      x: Math.min(93, Math.max(7, item.position.x)),
-      y: Math.min(88, Math.max(12, item.position.y)),
-    },
-  }));
-}
-
 function ArrivalLocator({ cities }: { cities: { id: string; label: string; shortLabel: string }[] }) {
   return (
     <div className="border-b border-[color:var(--line)] bg-white/55 px-4 py-2.5" data-arrival-locator>
@@ -169,122 +121,52 @@ function ArrivalLocator({ cities }: { cities: { id: string; label: string; short
 
 function RegionalMap({
   city,
-  legs,
   onSelect,
+  pins,
   selectedId,
-  stops,
 }: {
   city: string;
-  legs: RegionalLeg[];
   onSelect: (id: string) => void;
+  pins: PosterPin[];
   selectedId: string | null;
-  stops: ItineraryStop[];
 }) {
-  const bounds = getTileBounds(
-    stops.length > 0 ? stops.map((stop) => stop.point) : [{ latitude: 0, longitude: 0 }],
-    "regional",
-  );
-  const mapTiles = getMapTiles(bounds);
-  const scaleBar = getScaleBar(bounds, stops[0]?.point.latitude ?? 66.5);
-  const spacedStops = spaceMapPins(stops, bounds);
+  const usePoster = isLaplandPosterCity(city);
 
   return (
-    <div
-      className="relative min-h-[22rem] overflow-hidden rounded-2xl bg-[#d7e3dc] sm:min-h-[26rem] lg:min-h-[32rem]"
-      data-map-frame="regional"
-    >
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,#e7eee8_0%,#d5e4ea_100%)]" />
-      {mapTiles.map((tile) => (
+    <div className="relative overflow-hidden rounded-2xl bg-[#e8f0e4]" data-map-frame="regional" data-map-poster={usePoster ? LAPLAND_POSTER.src : undefined}>
+      {usePoster ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          alt=""
-          className="absolute max-w-none select-none object-cover opacity-55 grayscale-[42%] saturate-[0.42] contrast-[0.9]"
+          alt={LAPLAND_POSTER.alt}
+          className="block h-auto w-full select-none"
+          data-map-poster-image
           draggable={false}
-          key={tile.key}
-          loading="lazy"
-          src={tile.src}
-          style={tile.style}
+          src={LAPLAND_POSTER.src}
         />
-      ))}
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(251,250,246,.34),rgba(255,255,252,.22)_46%,rgba(247,242,232,.38))]" />
-      <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-        {legs.map((leg) => {
-          const from = project(leg.from, bounds);
-          const to = project(leg.to, bounds);
-          const path = getStraightPath(from, to);
-          return (
-            <g key={leg.id}>
-              <path d={path} fill="none" stroke="rgba(255,255,255,.88)" strokeLinecap="round" strokeWidth={2.4} />
-              <path
-                d={path}
-                fill="none"
-                stroke={leg.kind === "side" ? SIDE_STROKE : WINTER_STROKE}
-                strokeDasharray={leg.style === "dotted" ? "1.8 1.6" : undefined}
-                strokeLinecap="round"
-                strokeWidth={leg.kind === "side" ? 1.05 : 1.35}
-              />
-            </g>
-          );
-        })}
-      </svg>
-      {spacedStops.map((stop) => {
-        const selected = selectedId === stop.id;
-        const tone = stop.leg === "side" ? "bg-[#b65f44] border-[#f3d6c8]" : "bg-[#0f4f48] border-[#d7ebe6]";
+      ) : (
+        <div className="min-h-[22rem] bg-[#e8f0e4] sm:min-h-[26rem] lg:min-h-[32rem]" />
+      )}
+      {pins.map((pin) => {
+        const selected = selectedId === pin.id;
         return (
           <button
-            aria-label={`Stop ${stop.number}: ${stop.listLabel}`}
+            aria-label={`Stop ${pin.number}: ${pin.label}`}
             aria-pressed={selected}
-            className={`absolute grid min-h-11 min-w-11 -translate-x-1/2 -translate-y-1/2 place-items-center transition hover:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
-              selected ? "z-40" : ""
+            className={`absolute min-h-11 min-w-11 -translate-x-1/2 -translate-y-1/2 rounded-full bg-transparent text-transparent transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
+              selected ? "z-40 ring-4 ring-white/90 ring-offset-2 ring-offset-teal-800/30" : ""
             }`}
-            data-map-pin={stop.number}
-            key={stop.id}
-            onClick={() => onSelect(stop.id)}
-            style={{ left: `${stop.position.x}%`, top: `${stop.position.y}%`, zIndex: selected ? 35 : 12 + stop.number }}
-            title={stop.listLabel}
+            data-map-pin={pin.number}
+            key={pin.id}
+            onClick={() => onSelect(pin.id)}
+            style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
+            title={pin.label}
             type="button"
           >
-            <span
-              className={`grid h-8 w-8 place-items-center rounded-full border-2 text-[0.72rem] font-bold text-white shadow-[0_10px_22px_rgba(15,23,42,.28)] ${tone} ${
-                selected ? "ring-4 ring-white/85" : ""
-              }`}
-            >
-              {stop.number}
-            </span>
+            {pin.number}
           </button>
         );
       })}
-      <div className="absolute left-3 top-3 rounded-full border border-white/80 bg-white/80 px-2.5 py-1 text-[0.62rem] font-semibold tracking-[0.14em] text-slate-600 shadow-sm">
-        {city.toUpperCase()} · LAPLAND
-      </div>
-      <div className="absolute right-3 top-3 grid place-items-center rounded-md border border-white/80 bg-white/80 px-1.5 py-1 text-[0.58rem] font-bold text-slate-700 shadow-sm">
-        <span aria-hidden="true" className="text-[0.7rem] leading-none">
-          ▲
-        </span>
-        <span>N</span>
-      </div>
-      <div className="absolute bottom-3 left-3 space-y-1.5 rounded-xl border border-white/80 bg-white/82 px-2.5 py-2 text-[0.62rem] font-semibold text-slate-700 shadow-sm">
-        <div className="flex items-center gap-2">
-          <span className="h-[2px] w-6 rounded-full bg-[#0f4f48]" />
-          Winter route
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="h-[2px] w-6 rounded-full bg-[repeating-linear-gradient(90deg,#b65f44_0_4px,transparent_4px_7px)]" />
-          Side leg
-        </div>
-        <div className="flex items-center gap-2 pt-1">
-          <span className="block h-[3px] rounded-full bg-slate-800" style={{ width: `${Math.min(scaleBar.widthPercent, 28) * 2.1}px` }} />
-          <span>{scaleBar.label}</span>
-        </div>
-      </div>
-      <a
-        className="absolute bottom-3 right-3 rounded-full bg-white/85 px-2 py-1 text-[0.58rem] font-semibold text-slate-600 shadow-sm"
-        href="https://www.openstreetmap.org/copyright"
-        rel="noreferrer"
-        target="_blank"
-      >
-        OpenStreetMap
-      </a>
+      <p className="sr-only">Map credit: {STREET_BASEMAP.attribution}</p>
     </div>
   );
 }
@@ -298,6 +180,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
     itinerary.regionalStops.find((stop) => stop.linkedPhotoId)?.id ?? itinerary.regionalStops[0]?.id ?? null;
   const [selectedId, setSelectedId] = useState<string | null>(defaultSelection);
   const selectedStop = itinerary.regionalStops.find((stop) => stop.id === selectedId) ?? itinerary.regionalStops[0] ?? null;
+  const posterLayout = useMemo(() => buildPosterLayout(itinerary, city), [city, itinerary]);
   const selectedCard = getStopCardContent({
     journalEntries,
     photos,
@@ -367,7 +250,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
           })}
         </ol>
 
-        <RegionalMap city={city} legs={itinerary.regionalLegs} onSelect={setSelectedId} selectedId={selectedStop?.id ?? null} stops={itinerary.regionalStops} />
+        <RegionalMap city={city} onSelect={setSelectedId} pins={posterLayout.pins} selectedId={selectedStop?.id ?? null} />
       </div>
 
       {selectedCard ? (

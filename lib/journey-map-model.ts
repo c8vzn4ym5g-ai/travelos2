@@ -74,6 +74,69 @@ export type TileBounds = {
   zoom: number;
 };
 
+export const STREET_BASEMAP = {
+  attribution: "© OpenStreetMap contributors © CARTO",
+  attributionUrl: "https://www.openstreetmap.org/copyright",
+  cartoAttributionUrl: "https://carto.com/attributions",
+  name: "Carto Voyager",
+  urlTemplate: "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+} as const;
+
+export const TILE_PIXEL_SIZE = 256;
+
+export const LAPLAND_POSTER = {
+  alt: "Rovaniemi, Finnish Lapland regional itinerary",
+  relativeFile: "public/travelos/maps/lapland-rovaniemi.png",
+  src: "/travelos/maps/lapland-rovaniemi.png",
+} as const;
+
+export const POSTER_THEME = {
+  label: "#1e293b",
+  pinBorder: "#d7ebe6",
+  side: "#b65f44",
+  sideBorder: "#f3d6c8",
+  title: "#334155",
+  winter: "#0f4f48",
+} as const;
+
+export type PosterPoint = {
+  x: number;
+  y: number;
+};
+
+export type PosterPin = {
+  id: string;
+  label: string;
+  leg: "winter" | "side";
+  number: number;
+  point: GeoPoint;
+  x: number;
+  y: number;
+};
+
+export type PosterLeg = {
+  from: PosterPoint;
+  id: string;
+  kind: "winter" | "side";
+  style: "solid" | "dotted";
+  to: PosterPoint;
+};
+
+export type PosterLayout = {
+  bounds: TileBounds;
+  cityLabel: string;
+  legs: PosterLeg[];
+  pins: PosterPin[];
+  scaleBar: ScaleBar;
+};
+
+export function getStreetTileUrl(zoom: number, x: number, y: number) {
+  return STREET_BASEMAP.urlTemplate
+    .replace("{z}", String(zoom))
+    .replace("{x}", String(x))
+    .replace("{y}", String(y));
+}
+
 const LOCAL_SPAN_DEGREES = 2.5;
 const LONG_HAUL_SPAN_DEGREES = 8;
 const MIN_REGIONAL_SPAN_DEGREES = 0.1;
@@ -491,6 +554,18 @@ export function chooseZoom(points: GeoPoint[], scale: MapScale = "regional") {
     return 7;
   }
 
+  if (scale === "regional") {
+    if (span > 0.45) {
+      return 11;
+    }
+
+    if (span > 0.22) {
+      return 12;
+    }
+
+    return 13;
+  }
+
   if (span > 0.45) {
     return 9;
   }
@@ -543,7 +618,7 @@ export function getMapTiles(bounds: TileBounds) {
       const wrappedX = ((x % tileCount) + tileCount) % tileCount;
       return {
         key: `${bounds.zoom}-${wrappedX}-${y}`,
-        src: `https://tile.openstreetmap.org/${bounds.zoom}/${wrappedX}/${y}.png`,
+        src: getStreetTileUrl(bounds.zoom, wrappedX, y),
         style: {
           height: `${(1 / Math.max(bounds.maxY - bounds.minY, 0.0001)) * 100}%`,
           left: `${((x - bounds.minX) / Math.max(bounds.maxX - bounds.minX, 0.0001)) * 100}%`,
@@ -555,14 +630,108 @@ export function getMapTiles(bounds: TileBounds) {
   );
 }
 
-export function project(point: GeoPoint, bounds: TileBounds) {
+export function projectRaw(point: GeoPoint, bounds: TileBounds): PosterPoint {
   const x = ((longitudeToTileX(point.longitude, bounds.zoom) - bounds.minX) / Math.max(bounds.maxX - bounds.minX, 0.0001)) * 100;
   const y = ((latitudeToTileY(point.latitude, bounds.zoom) - bounds.minY) / Math.max(bounds.maxY - bounds.minY, 0.0001)) * 100;
+  return { x, y };
+}
+
+export function project(point: GeoPoint, bounds: TileBounds) {
+  const raw = projectRaw(point, bounds);
+  return {
+    x: Math.min(94, Math.max(6, raw.x)),
+    y: Math.min(90, Math.max(10, raw.y)),
+  };
+}
+
+export function posterShortLabel(stop: ItineraryStop) {
+  const english = stop.listLabel.includes(" / ") ? stop.listLabel.split(" / ").pop()?.trim() : stop.listLabel;
+  return english || stop.listLabel;
+}
+
+export function spaceItineraryPins(stops: ItineraryStop[], bounds: TileBounds): PosterPin[] {
+  const items = stops.map((stop) => ({
+    ...stop,
+    position: projectRaw(stop.point, bounds),
+  }));
+
+  for (let pass = 0; pass < 3; pass += 1) {
+    for (let index = 0; index < items.length; index += 1) {
+      for (let other = index + 1; other < items.length; other += 1) {
+        const dx = items[other].position.x - items[index].position.x;
+        const dy = items[other].position.y - items[index].position.y;
+        const distance = Math.hypot(dx, dy) || 0.01;
+        const minDistance = 9;
+        if (distance >= minDistance) {
+          continue;
+        }
+
+        const push = (minDistance - distance) / 2;
+        const ux = dx / distance;
+        const uy = dy / distance;
+        items[index].position = {
+          x: items[index].position.x - ux * push,
+          y: items[index].position.y - uy * push,
+        };
+        items[other].position = {
+          x: items[other].position.x + ux * push,
+          y: items[other].position.y + uy * push,
+        };
+      }
+    }
+  }
+
+  return items.map((item) => ({
+    id: item.id,
+    label: posterShortLabel(item),
+    leg: item.leg,
+    number: item.number,
+    point: item.point,
+    x: Math.min(94, Math.max(6, item.position.x)),
+    y: Math.min(92, Math.max(8, item.position.y)),
+  }));
+}
+
+export function buildPosterLayout(itinerary: JourneyItinerary, city = "Rovaniemi"): PosterLayout {
+  const points = itinerary.regionalPoints.length > 0 ? itinerary.regionalPoints : itinerary.regionalStops.map((stop) => stop.point);
+  const bounds = getTileBounds(points.length > 0 ? points : [{ latitude: 66.5039, longitude: 25.7294 }], "regional");
+  const pins = spaceItineraryPins(itinerary.regionalStops, bounds);
 
   return {
-    x: Math.min(94, Math.max(6, x)),
-    y: Math.min(90, Math.max(10, y)),
+    bounds,
+    cityLabel: `${city.toUpperCase()} · LAPLAND`,
+    legs: itinerary.regionalLegs.map((leg) => ({
+      from: projectRaw(leg.from, bounds),
+      id: leg.id,
+      kind: leg.kind,
+      style: leg.style,
+      to: projectRaw(leg.to, bounds),
+    })),
+    pins,
+    scaleBar: getScaleBar(bounds, points[0]?.latitude ?? 66.5),
   };
+}
+
+export function getPosterTileGrid(bounds: TileBounds) {
+  const tileCount = 2 ** bounds.zoom;
+  return {
+    maxX: Math.floor(bounds.maxX),
+    maxY: Math.min(tileCount - 1, Math.floor(bounds.maxY)),
+    minX: Math.floor(bounds.minX),
+    minY: Math.max(0, Math.floor(bounds.minY)),
+    tileCount,
+  };
+}
+
+export function getPosterRasterSize(bounds: TileBounds) {
+  return {
+    height: Math.max(1, Math.round((bounds.maxY - bounds.minY) * TILE_PIXEL_SIZE)),
+    width: Math.max(1, Math.round((bounds.maxX - bounds.minX) * TILE_PIXEL_SIZE)),
+  };
+}
+
+export function isLaplandPosterCity(city: string) {
+  return city.trim().toLowerCase() === "rovaniemi";
 }
 
 export function getScaleBar(bounds: TileBounds, latitude: number): ScaleBar {
