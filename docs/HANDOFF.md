@@ -1,5 +1,44 @@
 # TravelOS Handoff
 
+## 2026-08-24 Rebase PR #8 onto main (keep Capture)
+
+- Rebased this public Travelpayouts cash slice onto current `main` after
+  PR #3. Do not merge until asked. PR #2 stays held.
+- Capture, `/family/capture`, the moments warehouse, `/trips/write`, and
+  the family Capture door stay exactly as on `main`. This slice does not
+  edit the Capture upload flow.
+- Public-only Drive, BookingBand on the Lapland journal and `/drive`, HKG
+  defaults, Aviasales/Hotellook/Klook ordinary URLs, and the bilingual
+  disclosure stay. Family, Capture, Sana, admin, new-draft, and
+  `/trips/write` HTML still contain 0 `emrldtp.cc` / `travelpayouts-drive`
+  / BookingBand.
+
+## 2026-08-24 Public viewer journal + real booking band
+
+- Owner authorized the public VIEWER presentation plus real booking
+  (flights, hotels, activities). Do not merge. Do not ask for each link.
+  Do not touch Capture, PR #2, family PIN pages, or the Lapland
+  map/poster. Drive stays off `/family`.
+- Public pages read as a travel journal for strangers. Home hero is the
+  Lapland journal; `家庭編輯` is a quiet family door. `/drive` is a booking
+  desk, not a status poster. The trip page keeps story, photos, and the
+  itinerary poster first, then a native `出發 / Go there` BookingBand.
+- BookingBand is reusable, phone-first, 44px. It submits ordinary brand
+  URLs in a new tab. Drive, already installed on public pages, attributes
+  those links. Do not invent Travelpayouts widget JS hashes.
+- Verified outbound URLs (HTTP GET, 2026-08-24):
+  - Flights: `https://www.aviasales.com/search` with `origin_iata=HKG`,
+    `destination_iata=RVN|HEL`, `depart_date` / `return_date` (HTTP 200).
+    Default origin HKG, default dates 2027-01-18 → 2027-01-25.
+  - Stays: `https://search.hotellook.com/?destination=Rovaniemi`.
+    `hotellook.com` / `www.hotellook.com` fail TLS from this host.
+  - Things to do: `https://www.klook.com/search/result/?query=Rovaniemi`
+    (HTTP 200). GetYourGuide and Viator return HTTP 403 here, so they
+    are not shipped. One honest button, no fake widget.
+- One bilingual affiliate line lives in the booking band footer. No
+  yellow lecture card as the main content. No popups, interstitials, or
+  extra ad networks.
+
 ## 2026-08-24 Merge PR #3 to main for live Capture
 
 - Owner instruction: merge GitHub PR #3 into `main` with a regular merge
@@ -27,9 +66,9 @@
 - A day and/or place filter is a temporary writing set. Photos on Write come
   from the visible warehouse moments together, the same way a Capture job
   already points at several moments. No new Trip.
-- The writing area stays blank until a person types. Filter labels stay in the
-  Found set banner, not in the textarea. No travel log, meal log, or diary
-  prose is produced.
+- The writing area stays blank until a person types. Filter labels stay in
+  the Found set banner, not in the textarea. No travel log, meal log, or
+  diary prose is produced.
 - Originals stay in the warehouse. Capture remains the front door and is not
   blocked by this retrieval path. Family PIN session only.
 - PR #2 stays held.
@@ -73,6 +112,34 @@
   photos and keeps the command out of the writing area.
 - PR #2 (`cursor/family-moment-capture-f495`) is still held. This slice
   reimplements HEIC/append/session ideas on `main` without merging that PR.
+
+## 2026-08-24 Travelpayouts first cash slice
+
+- Family life-record stays first. Extra cash is public Travelpayouts only.
+  Drive is an AI affiliate script, not a car-rental search. It needs public
+  destination copy. Family/PIN pages must not run Drive. Do not merge. Do not
+  touch Capture, `/family/capture`, the moments warehouse, PR #2, PR #3, the
+  Lapland map/poster, photos, costs, or quiet music.
+- Drive script URL is unchanged: `https://emrldtp.cc/NTUwMzEz.js?t=550313`.
+  Public pages load it from `app/(public)/layout.tsx`. Family, Sana, admin,
+  and new-draft routes sit outside that layout, and a request pathname gate
+  still skips `/family`, `/family/*`, `/sana`, `/trips/admin`,
+  `/coffee/admin`, `/trips/new`, and `/coffee/new`. Tests prove family HTML
+  does not include `emrldtp.cc` / `travelpayouts-drive`.
+- Public Lapland journal
+  (`/trips/finland-lapland-winter-journal-2020`) now has a native bilingual
+  block after the journal: `策劃這樣的冬旅 / Plan a winter like this`. Copy
+  names Rovaniemi, Helsinki, Santa Claus Village, snow cabin, and Arctic
+  Circle day trips. Existing ZH+EN affiliate disclosure is included. No fake
+  widget iframes or invented widget IDs.
+- `/drive` is a public booking desk: featured Lapland destination linked to
+  the live journal, then Flights / Stays / Things to do / Transport using the
+  same destination language. Home Plan & Book uses an existing Lapland photo
+  instead of `Visual preview coming soon`.
+- Public SEO only: unique title/description on the Lapland trip and `/drive`.
+  `/family` has no affiliate language and is disallowed in robots.
+- Phone-first, 44px targets. No Writing guide chrome. Family Capture stays on
+  `/family` and `/family/capture`; public cash pages do not include it.
 
 ## 2026-08-24 Lapland itinerary raster poster
 

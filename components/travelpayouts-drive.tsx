@@ -1,6 +1,14 @@
-const driveScriptUrl = "https://emrldtp.cc/NTUwMzEz.js?t=550313";
+import { headers } from "next/headers";
+import { isPublicDrivePath, TRAVELPAYOUTS_DRIVE_SCRIPT_URL } from "@/lib/travelpayouts";
 
-export function TravelpayoutsDrive() {
+export async function TravelpayoutsDrive() {
+  const headerList = await headers();
+  const pathname = headerList.get("x-travelos-pathname") ?? "";
+
+  if (!pathname || !isPublicDrivePath(pathname)) {
+    return null;
+  }
+
   return (
     <script
       async
@@ -10,7 +18,7 @@ export function TravelpayoutsDrive() {
       data-wpfc-render="false"
       id="travelpayouts-drive"
       seraph-accel-crit="1"
-      src={driveScriptUrl}
+      src={TRAVELPAYOUTS_DRIVE_SCRIPT_URL}
     />
   );
 }

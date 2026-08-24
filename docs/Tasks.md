@@ -120,25 +120,32 @@ Status: in_progress
 
 Current verified result:
 
-- Travelpayouts Drive now loads once from the application root instead of only
-  on an empty page.
-- `/drive` accurately explains the Plan & Book product area and includes an
-  affiliate disclosure.
-- Removed the incorrect claim that Drive is a car-rental widget and removed the
-  non-functional widget placeholder.
-- Focused tests passed 2/2; navigation, TypeScript, ESLint, and production build
-  passed in a clean validation copy.
-- GitHub/Vercel production deployment is active at commit
-  `c36b2b28ccaab2111ab8e60ab1bef2a1f5da8ac8`.
-- Live `/drive` and public Lapland checks confirm exactly one Drive loader and
-  script, a visible disclosure, and no fake widget container.
+- Drive script stays on the registered URL `emrldtp.cc/NTUwMzEz.js?t=550313`.
+- Public routes under `app/(public)` load Drive. Family, Sana, admin, and
+  new-draft routes do not import it. A pathname gate is extra protection.
+  Tests prove family HTML does not include `emrldtp.cc` / `travelpayouts-drive`.
+- Public pages read as a travel journal for strangers. Home hero is the
+  Lapland journal; `家庭編輯` is a quiet family door. `/drive` is a booking
+  desk. The Lapland trip keeps story, photos, and the itinerary poster
+  first, then `<BookingBand>` (`出發 / Go there`).
+- This branch is rebased onto `main` after PR #3. Capture, `/family/capture`,
+  the moments warehouse, `/trips/write`, and the family Capture door stay
+  as on `main`. Family/Capture/Write HTML has no Drive or BookingBand.
+- BookingBand uses real brand search URLs (Aviasales flights from HKG to
+  RVN/HEL, Hotellook city search on `search.hotellook.com`, Klook
+  Rovaniemi activities). Drive attributes them on public pages. Family
+  HTML still has no `emrldtp.cc` / `travelpayouts-drive`. No invented
+  widget hashes, iframes, popups, or extra ad networks.
+- Unique journal + plan-this-trip SEO on the Lapland trip and `/drive`.
+  One bilingual affiliate line in the booking band footer, not a yellow
+  lecture card.
 
 Remaining:
 
-- Read the result of Travelpayouts `Check setup`; the check was opened, but the
-  Windows browser-control channel timed out before the result could be read.
-- Add official program-generated flight and stay/activity tools with stable
-  placement SubIDs; do not guess widget code or expose API credentials.
+- Official program-generated flight and stay/activity widgets with
+  dashboard hashes and stable placement SubIDs, when the Travelpayouts
+  dashboard is available. Do not guess widget code.
+- Do not merge this cash slice until asked.
 
 ## JDB-066: Add the installable Family Editing workspace
 

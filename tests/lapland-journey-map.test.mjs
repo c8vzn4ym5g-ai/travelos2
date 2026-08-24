@@ -20,7 +20,7 @@ test("JourneyMap hero is the generated itinerary poster, not a live tile collage
   const [source, model, page, pkg] = await Promise.all([
     readFile(resolve(root, "components/journey-map.tsx"), "utf8"),
     readFile(resolve(root, "lib/journey-map-model.ts"), "utf8"),
-    readFile(resolve(root, "app/trips/[slug]/page.tsx"), "utf8"),
+    readFile(resolve(root, "app/(public)/trips/[slug]/page.tsx"), "utf8"),
     readFile(resolve(root, "package.json"), "utf8"),
   ]);
 

@@ -27,6 +27,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
       url: `${siteUrl}/coffee`,
     },
+    {
+      changeFrequency: "weekly",
+      lastModified: new Date(),
+      priority: 0.8,
+      url: `${siteUrl}/drive`,
+    },
     ...publicTrips.map((trip) => ({
       changeFrequency: "monthly" as const,
       lastModified: new Date(trip.updatedAt),

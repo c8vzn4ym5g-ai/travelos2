@@ -6,7 +6,7 @@ import test from "node:test";
 const root = resolve(import.meta.dirname, "..");
 
 test("public trip page has no writer chrome", async () => {
-  const page = await readFile(resolve(root, "app/trips/[slug]/page.tsx"), "utf8");
+  const page = await readFile(resolve(root, "app/(public)/trips/[slug]/page.tsx"), "utf8");
 
   assert.doesNotMatch(page, /Writing guide/);
   assert.doesNotMatch(page, /Visitor scan/);
