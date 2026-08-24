@@ -3,8 +3,15 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
 import {
+  AVIASALES_SEARCH_URL,
+  aviasalesSearchUrl,
+  HOTELLOOK_SEARCH_URL,
+  hotellookSearchUrl,
   isPublicDrivePath,
+  KLOOK_SEARCH_URL,
+  klookActivitiesUrl,
   LAPLAND_JOURNAL_PATH,
+  laplandBooking,
   PRIVATE_DRIVE_PATH_PREFIXES,
   travelpayoutsDriveHtml,
   TRAVELPAYOUTS_DRIVE_SCRIPT_URL,
@@ -17,14 +24,16 @@ async function read(path) {
 }
 
 test("Travelpayouts Drive keeps the registered script URL and a public-only pathname gate", async () => {
-  const [layout, integration, middleware, helper] = await Promise.all([
+  const [layout, rootLayout, integration, middleware, helper] = await Promise.all([
     read("app/(public)/layout.tsx"),
+    read("app/layout.tsx"),
     read("components/travelpayouts-drive.tsx"),
     read("middleware.ts"),
     read("lib/travelpayouts.ts"),
   ]);
 
   assert.match(layout, /<TravelpayoutsDrive \/>/);
+  assert.doesNotMatch(rootLayout, /TravelpayoutsDrive/);
   assert.match(integration, /x-travelos-pathname/);
   assert.match(integration, /isPublicDrivePath/);
   assert.match(integration, /id="travelpayouts-drive"/);
@@ -38,11 +47,13 @@ test("family HTML does not include emrldtp.cc / travelpayouts-drive", async () =
   const familyFiles = [
     "app/family/page.tsx",
     "app/family/family-unlock-panel.tsx",
+    "app/family/capture/page.tsx",
     "app/sana/page.tsx",
     "app/trips/admin/page.tsx",
     "app/coffee/admin/page.tsx",
     "app/trips/new/page.tsx",
     "app/coffee/new/page.tsx",
+    "app/trips/write/page.tsx",
     "app/layout.tsx",
   ];
   const pages = await Promise.all(familyFiles.map((path) => read(path)));
@@ -53,16 +64,30 @@ test("family HTML does not include emrldtp.cc / travelpayouts-drive", async () =
     assert.doesNotMatch(html, /聯盟連結/);
     assert.doesNotMatch(html, /Affiliate disclosure/);
     assert.doesNotMatch(html, /Travelpayouts/);
+    assert.doesNotMatch(html, /BookingBand/);
+    assert.doesNotMatch(html, /aviasales/);
   }
 
   const familyBody = pages[0];
   const familyHtml = `<!DOCTYPE html><html><head>${travelpayoutsDriveHtml("/family")}</head><body>${familyBody}</body></html>`;
   const familyChildHtml = `<!DOCTYPE html><html><head>${travelpayoutsDriveHtml("/family/capture")}</head><body>${familyBody}</body></html>`;
+  const writeHtml = `<!DOCTYPE html><html><head>${travelpayoutsDriveHtml("/trips/write")}</head><body>${pages[8]}</body></html>`;
 
-  for (const html of [familyHtml, familyChildHtml, travelpayoutsDriveHtml("/family"), travelpayoutsDriveHtml("/sana")]) {
+  for (const html of [
+    familyHtml,
+    familyChildHtml,
+    writeHtml,
+    travelpayoutsDriveHtml("/family"),
+    travelpayoutsDriveHtml("/family/capture"),
+    travelpayoutsDriveHtml("/sana"),
+    travelpayoutsDriveHtml("/trips/write"),
+  ]) {
     assert.doesNotMatch(html, /emrldtp\.cc/);
     assert.doesNotMatch(html, /travelpayouts-drive/);
   }
+
+  assert.match(familyBody, /href="\/family\/capture"/);
+  assert.match(familyBody, /打開 Capture/);
 
   const publicHtml = travelpayoutsDriveHtml(LAPLAND_JOURNAL_PATH);
   assert.match(publicHtml, /emrldtp\.cc/);
@@ -80,18 +105,30 @@ test("served family HTML omits Drive when a local origin is available", async (t
   assert.equal(familyResponse.ok, true);
   const familyHtml = await familyResponse.text();
   assert.match(familyHtml, /家庭編輯/);
+  assert.match(familyHtml, /打開 Capture/);
   assert.doesNotMatch(familyHtml, /emrldtp\.cc/);
   assert.doesNotMatch(familyHtml, /travelpayouts-drive/);
   assert.doesNotMatch(familyHtml, /聯盟連結/);
-  assert.doesNotMatch(familyHtml, /Affiliate disclosure/);
+  assert.doesNotMatch(familyHtml, /aviasales/);
+  assert.doesNotMatch(familyHtml, /data-booking-band/);
+
+  const captureResponse = await fetch(`${origin.replace(/\/$/, "")}/family/capture`);
+  assert.equal(captureResponse.ok, true);
+  const captureHtml = await captureResponse.text();
+  assert.doesNotMatch(captureHtml, /emrldtp\.cc/);
+  assert.doesNotMatch(captureHtml, /travelpayouts-drive/);
+  assert.doesNotMatch(captureHtml, /data-booking-band/);
+  assert.doesNotMatch(captureHtml, /aviasales/);
 
   const driveResponse = await fetch(`${origin.replace(/\/$/, "")}/drive`);
   assert.equal(driveResponse.ok, true);
   const driveHtml = await driveResponse.text();
   assert.match(driveHtml, /emrldtp\.cc/);
   assert.match(driveHtml, /travelpayouts-drive/);
-  assert.match(driveHtml, /策劃拉普蘭冬旅/);
-  assert.match(driveHtml, /finland-lapland-winter-journal-2020/);
+  assert.match(driveHtml, /data-booking-band/);
+  assert.match(driveHtml, /aviasales\.com\/search/);
+  assert.match(driveHtml, /search\.hotellook\.com/);
+  assert.match(driveHtml, /klook\.com\/search\/result/);
 });
 
 test("Drive stays off family, PIN, and draft editor pathnames", () => {
@@ -103,6 +140,7 @@ test("Drive stays off family, PIN, and draft editor pathnames", () => {
     "/coffee/admin",
     "/trips/new",
     "/coffee/new",
+    "/trips/write",
     ...PRIVATE_DRIVE_PATH_PREFIXES,
   ]) {
     assert.equal(isPublicDrivePath(path), false, path);
@@ -113,64 +151,73 @@ test("Drive stays off family, PIN, and draft editor pathnames", () => {
   }
 });
 
-test("booking desk is a public Lapland planning page without fake widgets", async () => {
-  const [drivePage, disclosure] = await Promise.all([
+test("public trip and Drive contain a working BookingBand with real brand hrefs", async () => {
+  const [tripPage, drivePage, band, disclosure] = await Promise.all([
+    read("app/(public)/trips/[slug]/page.tsx"),
     read("app/(public)/drive/page.tsx"),
+    read("components/booking-band.tsx"),
     read("components/affiliate-disclosure.tsx"),
   ]);
 
+  assert.match(tripPage, /<BookingBand destination=\{laplandBooking\} \/>/);
+  assert.match(drivePage, /<BookingBand destination=\{laplandBooking\} \/>/);
   assert.match(drivePage, /data-booking-desk/);
   assert.match(drivePage, /data-featured-destination="lapland"/);
-  assert.match(drivePage, /LAPLAND_JOURNAL_PATH/);
-  assert.equal(LAPLAND_JOURNAL_PATH, "/trips/finland-lapland-winter-journal-2020");
-  assert.match(drivePage, /Flights \/ 航班/);
-  assert.match(drivePage, /Stays \/ 住宿/);
-  assert.match(drivePage, /Things to do \/ 活動/);
-  assert.match(drivePage, /Transport \/ 當地交通/);
-  assert.match(drivePage, /Rovaniemi/);
-  assert.match(drivePage, /Helsinki/);
-  assert.match(drivePage, /Santa Claus Village/);
-  assert.match(drivePage, /AffiliateDisclosure/);
-  assert.match(drivePage, /drivePageMetadata/);
-  assert.match(disclosure, /聯盟連結揭露/);
-  assert.match(disclosure, /Drive 不是租車搜尋器/);
+  assert.match(band, /data-booking-band/);
+  assert.match(band, /id="go-there"/);
+  assert.match(band, /出發 \/ Go there/);
+  assert.match(band, /AVIASALES_SEARCH_URL/);
+  assert.match(band, /HOTELLOOK_SEARCH_URL/);
+  assert.match(band, /klookActivitiesUrl/);
+  assert.match(band, /min-h-11/);
+  assert.match(band, /origin_iata/);
+  assert.match(band, /destination_iata/);
+  assert.match(band, /HKG|originIata/);
+  assert.match(band, /RVN|destinationIata/);
+  assert.match(band, /HEL|extraIata/);
+  assert.match(band, /name="destination"/);
+  assert.match(disclosure, /部分連結可能是聯盟連結/);
   assert.match(disclosure, /Some links may be affiliate/);
   assert.match(disclosure, /The price does not increase/);
-  assert.doesNotMatch(drivePage, /Next: search form/);
-  assert.doesNotMatch(drivePage, /Visual preview coming soon/);
-  assert.doesNotMatch(drivePage, /travelpayouts-drive-widget/);
+  assert.doesNotMatch(disclosure, /bg-amber-50/);
+  assert.doesNotMatch(band, /<iframe/);
+  assert.doesNotMatch(band, /widgetId/);
   assert.doesNotMatch(drivePage, /<iframe/);
-  assert.doesNotMatch(drivePage, /widgetId/);
-});
-
-test("public Lapland journal adds a native winter planning block after the journal", async () => {
-  const [tripPage, plan, home] = await Promise.all([
-    read("app/(public)/trips/[slug]/page.tsx"),
-    read("components/lapland-winter-plan.tsx"),
-    read("app/(public)/page.tsx"),
-  ]);
-
-  assert.match(tripPage, /id="journal"/);
-  assert.match(tripPage, /<LaplandWinterPlan \/>/);
-  assert.match(tripPage, /laplandTripMetadata/);
-  const afterJournal = tripPage.slice(tripPage.indexOf('id="journal"'));
-  assert.match(afterJournal, /<LaplandWinterPlan \/>/);
-  assert.match(plan, /策劃這樣的冬旅 \/ Plan a winter like this/);
-  assert.match(plan, /Rovaniemi/);
-  assert.match(plan, /Helsinki/);
-  assert.match(plan, /Santa Claus Village/);
-  assert.match(plan, /snow cabin/);
-  assert.match(plan, /Arctic Circle/);
-  assert.match(plan, /AffiliateDisclosure/);
-  assert.match(plan, /min-h-11/);
-  assert.doesNotMatch(plan, /<iframe/);
-  assert.doesNotMatch(plan, /Writing guide/);
+  assert.doesNotMatch(drivePage, /travelpayouts-drive-widget/);
+  assert.doesNotMatch(drivePage, /Next: search form/);
   assert.doesNotMatch(tripPage, /Writing guide/);
   assert.doesNotMatch(tripPage, /\/family\/capture/);
-  assert.doesNotMatch(home, /href="\/drive"[\s\S]{0,800}Visual preview coming soon/);
-  assert.match(home, /LAPLAND_COVER_PHOTO|\/travelos\/lapland\//);
-  assert.match(home, /sessionPhotosByHref/);
+  assert.doesNotMatch(tripPage, /LaplandWinterPlan/);
+
+  assert.equal(AVIASALES_SEARCH_URL, "https://www.aviasales.com/search");
+  assert.equal(HOTELLOOK_SEARCH_URL, "https://search.hotellook.com/");
+  assert.equal(KLOOK_SEARCH_URL, "https://www.klook.com/search/result/");
+  assert.equal(laplandBooking.originIata, "HKG");
+  assert.equal(laplandBooking.destinationIata, "RVN");
+  assert.equal(laplandBooking.extraIata, "HEL");
+  assert.equal(laplandBooking.city, "Rovaniemi");
+
+  const flights = aviasalesSearchUrl("HKG", "RVN", "2027-01-18", "2027-01-25");
+  const stays = hotellookSearchUrl("Rovaniemi", "2027-01-18", "2027-01-25");
+  const activities = klookActivitiesUrl("Rovaniemi");
+  assert.match(flights, /^https:\/\/www\.aviasales\.com\/search\?/);
+  assert.match(flights, /origin_iata=HKG/);
+  assert.match(flights, /destination_iata=RVN/);
+  assert.match(stays, /^https:\/\/search\.hotellook\.com\/\?/);
+  assert.match(stays, /destination=Rovaniemi/);
+  assert.match(activities, /^https:\/\/www\.klook\.com\/search\/result\/\?/);
+  assert.match(activities, /query=Rovaniemi/);
+});
+
+test("home presents the public journal as the viewer hero", async () => {
+  const home = await read("app/(public)/page.tsx");
+
+  assert.match(home, /拉普蘭冬日遊記/);
+  assert.match(home, /LAPLAND_JOURNAL_PATH/);
+  assert.match(home, /家庭編輯/);
   assert.match(home, /"\/drive": drivePhotoStrip/);
+  assert.doesNotMatch(home, /Your travel and coffee memory system/);
+  assert.doesNotMatch(home, /bg-emerald-700[\s\S]{0,80}家庭編輯/);
 });
 
 test("public SEO copy is unique on Lapland and Drive, not on family", async () => {

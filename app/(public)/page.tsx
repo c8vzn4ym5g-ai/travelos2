@@ -1,13 +1,20 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { SessionPhotoCarousel } from "@/components/session-photo-carousel";
 import { getCoffeeShopsByVisitDate, getCoffeeStats } from "@/lib/coffee";
 import { readCoffeeContent } from "@/lib/coffee-store";
 import { readContent } from "@/lib/editable-store";
-import { LAPLAND_COVER_PHOTO, LAPLAND_TRIP_SLUG } from "@/lib/travelpayouts";
+import { LAPLAND_COVER_PHOTO, LAPLAND_JOURNAL_PATH, LAPLAND_TRIP_SLUG } from "@/lib/travelpayouts";
 import { isTripPublic } from "@/lib/trip-visibility";
 import type { CoffeePhoto, CoffeeShop, CoffeeShopListItem, Photo, TripDetail } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  description:
+    "芬蘭拉普蘭冬日遊記：羅瓦涅米、聖誕老人村、北極圈與雪屋。讀完故事，再搜尋從香港出發的航班。 / A Finnish Lapland winter journal: Rovaniemi, Santa Claus Village, the Arctic Circle, and a snow cabin.",
+  title: { absolute: "TravelOS — 拉普蘭冬日遊記 / Lapland winter journal" },
+};
 
 const travelStats = [
   { label: "Countries", value: "18" },
@@ -19,30 +26,27 @@ const travelStats = [
 const sessions = [
   {
     eyebrow: "Travel Journal",
-    note: "little roads, big memories",
-    title: "Trips, routes, and long-form memories",
-    description:
-      "Keep journeys, daily notes, places, photos, and trip costs in the original TravelOS journal area.",
+    note: "Rovaniemi, Santa Claus Village, Arctic Circle",
+    title: "Winter journals, routes, and photographs",
+    description: "Read the public Lapland journey first: snow paths, a cabin, sledding, and a campfire.",
     href: "/trips",
-    action: "Open travel",
+    action: "Read trips",
   },
   {
     eyebrow: "Coffee Map",
     note: "coffee, pause, life",
-    title: "Coffee shops, taste notes, and life moments",
-    description:
-      "Collect cafes across countries without mixing them into trip journals. Add links, photos, comments, and personal notes from the shop.",
+    title: "Cafes and notes between destinations",
+    description: "Coffee shops kept separate from trip journals: taste notes, photos, and the pause in a city.",
     href: "/coffee",
     action: "Open coffee map",
   },
   {
-    eyebrow: "Plan & Book",
+    eyebrow: "Go there",
     note: "Rovaniemi, Helsinki, Arctic Circle",
-    title: "Flights, stays, and a winter like Lapland",
-    description:
-      "Read the public Lapland journal, then plan flights into Rovaniemi or Helsinki, a stay near Santa Claus Village or a snow cabin, and Arctic Circle day trips.",
+    title: "Flights, stays, and things to do",
+    description: "Search a winter like this: fly from Hong Kong into Rovaniemi or Helsinki, stay near Santa Claus Village or a snow cabin.",
     href: "/drive",
-    action: "Open travel tools",
+    action: "Plan this trip",
   },
 ];
 
@@ -250,31 +254,47 @@ export default async function Home() {
             <div>
               <p className="travel-label text-sm font-medium uppercase tracking-[0.18em] text-amber-700">TravelOS</p>
               <h1 className="travel-display mt-2 max-w-4xl text-4xl font-semibold tracking-normal text-zinc-950 sm:text-6xl">
-                Your travel and coffee memory system.
+                拉普蘭冬日遊記 / A Lapland winter journal
               </h1>
               <p className="travel-script mt-3 text-2xl leading-8 text-rose-700 sm:text-3xl">
-                collected slowly, remembered beautifully
+                Rovaniemi, snow paths, a cabin
               </p>
               <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-600">
-                Two separate workspaces on one first page: Travel Journal for trips, Coffee Map for cafes, taste notes,
-                photos, and the life moments that happen between destinations.
+                A public travel journal of Finnish Lapland, January 2020. Read the story first. Then search flights from
+                Hong Kong into Rovaniemi or Helsinki if you want a winter like this.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link className="travel-label inline-flex min-h-11 items-center rounded-full border border-emerald-300 bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800" href="/family">
-                家庭編輯
-              </Link>
               <Link className="travel-label inline-flex min-h-11 items-center rounded-full border border-sky-200 bg-white/80 px-4 py-2 text-sm font-semibold text-sky-950 transition hover:bg-sky-50" href="/trips">
-                Travel
+                Journals
+              </Link>
+              <Link className="travel-label inline-flex min-h-11 items-center rounded-full border border-indigo-200 bg-white/80 px-4 py-2 text-sm font-semibold text-indigo-950 transition hover:bg-indigo-50" href="/drive">
+                出發 / Go there
               </Link>
               <Link className="travel-label inline-flex min-h-11 items-center rounded-full border border-rose-200 bg-white/80 px-4 py-2 text-sm font-semibold text-rose-950 transition hover:bg-rose-50" href="/coffee">
                 Coffee
               </Link>
-              <Link className="travel-label inline-flex min-h-11 items-center rounded-full border border-indigo-200 bg-white/80 px-4 py-2 text-sm font-semibold text-indigo-950 transition hover:bg-indigo-50" href="/drive">
-                Drive
+              <Link className="travel-label inline-flex min-h-11 items-center px-3 py-2 text-sm font-medium text-zinc-500 underline-offset-4 hover:text-zinc-800 hover:underline" href="/family">
+                家庭編輯
               </Link>
             </div>
           </nav>
+          {laplandTrip ? (
+            <Link className="grid overflow-hidden rounded-2xl border border-sky-100 bg-white/95 shadow-sm lg:grid-cols-[minmax(0,22rem)_1fr]" href={LAPLAND_JOURNAL_PATH}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt="入夜後的聖誕老人村。 / Santa Claus Village at night."
+                className="h-56 w-full object-cover lg:h-full"
+                src={getTripCoverPhoto(laplandTrip)?.storageKey ?? LAPLAND_COVER_PHOTO}
+              />
+              <div className="flex min-h-11 flex-col justify-center p-5 sm:p-7">
+                <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-sky-700">Featured journal</p>
+                <h2 className="travel-display mt-2 text-2xl font-semibold sm:text-3xl">{laplandTrip.title}</h2>
+                <p className="mt-3 text-sm leading-6 text-zinc-600">{laplandTrip.summary}</p>
+                <p className="mt-5 text-sm font-semibold text-sky-900">閱讀遊記 / Read the journal</p>
+              </div>
+            </Link>
+          ) : null}
           <div className="grid gap-4 lg:grid-cols-3">
             {sessions.map((session) => (
               <SessionCard key={session.eyebrow} photos={sessionPhotosByHref[session.href] ?? []} {...session} />

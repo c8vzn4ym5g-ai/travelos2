@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BookingBand } from "@/components/booking-band";
 import { JourneyMap } from "@/components/journey-map";
 import { JourneyMusicPlayer } from "@/components/journey-music-player";
-import { LaplandWinterPlan } from "@/components/lapland-winter-plan";
 import { ShareActions } from "@/components/share-actions";
 import { readContent } from "@/lib/editable-store";
-import { LAPLAND_TRIP_SLUG, laplandTripMetadata } from "@/lib/travelpayouts";
+import { LAPLAND_TRIP_SLUG, laplandBooking, laplandTripMetadata } from "@/lib/travelpayouts";
 import { isTripPublic } from "@/lib/trip-visibility";
 import { getTripDetailsByStartDate } from "@/lib/trips";
 import type { Cost, JournalEntry, Money, Photo, Place } from "@/lib/types";
@@ -312,7 +312,6 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             <Link className="travel-kicker text-sm" href="/trips">
               Trips
             </Link>
-            <span className="travel-chip rounded-full px-4 py-2 text-sm font-semibold">{trip.visibility}</span>
           </div>
           <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,26rem)] lg:items-stretch">
             <div className="flex min-w-0 flex-col gap-4">
@@ -373,7 +372,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
       <section className="mx-auto grid max-w-6xl gap-5 px-4 py-7 sm:px-6 sm:py-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:px-10">
         <div className="space-y-5">
           <section className="travel-panel rounded-2xl p-4 sm:p-5">
-            <SectionHeader kicker="Overview" title="Trip memory" />
+            <SectionHeader kicker="Overview" title="This winter" />
             <dl className="mt-4 grid gap-3 sm:grid-cols-4">
               {[
                 ["Base city", trip.city],
@@ -393,7 +392,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             <section className="travel-panel rounded-2xl p-4 sm:p-5">
               <SectionHeader kicker="Story route" title="Read the journey through its key moments" />
               <p className="travel-muted mt-3 line-clamp-2 text-sm leading-6">
-                A visitor should understand the emotional path quickly. Each moment keeps one photo and one short text preview.
+                Arrival, Santa Claus Village, the Arctic Circle, sledding, and a fire in the snow.
               </p>
               <div className="mt-5 grid gap-3">
                 {storyMoments.map(({ entry, index, photo }) => (
@@ -421,7 +420,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </div>
           </section>
 
-          {trip.slug === LAPLAND_TRIP_SLUG ? <LaplandWinterPlan /> : null}
+          {trip.slug === LAPLAND_TRIP_SLUG ? <BookingBand destination={laplandBooking} /> : null}
 
           <section className="travel-panel rounded-3xl p-5 sm:p-7">
             <SectionHeader kicker="Album" title="Photo memories" />
