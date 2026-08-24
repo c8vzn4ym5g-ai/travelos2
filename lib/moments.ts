@@ -1,4 +1,4 @@
-import { calendarDayInTimeZone, momentCalendarDay, shiftCalendarDay } from "@/lib/moment-index";
+import { calendarDayInTimeZone, momentCalendarDay, shiftCalendarDay } from "./moment-index.ts";
 import type { GeoPoint, TravelJob, TravelMoment } from "@/lib/types";
 
 export const MOMENTS_BLOB_PATH = "travelos/moments.json";
