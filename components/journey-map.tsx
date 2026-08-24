@@ -3,20 +3,17 @@
 import { useMemo, useState } from "react";
 import type { GeoPoint, JournalEntry, Photo, Place, TravelRouteSegment } from "@/lib/types";
 import {
-  buildScalePins,
+  buildJourneyItinerary,
   getFirstWordingBlock,
   getMapTiles,
-  getRouteStops,
+  getScaleBar,
   getStopCardContent,
   getTileBounds,
   isRenderablePhoto,
-  isVisibleRoute,
-  partitionJourneyScales,
-  pointKey,
   project,
-  type MapPin,
-  type MapScale,
-  type ScaleSlice,
+  type ItineraryStop,
+  type RegionalLeg,
+  type StopIcon,
 } from "@/lib/journey-map-model";
 
 type JourneyMapProps = {
@@ -30,339 +27,284 @@ type JourneyMapProps = {
   title: string;
 };
 
-type PositionedPin = MapPin & {
-  offsetX: number;
-  offsetY: number;
-  position: { x: number; y: number };
-  spreadIndex: number;
-  spreadTotal: number;
-};
+const WINTER_STROKE = "#0f4f48";
+const SIDE_STROKE = "#b65f44";
+const FLIGHT_STROKE = "#64748b";
 
-function transportLabel(transport: TravelRouteSegment["transport"]) {
-  const labels: Record<TravelRouteSegment["transport"], string> = {
-    boat: "Boat",
-    car: "Drive",
-    flight: "Flight",
-    other: "Move",
-    train: "Train",
-    walk: "Walk",
+function StopGlyph({ icon }: { icon: StopIcon }) {
+  const common = {
+    fill: "none",
+    stroke: "currentColor",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    strokeWidth: 1.6,
   };
 
-  return labels[transport];
-}
-
-function getRoutePath(from: ReturnType<typeof project>, to: ReturnType<typeof project>) {
-  if (Math.abs(from.x - to.x) < 0.5 && Math.abs(from.y - to.y) < 0.5) {
-    return `M ${from.x} ${from.y} m -4 0 a 4 4 0 1 0 8 0 a 4 4 0 1 0 -8 0`;
+  if (icon === "plane") {
+    return (
+      <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16">
+        <path d="M2 8.5h12M4 8.5l2.2-3.2h2.2L6.8 8.5l1.6 3.6H6.2L4.6 8.5H2Z" {...common} />
+      </svg>
+    );
   }
 
-  const curve = Math.min(12, Math.max(5, Math.abs(to.x - from.x) * 0.18 + Math.abs(to.y - from.y) * 0.08));
-  const controlX = (from.x + to.x) / 2;
-  const controlY = Math.min(from.y, to.y) - curve;
-  return `M ${from.x} ${from.y} Q ${controlX} ${controlY} ${to.x} ${to.y}`;
-}
-
-function spreadOverlappingPins<T extends { point: GeoPoint }>(pins: T[]) {
-  const counts = new Map<string, number>();
-
-  return pins.map((pin) => {
-    const key = pointKey(pin.point);
-    const index = counts.get(key) ?? 0;
-    counts.set(key, index + 1);
-    const total = pins.filter((item) => pointKey(item.point) === key).length;
-
-    return {
-      ...pin,
-      spreadIndex: index,
-      spreadTotal: total,
-    };
-  });
-}
-
-function getPositionedPins(pins: MapPin[], bounds: ReturnType<typeof getTileBounds>): PositionedPin[] {
-  const spreadPins = spreadOverlappingPins(pins);
-  const projectedPins = spreadPins.map((pin) => ({
-    ...pin,
-    offsetX: 0,
-    offsetY: 0,
-    position: project(pin.point, bounds),
-  }));
-  const clusters: typeof projectedPins[] = [];
-
-  projectedPins.forEach((pin) => {
-    const cluster = clusters.find((items) => {
-      const anchor = items[0];
-      return Math.hypot(anchor.position.x - pin.position.x, anchor.position.y - pin.position.y) < 8;
-    });
-
-    if (cluster) {
-      cluster.push(pin);
-      return;
-    }
-
-    clusters.push([pin]);
-  });
-
-  clusters.forEach((cluster) => {
-    if (cluster.length < 2) {
-      return;
-    }
-
-    const radius = Math.min(34, 16 + cluster.length * 4);
-    const sortedCluster = cluster.sort((first, second) => (first.displayNumber ?? 99) - (second.displayNumber ?? 99));
-    sortedCluster.forEach((pin, index) => {
-      const angle = (-115 + (230 / Math.max(sortedCluster.length - 1, 1)) * index) * (Math.PI / 180);
-      pin.offsetX = Math.cos(angle) * radius;
-      pin.offsetY = Math.sin(angle) * radius;
-    });
-  });
-
-  return projectedPins;
-}
-
-function getRouteStopLabel(label: string) {
-  return label.replace(/\s+International(?=\s+Airport$)/i, "").replace(/\s+Line$/i, "");
-}
-
-function scaleCopy(scale: MapScale, city: string) {
-  if (scale === "overview") {
-    return { kicker: "Overview", title: "Long-haul flights" };
+  if (icon === "village") {
+    return (
+      <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16">
+        <path d="M3 13V8l5-4 5 4v5H3Z" {...common} />
+      </svg>
+    );
   }
 
-  if (scale === "detail") {
-    return { kicker: "Local", title: `${city} area` };
+  if (icon === "circle") {
+    return (
+      <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16">
+        <circle cx="8" cy="8" r="4.2" {...common} />
+      </svg>
+    );
   }
 
-  return { kicker: "Journey map", title: `${city} route` };
-}
+  if (icon === "sled") {
+    return (
+      <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16">
+        <path d="M3 11.5h10M4.5 11.5V8h7v3.5M4 13c.8 0 1.2-.8 2-.8s1.2.8 2 .8 1.2-.8 2-.8 1.2.8 2 .8" {...common} />
+      </svg>
+    );
+  }
 
-function MapFrame({
-  city,
-  heightClass,
-  onSelect,
-  pins,
-  selectedId,
-  slice,
-}: {
-  city: string;
-  heightClass: string;
-  onSelect: (id: string) => void;
-  pins: MapPin[];
-  selectedId: string | null;
-  slice: ScaleSlice;
-}) {
-  const bounds = getTileBounds(slice.points.length > 0 ? slice.points : [{ latitude: 0, longitude: 0 }], slice.scale);
-  const mapTiles = getMapTiles(bounds);
-  const copy = scaleCopy(slice.scale, city);
-  const positionedPins = getPositionedPins(pins, bounds);
+  if (icon === "fire") {
+    return (
+      <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16">
+        <path d="M8 3c1.4 2-1 3.2-.4 5 1.2 0 2.8-1.4 3.6.2C12 10.4 10.2 13 8 13s-4-2.4-3.2-4.8C5.6 6.4 6.8 5.6 8 3Z" {...common} />
+      </svg>
+    );
+  }
+
+  if (icon === "cabin") {
+    return (
+      <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16">
+        <path d="M3 8.5 8 4l5 4.5V13H3V8.5Z" {...common} />
+        <path d="M7 13V9.5h2V13" {...common} />
+      </svg>
+    );
+  }
 
   return (
-    <div className="min-w-0" data-map-scale={slice.scale}>
-      <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
-        <div>
-          <p className="travel-kicker text-[0.62rem]">{copy.kicker}</p>
-          <p className="text-sm font-semibold text-[color:var(--ink)]">{copy.title}</p>
-        </div>
-        <span className="rounded-full border border-sky-100 bg-sky-50 px-2.5 py-1 text-[0.62rem] font-semibold text-sky-900">
-          {slice.scale === "overview" ? "Flight scale" : "Local scale"}
-        </span>
-      </div>
-      <div className={`relative overflow-hidden rounded-2xl bg-[#dbeafe] ${heightClass}`}>
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,#dbeafe_0%,#dcfce7_100%)]" />
-        {mapTiles.map((tile) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            alt=""
-            className="absolute max-w-none select-none object-cover"
-            draggable={false}
-            key={tile.key}
-            loading="lazy"
-            src={tile.src}
-            style={tile.style}
-          />
-        ))}
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.28))]" />
-        <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-          {slice.route.map((segment) => {
-            const from = project(segment.from, bounds);
-            const to = project(segment.to, bounds);
-            const isSelected = selectedId === segment.id;
-            return (
-              <path
-                className="cursor-pointer transition"
-                d={getRoutePath(from, to)}
-                fill="none"
-                key={segment.id}
-                onClick={() => onSelect(segment.id)}
-                stroke="rgba(255,255,255,.92)"
-                strokeLinecap="round"
-                strokeWidth={isSelected ? 2.6 : 2}
-              />
-            );
-          })}
-          {slice.route.map((segment, index) => {
-            const from = project(segment.from, bounds);
-            const to = project(segment.to, bounds);
-            const isSelected = selectedId === segment.id;
-            return (
-              <path
-                className="cursor-pointer transition"
-                d={getRoutePath(from, to)}
-                fill="none"
-                key={`${segment.id}-line`}
-                onClick={() => onSelect(segment.id)}
-                stroke={isSelected ? "#dc2626" : "#2563eb"}
-                strokeDasharray={segment.transport === "flight" ? "3 3" : undefined}
-                strokeLinecap="round"
-                strokeWidth={isSelected ? 1.65 : 1.15}
-              >
-                <title>{`${index + 1}. ${segment.fromLabel} to ${segment.toLabel}`}</title>
-              </path>
-            );
-          })}
-        </svg>
-        {positionedPins.map((pin) => {
-          const selected = selectedId === pin.id;
-          const tone =
-            pin.kind === "base"
-              ? "border-sky-100 bg-sky-700 text-white"
-              : (pin.displayNumber ?? 0) % 2 === 0
-                ? "border-rose-100 bg-rose-600 text-white"
-                : "border-amber-100 bg-amber-500 text-white";
-          return (
-            <button
-              aria-label={`Stop ${pin.displayNumber}: ${pin.label}`}
-              aria-pressed={selected}
-              className={`absolute grid min-h-11 min-w-11 -translate-x-1/2 -translate-y-full place-items-center transition hover:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${selected ? "z-40" : ""}`}
-              key={pin.id}
-              onClick={() => onSelect(pin.id)}
-              style={{
-                left: `calc(${pin.position.x}% + ${pin.offsetX}px)`,
-                top: `calc(${pin.position.y}% + ${pin.offsetY}px)`,
-                zIndex: selected ? 35 : 12 + (pin.displayNumber ?? 0),
-              }}
-              title={pin.label}
-              type="button"
-            >
-              <span
-                className={`grid h-8 w-8 rotate-45 place-items-center rounded-[50%_50%_50%_0] border-2 text-[0.7rem] font-bold shadow-[0_10px_24px_rgba(15,23,42,.25)] ${tone} ${
-                  selected ? "ring-4 ring-white/80" : ""
-                }`}
-              >
-                <span className="-rotate-45">{pin.displayNumber}</span>
+    <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16">
+      <circle cx="8" cy="7" r="2.4" {...common} />
+      <path d="M8 9.4 6.4 13h3.2L8 9.4Z" {...common} />
+    </svg>
+  );
+}
+
+function getStraightPath(from: { x: number; y: number }, to: { x: number; y: number }) {
+  return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
+}
+
+function spaceMapPins(stops: ItineraryStop[], bounds: ReturnType<typeof getTileBounds>) {
+  const items = stops.map((stop) => ({
+    ...stop,
+    position: project(stop.point, bounds),
+  }));
+
+  for (let pass = 0; pass < 3; pass += 1) {
+    for (let index = 0; index < items.length; index += 1) {
+      for (let other = index + 1; other < items.length; other += 1) {
+        const dx = items[other].position.x - items[index].position.x;
+        const dy = items[other].position.y - items[index].position.y;
+        const distance = Math.hypot(dx, dy) || 0.01;
+        const minDistance = 12;
+        if (distance >= minDistance) {
+          continue;
+        }
+
+        const push = (minDistance - distance) / 2;
+        const ux = dx / distance;
+        const uy = dy / distance;
+        items[index].position = {
+          x: items[index].position.x - ux * push,
+          y: items[index].position.y - uy * push,
+        };
+        items[other].position = {
+          x: items[other].position.x + ux * push,
+          y: items[other].position.y + uy * push,
+        };
+      }
+    }
+  }
+
+  return items.map((item) => ({
+    ...item,
+    position: {
+      x: Math.min(93, Math.max(7, item.position.x)),
+      y: Math.min(88, Math.max(12, item.position.y)),
+    },
+  }));
+}
+
+function ArrivalLocator({ cities }: { cities: { id: string; label: string; shortLabel: string }[] }) {
+  return (
+    <div className="border-b border-[color:var(--line)] bg-white/55 px-4 py-2.5" data-arrival-locator>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="travel-kicker text-[0.62rem]">How we arrived</p>
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[0.72rem] font-semibold text-slate-600">
+          {cities.map((city, index) => (
+            <span className="flex items-center gap-1.5" key={city.id}>
+              {index > 0 ? (
+                <svg aria-hidden="true" className="h-3 w-7 shrink-0 text-slate-400" viewBox="0 0 32 12">
+                  <path d="M1 6h30" fill="none" stroke={FLIGHT_STROKE} strokeDasharray="2 2.5" strokeLinecap="round" strokeWidth="1.4" />
+                </svg>
+              ) : null}
+              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">
+                <span className="text-[0.62rem] tracking-wide text-slate-500">{city.shortLabel}</span>
+                <span className="text-slate-800">{city.label}</span>
               </span>
-            </button>
-          );
-        })}
-        <a
-          className="absolute bottom-2 right-2 rounded-full bg-white/85 px-2 py-1 text-[0.62rem] font-semibold text-slate-600 shadow-sm"
-          href="https://www.openstreetmap.org/copyright"
-          rel="noreferrer"
-          target="_blank"
-        >
-          OpenStreetMap
-        </a>
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-function NumberedStopButtons({
-  label,
+function RegionalMap({
+  city,
+  legs,
   onSelect,
-  pins,
   selectedId,
+  stops,
 }: {
-  label: string;
+  city: string;
+  legs: RegionalLeg[];
   onSelect: (id: string) => void;
-  pins: MapPin[];
   selectedId: string | null;
+  stops: ItineraryStop[];
 }) {
-  if (pins.length === 0) {
-    return null;
-  }
+  const bounds = getTileBounds(
+    stops.length > 0 ? stops.map((stop) => stop.point) : [{ latitude: 0, longitude: 0 }],
+    "regional",
+  );
+  const mapTiles = getMapTiles(bounds);
+  const scaleBar = getScaleBar(bounds, stops[0]?.point.latitude ?? 66.5);
+  const spacedStops = spaceMapPins(stops, bounds);
 
   return (
-    <div>
-      <p className="travel-kicker mb-2 text-[0.62rem]">{label}</p>
-      <div className="flex flex-wrap gap-2">
-        {pins.map((pin) => {
-          const selected = selectedId === pin.id;
+    <div
+      className="relative min-h-[22rem] overflow-hidden rounded-2xl bg-[#d7e3dc] sm:min-h-[26rem] lg:min-h-[32rem]"
+      data-map-frame="regional"
+    >
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,#e7eee8_0%,#d5e4ea_100%)]" />
+      {mapTiles.map((tile) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          alt=""
+          className="absolute max-w-none select-none object-cover opacity-55 grayscale-[42%] saturate-[0.42] contrast-[0.9]"
+          draggable={false}
+          key={tile.key}
+          loading="lazy"
+          src={tile.src}
+          style={tile.style}
+        />
+      ))}
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(251,250,246,.34),rgba(255,255,252,.22)_46%,rgba(247,242,232,.38))]" />
+      <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none" viewBox="0 0 100 100">
+        {legs.map((leg) => {
+          const from = project(leg.from, bounds);
+          const to = project(leg.to, bounds);
+          const path = getStraightPath(from, to);
           return (
-            <button
-              aria-label={`${pin.displayNumber}. ${pin.label}`}
-              aria-pressed={selected}
-              className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full border px-3 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
-                selected
-                  ? "border-red-200 bg-red-50 text-red-700 shadow-sm"
-                  : "border-[color:var(--line)] bg-white/80 text-slate-700 hover:border-sky-100 hover:bg-sky-50"
-              }`}
-              key={`${label}-${pin.id}`}
-              onClick={() => onSelect(pin.id)}
-              title={pin.label}
-              type="button"
-            >
-              <span
-                className={`grid h-6 w-6 place-items-center rounded-full text-[0.7rem] ${
-                  selected ? "bg-red-600 text-white" : "bg-slate-900 text-white"
-                }`}
-              >
-                {pin.displayNumber}
-              </span>
-              <span className="max-w-[9rem] truncate">{getRouteStopLabel(pin.label)}</span>
-            </button>
+            <g key={leg.id}>
+              <path d={path} fill="none" stroke="rgba(255,255,255,.88)" strokeLinecap="round" strokeWidth={2.4} />
+              <path
+                d={path}
+                fill="none"
+                stroke={leg.kind === "side" ? SIDE_STROKE : WINTER_STROKE}
+                strokeDasharray={leg.style === "dotted" ? "1.8 1.6" : undefined}
+                strokeLinecap="round"
+                strokeWidth={leg.kind === "side" ? 1.05 : 1.35}
+              />
+            </g>
           );
         })}
+      </svg>
+      {spacedStops.map((stop) => {
+        const selected = selectedId === stop.id;
+        const tone = stop.leg === "side" ? "bg-[#b65f44] border-[#f3d6c8]" : "bg-[#0f4f48] border-[#d7ebe6]";
+        return (
+          <button
+            aria-label={`Stop ${stop.number}: ${stop.listLabel}`}
+            aria-pressed={selected}
+            className={`absolute grid min-h-11 min-w-11 -translate-x-1/2 -translate-y-1/2 place-items-center transition hover:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
+              selected ? "z-40" : ""
+            }`}
+            data-map-pin={stop.number}
+            key={stop.id}
+            onClick={() => onSelect(stop.id)}
+            style={{ left: `${stop.position.x}%`, top: `${stop.position.y}%`, zIndex: selected ? 35 : 12 + stop.number }}
+            title={stop.listLabel}
+            type="button"
+          >
+            <span
+              className={`grid h-8 w-8 place-items-center rounded-full border-2 text-[0.72rem] font-bold text-white shadow-[0_10px_22px_rgba(15,23,42,.28)] ${tone} ${
+                selected ? "ring-4 ring-white/85" : ""
+              }`}
+            >
+              {stop.number}
+            </span>
+          </button>
+        );
+      })}
+      <div className="absolute left-3 top-3 rounded-full border border-white/80 bg-white/80 px-2.5 py-1 text-[0.62rem] font-semibold tracking-[0.14em] text-slate-600 shadow-sm">
+        {city.toUpperCase()} · LAPLAND
       </div>
+      <div className="absolute right-3 top-3 grid place-items-center rounded-md border border-white/80 bg-white/80 px-1.5 py-1 text-[0.58rem] font-bold text-slate-700 shadow-sm">
+        <span aria-hidden="true" className="text-[0.7rem] leading-none">
+          ▲
+        </span>
+        <span>N</span>
+      </div>
+      <div className="absolute bottom-3 left-3 space-y-1.5 rounded-xl border border-white/80 bg-white/82 px-2.5 py-2 text-[0.62rem] font-semibold text-slate-700 shadow-sm">
+        <div className="flex items-center gap-2">
+          <span className="h-[2px] w-6 rounded-full bg-[#0f4f48]" />
+          Winter route
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="h-[2px] w-6 rounded-full bg-[repeating-linear-gradient(90deg,#b65f44_0_4px,transparent_4px_7px)]" />
+          Side leg
+        </div>
+        <div className="flex items-center gap-2 pt-1">
+          <span className="block h-[3px] rounded-full bg-slate-800" style={{ width: `${Math.min(scaleBar.widthPercent, 28) * 2.1}px` }} />
+          <span>{scaleBar.label}</span>
+        </div>
+      </div>
+      <a
+        className="absolute bottom-3 right-3 rounded-full bg-white/85 px-2 py-1 text-[0.58rem] font-semibold text-slate-600 shadow-sm"
+        href="https://www.openstreetmap.org/copyright"
+        rel="noreferrer"
+        target="_blank"
+      >
+        OpenStreetMap
+      </a>
     </div>
   );
 }
 
 export function JourneyMap({ center, city, country, journalEntries, photos, places, route, title }: JourneyMapProps) {
-  const scales = useMemo(() => partitionJourneyScales({ center, places, route }), [center, places, route]);
-  const frames = useMemo(() => [scales.overview, scales.detail, scales.single].filter((slice): slice is ScaleSlice => Boolean(slice)), [scales]);
-  const pinSets = useMemo(
-    () =>
-      frames.map((slice) =>
-        buildScalePins({
-          center,
-          city,
-          country,
-          journalEntries,
-          photos,
-          places: slice.places,
-          routeStops: getRouteStops(slice.route),
-          showBase: slice.showBase,
-        }),
-      ),
-    [center, city, country, frames, journalEntries, photos],
+  const itinerary = useMemo(
+    () => buildJourneyItinerary({ center, city, journalEntries, photos, places, route }),
+    [center, city, journalEntries, photos, places, route],
   );
-  const allPins = useMemo(() => {
-    const byId = new Map<string, MapPin>();
-    pinSets.flat().forEach((pin) => {
-      if (!byId.has(pin.id)) {
-        byId.set(pin.id, pin);
-      }
-    });
-    return [...byId.values()];
-  }, [pinSets]);
   const defaultSelection =
-    (pinSets[1] ?? pinSets[0] ?? []).find((pin) => pin.linkedPhotoId || pin.photo)?.id ??
-    pinSets[1]?.[0]?.id ??
-    pinSets[0]?.[0]?.id ??
-    route.find(isVisibleRoute)?.id ??
-    null;
+    itinerary.regionalStops.find((stop) => stop.linkedPhotoId)?.id ?? itinerary.regionalStops[0]?.id ?? null;
   const [selectedId, setSelectedId] = useState<string | null>(defaultSelection);
-  const selectedPin = allPins.find((pin) => pin.id === selectedId);
-  const selectedRoute = route.find((segment) => segment.id === selectedId);
+  const selectedStop = itinerary.regionalStops.find((stop) => stop.id === selectedId) ?? itinerary.regionalStops[0] ?? null;
   const selectedCard = getStopCardContent({
     journalEntries,
     photos,
-    pin: selectedPin,
-    route: selectedRoute,
+    stop: selectedStop,
   });
 
-  if (frames.length === 0 || frames.every((slice) => slice.points.length === 0)) {
+  if (itinerary.regionalStops.length === 0 && itinerary.regionalPoints.length === 0) {
     return (
       <section className="travel-soft-panel rounded-[1.75rem] p-4">
         <p className="travel-kicker text-xs">Journey map</p>
@@ -371,81 +313,89 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
     );
   }
 
-  const overviewPins = pinSets[frames.findIndex((slice) => slice.scale === "overview")] ?? [];
-  const detailPins = pinSets[frames.findIndex((slice) => slice.scale === "detail" || slice.scale === "single")] ?? pinSets[0] ?? [];
-
   return (
     <section className="travel-soft-panel overflow-hidden rounded-[1.75rem]" aria-label={`${title} journey map`}>
       <div className="flex items-center justify-between gap-3 border-b border-white/70 bg-white/60 px-4 py-3">
         <div>
           <p className="travel-kicker text-xs">Journey map</p>
-          <h2 className="travel-hand mt-1 text-xl font-semibold text-[color:var(--ink)]">{city} route</h2>
+          <h2 className="travel-hand mt-1 text-xl font-semibold text-[color:var(--ink)]">
+            {city}, {country}
+          </h2>
         </div>
-        <span className="rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-900">
-          {frames.length > 1 ? "Two scales" : `${allPins.length} pins`}
+        <span className="rounded-full border border-teal-100 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-950">
+          Regional itinerary
         </span>
       </div>
 
-      <div className="grid gap-4 p-3 sm:p-4">
-        <div className={`grid gap-4 ${frames.length > 1 ? "lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]" : ""}`}>
-          {frames.map((slice, index) => (
-            <MapFrame
-              city={city}
-              heightClass={
-                slice.scale === "overview"
-                  ? "min-h-[9rem] h-[9.5rem] sm:min-h-[10rem] sm:h-[10.5rem]"
-                  : "min-h-[16rem] h-[16.5rem] sm:min-h-[20rem] sm:h-[20.5rem]"
-              }
-              key={slice.scale}
-              onSelect={setSelectedId}
-              pins={pinSets[index] ?? []}
-              selectedId={selectedId}
-              slice={slice}
-            />
-          ))}
-        </div>
+      {itinerary.arrival ? <ArrivalLocator cities={itinerary.arrival} /> : null}
 
-        {overviewPins.length > 0 && frames.some((slice) => slice.scale === "overview") ? (
-          <NumberedStopButtons label="Overview stops" onSelect={setSelectedId} pins={overviewPins} selectedId={selectedId} />
-        ) : null}
-        <NumberedStopButtons
-          label={frames.some((slice) => slice.scale === "detail") ? "Local stops" : "Route stops"}
-          onSelect={setSelectedId}
-          pins={detailPins}
-          selectedId={selectedId}
-        />
+      <div className="grid gap-4 p-3 sm:p-4 lg:grid-cols-[minmax(15rem,18.5rem)_minmax(0,1fr)] lg:items-stretch">
+        <ol className="flex flex-col gap-1.5" data-stop-list>
+          {itinerary.regionalStops.map((stop) => {
+            const selected = selectedStop?.id === stop.id;
+            return (
+              <li key={stop.id}>
+                <button
+                  aria-label={`${stop.number}. ${stop.listLabel}`}
+                  aria-pressed={selected}
+                  className={`grid min-h-11 w-full grid-cols-[2rem_minmax(0,1fr)_1.25rem] items-center gap-2 rounded-2xl border px-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
+                    selected
+                      ? "border-teal-200 bg-teal-50 text-teal-950 shadow-sm"
+                      : "border-transparent bg-white/70 text-slate-700 hover:border-sky-100 hover:bg-sky-50"
+                  }`}
+                  data-stop-button={stop.number}
+                  onClick={() => setSelectedId(stop.id)}
+                  type="button"
+                >
+                  <span
+                    className={`grid h-7 w-7 place-items-center rounded-full text-[0.72rem] font-bold text-white ${
+                      stop.leg === "side" ? "bg-[#b65f44]" : "bg-[#0f4f48]"
+                    }`}
+                  >
+                    {stop.number}
+                  </span>
+                  <span className="min-w-0">
+                    {stop.dateLabel ? <span className="mr-1.5 whitespace-nowrap text-[0.62rem] font-bold tracking-wide text-teal-800">{stop.dateLabel}</span> : null}
+                    <span className="block truncate text-[0.8rem] font-semibold leading-5">{stop.listLabel}</span>
+                  </span>
+                  <span className={selected ? "text-teal-800" : "text-slate-400"}>
+                    <StopGlyph icon={stop.icon} />
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
 
-        {selectedCard ? (
-          <article className="grid gap-3 rounded-2xl border border-white/70 bg-white/70 p-3 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)] sm:p-4" data-stop-card>
-            {selectedCard.photo && isRenderablePhoto(selectedCard.photo) ? (
-              <div className="overflow-hidden rounded-xl bg-white">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  alt={selectedCard.caption ?? selectedCard.title}
-                  className="h-40 w-full object-cover sm:h-full"
-                  src={selectedCard.photo.storageKey}
-                />
-              </div>
-            ) : (
-              <div className="grid min-h-[6.5rem] place-items-center rounded-xl bg-[color:var(--paper-soft)] px-4 text-center text-sm text-[color:var(--muted)]">
-                No photo for this stop
-              </div>
-            )}
-            <div className="min-w-0">
-              <p className="travel-kicker text-[0.65rem]">{selectedRoute ? transportLabel(selectedRoute.transport) : selectedPin?.kind ?? "stop"}</p>
-              <h3 className="mt-1 text-base font-semibold leading-6 text-[color:var(--ink)]" data-stop-title>
-                {selectedCard.title}
-              </h3>
-              <p className="travel-muted mt-2 text-sm leading-6" data-stop-wording>
-                {getFirstWordingBlock(selectedCard.wording)}
-              </p>
-              {selectedCard.caption ? <p className="mt-2 text-xs leading-5 text-teal-900">{selectedCard.caption}</p> : null}
-            </div>
-          </article>
-        ) : (
-          <p className="travel-muted text-sm leading-6">Choose a numbered stop to see the photo and note.</p>
-        )}
+        <RegionalMap city={city} legs={itinerary.regionalLegs} onSelect={setSelectedId} selectedId={selectedStop?.id ?? null} stops={itinerary.regionalStops} />
       </div>
+
+      {selectedCard ? (
+        <article className="grid gap-3 border-t border-white/70 bg-white/55 p-3 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] sm:p-4" data-stop-card>
+          {selectedCard.photo && isRenderablePhoto(selectedCard.photo) ? (
+            <div className="overflow-hidden rounded-xl bg-white">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt={selectedCard.caption ?? selectedCard.title} className="h-40 w-full object-cover sm:h-full" src={selectedCard.photo.storageKey} />
+            </div>
+          ) : (
+            <div className="grid min-h-[6.5rem] place-items-center rounded-xl bg-[color:var(--paper-soft)] px-4 text-center text-sm text-[color:var(--muted)]">
+              No photo for this stop
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="travel-kicker text-[0.65rem]">{selectedStop ? `Stop ${selectedStop.number}` : "Stop"}</p>
+            <h3 className="mt-1 text-base font-semibold leading-6 text-[color:var(--ink)]" data-stop-title>
+              {selectedCard.title}
+            </h3>
+            <p className="travel-muted mt-2 text-sm leading-6" data-stop-wording>
+              {getFirstWordingBlock(selectedCard.wording)}
+            </p>
+            {selectedCard.caption ? <p className="mt-2 text-xs leading-5 text-teal-900">{selectedCard.caption}</p> : null}
+          </div>
+        </article>
+      ) : (
+        <p className="travel-muted px-4 pb-4 text-sm leading-6">Choose a numbered stop to see the photo and note.</p>
+      )}
     </section>
   );
 }

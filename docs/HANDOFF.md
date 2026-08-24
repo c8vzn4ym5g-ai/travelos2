@@ -1,5 +1,25 @@
 # TravelOS Handoff
 
+## 2026-08-24 Lapland itinerary map (regional poster)
+
+- Follow-up after the map/music slice. Owner liked the quiet CC0 winter bed;
+  the two OSM tiles still read as widgets, not a designed itinerary. Do not
+  merge. Do not production-deploy. Do not touch Capture, `/family/capture`,
+  the moments warehouse, PR #2, or PR #3. Music file, photos, and costs are
+  unchanged.
+- `JourneyMap` is now a Kyushu-poster-style itinerary: a small
+  Hong Kong → Helsinki → Rovaniemi arrival strip, a numbered stop list with
+  journal dates, and ONE large Rovaniemi / Finnish Lapland regional map as
+  the hero. The overview is not an equal-size second map.
+- Regional frame: faded OSM terrain, numbered circular pins, solid winter
+  route, dotted sled side-leg, legend, scale bar, and north. Stops are the
+  existing named memories only: arrival 1/18, Santa Village 1/20, Arctic
+  Circle, sled, campfire 1/22, cabin. No extra days or invented places.
+- Phone: list, then regional map, then the selected photo/wording card.
+  Desktop: list beside the map. 44px targets. No Writing guide chrome.
+- Tests cover the large regional frame, unequal arrival locator, stop N
+  wording, and no writer chrome. Keep `pnpm test`, typecheck, and lint green.
+
 ## 2026-08-24 Lapland map, music, and numbered stops
 
 - Public Lapland follow-up after the copy slice. Do not merge. Do not
