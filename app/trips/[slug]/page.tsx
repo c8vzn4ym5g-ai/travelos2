@@ -3,8 +3,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { JourneyMap } from "@/components/journey-map";
 import { JourneyMusicPlayer } from "@/components/journey-music-player";
+import { LaplandWinterPlan } from "@/components/lapland-winter-plan";
 import { ShareActions } from "@/components/share-actions";
 import { readContent } from "@/lib/editable-store";
+import { LAPLAND_TRIP_SLUG, laplandTripMetadata } from "@/lib/travelpayouts";
 import { isTripPublic } from "@/lib/trip-visibility";
 import { getTripDetailsByStartDate } from "@/lib/trips";
 import type { Cost, JournalEntry, Money, Photo, Place } from "@/lib/types";
@@ -242,8 +244,9 @@ export async function generateMetadata({ params }: TripDetailPageProps): Promise
   const coverPhoto =
     trip.photos.find((photo) => photo.id === trip.coverPhotoId && isRenderablePhoto(photo)) ??
     trip.photos.find(isRenderablePhoto);
-  const title = `${trip.title} - ${trip.city}, ${trip.country}`;
-  const description = trip.summary.slice(0, 155);
+  const isLaplandJournal = trip.slug === LAPLAND_TRIP_SLUG;
+  const title = isLaplandJournal ? laplandTripMetadata.title : `${trip.title} - ${trip.city}, ${trip.country}`;
+  const description = isLaplandJournal ? laplandTripMetadata.description : trip.summary.slice(0, 155);
 
   return {
     description,
@@ -400,7 +403,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </section>
           ) : null}
 
-          <section className="travel-panel rounded-3xl p-5 sm:p-7">
+          <section className="travel-panel rounded-3xl p-5 sm:p-7" id="journal">
             <SectionHeader kicker="Journal" title="Narrative notes" />
             <div className="mt-7 space-y-6">
               {trip.journalEntries.map((entry) => (
@@ -417,6 +420,8 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               ))}
             </div>
           </section>
+
+          {trip.slug === LAPLAND_TRIP_SLUG ? <LaplandWinterPlan /> : null}
 
           <section className="travel-panel rounded-3xl p-5 sm:p-7">
             <SectionHeader kicker="Album" title="Photo memories" />

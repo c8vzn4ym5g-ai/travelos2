@@ -74,6 +74,32 @@
 - PR #2 (`cursor/family-moment-capture-f495`) is still held. This slice
   reimplements HEIC/append/session ideas on `main` without merging that PR.
 
+## 2026-08-24 Travelpayouts first cash slice
+
+- Family life-record stays first. Extra cash is public Travelpayouts only.
+  Drive is an AI affiliate script, not a car-rental search. It needs public
+  destination copy. Family/PIN pages must not run Drive. Do not merge. Do not
+  touch Capture, `/family/capture`, the moments warehouse, PR #2, PR #3, the
+  Lapland map/poster, photos, costs, or quiet music.
+- Drive script URL is unchanged: `https://emrldtp.cc/NTUwMzEz.js?t=550313`.
+  A request pathname gate skips `/family`, `/family/*`, `/sana`,
+  `/trips/admin`, `/coffee/admin`, `/trips/new`, and `/coffee/new`. Tests prove
+  family HTML does not include `emrldtp.cc` / `travelpayouts-drive`.
+- Public Lapland journal
+  (`/trips/finland-lapland-winter-journal-2020`) now has a native bilingual
+  block after the journal: `策劃這樣的冬旅 / Plan a winter like this`. Copy
+  names Rovaniemi, Helsinki, Santa Claus Village, snow cabin, and Arctic
+  Circle day trips. Existing ZH+EN affiliate disclosure is included. No fake
+  widget iframes or invented widget IDs.
+- `/drive` is a public booking desk: featured Lapland destination linked to
+  the live journal, then Flights / Stays / Things to do / Transport using the
+  same destination language. Home Plan & Book uses an existing Lapland photo
+  instead of `Visual preview coming soon`.
+- Public SEO only: unique title/description on the Lapland trip and `/drive`.
+  `/family` has no affiliate language and is disallowed in robots.
+- Phone-first, 44px targets. No Writing guide chrome. Family Capture stays on
+  `/family` and `/family/capture`; public cash pages do not include it.
+
 ## 2026-08-24 Lapland itinerary raster poster
 
 - Owner correction: do not use a live tiled map in the browser, and do not

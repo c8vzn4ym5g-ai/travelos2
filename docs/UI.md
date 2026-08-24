@@ -25,3 +25,15 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
 - Content cards and editing surfaces use light backgrounds with dark text.
   Dark color may be used as a small accent, not as a large content box that can
   make labels or entered content appear obscured.
+
+## Public Travelpayouts Rules
+
+- Travelpayouts Drive is an affiliate layer over public destination copy, not a
+  car-rental search and not a family tool.
+- Load the registered Drive script only on public pages. Skip `/family`,
+  `/family/*`, `/sana`, `/trips/admin`, `/coffee/admin`, `/trips/new`, and
+  `/coffee/new`. A pathname gate is enough; family HTML must not contain the
+  Drive script.
+- Public trip pages may include native planning copy (place names, stays,
+  flights) after the journal. Do not put affiliate language on `/family`.
+- Do not invent widget IDs or paste fake booking iframes.

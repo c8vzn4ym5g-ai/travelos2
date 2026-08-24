@@ -3,6 +3,7 @@ import { SessionPhotoCarousel } from "@/components/session-photo-carousel";
 import { getCoffeeShopsByVisitDate, getCoffeeStats } from "@/lib/coffee";
 import { readCoffeeContent } from "@/lib/coffee-store";
 import { readContent } from "@/lib/editable-store";
+import { LAPLAND_COVER_PHOTO, LAPLAND_TRIP_SLUG } from "@/lib/travelpayouts";
 import { isTripPublic } from "@/lib/trip-visibility";
 import type { CoffeePhoto, CoffeeShop, CoffeeShopListItem, Photo, TripDetail } from "@/lib/types";
 
@@ -36,10 +37,10 @@ const sessions = [
   },
   {
     eyebrow: "Plan & Book",
-    note: "useful tools, honest placement",
-    title: "Flights, stays, activities, and local transport",
+    note: "Rovaniemi, Helsinki, Arctic Circle",
+    title: "Flights, stays, and a winter like Lapland",
     description:
-      "See how TravelOS connects useful booking tools to relevant public travel content while keeping journals readable.",
+      "Read the public Lapland journal, then plan flights into Rovaniemi or Helsinki, a stay near Santa Claus Village or a snow cabin, and Arctic Circle day trips.",
     href: "/drive",
     action: "Open travel tools",
   },
@@ -144,6 +145,9 @@ function SessionCard({
       <Link className="block border-b border-zinc-100 bg-stone-100 p-1" href={href}>
         {photoCount > 0 ? (
           <SessionPhotoCarousel photos={photos} />
+        ) : href === "/drive" ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img alt="入夜後的聖誕老人村。 / Santa Claus Village at night." className="h-56 w-full rounded-lg object-cover" src={LAPLAND_COVER_PHOTO} />
         ) : (
           <div className={`grid h-56 place-items-center rounded-lg border border-zinc-200 bg-gradient-to-br px-6 text-center text-sm text-zinc-500 ${tone.photoBg}`}>
             Visual preview coming soon
@@ -223,9 +227,18 @@ export default async function Home() {
   const latestCoffee = getCoffeeShopsByVisitDate(coffeeContent.shops).slice(0, 3);
   const travelPhotoStrip = getTravelSessionPhotos(publicTrips);
   const coffeePhotoStrip = getCoffeeSessionPhotos(coffeeContent.shops);
+  const laplandTrip = publicTrips.find((trip) => trip.slug === LAPLAND_TRIP_SLUG);
+  const drivePhotoStrip = laplandTrip
+    ? uniqueSessionPhotos(
+        laplandTrip.photos.filter(isRenderablePhoto).map((photo) => ({
+          alt: photo.caption ?? laplandTrip.title,
+          src: photo.storageKey,
+        })),
+      )
+    : [{ alt: "入夜後的聖誕老人村。 / Santa Claus Village at night.", src: LAPLAND_COVER_PHOTO }];
   const sessionPhotosByHref: Record<string, { alt: string; src: string }[]> = {
     "/coffee": coffeePhotoStrip,
-    "/drive": [],
+    "/drive": drivePhotoStrip,
     "/trips": travelPhotoStrip,
   };
 

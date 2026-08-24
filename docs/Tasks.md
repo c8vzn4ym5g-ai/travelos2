@@ -120,25 +120,21 @@ Status: in_progress
 
 Current verified result:
 
-- Travelpayouts Drive now loads once from the application root instead of only
-  on an empty page.
-- `/drive` accurately explains the Plan & Book product area and includes an
-  affiliate disclosure.
-- Removed the incorrect claim that Drive is a car-rental widget and removed the
-  non-functional widget placeholder.
-- Focused tests passed 2/2; navigation, TypeScript, ESLint, and production build
-  passed in a clean validation copy.
-- GitHub/Vercel production deployment is active at commit
-  `c36b2b28ccaab2111ab8e60ab1bef2a1f5da8ac8`.
-- Live `/drive` and public Lapland checks confirm exactly one Drive loader and
-  script, a visible disclosure, and no fake widget container.
+- Drive script stays on the registered URL `emrldtp.cc/NTUwMzEz.js?t=550313`.
+- Client pathname gate loads Drive only on public pages. Family, Sana, admin,
+  and new-draft routes do not receive the script. Tests prove family HTML
+  does not include `emrldtp.cc` / `travelpayouts-drive`.
+- Public Lapland journal has a native bilingual planning block after the
+  journal (Rovaniemi, Helsinki, Santa Claus Village, snow cabin, Arctic
+  Circle). `/drive` is a booking desk featured on that journal. Home Plan &
+  Book uses an existing Lapland photo. Unique public SEO on Lapland and
+  `/drive`. No affiliate copy on `/family`. No fake widget iframes.
 
 Remaining:
 
-- Read the result of Travelpayouts `Check setup`; the check was opened, but the
-  Windows browser-control channel timed out before the result could be read.
-- Add official program-generated flight and stay/activity tools with stable
+- Official program-generated flight and stay/activity tools with stable
   placement SubIDs; do not guess widget code or expose API credentials.
+- Do not merge this cash slice until asked.
 
 ## JDB-066: Add the installable Family Editing workspace
 

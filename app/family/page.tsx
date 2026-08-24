@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { FamilyUnlockPanel } from "./family-unlock-panel";
+
+export const metadata: Metadata = {
+  description: "Jason 與 Sana 的家庭編輯入口：旅行、咖啡與照片。Private family editing for trips, coffee, and photos.",
+  robots: { follow: false, index: false },
+  title: "家庭編輯 / Family workspace",
+};
 
 const sections = [
   {
