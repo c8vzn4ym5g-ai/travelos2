@@ -4,7 +4,6 @@ import { resolve } from "node:path";
 import test from "node:test";
 import {
   isPublicDrivePath,
-  LAPLAND_COVER_PHOTO,
   LAPLAND_JOURNAL_PATH,
   PRIVATE_DRIVE_PATH_PREFIXES,
   travelpayoutsDriveHtml,
@@ -18,19 +17,21 @@ async function read(path) {
 }
 
 test("Travelpayouts Drive keeps the registered script URL and a public-only pathname gate", async () => {
-  const [layout, integration, middleware] = await Promise.all([
-    read("app/layout.tsx"),
+  const [layout, integration, middleware, helper] = await Promise.all([
+    read("app/(public)/layout.tsx"),
     read("components/travelpayouts-drive.tsx"),
     read("middleware.ts"),
+    read("lib/travelpayouts.ts"),
   ]);
 
   assert.match(layout, /<TravelpayoutsDrive \/>/);
   assert.match(integration, /x-travelos-pathname/);
   assert.match(integration, /isPublicDrivePath/);
   assert.match(integration, /id="travelpayouts-drive"/);
+  assert.match(integration, /TRAVELPAYOUTS_DRIVE_SCRIPT_URL/);
   assert.match(middleware, /x-travelos-pathname/);
   assert.equal(TRAVELPAYOUTS_DRIVE_SCRIPT_URL, "https://emrldtp.cc/NTUwMzEz.js?t=550313");
-  assert.match(integration, /https:\/\/emrldtp\.cc\/NTUwMzEz\.js\?t=550313/);
+  assert.match(helper, /https:\/\/emrldtp\.cc\/NTUwMzEz\.js\?t=550313/);
 });
 
 test("family HTML does not include emrldtp.cc / travelpayouts-drive", async () => {
@@ -42,6 +43,7 @@ test("family HTML does not include emrldtp.cc / travelpayouts-drive", async () =
     "app/coffee/admin/page.tsx",
     "app/trips/new/page.tsx",
     "app/coffee/new/page.tsx",
+    "app/layout.tsx",
   ];
   const pages = await Promise.all(familyFiles.map((path) => read(path)));
 
@@ -113,13 +115,14 @@ test("Drive stays off family, PIN, and draft editor pathnames", () => {
 
 test("booking desk is a public Lapland planning page without fake widgets", async () => {
   const [drivePage, disclosure] = await Promise.all([
-    read("app/drive/page.tsx"),
+    read("app/(public)/drive/page.tsx"),
     read("components/affiliate-disclosure.tsx"),
   ]);
 
   assert.match(drivePage, /data-booking-desk/);
   assert.match(drivePage, /data-featured-destination="lapland"/);
-  assert.match(drivePage, /finland-lapland-winter-journal-2020/);
+  assert.match(drivePage, /LAPLAND_JOURNAL_PATH/);
+  assert.equal(LAPLAND_JOURNAL_PATH, "/trips/finland-lapland-winter-journal-2020");
   assert.match(drivePage, /Flights \/ 航班/);
   assert.match(drivePage, /Stays \/ 住宿/);
   assert.match(drivePage, /Things to do \/ 活動/);
@@ -142,9 +145,9 @@ test("booking desk is a public Lapland planning page without fake widgets", asyn
 
 test("public Lapland journal adds a native winter planning block after the journal", async () => {
   const [tripPage, plan, home] = await Promise.all([
-    read("app/trips/[slug]/page.tsx"),
+    read("app/(public)/trips/[slug]/page.tsx"),
     read("components/lapland-winter-plan.tsx"),
-    read("app/page.tsx"),
+    read("app/(public)/page.tsx"),
   ]);
 
   assert.match(tripPage, /id="journal"/);
@@ -172,8 +175,8 @@ test("public Lapland journal adds a native winter planning block after the journ
 
 test("public SEO copy is unique on Lapland and Drive, not on family", async () => {
   const [tripPage, drivePage, family, robots, sitemap] = await Promise.all([
-    read("app/trips/[slug]/page.tsx"),
-    read("app/drive/page.tsx"),
+    read("app/(public)/trips/[slug]/page.tsx"),
+    read("app/(public)/drive/page.tsx"),
     read("app/family/page.tsx"),
     read("app/robots.ts"),
     read("app/sitemap.ts"),

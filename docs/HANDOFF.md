@@ -82,9 +82,11 @@
   touch Capture, `/family/capture`, the moments warehouse, PR #2, PR #3, the
   Lapland map/poster, photos, costs, or quiet music.
 - Drive script URL is unchanged: `https://emrldtp.cc/NTUwMzEz.js?t=550313`.
-  A request pathname gate skips `/family`, `/family/*`, `/sana`,
-  `/trips/admin`, `/coffee/admin`, `/trips/new`, and `/coffee/new`. Tests prove
-  family HTML does not include `emrldtp.cc` / `travelpayouts-drive`.
+  Public pages load it from `app/(public)/layout.tsx`. Family, Sana, admin,
+  and new-draft routes sit outside that layout, and a request pathname gate
+  still skips `/family`, `/family/*`, `/sana`, `/trips/admin`,
+  `/coffee/admin`, `/trips/new`, and `/coffee/new`. Tests prove family HTML
+  does not include `emrldtp.cc` / `travelpayouts-drive`.
 - Public Lapland journal
   (`/trips/finland-lapland-winter-journal-2020`) now has a native bilingual
   block after the journal: `策劃這樣的冬旅 / Plan a winter like this`. Copy

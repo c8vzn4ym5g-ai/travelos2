@@ -7,7 +7,7 @@ const root = resolve(import.meta.dirname, "..");
 
 test("primary mobile navigation exposes reliable touch targets", async () => {
   const [home, family] = await Promise.all([
-    readFile(resolve(root, "app/page.tsx"), "utf8"),
+    readFile(resolve(root, "app/(public)/page.tsx"), "utf8"),
     readFile(resolve(root, "app/family/page.tsx"), "utf8"),
   ]);
 
@@ -24,9 +24,9 @@ test("the installable app supports both portrait and landscape use", async () =>
 test("core travel, coffee, booking, and editor routes keep touch controls at 44px", async () => {
   const routeSources = await Promise.all(
     [
-      "app/trips/page.tsx",
-      "app/coffee/page.tsx",
-      "app/drive/page.tsx",
+      "app/(public)/trips/page.tsx",
+      "app/(public)/coffee/page.tsx",
+      "app/(public)/drive/page.tsx",
       "app/trips/admin/page.tsx",
       "app/coffee/admin/page.tsx",
       "app/family/capture/page.tsx",

@@ -121,9 +121,9 @@ Status: in_progress
 Current verified result:
 
 - Drive script stays on the registered URL `emrldtp.cc/NTUwMzEz.js?t=550313`.
-- Client pathname gate loads Drive only on public pages. Family, Sana, admin,
-  and new-draft routes do not receive the script. Tests prove family HTML
-  does not include `emrldtp.cc` / `travelpayouts-drive`.
+- Public routes under `app/(public)` load Drive. Family, Sana, admin, and
+  new-draft routes do not import it. A pathname gate is extra protection.
+  Tests prove family HTML does not include `emrldtp.cc` / `travelpayouts-drive`.
 - Public Lapland journal has a native bilingual planning block after the
   journal (Rovaniemi, Helsinki, Santa Claus Village, snow cabin, Arctic
   Circle). `/drive` is a booking desk featured on that journal. Home Plan &
