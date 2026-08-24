@@ -1,5 +1,30 @@
 # TravelOS Handoff
 
+## 2026-08-24 Lapland map, music, and numbered stops
+
+- Public Lapland follow-up after the copy slice. Do not merge. Do not
+  production-deploy. Do not touch Capture, `/family/capture`, the moments
+  warehouse, PR #2, or PR #3.
+- Music: the default enabled Lapland bed is now one quiet winter atmospheric
+  track, `public/travelos/music/first-light-particles.mp3` (Yoiyami, *First
+  Light Particles*, CC0 1.0, OpenGameArt). Piano and ambient pads, no
+  percussion, no Jingle Bells, no swing, no brass parade. Volume `0.18`.
+  Novelty seed tracks stay in the record with `enabled: false`. The player
+  subtitle shows `Yoiyami · First Light Particles · CC0` while the bed plays.
+- Map: `JourneyMap` splits long-haul and local scales when a trip has both.
+  Overview is Hong Kong → Helsinki → Rovaniemi at flight zoom. Detail is the
+  Rovaniemi cluster (city, airport, Santa Claus Village, Arctic Circle, cabin,
+  sled) at local zoom, using the existing OSM tile approach. Both frames fit a
+  phone; the selected card sits below the maps.
+- Numbered 44px pin/buttons select a stop in place and show related photo plus
+  wording (journal title/body, or place note + caption). No navigation away.
+  Cabin and sled pins use approximate local coordinates near Rovaniemi so they
+  can sit on the detail map; original photo files, dates, and costs are
+  unchanged.
+- Blob schema is `CONTENT_SCHEMA_VERSION = 9`. On the next content read after
+  deploy, Lapland music tracks repair from seed (quiet bed on, novelty off).
+  New cabin/sled places and local route segments merge in by id.
+
 ## 2026-08-24 Lapland public-copy slice
 
 - Public Lapland trip copy is rewritten in a professional bilingual style:

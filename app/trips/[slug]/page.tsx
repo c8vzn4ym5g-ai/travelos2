@@ -341,16 +341,6 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                   <img alt={coverPhoto.caption ?? trip.title} className="aspect-[4/3] w-full object-cover" src={coverPhoto.storageKey} />
                 </div>
               ) : null}
-              <JourneyMap
-                center={trip.coordinates}
-                city={trip.city}
-                country={trip.country}
-                journalEntries={trip.journalEntries}
-                photos={trip.photos}
-                places={trip.places}
-                route={trip.travelRoute ?? []}
-                title={trip.title}
-              />
             </div>
           </div>
           {featurePhotos.length > 1 ? (
@@ -364,6 +354,16 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               ))}
             </div>
           ) : null}
+          <JourneyMap
+            center={trip.coordinates}
+            city={trip.city}
+            country={trip.country}
+            journalEntries={trip.journalEntries}
+            photos={trip.photos}
+            places={trip.places}
+            route={trip.travelRoute ?? []}
+            title={trip.title}
+          />
         </div>
       </section>
 
