@@ -1,5 +1,19 @@
 # TravelOS Handoff
 
+## 2026-08-24 Found-set writing on /trips/write
+
+- A day and/or place filter is a temporary writing set. Photos on Write come
+  from the visible warehouse moments together, the same way a Capture job
+  already points at several moments. No new durable job type. No new Trip.
+- The writing area stays blank until a person types. Filter labels stay in the
+  Found set banner, not in the textarea. No travel log, meal log, or diary
+  prose is produced.
+- Originals stay in the warehouse. Capture remains the front door and is not
+  blocked by this retrieval path. Family PIN session only.
+- PR #2 stays held. Continue on PR #3
+  (`cursor/moment-warehouse-capture-abda`). Do not merge. Do not
+  production-deploy from this handoff.
+
 ## 2026-08-24 Find warehouse Moments by day and place
 
 - TravelOS is the sit-and-write back door. Capture stays the phone front

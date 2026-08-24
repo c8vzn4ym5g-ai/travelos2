@@ -17,7 +17,9 @@ Current verified result:
   relevant moments. `/trips/write?job=` opens those photos without generating
   a travel log or meal log.
 - `/trips/write` can list and filter warehouse moments by Asia/Taipei day and
-  by place. Capture save does not wait on indexing or geocode.
+  by place. A day/place found set becomes the writing photos together. The
+  writing area stays human-typed only. Capture save does not wait on indexing
+  or geocode.
 - Existing trip Blob APIs, live Lapland, coffee, and family PIN are unchanged.
 - PR #2 remains held; this work is a new branch off `main`.
 

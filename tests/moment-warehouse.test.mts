@@ -14,9 +14,11 @@ import {
 } from "../lib/moments.ts";
 import {
   filterMomentsByDayAndPlace,
+  hasWarehouseFoundSet,
   indexTravelMoment,
   momentCalendarDay,
   momentPlaceLabels,
+  photosFromMoments,
   placeLabelFromCoordinates,
 } from "../lib/moment-index.ts";
 
@@ -237,5 +239,53 @@ test("warehouse moments are filterable by stored coordinates as place", () => {
   assert.deepEqual(
     filterMomentsByDayAndPlace(moments, { day: "2026-08-20", place: "Rovaniemi" }).map((moment) => moment.id),
     [rovaniemi.id],
+  );
+});
+
+function testPhoto(id: string, momentId: string) {
+  return {
+    coordinates: null,
+    createdAt: "2026-08-20T04:00:00.000Z",
+    id,
+    momentId,
+    originalFilename: `${id}.jpg`,
+    originalStorageKey: null,
+    storageKey: `${id}.jpg`,
+    takenAt: "2026-08-20T04:00:00.000Z",
+  };
+}
+
+test("a found set supplies writing photos from every matching moment", () => {
+  const first = createTravelMoment({
+    coordinates: { latitude: 66.502, longitude: 25.73 },
+    time: "2026-08-20T04:00:00.000Z",
+  });
+  const second = createTravelMoment({
+    coordinates: { latitude: 66.5, longitude: 25.72 },
+    time: "2026-08-20T06:00:00.000Z",
+  });
+  const other = createTravelMoment({
+    coordinates: { latitude: 60.3172, longitude: 24.9633 },
+    time: "2026-08-21T04:00:00.000Z",
+  });
+  first.photos = [testPhoto("photo_a", first.id)];
+  second.photos = [testPhoto("photo_b", second.id), testPhoto("photo_c", second.id)];
+  other.photos = [testPhoto("photo_d", other.id)];
+  const moments = [first, second, other];
+  const found = filterMomentsByDayAndPlace(moments, { place: "Rovaniemi" });
+
+  assert.equal(hasWarehouseFoundSet({ day: "", place: "" }), false);
+  assert.equal(hasWarehouseFoundSet({ day: "2026-08-20", place: "" }), true);
+  assert.deepEqual(
+    found.map((moment) => moment.id).sort(),
+    [first.id, second.id].sort(),
+  );
+  assert.deepEqual(
+    photosFromMoments(found).map((photo) => photo.id),
+    ["photo_a", "photo_b", "photo_c"],
+  );
+  assert.equal(
+    photosFromMoments(found).some((photo) => photo.id === "photo_d"),
+    false,
   );
 });

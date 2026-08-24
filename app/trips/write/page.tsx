@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TravelOSContent } from "@/lib/editable-store";
 import { FAMILY_ADMIN_SESSION_KEY } from "@/lib/family-session";
 import {
   filterMomentsByDayAndPlace,
+  hasWarehouseFoundSet,
   momentCalendarDay,
   momentPlaceLabels,
+  photosFromMoments,
   warehouseDays,
   warehousePlaces,
 } from "@/lib/moment-index";
@@ -55,6 +57,7 @@ export default function SitAndWritePage() {
   const [placeFilter, setPlaceFilter] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("選一個 Moment 或工作，看著照片慢慢寫。這裡不會代寫。");
+  const foundSetDraftsRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
     const storedPin = window.sessionStorage.getItem(FAMILY_ADMIN_SESSION_KEY);
@@ -121,19 +124,37 @@ export default function SitAndWritePage() {
     () => moments.find((moment) => moment.id === activeMomentId) ?? moments[0] ?? null,
     [activeMomentId, moments],
   );
-  const writingPhotos = activeJob ? jobMoments.flatMap((moment) => moment.photos) : (activeMoment?.photos ?? []);
   const availableDays = useMemo(() => warehouseDays(moments), [moments]);
   const availablePlaces = useMemo(() => warehousePlaces(moments), [moments]);
   const visibleWarehouseMoments = useMemo(
     () => filterMomentsByDayAndPlace(moments, { day: dayFilter, place: placeFilter }),
     [dayFilter, moments, placeFilter],
   );
+  const foundSetKey = `${dayFilter}\0${placeFilter}`;
+  const usingFoundSet = !activeJob && hasWarehouseFoundSet({ day: dayFilter, place: placeFilter });
+  const writingMoments = activeJob ? jobMoments : usingFoundSet ? visibleWarehouseMoments : activeMoment ? [activeMoment] : [];
+  const writingPhotos = photosFromMoments(writingMoments);
 
   useEffect(() => {
     if (activeJob) {
       setDraft(activeJob.draft);
       setHiddenPhotoIds([]);
       setAttachTripId("");
+    }
+  }, [activeJob]);
+
+  useEffect(() => {
+    if (activeJob || !usingFoundSet) {
+      return;
+    }
+
+    setDraft(foundSetDraftsRef.current[foundSetKey] ?? "");
+    setHiddenPhotoIds([]);
+    setAttachTripId("");
+  }, [activeJob, foundSetKey, usingFoundSet]);
+
+  useEffect(() => {
+    if (activeJob || usingFoundSet) {
       return;
     }
 
@@ -146,9 +167,25 @@ export default function SitAndWritePage() {
     setDraft(activeMoment.draft);
     setHiddenPhotoIds([]);
     setAttachTripId(activeMoment.tripId ?? "");
-  }, [activeJob, activeMoment]);
+  }, [activeJob, activeMoment, usingFoundSet]);
 
   const visiblePhotos = writingPhotos.filter((photo) => !hiddenPhotoIds.includes(photo.id));
+
+  function stashFoundSetDraft() {
+    if (usingFoundSet) {
+      foundSetDraftsRef.current[foundSetKey] = draft;
+    }
+  }
+
+  function changeDayFilter(day: string) {
+    stashFoundSetDraft();
+    setDayFilter(day);
+  }
+
+  function changePlaceFilter(place: string) {
+    stashFoundSetDraft();
+    setPlaceFilter(place);
+  }
 
   function togglePhoto(photoId: string) {
     setHiddenPhotoIds((current) =>
@@ -157,6 +194,7 @@ export default function SitAndWritePage() {
   }
 
   function openJob(jobId: string) {
+    stashFoundSetDraft();
     setActiveJobId(jobId);
     const job = jobs.find((item) => item.id === jobId);
     if (job) {
@@ -165,12 +203,18 @@ export default function SitAndWritePage() {
   }
 
   function openMoment(momentId: string) {
+    stashFoundSetDraft();
     setActiveJobId(null);
     setActiveMomentId(momentId);
   }
 
   async function saveWriting() {
-    if (!activeJob && !activeMoment) {
+    if (!activeJob && usingFoundSet && visibleWarehouseMoments.length === 0) {
+      setMessage("這個日子或地點沒有 Moment。");
+      return;
+    }
+
+    if (!activeJob && !usingFoundSet && !activeMoment) {
       setMessage("沒有 Moment 可寫。");
       return;
     }
@@ -201,6 +245,8 @@ export default function SitAndWritePage() {
         const savedJob = (await jobResponse.json()) as { content: MomentContent; job: TravelJob };
         setJobs(savedJob.content.jobs);
         setMoments(savedJob.content.moments);
+      } else if (usingFoundSet) {
+        foundSetDraftsRef.current[foundSetKey] = draft;
       } else if (activeMoment) {
         const nextMoment: TravelMoment = {
           ...activeMoment,
@@ -240,7 +286,7 @@ export default function SitAndWritePage() {
           createdAt: timestamp,
           entryDate: timestamp.slice(0, 10),
           id: makeId("journal"),
-          mood: activeMoment?.note || null,
+          mood: usingFoundSet || activeJob ? null : activeMoment?.note || null,
           storyPhotoId: null,
           title: timestamp.slice(0, 10),
           tripId: trip.id,
@@ -293,7 +339,7 @@ export default function SitAndWritePage() {
     );
   }
 
-  const hasWritingTarget = Boolean(activeJob || activeMoment);
+  const hasWritingTarget = writingMoments.length > 0;
 
   return (
     <main className="travel-body min-h-screen bg-[#f8f3ea] text-zinc-950">
@@ -322,7 +368,7 @@ export default function SitAndWritePage() {
             <p className="travel-label text-sm font-semibold uppercase text-sky-700">TravelOS</p>
             <h1 className="travel-display mt-2 text-4xl font-semibold">Write</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">
-              倉庫裡的 Moment 當素材。用日子和地點找。工作只指出要用哪些照片。空白寫字區只放人手打的字，不會產生文章。
+              倉庫裡的 Moment 當素材。用日子和地點找出一組照片，就可以一起寫。工作只指出要用哪些照片。空白寫字區只放人手打的字，不會產生文章。
             </p>
           </div>
         </div>
@@ -361,7 +407,7 @@ export default function SitAndWritePage() {
               <span className="travel-label text-xs font-semibold text-zinc-700">Day</span>
               <select
                 className="mt-1 min-h-11 w-full rounded-2xl border border-sky-200 bg-white px-3 py-2 text-sm text-zinc-950"
-                onChange={(event) => setDayFilter(event.target.value)}
+                onChange={(event) => changeDayFilter(event.target.value)}
                 value={dayFilter}
               >
                 <option value="">All days</option>
@@ -376,7 +422,7 @@ export default function SitAndWritePage() {
               <span className="travel-label text-xs font-semibold text-zinc-700">Place</span>
               <select
                 className="mt-1 min-h-11 w-full rounded-2xl border border-sky-200 bg-white px-3 py-2 text-sm text-zinc-950"
-                onChange={(event) => setPlaceFilter(event.target.value)}
+                onChange={(event) => changePlaceFilter(event.target.value)}
                 value={placeFilter}
               >
                 <option value="">All places</option>
@@ -397,9 +443,13 @@ export default function SitAndWritePage() {
                 return (
                   <button
                     className={`rounded-2xl border px-3 py-3 text-left text-sm transition ${
-                      !activeJob && moment.id === activeMoment?.id
-                        ? "border-sky-300 bg-sky-50 text-sky-950"
-                        : "border-zinc-200 bg-white text-zinc-700 hover:bg-sky-50/60"
+                      activeJob
+                        ? "border-zinc-200 bg-white text-zinc-700 hover:bg-sky-50/60"
+                        : usingFoundSet
+                          ? "border-sky-200 bg-sky-50/70 text-sky-950"
+                          : moment.id === activeMoment?.id
+                            ? "border-sky-300 bg-sky-50 text-sky-950"
+                            : "border-zinc-200 bg-white text-zinc-700 hover:bg-sky-50/60"
                     }`}
                     key={moment.id}
                     onClick={() => openMoment(moment.id)}
@@ -427,6 +477,16 @@ export default function SitAndWritePage() {
                   <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-amber-800">Job</p>
                   <p className="mt-2 text-sm leading-6 text-zinc-800">{activeJob.command}</p>
                   <p className="mt-2 text-xs leading-5 text-zinc-500">這是工作，不是日記。下面空白處才是你要寫的字。</p>
+                </div>
+              ) : usingFoundSet ? (
+                <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3">
+                  <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-sky-800">Found set</p>
+                  <p className="mt-2 text-sm leading-6 text-zinc-800">
+                    {visibleWarehouseMoments.length} moments
+                    {dayFilter ? ` · ${dayFilter}` : ""}
+                    {placeFilter ? ` · ${placeFilter}` : ""}
+                  </p>
+                  <p className="mt-2 text-xs leading-5 text-zinc-500">這些照片是這次找到的素材。下面空白處才是你要寫的字。</p>
                 </div>
               ) : null}
 

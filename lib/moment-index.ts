@@ -149,3 +149,11 @@ export function warehouseDays(moments: TravelMoment[]) {
 export function warehousePlaces(moments: TravelMoment[]) {
   return [...new Set(moments.flatMap(momentPlaceLabels))].sort((first, second) => first.localeCompare(second));
 }
+
+export function hasWarehouseFoundSet(filters: { day?: string; place?: string }) {
+  return Boolean(filters.day?.trim() || filters.place?.trim());
+}
+
+export function photosFromMoments(moments: Array<Pick<TravelMoment, "photos">>) {
+  return moments.flatMap((moment) => moment.photos);
+}

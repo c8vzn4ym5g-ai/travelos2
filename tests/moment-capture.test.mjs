@@ -104,14 +104,20 @@ test("sit-and-write has no generated story and lists warehouse photos", async ()
   assert.match(write, /\/api\/moments/);
   assert.match(write, /aiSummary: null/);
   assert.match(write, /get\("job"\)/);
-  assert.match(write, /jobMoments.flatMap\(\(moment\) => moment.photos\)/);
+  assert.match(write, /photosFromMoments\(writingMoments\)/);
+  assert.match(write, /usingFoundSet/);
+  assert.match(write, /visibleWarehouseMoments/);
   assert.match(write, /setDraft\(activeJob.draft\)/);
   assert.match(write, /filterMomentsByDayAndPlace/);
   assert.match(write, />Day</);
   assert.match(write, />Place</);
   assert.match(write, /All days/);
   assert.match(write, /All places/);
+  assert.match(write, /Found set/);
+  assert.doesNotMatch(write, /setDraft\(dayFilter\)/);
+  assert.doesNotMatch(write, /setDraft\(placeFilter\)/);
   assert.doesNotMatch(write, /setDraft\(activeJob.command\)/);
+  assert.doesNotMatch(write, /setDraft\(`\$\{dayFilter/);
   assert.doesNotMatch(write, /exciting travel log/);
   assert.doesNotMatch(write, /meal log/);
   assert.doesNotMatch(write, /Write the memory here/);
@@ -192,4 +198,25 @@ test("capture and save paths are not blocked by indexing or geocoding", async ()
   const geolocationIndex = capture.indexOf("navigator.geolocation.getCurrentPosition");
   assert.ok(saveIndex !== -1 && geolocationIndex !== -1);
   assert.ok(geolocationIndex < saveIndex);
+});
+
+test("write uses a found set for photos and does not fill the writing area", async () => {
+  const [write, capture, momentsApi, photosApi] = await Promise.all([
+    readSource("app/trips/write/page.tsx"),
+    readSource("app/family/capture/page.tsx"),
+    readSource("app/api/moments/route.ts"),
+    readSource("app/api/moments/photos/route.ts"),
+  ]);
+
+  assert.match(write, /writingMoments = activeJob \? jobMoments : usingFoundSet \? visibleWarehouseMoments/);
+  assert.match(write, /photosFromMoments\(writingMoments\)/);
+  assert.match(write, /foundSetDraftsRef\.current\[foundSetKey\] \?\? ""/);
+  assert.doesNotMatch(write, /createTravelJob/);
+  assert.doesNotMatch(write, /\/api\/trips\/photos/);
+  assert.doesNotMatch(write, /method: "POST"/);
+  assert.doesNotMatch(write, /placeholder=/);
+  assert.doesNotMatch(capture, /usingFoundSet/);
+  assert.doesNotMatch(capture, /photosFromMoments/);
+  assert.doesNotMatch(momentsApi, /await scheduleMomentIndex/);
+  assert.doesNotMatch(photosApi, /await scheduleMomentIndex/);
 });
