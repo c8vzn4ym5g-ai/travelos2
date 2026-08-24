@@ -36,3 +36,23 @@ export async function POST(request: Request) {
 
   return Response.json({ content: saved.content, moment: saved.moment });
 }
+
+export async function DELETE(request: Request) {
+  const pin = request.headers.get("x-travelos-admin-pin");
+  if (!isAdminPinValid(pin)) {
+    return Response.json({ error: "Invalid admin PIN" }, { status: 401 });
+  }
+
+  const url = new URL(request.url);
+  const momentId = url.searchParams.get("momentId") ?? "";
+  if (!momentId) {
+    return Response.json({ error: "Moment is required" }, { status: 400 });
+  }
+
+  const saved = await setMomentAudio(momentId, null);
+  if (!saved) {
+    return Response.json({ error: "Moment not found" }, { status: 404 });
+  }
+
+  return Response.json({ ok: true });
+}

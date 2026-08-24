@@ -1,8 +1,9 @@
 import {
   addPhotoToMoment,
   isAdminPinValid,
-  momentExists,
+  removePhotoFromMoment,
   scheduleMomentIndex,
+  setPhotoOriginal,
   storeMomentBinary,
 } from "@/lib/moment-store";
 import { makeMomentId } from "@/lib/moments";
@@ -37,16 +38,30 @@ export async function POST(request: Request) {
 
   const formData = await request.formData();
   const momentId = String(formData.get("momentId") ?? "");
+  const photoId = String(formData.get("photoId") ?? "");
   const takenAt = String(formData.get("takenAt") ?? "").trim();
   const file = formData.get("file");
   const original = formData.get("original");
 
-  if (!momentId || !(file instanceof File)) {
+  if (!momentId) {
     return Response.json({ error: "Moment and photo file are required" }, { status: 400 });
   }
 
-  if (!(await momentExists(momentId))) {
-    return Response.json({ error: "Moment not found" }, { status: 404 });
+  if (photoId && original instanceof File) {
+    const originalBlob = await storeMomentBinary(
+      `travelos/moments/photos/${momentId}/original-${Date.now()}-${cleanFilename(original.name)}`,
+      original,
+    );
+    const saved = await setPhotoOriginal(momentId, photoId, originalBlob.url);
+    if (!saved) {
+      return Response.json({ error: "Moment not found" }, { status: 404 });
+    }
+
+    return Response.json({ photo: saved.photo });
+  }
+
+  if (!(file instanceof File)) {
+    return Response.json({ error: "Moment and photo file are required" }, { status: 400 });
   }
 
   const displayBlob = await storeMomentBinary(
@@ -54,23 +69,14 @@ export async function POST(request: Request) {
     file,
   );
 
-  let originalStorageKey: string | null = null;
-  if (original instanceof File && (original.name !== file.name || original.size !== file.size)) {
-    const originalBlob = await storeMomentBinary(
-      `travelos/moments/photos/${momentId}/original-${Date.now()}-${cleanFilename(original.name)}`,
-      original,
-    );
-    originalStorageKey = originalBlob.url;
-  }
-
   const now = new Date().toISOString();
   const photo: MomentPhoto = {
     coordinates: readCoordinates(formData),
     createdAt: now,
     id: makeMomentId("moment_photo"),
     momentId,
-    originalFilename: original instanceof File ? original.name : file.name,
-    originalStorageKey,
+    originalFilename: file.name,
+    originalStorageKey: null,
     storageKey: displayBlob.url,
     takenAt: takenAt ? new Date(takenAt).toISOString() : now,
   };
@@ -82,5 +88,26 @@ export async function POST(request: Request) {
 
   scheduleMomentIndex(momentId);
 
-  return Response.json({ content, photo });
+  return Response.json({ photo });
+}
+
+export async function DELETE(request: Request) {
+  const pin = request.headers.get("x-travelos-admin-pin");
+  if (!isAdminPinValid(pin)) {
+    return Response.json({ error: "Invalid admin PIN" }, { status: 401 });
+  }
+
+  const url = new URL(request.url);
+  const momentId = url.searchParams.get("momentId") ?? "";
+  const photoId = url.searchParams.get("photoId") ?? "";
+  if (!momentId || !photoId) {
+    return Response.json({ error: "Moment and photo are required" }, { status: 400 });
+  }
+
+  const content = await removePhotoFromMoment(momentId, photoId);
+  if (!content) {
+    return Response.json({ error: "Moment not found" }, { status: 404 });
+  }
+
+  return Response.json({ ok: true });
 }

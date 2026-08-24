@@ -7,7 +7,7 @@ import {
   updateJob,
   updateMoment,
 } from "@/lib/moment-store";
-import { createTravelJob, createTravelMoment, normalizeTravelJob, normalizeTravelMoment, selectMomentIdsForCommand } from "@/lib/moments";
+import { createTravelJob, createTravelMoment, normalizeTravelJob, selectMomentIdsForCommand } from "@/lib/moments";
 import type { GeoPoint, TravelJob, TravelMoment } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -80,7 +80,7 @@ export async function PUT(request: Request) {
     return Response.json({ error: "Invalid admin PIN" }, { status: 401 });
   }
 
-  const body = (await request.json()) as { job?: TravelJob; moment?: TravelMoment };
+  const body = (await request.json()) as { job?: TravelJob; moment?: Partial<TravelMoment> & { id: string } };
   if (body.job?.id) {
     const nextJob = normalizeTravelJob(body.job);
     const saved = await updateJob(nextJob);
@@ -100,10 +100,30 @@ export async function PUT(request: Request) {
     return Response.json({ error: "Moment payload is required" }, { status: 400 });
   }
 
-  const saved = await updateMoment(normalizeTravelMoment(body.moment));
+  const saved = await updateMoment(body.moment);
   if (!saved) {
     return Response.json({ error: "Moment not found" }, { status: 404 });
   }
 
-  return Response.json({ content: saved.content, moment: saved.moment });
+  if (!saved.moment.command) {
+    return Response.json({ content: saved.content, job: null, moment: saved.moment });
+  }
+
+  const existingJob = saved.content.jobs.find((job) => job.sourceMomentId === saved.moment.id);
+  if (existingJob) {
+    return Response.json({ content: saved.content, job: existingJob, moment: saved.moment });
+  }
+
+  const momentIds = selectMomentIdsForCommand(saved.moment.command, saved.content.moments, saved.moment.id);
+  const job = createTravelJob({
+    command: saved.moment.command,
+    momentIds,
+    sourceMomentId: saved.moment.id,
+  });
+  const withJob = await addJob(job);
+  if (withJob.conflict) {
+    return Response.json({ content: withJob.content, job: null, moment: saved.moment });
+  }
+
+  return Response.json({ content: withJob.content, job: withJob.job, moment: saved.moment });
 }

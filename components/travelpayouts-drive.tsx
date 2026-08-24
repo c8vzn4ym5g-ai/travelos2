@@ -1,6 +1,15 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+
 const driveScriptUrl = "https://emrldtp.cc/NTUwMzEz.js?t=550313";
 
 export function TravelpayoutsDrive() {
+  const pathname = usePathname();
+  if (pathname?.startsWith("/family/capture")) {
+    return null;
+  }
+
   return (
     <script
       async

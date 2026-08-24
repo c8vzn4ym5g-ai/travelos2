@@ -1,5 +1,5 @@
 import { calendarDayInTimeZone, momentCalendarDay, shiftCalendarDay } from "./moment-index.ts";
-import type { GeoPoint, TravelJob, TravelMoment } from "@/lib/types";
+import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "@/lib/types";
 
 export const MOMENTS_BLOB_PATH = "travelos/moments.json";
 export const MOMENTS_SCHEMA_VERSION = 2;
@@ -27,6 +27,30 @@ export function emptyMomentLabels() {
 
 export function appendMomentPhotos<T>(current: T[], incoming: T[]) {
   return [...current, ...incoming];
+}
+
+export function applyMomentPhotoAppends(
+  moments: TravelMoment[],
+  incoming: Array<{ momentId: string; photo: MomentPhoto }>,
+) {
+  const grouped = new Map<string, MomentPhoto[]>();
+  for (const item of incoming) {
+    const list = grouped.get(item.momentId) ?? [];
+    list.push(item.photo);
+    grouped.set(item.momentId, list);
+  }
+
+  return moments.map((moment) => {
+    const extra = grouped.get(moment.id);
+    if (!extra?.length) {
+      return moment;
+    }
+
+    return {
+      ...moment,
+      photos: appendMomentPhotos(moment.photos, extra),
+    };
+  });
 }
 
 export function isHeicPhoto(file: { name: string; type: string }) {

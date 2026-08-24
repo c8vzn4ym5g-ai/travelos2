@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   MOMENTS_BLOB_PATH,
   appendMomentPhotos,
+  applyMomentPhotoAppends,
   classifyCaptureNote,
   createTravelJob,
   createTravelMoment,
@@ -40,6 +41,34 @@ test("capture photos accumulate instead of replacing previous ones", () => {
     first.map((item) => item.id),
     ["one"],
   );
+});
+
+test("warehouse photo appends can land in one write", () => {
+  const moment = createTravelMoment({ note: "batch", time: "2026-08-24T12:00:00.000Z" });
+  const first = {
+    coordinates: null,
+    createdAt: "2026-08-24T12:00:00.000Z",
+    id: "photo_one",
+    momentId: moment.id,
+    originalFilename: "one.jpg",
+    originalStorageKey: null,
+    storageKey: "one.jpg",
+    takenAt: "2026-08-24T12:00:00.000Z",
+  };
+  const second = { ...first, id: "photo_two", originalFilename: "two.jpg", storageKey: "two.jpg" };
+  const updated = applyMomentPhotoAppends(
+    [moment],
+    [
+      { momentId: moment.id, photo: first },
+      { momentId: moment.id, photo: second },
+    ],
+  );
+
+  assert.deepEqual(
+    updated[0].photos.map((photo) => photo.id),
+    ["photo_one", "photo_two"],
+  );
+  assert.deepEqual(moment.photos, []);
 });
 
 test("a new moment is a warehouse asset and not a trip", () => {

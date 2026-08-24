@@ -4,7 +4,7 @@ import { indexTravelMoment } from "@/lib/moment-index";
 import {
   MOMENTS_BLOB_PATH,
   MOMENTS_SCHEMA_VERSION,
-  appendMomentPhotos,
+  applyMomentPhotoAppends,
   normalizeTravelJob,
   normalizeTravelMoment,
 } from "@/lib/moments";
@@ -54,6 +54,17 @@ function withNormalizedContent(content: MomentContent): MomentContent {
     schemaVersion: content.schemaVersion ?? MOMENTS_SCHEMA_VERSION,
     updatedAt: content.updatedAt,
   };
+}
+
+let warehouseWriteQueue: Promise<void> = Promise.resolve();
+
+function withWarehouseLock<T>(work: () => Promise<T>): Promise<T> {
+  const run = warehouseWriteQueue.then(work, work);
+  warehouseWriteQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
 }
 
 export async function readMoments(): Promise<{ content: MomentContent; status: MomentStoreStatus }> {
@@ -133,88 +144,192 @@ export async function momentExists(momentId: string) {
 }
 
 export async function addMoment(moment: TravelMoment) {
-  const { content } = await readMoments();
-  if (content.moments.some((item) => item.id === moment.id)) {
-    return { conflict: true as const, content };
-  }
+  return withWarehouseLock(async () => {
+    const { content } = await readMoments();
+    if (content.moments.some((item) => item.id === moment.id)) {
+      return { conflict: true as const, content };
+    }
 
-  const saved = await writeWarehouse([normalizeTravelMoment(moment), ...content.moments], content.jobs);
-  return { conflict: false as const, content: saved, moment: normalizeTravelMoment(moment) };
+    const saved = await writeWarehouse([normalizeTravelMoment(moment), ...content.moments], content.jobs);
+    return { conflict: false as const, content: saved, moment: normalizeTravelMoment(moment) };
+  });
 }
 
-export async function updateMoment(moment: TravelMoment) {
-  const { content } = await readMoments();
-  if (!content.moments.some((item) => item.id === moment.id)) {
-    return null;
-  }
+export async function updateMoment(moment: Partial<TravelMoment> & { id: string }) {
+  return withWarehouseLock(async () => {
+    const { content } = await readMoments();
+    const current = content.moments.find((item) => item.id === moment.id);
+    if (!current) {
+      return null;
+    }
 
-  const next = normalizeTravelMoment(moment);
-  const moments = content.moments.map((item) => (item.id === next.id ? next : item));
-  const saved = await writeWarehouse(moments, content.jobs);
-  return { content: saved, moment: next };
+    const next = normalizeTravelMoment({
+      ...current,
+      ...moment,
+      originalAudioUrl:
+        moment.originalAudioUrl !== undefined ? moment.originalAudioUrl : current.originalAudioUrl,
+      photos: moment.photos ?? current.photos,
+    });
+    const moments = content.moments.map((item) => (item.id === next.id ? next : item));
+    const saved = await writeWarehouse(moments, content.jobs);
+    return { content: saved, moment: next };
+  });
 }
 
 export async function addJob(job: TravelJob) {
-  const { content } = await readMoments();
-  if (content.jobs.some((item) => item.id === job.id)) {
-    return { conflict: true as const, content };
-  }
+  return withWarehouseLock(async () => {
+    const { content } = await readMoments();
+    if (content.jobs.some((item) => item.id === job.id)) {
+      return { conflict: true as const, content };
+    }
 
-  const next = normalizeTravelJob(job);
-  const saved = await writeWarehouse(content.moments, [next, ...content.jobs]);
-  return { conflict: false as const, content: saved, job: next };
+    const next = normalizeTravelJob(job);
+    const saved = await writeWarehouse(content.moments, [next, ...content.jobs]);
+    return { conflict: false as const, content: saved, job: next };
+  });
 }
 
 export async function updateJob(job: TravelJob) {
-  const { content } = await readMoments();
-  if (!content.jobs.some((item) => item.id === job.id)) {
-    return null;
-  }
-
-  const next = normalizeTravelJob(job);
-  const jobs = content.jobs.map((item) => (item.id === next.id ? next : item));
-  const saved = await writeWarehouse(content.moments, jobs);
-  return { content: saved, job: next };
-}
-
-export async function addPhotoToMoment(momentId: string, photo: MomentPhoto) {
-  const { content } = await readMoments();
-  let found = false;
-  const moments = content.moments.map((moment) => {
-    if (moment.id !== momentId) {
-      return moment;
+  return withWarehouseLock(async () => {
+    const { content } = await readMoments();
+    if (!content.jobs.some((item) => item.id === job.id)) {
+      return null;
     }
 
-    found = true;
-    return {
-      ...moment,
-      photos: appendMomentPhotos(moment.photos, [photo]),
-    };
+    const next = normalizeTravelJob(job);
+    const jobs = content.jobs.map((item) => (item.id === next.id ? next : item));
+    const saved = await writeWarehouse(content.moments, jobs);
+    return { content: saved, job: next };
   });
-
-  if (!found) {
-    return null;
-  }
-
-  return writeWarehouse(moments, content.jobs);
 }
 
-export async function setMomentAudio(momentId: string, originalAudioUrl: string) {
-  const { content } = await readMoments();
-  const current = content.moments.find((moment) => moment.id === momentId);
-  if (!current) {
-    return null;
-  }
+type PendingPhotoAppend = {
+  momentId: string;
+  photo: MomentPhoto;
+  resolve: (content: MomentContent | null) => void;
+  reject: (error: unknown) => void;
+};
 
-  const next = {
-    ...current,
-    originalAudioUrl,
-  };
-  const saved = await writeWarehouse(
-    content.moments.map((moment) => (moment.id === momentId ? next : moment)),
-    content.jobs,
-  );
-  return { content: saved, moment: next };
+const pendingPhotoAppends: PendingPhotoAppend[] = [];
+let photoAppendFlush: Promise<void> | null = null;
+
+async function flushPhotoAppends() {
+  await Promise.resolve();
+  await withWarehouseLock(async () => {
+    const batch = pendingPhotoAppends.splice(0);
+    photoAppendFlush = null;
+    if (batch.length === 0) {
+      return;
+    }
+
+    try {
+      const { content } = await readMoments();
+      const knownIds = new Set(content.moments.map((moment) => moment.id));
+      const accepted = batch.filter((item) => knownIds.has(item.momentId));
+      const missing = batch.filter((item) => !knownIds.has(item.momentId));
+      const saved =
+        accepted.length > 0
+          ? await writeWarehouse(
+              applyMomentPhotoAppends(
+                content.moments,
+                accepted.map((item) => ({ momentId: item.momentId, photo: item.photo })),
+              ),
+              content.jobs,
+            )
+          : content;
+
+      for (const item of accepted) {
+        item.resolve(saved);
+      }
+      for (const item of missing) {
+        item.resolve(null);
+      }
+    } catch (error) {
+      for (const item of batch) {
+        item.reject(error);
+      }
+    }
+  });
+}
+
+export function addPhotoToMoment(momentId: string, photo: MomentPhoto) {
+  return new Promise<MomentContent | null>((resolve, reject) => {
+    pendingPhotoAppends.push({ momentId, photo, reject, resolve });
+    photoAppendFlush ??= flushPhotoAppends();
+  });
+}
+
+export async function setMomentAudio(momentId: string, originalAudioUrl: string | null) {
+  return withWarehouseLock(async () => {
+    const { content } = await readMoments();
+    const current = content.moments.find((moment) => moment.id === momentId);
+    if (!current) {
+      return null;
+    }
+
+    const next = {
+      ...current,
+      originalAudioUrl,
+    };
+    const saved = await writeWarehouse(
+      content.moments.map((moment) => (moment.id === momentId ? next : moment)),
+      content.jobs,
+    );
+    return { content: saved, moment: next };
+  });
+}
+
+export async function setPhotoOriginal(momentId: string, photoId: string, originalStorageKey: string) {
+  return withWarehouseLock(async () => {
+    const { content } = await readMoments();
+    let nextPhoto: MomentPhoto | null = null;
+    const moments = content.moments.map((moment) => {
+      if (moment.id !== momentId) {
+        return moment;
+      }
+
+      return {
+        ...moment,
+        photos: moment.photos.map((photo) => {
+          if (photo.id !== photoId) {
+            return photo;
+          }
+
+          nextPhoto = { ...photo, originalStorageKey };
+          return nextPhoto;
+        }),
+      };
+    });
+
+    if (!nextPhoto) {
+      return null;
+    }
+
+    const saved = await writeWarehouse(moments, content.jobs);
+    return { content: saved, photo: nextPhoto };
+  });
+}
+
+export async function removePhotoFromMoment(momentId: string, photoId: string) {
+  return withWarehouseLock(async () => {
+    const { content } = await readMoments();
+    let found = false;
+    const moments = content.moments.map((moment) => {
+      if (moment.id !== momentId) {
+        return moment;
+      }
+
+      const photos = moment.photos.filter((photo) => photo.id !== photoId);
+      found = photos.length !== moment.photos.length;
+      return { ...moment, photos };
+    });
+
+    if (!found) {
+      return null;
+    }
+
+    return writeWarehouse(moments, content.jobs);
+  });
 }
 
 export function scheduleMomentIndex(momentId: string) {
@@ -234,17 +349,19 @@ async function indexSavedMoment(momentId: string) {
       return;
     }
 
-    const latest = await readMoments();
-    const latestMoment = latest.content.moments.find((moment) => moment.id === momentId);
-    if (!latestMoment) {
-      return;
-    }
+    await withWarehouseLock(async () => {
+      const latest = await readMoments();
+      const latestMoment = latest.content.moments.find((moment) => moment.id === momentId);
+      if (!latestMoment) {
+        return;
+      }
 
-    const next = indexTravelMoment(latestMoment);
-    await writeWarehouse(
-      latest.content.moments.map((moment) => (moment.id === momentId ? next : moment)),
-      latest.content.jobs,
-    );
+      const next = indexTravelMoment(latestMoment);
+      await writeWarehouse(
+        latest.content.moments.map((moment) => (moment.id === momentId ? next : moment)),
+        latest.content.jobs,
+      );
+    });
   } catch {
     // Indexing must never fail capture or photo upload.
   }
