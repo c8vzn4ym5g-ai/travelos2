@@ -156,7 +156,7 @@ function RegionalMap({
         // eslint-disable-next-line @next/next/no-img-element
         <img
           alt=""
-          className="absolute max-w-none select-none object-cover opacity-70 grayscale-[28%] saturate-[0.55] contrast-[0.92]"
+          className="absolute max-w-none select-none object-cover opacity-55 grayscale-[42%] saturate-[0.42] contrast-[0.9]"
           draggable={false}
           key={tile.key}
           loading="lazy"

@@ -76,9 +76,9 @@ export type TileBounds = {
 
 const LOCAL_SPAN_DEGREES = 2.5;
 const LONG_HAUL_SPAN_DEGREES = 8;
-const MIN_REGIONAL_SPAN_DEGREES = 0.22;
+const MIN_REGIONAL_SPAN_DEGREES = 0.1;
 const LAPLAND_CAMPFIRE_POINT: GeoPoint = { latitude: 66.5004, longitude: 25.7148 };
-const LAPLAND_ARCTIC_DISPLAY: GeoPoint = { latitude: 66.5496, longitude: 25.8358 };
+const LAPLAND_ARCTIC_DISPLAY: GeoPoint = { latitude: 66.5534, longitude: 25.8216 };
 const LAPLAND_CITY: GeoPoint = { latitude: 66.5039, longitude: 25.7294 };
 
 export function isVisibleRoute(segment: TravelRouteSegment) {
@@ -518,7 +518,7 @@ export function getTileBounds(points: GeoPoint[], scale: MapScale = "regional"):
   const ys = framedPoints.map((point) => latitudeToTileY(point.latitude, zoom));
   const xSpan = Math.max(...xs) - Math.min(...xs);
   const ySpan = Math.max(...ys) - Math.min(...ys);
-  const pad = scale === "regional" ? Math.max(0.55, Math.max(xSpan, ySpan) * 0.28) : Math.max(0.35, Math.max(xSpan, ySpan) * 0.18);
+  const pad = scale === "regional" ? Math.max(0.42, Math.max(xSpan, ySpan) * 0.2) : Math.max(0.35, Math.max(xSpan, ySpan) * 0.18);
 
   return {
     maxX: Math.max(...xs) + pad,
