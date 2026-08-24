@@ -1,5 +1,20 @@
 # TravelOS Codex Tasks
 
+## TASK-016: Rebuild Lapland JourneyMap as a regional itinerary
+
+Status: in_progress
+
+Current result:
+
+- Replaced the two equal-weight OSM tiles with one Rovaniemi / Finnish
+  Lapland regional map as the hero. Hong Kong → Helsinki → Rovaniemi is a
+  small arrival strip, not a second map.
+- Numbered stop list uses existing journal dates and place names: arrival
+  1/18, Santa Village 1/20, Arctic Circle, sled, campfire 1/22, cabin.
+  Selecting a row or pin shows photo plus bilingual wording. 44px targets.
+- Phone: list, then map, then selected card. Desktop: list beside map.
+- Quiet CC0 winter bed, photos, and costs are unchanged. Do not merge.
+
 ## TASK-015: Complete the responsive mobile and desktop app shell
 
 Status: in_progress

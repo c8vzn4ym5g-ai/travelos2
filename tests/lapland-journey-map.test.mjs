@@ -2,117 +2,60 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
-import { chooseZoom, getStopCardContent, partitionJourneyScales } from "../lib/journey-map-model.ts";
+import {
+  buildJourneyItinerary,
+  chooseZoom,
+  getStopCardContent,
+  isRegionalPointSet,
+} from "../lib/journey-map-model.ts";
+import { seedTripDetails } from "../lib/trips.ts";
 
 const root = resolve(import.meta.dirname, "..");
-
-const laplandCenter = { latitude: 66.5039, longitude: 25.7294 };
+const lapland = seedTripDetails.find((trip) => trip.id === "trip_lapland_2020");
 const hongKong = { latitude: 22.308, longitude: 113.9185 };
-const helsinki = { latitude: 60.3172, longitude: 24.9633 };
-const rovaniemiAirport = { latitude: 66.5648, longitude: 25.8304 };
-const santaVillage = { latitude: 66.5436, longitude: 25.8472 };
-const cabin = { latitude: 66.4958, longitude: 25.7012 };
-const sled = { latitude: 66.5382, longitude: 25.8595 };
 
-const laplandPlaces = [
-  { id: "place_hk", name: "Hong Kong International Airport", coordinates: hongKong, notes: "Long-haul start." },
-  { id: "place_hel", name: "Helsinki Airport", coordinates: helsinki, notes: "Connection." },
-  { id: "place_rvn", name: "Rovaniemi Airport", coordinates: rovaniemiAirport, notes: "Arrival airport." },
-  { id: "place_santa", name: "Santa Claus Village", coordinates: santaVillage, notes: "Village lights." },
-  { id: "place_arctic", name: "Arctic Circle Line", coordinates: santaVillage, notes: "Arctic Circle marker." },
-  { id: "place_cabin", name: "Snow cabin", coordinates: cabin, notes: "雪屋。 / Snow cabin." },
-  { id: "place_sled", name: "Sled route", coordinates: sled, notes: "雪地雪橇。 / Sled in the snow." },
-].map((place) => ({
-  address: null,
-  city: "Rovaniemi",
-  country: "Finland",
-  createdAt: "2020-01-18T00:00:00.000Z",
-  rating: null,
-  tripId: "trip_lapland_2020",
-  type: "attraction",
-  updatedAt: "2020-01-18T00:00:00.000Z",
-  ...place,
-}));
-
-const laplandRoute = [
-  {
-    createdAt: "2020-01-18T00:00:00.000Z",
-    from: hongKong,
-    fromLabel: "Hong Kong",
-    id: "route_hk_hel",
-    linkedJournalEntryId: "journal_arrival",
-    linkedPhotoId: "photo_arctic",
-    linkedPlaceId: "place_hel",
-    note: "Long-haul flight.",
-    to: helsinki,
-    toLabel: "Helsinki Airport",
-    transport: "flight",
-    tripId: "trip_lapland_2020",
-    updatedAt: "2020-01-18T00:00:00.000Z",
-    visibility: "public",
-  },
-  {
-    createdAt: "2020-01-18T00:00:00.000Z",
-    from: helsinki,
-    fromLabel: "Helsinki Airport",
-    id: "route_hel_rvn",
-    linkedJournalEntryId: "journal_arrival",
-    linkedPhotoId: "photo_arctic",
-    linkedPlaceId: "place_rvn",
-    note: "Domestic flight.",
-    to: rovaniemiAirport,
-    toLabel: "Rovaniemi Airport",
-    transport: "flight",
-    tripId: "trip_lapland_2020",
-    updatedAt: "2020-01-18T00:00:00.000Z",
-    visibility: "public",
-  },
-  {
-    createdAt: "2020-01-18T00:00:00.000Z",
-    from: laplandCenter,
-    fromLabel: "Rovaniemi",
-    id: "route_city_santa",
-    linkedJournalEntryId: "journal_santa",
-    linkedPhotoId: "photo_santa",
-    linkedPlaceId: "place_santa",
-    note: "Short snowy ride.",
-    to: santaVillage,
-    toLabel: "Santa Claus Village",
-    transport: "car",
-    tripId: "trip_lapland_2020",
-    updatedAt: "2020-01-18T00:00:00.000Z",
-    visibility: "public",
-  },
-];
-
-test("JourneyMap source renders two OSM scales and 44px numbered stops", async () => {
-  const [source, model] = await Promise.all([
+test("JourneyMap source makes the regional map the large frame", async () => {
+  const [source, model, page] = await Promise.all([
     readFile(resolve(root, "components/journey-map.tsx"), "utf8"),
     readFile(resolve(root, "lib/journey-map-model.ts"), "utf8"),
+    readFile(resolve(root, "app/trips/[slug]/page.tsx"), "utf8"),
   ]);
 
-  assert.match(source, /data-map-scale=\{slice\.scale\}/);
-  assert.match(source, /"overview"/);
-  assert.match(source, /"detail"/);
-  assert.match(model, /tile\.openstreetmap\.org/);
-  assert.match(source, /min-h-11 min-w-11/);
+  assert.match(source, /data-map-frame="regional"/);
+  assert.match(source, /min-h-\[22rem\].*lg:min-h-\[32rem\]/);
+  assert.match(source, /data-arrival-locator/);
+  assert.match(source, /data-stop-list/);
+  assert.match(source, /min-h-11/);
   assert.match(source, /data-stop-card/);
   assert.match(source, /data-stop-title/);
   assert.match(source, /data-stop-wording/);
-  assert.doesNotMatch(source, /router\.push/);
+  assert.match(model, /tile\.openstreetmap\.org/);
+  const layout = source.slice(source.indexOf("export function JourneyMap"));
+  assert.match(layout, /data-stop-list[\s\S]*<RegionalMap[\s\S]*data-stop-card/);
+  assert.doesNotMatch(source, /data-map-scale=\{slice\.scale\}/);
+  assert.doesNotMatch(source, /data-map-frame="overview"/);
   assert.doesNotMatch(source, /Writing guide/);
   assert.doesNotMatch(source, /Visitor scan/);
-});
-
-test("public trip page still has no writer chrome", async () => {
-  const page = await readFile(resolve(root, "app/trips/[slug]/page.tsx"), "utf8");
-
   assert.doesNotMatch(page, /Writing guide/);
   assert.doesNotMatch(page, /Visitor scan/);
   assert.match(page, /<JourneyMap/);
 });
 
-test("Lapland default music is one quiet CC0 winter bed", async () => {
+test("arrival locator is not an equal-size second map", async () => {
+  const source = await readFile(resolve(root, "components/journey-map.tsx"), "utf8");
+  const locatorBlock = source.slice(source.indexOf("function ArrivalLocator"), source.indexOf("function RegionalMap"));
+  const regionalBlock = source.slice(source.indexOf("function RegionalMap"), source.indexOf("export function JourneyMap"));
+
+  assert.match(locatorBlock, /data-arrival-locator/);
+  assert.doesNotMatch(locatorBlock, /tile\.openstreetmap\.org/);
+  assert.doesNotMatch(locatorBlock, /min-h-\[22rem\]/);
+  assert.match(regionalBlock, /data-map-frame="regional"/);
+  assert.match(regionalBlock, /getMapTiles/);
+  assert.match(regionalBlock, /min-h-\[22rem\]/);
+  assert.match(source, /How we arrived/);
+});
+
+test("Lapland default music stays one quiet CC0 winter bed", async () => {
   const seed = await readFile(resolve(root, "lib/trips.ts"), "utf8");
   const player = await readFile(resolve(root, "components/journey-music-player.tsx"), "utf8");
 
@@ -127,95 +70,78 @@ test("Lapland default music is one quiet CC0 winter bed", async () => {
   assert.match(player, /activeTrack\.credit/);
 });
 
-test("partitionJourneyScales splits Hong Kong flights from the Finland cluster", () => {
-  const scales = partitionJourneyScales({
-    center: laplandCenter,
-    places: laplandPlaces,
-    route: laplandRoute,
+test("Lapland itinerary is a Rovaniemi regional map, not a Hong Kong-scale overview", () => {
+  assert.ok(lapland);
+  const itinerary = buildJourneyItinerary({
+    center: lapland.coordinates,
+    city: lapland.city,
+    journalEntries: lapland.journalEntries,
+    photos: lapland.photos,
+    places: lapland.places,
+    route: lapland.travelRoute,
   });
 
-  assert.equal(scales.single, null);
-  assert.ok(scales.overview);
-  assert.ok(scales.detail);
-  assert.equal(scales.overview.scale, "overview");
-  assert.equal(scales.detail.scale, "detail");
+  assert.ok(itinerary.arrival);
   assert.deepEqual(
-    scales.overview.places.map((place) => place.id).sort(),
-    ["place_hel", "place_hk", "place_rvn"],
+    itinerary.arrival.map((city) => city.shortLabel),
+    ["HK", "HEL", "RVN"],
   );
-  assert.ok(scales.detail.places.some((place) => place.id === "place_santa"));
-  assert.ok(scales.detail.places.some((place) => place.id === "place_cabin"));
-  assert.ok(scales.detail.places.some((place) => place.id === "place_sled"));
-  assert.ok(!scales.detail.places.some((place) => place.id === "place_hk"));
-  assert.ok(chooseZoom(scales.overview.points, "overview") <= 3);
-  assert.ok(chooseZoom(scales.detail.points, "detail") >= 9);
+  assert.equal(itinerary.regionalStops.length, 6);
+  assert.deepEqual(
+    itinerary.regionalStops.map((stop) => stop.number),
+    [1, 2, 3, 4, 5, 6],
+  );
+  assert.match(itinerary.regionalStops[0].listLabel, /Arrival/);
+  assert.equal(itinerary.regionalStops[0].dateLabel, "1/18");
+  assert.match(itinerary.regionalStops[1].listLabel, /Santa Village/);
+  assert.equal(itinerary.regionalStops[1].dateLabel, "1/20");
+  assert.match(itinerary.regionalStops[2].listLabel, /Arctic Circle/);
+  assert.match(itinerary.regionalStops[3].listLabel, /Sled/);
+  assert.match(itinerary.regionalStops[4].listLabel, /Campfire/);
+  assert.equal(itinerary.regionalStops[4].dateLabel, "1/22");
+  assert.match(itinerary.regionalStops[5].listLabel, /Cabin/);
+  assert.ok(itinerary.regionalStops.every((stop) => isRegionalPointSet([stop.point, itinerary.regionalPoints[0]])));
+  assert.ok(!itinerary.regionalPoints.some((point) => point.latitude === hongKong.latitude && point.longitude === hongKong.longitude));
+  assert.ok(isRegionalPointSet(itinerary.regionalPoints));
+  assert.ok(chooseZoom(itinerary.regionalPoints, "regional") >= 10);
+  assert.ok(itinerary.regionalLegs.some((leg) => leg.style === "solid" && leg.kind === "winter"));
+  assert.ok(itinerary.regionalLegs.some((leg) => leg.style === "dotted" && leg.kind === "side"));
 });
 
-test("selecting a numbered stop exposes photo and wording even without a photo", () => {
-  const photos = [
-    {
-      cameraMake: null,
-      cameraModel: null,
-      caption: "入夜後的聖誕老人村。 / Santa Claus Village at night.",
-      coordinates: santaVillage,
-      createdAt: "2020-01-20T18:25:00.000Z",
-      id: "photo_santa",
-      originalFilename: "santa-village-night.jpeg",
-      storageKey: "/travelos/lapland/santa-village-night.jpeg",
-      takenAt: "2020-01-20T18:20:00.000Z",
-      tripId: "trip_lapland_2020",
-    },
-  ];
-  const journalEntries = [
-    {
-      aiSummary: null,
-      body: "After dark the village is lit.\n\nSecond paragraph stays in the journal.",
-      createdAt: "2020-01-20T18:10:00.000Z",
-      entryDate: "2020-01-20",
-      id: "journal_santa",
-      mood: "明亮",
-      storyPhotoId: "photo_santa",
-      title: "聖誕老人村 / Santa Claus Village",
-      tripId: "trip_lapland_2020",
-      updatedAt: "2020-01-20T18:10:00.000Z",
-      weatherSummary: null,
-    },
-  ];
-
-  const withPhoto = getStopCardContent({
-    journalEntries,
-    photos,
-    pin: {
-      id: "place_santa",
-      kind: "place",
-      label: "Santa Claus Village",
-      linkedJournalEntryId: "journal_santa",
-      linkedPhotoId: "photo_santa",
-      note: "Village lights.",
-      point: santaVillage,
-    },
+test("selecting stop N shows bilingual wording and the linked photo", () => {
+  assert.ok(lapland);
+  const itinerary = buildJourneyItinerary({
+    center: lapland.coordinates,
+    city: lapland.city,
+    journalEntries: lapland.journalEntries,
+    photos: lapland.photos,
+    places: lapland.places,
+    route: lapland.travelRoute,
   });
 
-  assert.ok(withPhoto);
-  assert.equal(withPhoto.title, "聖誕老人村 / Santa Claus Village");
-  assert.match(withPhoto.wording, /After dark the village is lit/);
-  assert.equal(withPhoto.photo?.storageKey, "/travelos/lapland/santa-village-night.jpeg");
-  assert.equal(withPhoto.caption, "入夜後的聖誕老人村。 / Santa Claus Village at night.");
+  const stopTwo = itinerary.regionalStops.find((stop) => stop.number === 2);
+  const stopFive = itinerary.regionalStops.find((stop) => stop.number === 5);
+  assert.ok(stopTwo);
+  assert.ok(stopFive);
 
-  const withoutPhoto = getStopCardContent({
-    journalEntries: [],
-    photos: [],
-    pin: {
-      id: "place_hk",
-      kind: "place",
-      label: "Hong Kong International Airport",
-      note: "長途出發點。 / Long-haul starting point.",
-      point: hongKong,
-    },
+  const santaCard = getStopCardContent({
+    journalEntries: lapland.journalEntries,
+    photos: lapland.photos,
+    stop: stopTwo,
   });
+  assert.ok(santaCard);
+  assert.equal(santaCard.title, "聖誕老人村 / Santa Claus Village");
+  assert.match(santaCard.wording, /入夜後燈光亮起/);
+  assert.match(santaCard.wording, /After dark the village is lit/);
+  assert.equal(santaCard.photo?.storageKey, "/travelos/lapland/santa-village-night.jpeg");
 
-  assert.ok(withoutPhoto);
-  assert.equal(withoutPhoto.photo, null);
-  assert.match(withoutPhoto.wording, /Long-haul starting point/);
-  assert.equal(withoutPhoto.title, "Hong Kong International Airport");
+  const campfireCard = getStopCardContent({
+    journalEntries: lapland.journalEntries,
+    photos: lapland.photos,
+    stop: stopFive,
+  });
+  assert.ok(campfireCard);
+  assert.equal(campfireCard.title, "雪地營火 / Campfire in the snow");
+  assert.match(campfireCard.wording, /1 月 22 日晚/);
+  assert.equal(campfireCard.photo?.storageKey, "/travelos/lapland/campfire.jpeg");
 });
