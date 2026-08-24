@@ -2,7 +2,7 @@
 
 ## TASK-016: Rebuild Lapland JourneyMap as a regional itinerary
 
-Status: in_progress
+Status: done
 
 Current result:
 
