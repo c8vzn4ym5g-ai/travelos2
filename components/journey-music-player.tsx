@@ -194,7 +194,7 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
       <div className={isOn ? "min-w-0 max-w-44 pr-2 sm:max-w-56" : "hidden sm:block sm:max-w-28 sm:pr-2"}>
         <p className="truncate text-xs font-semibold">{isOn ? activeTrack.title : "Music"}</p>
         <p className="truncate text-[0.68rem] text-zinc-500">
-          {isOn ? (isWaitingForNext ? "Next song in a moment" : "One calm pass") : "Tap to play"}
+          {isOn ? (isWaitingForNext ? "Next song in a moment" : activeTrack.credit ?? "One calm pass") : "Tap to play"}
         </p>
       </div>
     </div>

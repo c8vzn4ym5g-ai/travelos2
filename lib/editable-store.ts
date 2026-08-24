@@ -3,7 +3,7 @@ import { seedTripDetails } from "@/lib/trips";
 import type { MusicTrack, Photo, TripDetail } from "@/lib/types";
 
 const DATA_BLOB_PATH = "travelos/content.json";
-const CONTENT_SCHEMA_VERSION = 7;
+const CONTENT_SCHEMA_VERSION = 9;
 
 export type TravelOSContent = {
   trips: TripDetail[];
@@ -186,7 +186,9 @@ function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
       ),
       travelRoute: mergeTravelRouteSegments(savedTravelRoute, seedTrip.travelRoute, savedSchemaVersion),
       costs: mergeByIdWithRepair(trip.costs, seedTrip.costs, recordLooksCorrupted),
-      musicTracks: mergeByIdWithRepair(savedMusicTracks, seedTrip.musicTracks, musicTrackNeedsSeedRepair),
+      musicTracks: mergeByIdWithRepair(savedMusicTracks, seedTrip.musicTracks, (track) =>
+        musicTrackNeedsSeedRepair(track) || (savedSchemaVersion < 9 && seedTrip.id === "trip_lapland_2020"),
+      ),
     };
 
     if (JSON.stringify(mergedTrip) !== JSON.stringify(trip)) {
@@ -317,6 +319,10 @@ function shouldMigrateSeedTripCopy(trip: TripDetail, seedTrip: TripDetail, saved
     return false;
   }
 
+  if (savedSchemaVersion < 8 && trip.id === "trip_lapland_2020" && seedTrip.id === "trip_lapland_2020") {
+    return true;
+  }
+
   return trip.id === seedTrip.id && !containsTraditionalTravelosMarker(`${trip.title} ${trip.summary}`);
 }
 
@@ -327,6 +333,10 @@ function shouldMigrateSeedItemCopy<T extends { id: string; tripId?: string }>(
 ) {
   if (savedSchemaVersion >= CONTENT_SCHEMA_VERSION || item.tripId !== seedTrip.id) {
     return false;
+  }
+
+  if (savedSchemaVersion < 8 && seedTrip.id === "trip_lapland_2020" && item.tripId === "trip_lapland_2020") {
+    return true;
   }
 
   return !containsTraditionalTravelosMarker(JSON.stringify(item));

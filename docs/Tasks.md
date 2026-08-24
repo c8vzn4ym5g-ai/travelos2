@@ -1,6 +1,6 @@
 # TravelOS Codex Tasks
 
-## TASK-016: JDB Capture, TravelMoment warehouse, and sit-and-write
+## TASK-018: JDB Capture, TravelMoment warehouse, and sit-and-write
 
 Status: in_progress
 
@@ -11,24 +11,52 @@ Current verified result:
   audio without writing a new trip.
 - `/family/capture` is named Capture, reuses the family session, keeps camera
   and library after each add, previews immediately, and supports retake/remove.
-- `/trips/write` lists warehouse moments as assets and saves only human-typed
-  text. No generated journal copy.
+- `/trips/write` lists warehouse moments as assets and saves only the
+  human-typed draft. No generated journal copy.
 - A Capture note that is clearly a job becomes a warehouse job pointing at the
   relevant moments. `/trips/write?job=` opens those photos without generating
   a travel log or meal log.
 - `/trips/write` can list and filter warehouse moments by Asia/Taipei day and
   by place. A day/place found set becomes the writing photos together. Saving
   that set stores a warehouse job with the human draft so it survives reload.
-  The writing area stays human-typed only. Capture save does not wait on
-  indexing or geocode.
 - Existing trip Blob APIs, live Lapland, coffee, and family PIN are unchanged.
-- PR #2 remains held; this work is a new branch off `main`.
+- PR #2 remains held; this warehouse work is merged to `main` from PR #3
+  without merging PR #2.
 
 Remaining:
 
 - Do not merge PR #2.
-- Do not deploy production from this slice.
-- Real iPhone Capture acceptance after a Blob-backed preview.
+- Real iPhone Capture acceptance on the live family door after Vercel
+  `travelos2-63r3` deploys this merge.
+
+
+## TASK-017: Swap Lapland itinerary basemap to labeled Carto Voyager streets
+
+Status: done
+
+Current result:
+
+- Keep the PR #6 itinerary chrome (arrival strip, numbered list, circular
+  pins, winter route, sled side-leg, legend, scale, north, stop cards).
+- Hero is one generated Rovaniemi poster PNG, not a live OSM/Carto tile
+  collage. Generator stitches Carto Voyager tiles and draws the itinerary.
+- Attribution is © OpenStreetMap contributors © CARTO. No Google Maps key,
+  SDK, or Google tile URLs. Photos, costs, and quiet CC0 music unchanged.
+
+## TASK-016: Rebuild Lapland JourneyMap as a regional itinerary
+
+Status: done
+
+Current result:
+
+- Replaced the two equal-weight OSM tiles with one Rovaniemi / Finnish
+  Lapland regional map as the hero. Hong Kong → Helsinki → Rovaniemi is a
+  small arrival strip, not a second map.
+- Numbered stop list uses existing journal dates and place names: arrival
+  1/18, Santa Village 1/20, Arctic Circle, sled, campfire 1/22, cabin.
+  Selecting a row or pin shows photo plus bilingual wording. 44px targets.
+- Phone: list, then map, then selected card. Desktop: list beside map.
+- Quiet CC0 winter bed, photos, and costs are unchanged. Do not merge.
 
 ## TASK-015: Complete the responsive mobile and desktop app shell
 

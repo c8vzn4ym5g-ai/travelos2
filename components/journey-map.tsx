@@ -2,27 +2,18 @@
 
 import { useMemo, useState } from "react";
 import type { GeoPoint, JournalEntry, Photo, Place, TravelRouteSegment } from "@/lib/types";
-
-type MapPin = {
-  id: string;
-  label: string;
-  point: GeoPoint;
-  note: string | null;
-  kind: "base" | "place" | "photo";
-  linkedJournalEntryId?: string | null;
-  linkedPhotoId?: string | null;
-  routeOrder?: number;
-  photo?: Photo;
-  journal?: JournalEntry;
-};
-
-type RouteStop = {
-  label: string;
-  linkedJournalEntryId: string | null;
-  linkedPhotoId: string | null;
-  order: number;
-  point: GeoPoint;
-};
+import {
+  buildJourneyItinerary,
+  buildPosterLayout,
+  getFirstWordingBlock,
+  getStopCardContent,
+  isLaplandPosterCity,
+  isRenderablePhoto,
+  LAPLAND_POSTER,
+  STREET_BASEMAP,
+  type PosterPin,
+  type StopIcon,
+} from "@/lib/journey-map-model";
 
 type JourneyMapProps = {
   city: string;
@@ -35,327 +26,168 @@ type JourneyMapProps = {
   title: string;
 };
 
-function isVisibleRoute(segment: TravelRouteSegment) {
-  return segment.visibility !== "private";
-}
+const FLIGHT_STROKE = "#64748b";
 
-function isRenderablePhoto(photo: Photo) {
-  return photo.storageKey.startsWith("http") || photo.storageKey.startsWith("/");
-}
-
-function transportLabel(transport: TravelRouteSegment["transport"]) {
-  const labels: Record<TravelRouteSegment["transport"], string> = {
-    boat: "Boat",
-    car: "Drive",
-    flight: "Flight",
-    other: "Move",
-    train: "Train",
-    walk: "Walk",
+function StopGlyph({ icon }: { icon: StopIcon }) {
+  const common = {
+    fill: "none",
+    stroke: "currentColor",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    strokeWidth: 1.6,
   };
 
-  return labels[transport];
-}
-
-function getGeoBounds(points: GeoPoint[]) {
-  const latitudes = points.map((point) => point.latitude);
-  const longitudes = points.map((point) => point.longitude);
-
-  return {
-    maxLat: Math.max(...latitudes),
-    maxLng: Math.max(...longitudes),
-    minLat: Math.min(...latitudes),
-    minLng: Math.min(...longitudes),
-  };
-}
-
-function chooseZoom(points: GeoPoint[]) {
-  const bounds = getGeoBounds(points);
-  const span = Math.max(bounds.maxLat - bounds.minLat, bounds.maxLng - bounds.minLng);
-
-  if (span > 8) {
-    return 5;
+  if (icon === "plane") {
+    return (
+      <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16">
+        <path d="M2 8.5h12M4 8.5l2.2-3.2h2.2L6.8 8.5l1.6 3.6H6.2L4.6 8.5H2Z" {...common} />
+      </svg>
+    );
   }
 
-  if (span > 3) {
-    return 6;
+  if (icon === "village") {
+    return (
+      <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16">
+        <path d="M3 13V8l5-4 5 4v5H3Z" {...common} />
+      </svg>
+    );
   }
 
-  if (span > 1.2) {
-    return 7;
+  if (icon === "circle") {
+    return (
+      <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16">
+        <circle cx="8" cy="8" r="4.2" {...common} />
+      </svg>
+    );
   }
 
-  if (span > 0.45) {
-    return 9;
+  if (icon === "sled") {
+    return (
+      <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16">
+        <path d="M3 11.5h10M4.5 11.5V8h7v3.5M4 13c.8 0 1.2-.8 2-.8s1.2.8 2 .8 1.2-.8 2-.8 1.2.8 2 .8" {...common} />
+      </svg>
+    );
   }
 
-  return 11;
-}
+  if (icon === "fire") {
+    return (
+      <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16">
+        <path d="M8 3c1.4 2-1 3.2-.4 5 1.2 0 2.8-1.4 3.6.2C12 10.4 10.2 13 8 13s-4-2.4-3.2-4.8C5.6 6.4 6.8 5.6 8 3Z" {...common} />
+      </svg>
+    );
+  }
 
-function longitudeToTileX(longitude: number, zoom: number) {
-  return ((longitude + 180) / 360) * 2 ** zoom;
-}
+  if (icon === "cabin") {
+    return (
+      <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16">
+        <path d="M3 8.5 8 4l5 4.5V13H3V8.5Z" {...common} />
+        <path d="M7 13V9.5h2V13" {...common} />
+      </svg>
+    );
+  }
 
-function latitudeToTileY(latitude: number, zoom: number) {
-  const radians = (latitude * Math.PI) / 180;
-  return ((1 - Math.log(Math.tan(radians) + 1 / Math.cos(radians)) / Math.PI) / 2) * 2 ** zoom;
-}
-
-function getTileBounds(points: GeoPoint[]) {
-  const zoom = chooseZoom(points);
-  const xs = points.map((point) => longitudeToTileX(point.longitude, zoom));
-  const ys = points.map((point) => latitudeToTileY(point.latitude, zoom));
-  const xSpan = Math.max(...xs) - Math.min(...xs);
-  const ySpan = Math.max(...ys) - Math.min(...ys);
-  const pad = Math.max(0.35, Math.max(xSpan, ySpan) * 0.18);
-
-  return {
-    maxX: Math.max(...xs) + pad,
-    maxY: Math.max(...ys) + pad,
-    minX: Math.min(...xs) - pad,
-    minY: Math.min(...ys) - pad,
-    zoom,
-  };
-}
-
-function getMapTiles(bounds: ReturnType<typeof getTileBounds>) {
-  const tileCount = 2 ** bounds.zoom;
-  const minX = Math.floor(bounds.minX);
-  const maxX = Math.floor(bounds.maxX);
-  const minY = Math.max(0, Math.floor(bounds.minY));
-  const maxY = Math.min(tileCount - 1, Math.floor(bounds.maxY));
-
-  return Array.from({ length: maxY - minY + 1 }).flatMap((_, rowIndex) =>
-    Array.from({ length: maxX - minX + 1 }).map((__, columnIndex) => {
-      const x = minX + columnIndex;
-      const y = minY + rowIndex;
-      const wrappedX = ((x % tileCount) + tileCount) % tileCount;
-      return {
-        key: `${bounds.zoom}-${wrappedX}-${y}`,
-        src: `https://tile.openstreetmap.org/${bounds.zoom}/${wrappedX}/${y}.png`,
-        style: {
-          height: `${(1 / Math.max(bounds.maxY - bounds.minY, 0.0001)) * 100}%`,
-          left: `${((x - bounds.minX) / Math.max(bounds.maxX - bounds.minX, 0.0001)) * 100}%`,
-          top: `${((y - bounds.minY) / Math.max(bounds.maxY - bounds.minY, 0.0001)) * 100}%`,
-          width: `${(1 / Math.max(bounds.maxX - bounds.minX, 0.0001)) * 100}%`,
-        },
-      };
-    }),
+  return (
+    <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16">
+      <circle cx="8" cy="7" r="2.4" {...common} />
+      <path d="M8 9.4 6.4 13h3.2L8 9.4Z" {...common} />
+    </svg>
   );
 }
 
-function project(point: GeoPoint, bounds: ReturnType<typeof getTileBounds>) {
-  const x = ((longitudeToTileX(point.longitude, bounds.zoom) - bounds.minX) / Math.max(bounds.maxX - bounds.minX, 0.0001)) * 100;
-  const y = ((latitudeToTileY(point.latitude, bounds.zoom) - bounds.minY) / Math.max(bounds.maxY - bounds.minY, 0.0001)) * 100;
-
-  return {
-    x: Math.min(96, Math.max(4, x)),
-    y: Math.min(92, Math.max(8, y)),
-  };
+function ArrivalLocator({ cities }: { cities: { id: string; label: string; shortLabel: string }[] }) {
+  return (
+    <div className="border-b border-[color:var(--line)] bg-white/55 px-4 py-2.5" data-arrival-locator>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="travel-kicker text-[0.62rem]">How we arrived</p>
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[0.72rem] font-semibold text-slate-600">
+          {cities.map((city, index) => (
+            <span className="flex items-center gap-1.5" key={city.id}>
+              {index > 0 ? (
+                <svg aria-hidden="true" className="h-3 w-7 shrink-0 text-slate-400" viewBox="0 0 32 12">
+                  <path d="M1 6h30" fill="none" stroke={FLIGHT_STROKE} strokeDasharray="2 2.5" strokeLinecap="round" strokeWidth="1.4" />
+                </svg>
+              ) : null}
+              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">
+                <span className="text-[0.62rem] tracking-wide text-slate-500">{city.shortLabel}</span>
+                <span className="text-slate-800">{city.label}</span>
+              </span>
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function getRoutePath(from: ReturnType<typeof project>, to: ReturnType<typeof project>) {
-  if (Math.abs(from.x - to.x) < 0.5 && Math.abs(from.y - to.y) < 0.5) {
-    return `M ${from.x} ${from.y} m -4 0 a 4 4 0 1 0 8 0 a 4 4 0 1 0 -8 0`;
-  }
+function RegionalMap({
+  city,
+  onSelect,
+  pins,
+  selectedId,
+}: {
+  city: string;
+  onSelect: (id: string) => void;
+  pins: PosterPin[];
+  selectedId: string | null;
+}) {
+  const usePoster = isLaplandPosterCity(city);
 
-  const curve = Math.min(12, Math.max(5, Math.abs(to.x - from.x) * 0.18 + Math.abs(to.y - from.y) * 0.08));
-  const controlX = (from.x + to.x) / 2;
-  const controlY = Math.min(from.y, to.y) - curve;
-  return `M ${from.x} ${from.y} Q ${controlX} ${controlY} ${to.x} ${to.y}`;
-}
-
-function pointKey(point: GeoPoint) {
-  return `${point.latitude.toFixed(4)},${point.longitude.toFixed(4)}`;
-}
-
-function spreadOverlappingPins<T extends { point: GeoPoint }>(pins: T[]) {
-  const counts = new Map<string, number>();
-
-  return pins.map((pin) => {
-    const key = pointKey(pin.point);
-    const index = counts.get(key) ?? 0;
-    counts.set(key, index + 1);
-    const total = pins.filter((item) => pointKey(item.point) === key).length;
-
-    return {
-      ...pin,
-      spreadIndex: index,
-      spreadTotal: total,
-    };
-  });
-}
-
-function getPositionedPins<T extends MapPin>(pins: (T & { spreadIndex: number; spreadTotal: number })[], bounds: ReturnType<typeof getTileBounds>) {
-  const projectedPins = pins.map((pin) => ({
-    ...pin,
-    offsetX: 0,
-    offsetY: 0,
-    position: project(pin.point, bounds),
-  }));
-  const clusters: typeof projectedPins[] = [];
-
-  projectedPins.forEach((pin) => {
-    const cluster = clusters.find((items) => {
-      const anchor = items[0];
-      return Math.hypot(anchor.position.x - pin.position.x, anchor.position.y - pin.position.y) < 8;
-    });
-
-    if (cluster) {
-      cluster.push(pin);
-      return;
-    }
-
-    clusters.push([pin]);
-  });
-
-  clusters.forEach((cluster) => {
-    if (cluster.length < 2) {
-      return;
-    }
-
-    const radius = Math.min(34, 16 + cluster.length * 4);
-    const sortedCluster = cluster.sort((first, second) => (first.routeOrder ?? 99) - (second.routeOrder ?? 99));
-    sortedCluster.forEach((pin, index) => {
-      const angle = (-115 + (230 / Math.max(sortedCluster.length - 1, 1)) * index) * (Math.PI / 180);
-      pin.offsetX = Math.cos(angle) * radius;
-      pin.offsetY = Math.sin(angle) * radius;
-    });
-  });
-
-  return projectedPins;
-}
-
-function getRouteStopLabel(label: string) {
-  return label.replace(/\s+(International\s+)?Airport$/i, "").replace(/\s+Line$/i, "");
-}
-
-function getRouteStops(route: TravelRouteSegment[]) {
-  const stops: RouteStop[] = [];
-  const seenLabels = new Set<string>();
-
-  route.forEach((segment) => {
-    [
-      { label: segment.fromLabel, linkedJournalEntryId: null, linkedPhotoId: null, point: segment.from },
-      {
-        label: segment.toLabel,
-        linkedJournalEntryId: segment.linkedJournalEntryId,
-        linkedPhotoId: segment.linkedPhotoId,
-        point: segment.to,
-      },
-    ].forEach((stop) => {
-      const normalizedLabel = stop.label.toLowerCase();
-      if (!seenLabels.has(normalizedLabel)) {
-        stops.push({ ...stop, order: stops.length + 1 });
-        seenLabels.add(normalizedLabel);
-        return;
-      }
-
-      const existingStop = stops.find((item) => item.label.toLowerCase() === normalizedLabel);
-      if (existingStop && !existingStop.linkedPhotoId && stop.linkedPhotoId) {
-        existingStop.linkedJournalEntryId = stop.linkedJournalEntryId;
-        existingStop.linkedPhotoId = stop.linkedPhotoId;
-      }
-    });
-  });
-
-  return stops;
-}
-
-function findRouteStopForPin(pinLabel: string, point: GeoPoint, routeStops: RouteStop[]) {
-  const normalizedPinLabel = pinLabel.toLowerCase();
-  const exactMatch = routeStops.find((stop) => stop.label.toLowerCase() === normalizedPinLabel);
-  if (exactMatch) {
-    return exactMatch;
-  }
-
-  const labelMatch = routeStops.find((stop) => {
-    const normalizedStopLabel = stop.label.toLowerCase();
-    return normalizedStopLabel.includes(normalizedPinLabel) || normalizedPinLabel.includes(normalizedStopLabel);
-  });
-  if (labelMatch) {
-    return labelMatch;
-  }
-
-  return routeStops.find((stop) => pointKey(stop.point) === pointKey(point));
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-[#e8f0e4]" data-map-frame="regional" data-map-poster={usePoster ? LAPLAND_POSTER.src : undefined}>
+      {usePoster ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          alt={LAPLAND_POSTER.alt}
+          className="block h-auto w-full select-none"
+          data-map-poster-image
+          draggable={false}
+          src={LAPLAND_POSTER.src}
+        />
+      ) : (
+        <div className="min-h-[22rem] bg-[#e8f0e4] sm:min-h-[26rem] lg:min-h-[32rem]" />
+      )}
+      {pins.map((pin) => {
+        const selected = selectedId === pin.id;
+        return (
+          <button
+            aria-label={`Stop ${pin.number}: ${pin.label}`}
+            aria-pressed={selected}
+            className={`absolute min-h-11 min-w-11 -translate-x-1/2 -translate-y-1/2 rounded-full bg-transparent text-transparent transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
+              selected ? "z-40 ring-4 ring-white/90 ring-offset-2 ring-offset-teal-800/30" : ""
+            }`}
+            data-map-pin={pin.number}
+            key={pin.id}
+            onClick={() => onSelect(pin.id)}
+            style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
+            title={pin.label}
+            type="button"
+          >
+            {pin.number}
+          </button>
+        );
+      })}
+      <p className="sr-only">Map credit: {STREET_BASEMAP.attribution}</p>
+    </div>
+  );
 }
 
 export function JourneyMap({ center, city, country, journalEntries, photos, places, route, title }: JourneyMapProps) {
-  const visibleRoute = route.filter(isVisibleRoute);
-  const orderedRouteStops = useMemo(() => getRouteStops(visibleRoute), [visibleRoute]);
-  const pins = useMemo(() => {
-    const placePins = places
-      .filter((place) => place.coordinates)
-      .map((place) => {
-        const linkedPhoto = photos.find((photo) => photo.coordinates && photo.coordinates.latitude === place.coordinates?.latitude && photo.coordinates.longitude === place.coordinates?.longitude);
-        const routeStop = place.coordinates ? findRouteStopForPin(place.name, place.coordinates, orderedRouteStops) : undefined;
-        return {
-          id: place.id,
-          kind: "place" as const,
-          label: place.name,
-          linkedJournalEntryId: routeStop?.linkedJournalEntryId,
-          linkedPhotoId: routeStop?.linkedPhotoId,
-          note: place.notes,
-          photo: linkedPhoto,
-          point: place.coordinates as GeoPoint,
-          routeOrder: routeStop?.order,
-        };
-      })
-      .sort((first, second) => {
-        if (first.routeOrder && second.routeOrder) {
-          return first.routeOrder - second.routeOrder;
-        }
-
-        if (first.routeOrder) {
-          return -1;
-        }
-
-        if (second.routeOrder) {
-          return 1;
-        }
-
-        return first.label.localeCompare(second.label);
-      });
-    const basePin: MapPin[] = center
-      ? [
-          {
-            id: "trip_base",
-            kind: "base" as const,
-            label: `${city}, ${country}`,
-            linkedJournalEntryId: findRouteStopForPin(city, center, orderedRouteStops)?.linkedJournalEntryId,
-            linkedPhotoId: findRouteStopForPin(city, center, orderedRouteStops)?.linkedPhotoId,
-            note: "Trip base",
-            point: center,
-            routeOrder: findRouteStopForPin(city, center, orderedRouteStops)?.order,
-          },
-        ]
-      : [];
-
-    return spreadOverlappingPins([...basePin, ...placePins]);
-  }, [center, city, country, orderedRouteStops, photos, places]);
-  const routePhotos = useMemo(() => new Map(photos.map((photo) => [photo.id, photo])), [photos]);
-  const routeEntries = useMemo(() => new Map(journalEntries.map((entry) => [entry.id, entry])), [journalEntries]);
-  const mapPoints = [
-    ...pins.map((pin) => pin.point),
-    ...visibleRoute.flatMap((segment) => [segment.from, segment.to]),
-  ];
-  const bounds = getTileBounds(mapPoints.length > 0 ? mapPoints : center ? [center] : [{ latitude: 0, longitude: 0 }]);
-  const mapTiles = getMapTiles(bounds);
-  const positionedPins = getPositionedPins(pins, bounds);
-  const routeStops = positionedPins
-    .filter((pin) => pin.routeOrder)
-    .sort((first, second) => (first.routeOrder ?? 99) - (second.routeOrder ?? 99));
-  const defaultSelection = pins[1]?.id ?? pins[0]?.id ?? visibleRoute[0]?.id ?? null;
+  const itinerary = useMemo(
+    () => buildJourneyItinerary({ center, city, journalEntries, photos, places, route }),
+    [center, city, journalEntries, photos, places, route],
+  );
+  const defaultSelection =
+    itinerary.regionalStops.find((stop) => stop.linkedPhotoId)?.id ?? itinerary.regionalStops[0]?.id ?? null;
   const [selectedId, setSelectedId] = useState<string | null>(defaultSelection);
-  const selectedPin = pins.find((pin) => pin.id === selectedId);
-  const selectedRoute = visibleRoute.find((segment) => segment.id === selectedId);
-  const selectedPinRoutePhoto = selectedPin?.linkedPhotoId ? routePhotos.get(selectedPin.linkedPhotoId) : undefined;
-  const selectedPinRouteEntry = selectedPin?.linkedJournalEntryId ? routeEntries.get(selectedPin.linkedJournalEntryId) : undefined;
-  const selectedRoutePhoto = selectedRoute?.linkedPhotoId ? routePhotos.get(selectedRoute.linkedPhotoId) : undefined;
-  const selectedRouteEntry = selectedRoute?.linkedJournalEntryId ? routeEntries.get(selectedRoute.linkedJournalEntryId) : undefined;
-  const selectedPhoto = selectedPinRoutePhoto ?? selectedRoutePhoto ?? selectedPin?.photo;
-  const selectedEntry = selectedPinRouteEntry ?? selectedRouteEntry;
+  const selectedStop = itinerary.regionalStops.find((stop) => stop.id === selectedId) ?? itinerary.regionalStops[0] ?? null;
+  const posterLayout = useMemo(() => buildPosterLayout(itinerary, city), [city, itinerary]);
+  const selectedCard = getStopCardContent({
+    journalEntries,
+    photos,
+    stop: selectedStop,
+  });
 
-  if (mapPoints.length === 0) {
+  if (itinerary.regionalStops.length === 0 && itinerary.regionalPoints.length === 0) {
     return (
       <section className="travel-soft-panel rounded-[1.75rem] p-4">
         <p className="travel-kicker text-xs">Journey map</p>
@@ -369,159 +201,84 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
       <div className="flex items-center justify-between gap-3 border-b border-white/70 bg-white/60 px-4 py-3">
         <div>
           <p className="travel-kicker text-xs">Journey map</p>
-          <h2 className="travel-hand mt-1 text-xl font-semibold text-[color:var(--ink)]">{city} route</h2>
+          <h2 className="travel-hand mt-1 text-xl font-semibold text-[color:var(--ink)]">
+            {city}, {country}
+          </h2>
         </div>
-        <span className="rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-900">
-          {pins.length} pins / {visibleRoute.length} routes
+        <span className="rounded-full border border-teal-100 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-950">
+          Regional itinerary
         </span>
       </div>
 
-      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_12.25rem]">
-        <div className="relative min-h-[20rem] overflow-hidden bg-[#dbeafe] sm:min-h-[22rem]">
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,#dbeafe_0%,#dcfce7_100%)]" />
-          {mapTiles.map((tile) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              alt=""
-              className="absolute max-w-none select-none object-cover"
-              draggable={false}
-              key={tile.key}
-              loading="lazy"
-              src={tile.src}
-              style={tile.style}
-            />
-          ))}
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.28))]" />
-          <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-            {visibleRoute.map((segment) => {
-              const from = project(segment.from, bounds);
-              const to = project(segment.to, bounds);
-              const isSelected = selectedId === segment.id;
-              return (
-                <path
-                  className="cursor-pointer transition"
-                  d={getRoutePath(from, to)}
-                  fill="none"
-                  key={segment.id}
-                  onClick={() => setSelectedId(segment.id)}
-                  stroke="rgba(255,255,255,.92)"
-                  strokeLinecap="round"
-                  strokeWidth={isSelected ? 2.6 : 2}
-                />
-              );
-            })}
-            {visibleRoute.map((segment, index) => {
-              const from = project(segment.from, bounds);
-              const to = project(segment.to, bounds);
-              const isSelected = selectedId === segment.id;
-              return (
-                <path
-                  className="cursor-pointer transition"
-                  d={getRoutePath(from, to)}
-                  fill="none"
-                  key={`${segment.id}-line`}
-                  onClick={() => setSelectedId(segment.id)}
-                  stroke={isSelected ? "#dc2626" : "#2563eb"}
-                  strokeDasharray={segment.transport === "flight" ? "3 3" : undefined}
-                  strokeLinecap="round"
-                  strokeWidth={isSelected ? 1.65 : 1.15}
-                >
-                  <title>{`${index + 1}. ${segment.fromLabel} to ${segment.toLabel}`}</title>
-                </path>
-              );
-            })}
-          </svg>
-          {positionedPins.map((pin, index) => {
-            const selected = selectedId === pin.id;
-            const tone =
-              pin.kind === "base"
-                ? "border-sky-100 bg-sky-700 text-white"
-                : index % 2 === 0
-                  ? "border-rose-100 bg-rose-600 text-white"
-                  : "border-amber-100 bg-amber-500 text-white";
+      {itinerary.arrival ? <ArrivalLocator cities={itinerary.arrival} /> : null}
+
+      <div className="grid gap-4 p-3 sm:p-4 lg:grid-cols-[minmax(15rem,18.5rem)_minmax(0,1fr)] lg:items-stretch">
+        <ol className="flex flex-col gap-1.5" data-stop-list>
+          {itinerary.regionalStops.map((stop) => {
+            const selected = selectedStop?.id === stop.id;
             return (
-              <button
-                className={`absolute grid h-9 w-9 -translate-x-1/2 -translate-y-full place-items-center transition hover:scale-110 ${selected ? "z-40" : ""}`}
-                key={pin.id}
-                onClick={() => setSelectedId(pin.id)}
-                style={{
-                  left: `calc(${pin.position.x}% + ${pin.offsetX}px)`,
-                  top: `calc(${pin.position.y}% + ${pin.offsetY}px)`,
-                  zIndex: selected ? 35 : 12 + (pin.routeOrder ?? 0),
-                }}
-                title={pin.label}
-                type="button"
-              >
-                <span
-                  className={`grid h-7 w-7 rotate-45 place-items-center rounded-[50%_50%_50%_0] border-2 text-[0.64rem] font-bold shadow-[0_10px_24px_rgba(15,23,42,.25)] ${tone} ${
-                    selected ? "ring-4 ring-white/80" : ""
+              <li key={stop.id}>
+                <button
+                  aria-label={`${stop.number}. ${stop.listLabel}`}
+                  aria-pressed={selected}
+                  className={`grid min-h-11 w-full grid-cols-[2rem_minmax(0,1fr)_1.25rem] items-center gap-2 rounded-2xl border px-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
+                    selected
+                      ? "border-teal-200 bg-teal-50 text-teal-950 shadow-sm"
+                      : "border-transparent bg-white/70 text-slate-700 hover:border-sky-100 hover:bg-sky-50"
                   }`}
+                  data-stop-button={stop.number}
+                  onClick={() => setSelectedId(stop.id)}
+                  type="button"
                 >
-                  <span className="-rotate-45">{pin.routeOrder ?? (pin.kind === "base" ? "B" : index)}</span>
-                </span>
-              </button>
+                  <span
+                    className={`grid h-7 w-7 place-items-center rounded-full text-[0.72rem] font-bold text-white ${
+                      stop.leg === "side" ? "bg-[#b65f44]" : "bg-[#0f4f48]"
+                    }`}
+                  >
+                    {stop.number}
+                  </span>
+                  <span className="min-w-0">
+                    {stop.dateLabel ? <span className="mr-1.5 whitespace-nowrap text-[0.62rem] font-bold tracking-wide text-teal-800">{stop.dateLabel}</span> : null}
+                    <span className="block truncate text-[0.8rem] font-semibold leading-5">{stop.listLabel}</span>
+                  </span>
+                  <span className={selected ? "text-teal-800" : "text-slate-400"}>
+                    <StopGlyph icon={stop.icon} />
+                  </span>
+                </button>
+              </li>
             );
           })}
-          <div className="absolute bottom-3 left-3 rounded-full border border-white/80 bg-white/85 px-3 py-1.5 text-[0.68rem] font-semibold text-slate-700 shadow-sm">
-            Tap map pins
-          </div>
-          <a
-            className="absolute bottom-3 right-3 rounded-full bg-white/85 px-2 py-1 text-[0.62rem] font-semibold text-slate-600 shadow-sm"
-            href="https://www.openstreetmap.org/copyright"
-            rel="noreferrer"
-            target="_blank"
-          >
-            OpenStreetMap
-          </a>
-        </div>
+        </ol>
 
-        <aside className="space-y-2.5 border-t border-white/70 bg-[rgba(255,255,255,.58)] p-2.5 lg:border-l lg:border-t-0">
-          {routeStops.length > 0 ? (
-            <div className="rounded-2xl border border-white/70 bg-white/70 p-2 shadow-sm">
-              <div className="flex items-center justify-between gap-2 px-1">
-                <p className="travel-kicker text-[0.62rem]">Route stops</p>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[0.62rem] font-semibold text-slate-600">{routeStops.length}</span>
-              </div>
-              <div className="mt-2 grid gap-1">
-                {routeStops.map((pin) => (
-                  <button
-                    className={`grid grid-cols-[1.2rem_1fr] items-center gap-1.5 rounded-xl border px-1.5 py-1.5 text-left text-[0.68rem] font-semibold leading-4 transition ${
-                      selectedId === pin.id ? "border-red-200 bg-red-50 text-red-700 shadow-sm" : "border-transparent bg-white/65 text-slate-700 hover:border-sky-100 hover:bg-sky-50"
-                    }`}
-                    key={`route-stop-${pin.id}`}
-                    onClick={() => setSelectedId(pin.id)}
-                    title={pin.label}
-                    type="button"
-                  >
-                    <span className={`grid h-4.5 w-4.5 shrink-0 place-items-center rounded-full text-[0.6rem] ${
-                      selectedId === pin.id ? "bg-red-600 text-white" : "bg-slate-900 text-white"
-                    }`}>{pin.routeOrder}</span>
-                    <span className="line-clamp-2">{getRouteStopLabel(pin.label)}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          {selectedPin || selectedRoute ? (
-            <div className="rounded-2xl border border-white/70 bg-white/65 p-2.5">
-              <p className="travel-kicker text-[0.65rem]">{selectedRoute ? transportLabel(selectedRoute.transport) : selectedPin?.kind}</p>
-              <h3 className="mt-1 text-sm font-semibold leading-5 text-[color:var(--ink)]">
-                {selectedRoute ? `${selectedRoute.fromLabel} to ${selectedRoute.toLabel}` : selectedPin?.label}
-              </h3>
-              <p className="travel-muted mt-2 line-clamp-4 text-xs leading-5">{selectedRoute?.note ?? selectedPin?.note ?? "No note yet."}</p>
-              {selectedPhoto && isRenderablePhoto(selectedPhoto) ? (
-                <div className="mt-3 overflow-hidden rounded-xl bg-white">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img alt={selectedPhoto.caption ?? selectedPhoto.originalFilename} className="h-20 w-full object-cover" src={selectedPhoto.storageKey} />
-                </div>
-              ) : null}
-              {selectedEntry ? <p className="mt-3 line-clamp-2 text-xs font-semibold text-teal-900">{selectedEntry.title}</p> : null}
+        <RegionalMap city={city} onSelect={setSelectedId} pins={posterLayout.pins} selectedId={selectedStop?.id ?? null} />
+      </div>
+
+      {selectedCard ? (
+        <article className="grid gap-3 border-t border-white/70 bg-white/55 p-3 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] sm:p-4" data-stop-card>
+          {selectedCard.photo && isRenderablePhoto(selectedCard.photo) ? (
+            <div className="overflow-hidden rounded-xl bg-white">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt={selectedCard.caption ?? selectedCard.title} className="h-40 w-full object-cover sm:h-full" src={selectedCard.photo.storageKey} />
             </div>
           ) : (
-            <p className="travel-muted text-xs leading-5">Choose a pin or route to see the record.</p>
+            <div className="grid min-h-[6.5rem] place-items-center rounded-xl bg-[color:var(--paper-soft)] px-4 text-center text-sm text-[color:var(--muted)]">
+              No photo for this stop
+            </div>
           )}
-        </aside>
-      </div>
+          <div className="min-w-0">
+            <p className="travel-kicker text-[0.65rem]">{selectedStop ? `Stop ${selectedStop.number}` : "Stop"}</p>
+            <h3 className="mt-1 text-base font-semibold leading-6 text-[color:var(--ink)]" data-stop-title>
+              {selectedCard.title}
+            </h3>
+            <p className="travel-muted mt-2 text-sm leading-6" data-stop-wording>
+              {getFirstWordingBlock(selectedCard.wording)}
+            </p>
+            {selectedCard.caption ? <p className="mt-2 text-xs leading-5 text-teal-900">{selectedCard.caption}</p> : null}
+          </div>
+        </article>
+      ) : (
+        <p className="travel-muted px-4 pb-4 text-sm leading-6">Choose a numbered stop to see the photo and note.</p>
+      )}
     </section>
   );
 }

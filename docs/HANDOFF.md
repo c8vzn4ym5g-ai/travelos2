@@ -1,5 +1,15 @@
 # TravelOS Handoff
 
+## 2026-08-24 Merge PR #3 to main for live Capture
+
+- Owner instruction: merge GitHub PR #3 into `main` with a regular merge
+  commit so family Capture works on the phone this week (Kyushu).
+- This branch first merged current `main` (Lapland bilingual copy, quiet CC0
+  music, regional itinerary poster). Warehouse Capture/Write/moments APIs
+  stay. Live Lapland public work stays. PR #2 stays held. PR #8 untouched.
+- Live door after deploy: `https://travelos2-63r3.vercel.app/family`, then
+  Capture at `/family/capture` after PIN. `/trips/write` is sit-and-write.
+
 ## 2026-08-24 Persist found-set drafts in the warehouse
 
 - Saving a day/place found set now writes a durable `TravelJob` into
@@ -10,23 +20,19 @@
   survives refresh. The textarea is filled from `job.draft` only, never
   from the filter label, a travel log, or a meal log. No new Trip.
 - Capture stays unblocked. Optional attach-to-existing-trip remains human
-  text only. Family PIN session only. PR #2 stays held. Continue on PR #3
-  (`cursor/moment-warehouse-capture-abda`). Do not merge. Do not
-  production-deploy from this handoff.
+  text only. Family PIN session only. PR #2 stays held.
 
 ## 2026-08-24 Found-set writing on /trips/write
 
 - A day and/or place filter is a temporary writing set. Photos on Write come
   from the visible warehouse moments together, the same way a Capture job
-  already points at several moments. No new durable job type. No new Trip.
+  already points at several moments. No new Trip.
 - The writing area stays blank until a person types. Filter labels stay in the
   Found set banner, not in the textarea. No travel log, meal log, or diary
   prose is produced.
 - Originals stay in the warehouse. Capture remains the front door and is not
   blocked by this retrieval path. Family PIN session only.
-- PR #2 stays held. Continue on PR #3
-  (`cursor/moment-warehouse-capture-abda`). Do not merge. Do not
-  production-deploy from this handoff.
+- PR #2 stays held.
 
 ## 2026-08-24 Find warehouse Moments by day and place
 
@@ -45,16 +51,13 @@
   no vector DB, no Obsidian runtime. Existing trip APIs, Lapland, coffee, and
   family PIN stay unchanged.
 - PR #2 (`cursor/family-moment-capture-f495`) stays held and untouched.
-  Continue on PR #3 (`cursor/moment-warehouse-capture-abda`). Do not merge.
-  Do not production-deploy from this handoff.
 
 ## 2026-08-24 JDB Capture and TravelMoment warehouse
 
 - Owner path confirmed: Capture is the family phone front door; TravelOS
   warehouses originals as reusable assets; sit-and-write is human text only.
 - Canonical warehouse: Vercel Blob path `travelos/moments.json`. Portable JSON.
-  Obsidian is not a runtime dependency. No Prisma, no vector DB, no production
-  deploy in this slice.
+  Obsidian is not a runtime dependency. No Prisma, no vector DB.
 - PIN-gated APIs: `GET/POST/PUT /api/moments`, `POST /api/moments/photos`
   (append), `POST /api/moments/audio`. Existing `/api/trips/content` and
   `/api/trips/photos` are unchanged. Live Lapland, coffee, and family PIN stay.
@@ -70,10 +73,105 @@
   photos and keeps the command out of the writing area.
 - PR #2 (`cursor/family-moment-capture-f495`) is still held. This slice
   reimplements HEIC/append/session ideas on `main` without merging that PR.
-- Exact next action: family iPhone Capture acceptance against a Blob-backed
-  preview, then decide whether to keep PR #2 closed. Do not deploy production
-  from this handoff.
 
+## 2026-08-24 Lapland itinerary raster poster
+
+- Owner correction: do not use a live tiled map in the browser, and do not
+  use Google Maps or any API key. The regional hero is one generated PNG
+  poster, like a printed itinerary. If stops change, regenerate the image.
+- Keep the HTML stop list, HK→HEL→RVN arrival strip, and photo/wording card.
+  Overlay 44px hit targets on the poster pins so tap still selects a stop.
+- Generator: `scripts/generate-lapland-poster.mjs` (`pnpm generate:lapland-poster`).
+  It fetches Carto Voyager tiles
+  (`https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png`),
+  stitches one raster, and draws numbered pins, winter route, sled side-leg,
+  legend, scale, north, and short labels. No grayscale/wash.
+- Output: `public/travelos/maps/lapland-rovaniemi.png`. Attribution
+  © OpenStreetMap contributors © CARTO. Photos, costs, and quiet CC0 music
+  unchanged. Do not merge. Do not touch Capture, PR #2, or PR #3.
+
+## 2026-08-24 Lapland itinerary streets basemap
+
+- Owner: the regional itinerary still looked empty after PR #6 because the
+  OSM tiles were grayscale, desaturated, and faded. Keep the itinerary
+  chrome. Change the BASE MAP only. Do not merge. Do not production-deploy.
+  Do not touch Capture, `/family/capture`, the moments warehouse, PR #2, or
+  PR #3. Photos, costs, and the quiet CC0 music file are unchanged.
+- No Google Maps key or SDK. Tiles are Carto Voyager (no-key labeled
+  streets): `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png`.
+  Attribution: © OpenStreetMap contributors © CARTO.
+- Tile `<img>` classes no longer use opacity, grayscale, saturate, or
+  contrast filters. Overlay is at most ~8% warm so roads, parks, water,
+  town names, and POI labels stay readable.
+- Numbered circular pins, solid winter route, dotted sled side-leg, legend,
+  scale bar, north, HK→HEL→RVN arrival strip, and tap list/pin → photo +
+  bilingual wording stay. Frame remains Rovaniemi regional (~2 km scale).
+
+## 2026-08-24 Lapland itinerary map (regional poster)
+
+- Follow-up after the map/music slice. Owner liked the quiet CC0 winter bed;
+  the two OSM tiles still read as widgets, not a designed itinerary. Do not
+  merge. Do not production-deploy. Do not touch Capture, `/family/capture`,
+  the moments warehouse, PR #2, or PR #3. Music file, photos, and costs are
+  unchanged.
+- `JourneyMap` is now a Kyushu-poster-style itinerary: a small
+  Hong Kong → Helsinki → Rovaniemi arrival strip, a numbered stop list with
+  journal dates, and ONE large Rovaniemi / Finnish Lapland regional map as
+  the hero. The overview is not an equal-size second map.
+- Regional frame: faded OSM terrain, numbered circular pins, solid winter
+  route, dotted sled side-leg, legend, scale bar, and north. Stops are the
+  existing named memories only: arrival 1/18, Santa Village 1/20, Arctic
+  Circle, sled, campfire 1/22, cabin. No extra days or invented places.
+- Phone: list, then regional map, then the selected photo/wording card.
+  Desktop: list beside the map. 44px targets. No Writing guide chrome.
+- Tests cover the large regional frame, unequal arrival locator, stop N
+  wording, and no writer chrome. Keep `pnpm test`, typecheck, and lint green.
+
+## 2026-08-24 Lapland map, music, and numbered stops
+
+- Public Lapland follow-up after the copy slice. Do not merge. Do not
+  production-deploy. Do not touch Capture, `/family/capture`, the moments
+  warehouse, PR #2, or PR #3.
+- Music: the default enabled Lapland bed is now one quiet winter atmospheric
+  track, `public/travelos/music/first-light-particles.mp3` (Yoiyami, *First
+  Light Particles*, CC0 1.0, OpenGameArt). Piano and ambient pads, no
+  percussion, no Jingle Bells, no swing, no brass parade. Volume `0.18`.
+  Novelty seed tracks stay in the record with `enabled: false`. The player
+  subtitle shows `Yoiyami · First Light Particles · CC0` while the bed plays.
+- Map: `JourneyMap` splits long-haul and local scales when a trip has both.
+  Overview is Hong Kong → Helsinki → Rovaniemi at flight zoom. Detail is the
+  Rovaniemi cluster (city, airport, Santa Claus Village, Arctic Circle, cabin,
+  sled) at local zoom, using the existing OSM tile approach. Both frames fit a
+  phone; the selected card sits below the maps.
+- Numbered 44px pin/buttons select a stop in place and show related photo plus
+  wording (journal title/body, or place note + caption). No navigation away.
+  Cabin and sled pins use approximate local coordinates near Rovaniemi so they
+  can sit on the detail map; original photo files, dates, and costs are
+  unchanged.
+- Blob schema is `CONTENT_SCHEMA_VERSION = 9`. On the next content read after
+  deploy, Lapland music tracks repair from seed (quiet bed on, novelty off).
+  New cabin/sled places and local route segments merge in by id.
+
+## 2026-08-24 Lapland public-copy slice
+
+- Public Lapland trip copy is rewritten in a professional bilingual style:
+  Traditional Chinese first, then English. Short, concrete sentences. Places,
+  dates, and photo contents are named. No invented diary, no abstract
+  philosophy.
+- Seed source is `lib/trips.ts` (`trip_lapland_2020`, slug
+  `finland-lapland-winter-journal-2020`). Photos, dates, costs, coordinates,
+  places, route, and music IDs are unchanged. Totals are unchanged.
+- Public layout `app/trips/[slug]/page.tsx` no longer shows writer/editor
+  chrome: Visitor scan / Before you read, the "shaped for readers first"
+  line, "Support text stays short", "Draft ready", and the Writing guide.
+  Hero, photos, journal, map, album, places, costs, music, and share remain.
+- Blob schema is `CONTENT_SCHEMA_VERSION = 8`. On the next content read after
+  deploy, `shouldMigrateSeedTripCopy` / `shouldMigrateSeedItemCopy` replace
+  saved Lapland title, summary, journal bodies, captions, and place notes
+  from seed. Only `trip_lapland_2020`. Other trips are not wiped.
+- This is a public-copy slice only. Do not merge. Do not production-deploy.
+  Do not touch Capture, `/family/capture`, the moments warehouse, PR #2, or
+  PR #3.
 ## 2026-07-25 Family entry login and contrast correction
 
 - Confirmed the reported problem on the live `/family` route: it was only a
