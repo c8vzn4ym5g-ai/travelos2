@@ -25,6 +25,7 @@ export type LaplandVisualBeat = {
   kind: VisualPathKind;
   kicker: string;
   photoId: string;
+  sectionId?: string;
   title: string;
   zh: string;
 };
@@ -45,6 +46,7 @@ export const LAPLAND_VISUAL_PATH: LaplandVisualBeat[] = [
     kind: "family",
     kicker: "聖誕季 / Christmas window",
     photoId: "photo_lapland_dump_post_office",
+    sectionId: "christmas-window",
     title: "聖誕老人村主郵局 / Santa Claus’ Main Post Office",
     zh: "聖誕老人村主郵局，北極圈 66° 32′ 35″。",
   },
@@ -54,6 +56,7 @@ export const LAPLAND_VISUAL_PATH: LaplandVisualBeat[] = [
     kind: "family",
     kicker: "北極圈 / Arctic Circle",
     photoId: "photo_lapland_dump_arctic_pillars",
+    sectionId: "arctic-circle",
     title: "北極圈紅柱 / Arctic Circle pillars",
     zh: "聖誕老人村廣場上的北極圈紅柱。",
   },
@@ -72,6 +75,7 @@ export const LAPLAND_VISUAL_PATH: LaplandVisualBeat[] = [
     kind: "family",
     kicker: "村裡過夜 / Village stay",
     photoId: "photo_lapland_dump_cabin4",
+    sectionId: "cabin-4",
     title: "4 號紅木屋 / Red cabin no. 4",
     zh: "4 號紅木屋。雪人，門廊上有一架 Stiga 雪橇。",
   },
