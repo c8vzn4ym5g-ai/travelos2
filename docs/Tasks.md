@@ -57,7 +57,8 @@ Current verified result:
   and library after each add, previews immediately, and supports retake/remove.
 - Capture now starts display-JPEG upload in the background on add (and audio
   when recording stops). Save does not wait on original files or a per-photo
-  sequential Blob JSON rewrite.
+  sequential Blob JSON rewrite. Choose Photos dumps POST up to 40 files in
+  parallel (no 3-at-a-time queue, no frame yield between copies).
 - `/trips/write` lists warehouse moments as assets and saves only the
   human-typed draft. No generated journal copy.
 - A Capture note that is clearly a job becomes a warehouse job pointing at the

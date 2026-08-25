@@ -49,34 +49,49 @@ function albumFiles(count: number, type = "image/heic") {
   );
 }
 
-test("dump uploads at concurrency 3, not a serial iOS prepare queue", async () => {
-  assert.equal(CAPTURE_UPLOAD_CONCURRENCY, 3);
-  const queue = createWorkQueue();
-  let active = 0;
-  let maxActive = 0;
-  let started = 0;
+test("40 JPEG files start 40 POSTs without waiting for earlier POSTs to finish", async () => {
+  const files = albumFiles(CAPTURE_DUMP_LIMIT, "image/jpeg");
+  let posted = 0;
+  const release: Array<() => void> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    posted += 1;
+    await new Promise<void>((resolve) => {
+      release.push(resolve);
+    });
+    return Response.json({ photo: { id: `photo_${posted}`, momentId: "moment_parallel" } });
+  }) as typeof fetch;
 
-  const jobs = Array.from({ length: CAPTURE_DUMP_LIMIT }, (_, index) =>
-    queue.enqueue(async () => {
-      started += 1;
-      active += 1;
-      maxActive = Math.max(maxActive, active);
-      await new Promise((resolve) => setTimeout(resolve, 1));
-      active -= 1;
-      return index;
-    }),
-  );
+  try {
+    const jobs: Promise<unknown>[] = [];
+    await ingestCaptureFileList(fakeFileList(files), {
+      onCopied(file) {
+        jobs.push(
+          uploadDisplayPhoto({
+            coordinates: null,
+            file,
+            momentId: "moment_parallel",
+            pin: "test-capture-pin",
+            takenAt: "2026-08-25T09:20:00.000Z",
+          }),
+        );
+      },
+    });
 
-  await Promise.resolve();
-  assert.ok(started <= CAPTURE_UPLOAD_CONCURRENCY);
-  assert.equal(queue.activeCount, CAPTURE_UPLOAD_CONCURRENCY);
-  assert.equal(queue.pendingCount, CAPTURE_DUMP_LIMIT - CAPTURE_UPLOAD_CONCURRENCY);
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(posted, 40, "all 40 POSTs start before any of them finish");
+    assert.equal(release.length, 40);
+    assert.ok(posted > CAPTURE_UPLOAD_CONCURRENCY);
 
-  const results = await Promise.all(jobs);
-  assert.equal(results.length, CAPTURE_DUMP_LIMIT);
-  assert.equal(maxActive, CAPTURE_UPLOAD_CONCURRENCY);
-  assert.equal(queue.activeCount, 0);
-  assert.equal(queue.pendingCount, 0);
+    for (const resolve of release) {
+      resolve();
+    }
+    await Promise.all(jobs);
+    assert.equal(posted, 40);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("queued aborted work is skipped without blocking later photos", async () => {
@@ -142,7 +157,6 @@ test("a Choose Photos dump is capped at 40 files", async () => {
       return copyCaptureFile(file);
     },
     onCopied() {},
-    yieldTurn: async () => {},
   });
 
   assert.equal(result.fileListLength, 100);
@@ -159,7 +173,6 @@ test("a Choose Photos dump is capped at 40 files", async () => {
 test("a JPEG Choose Photos dump is still capped at 40 files", async () => {
   const result = await ingestCaptureFileList(fakeFileList(albumFiles(100, "image/jpeg")), {
     onCopied() {},
-    yieldTurn: async () => {},
   });
 
   assert.equal(result.fileListLength, 100);
@@ -177,7 +190,6 @@ test("a JPEG Choose Photos dump is still capped at 40 files", async () => {
 test("selecting 40 or fewer does not show the cap message", async () => {
   const result = await ingestCaptureFileList(fakeFileList(albumFiles(40)), {
     onCopied() {},
-    yieldTurn: async () => {},
   });
   assert.equal(result.copied.length, 40);
   assert.equal(result.limited, false);
@@ -185,41 +197,55 @@ test("selecting 40 or fewer does not show the cap message", async () => {
   assert.doesNotMatch(captureBatchMessage(40, 40), /這一輪先上傳/);
 });
 
-test("first upload may start before the rest of the dump is staged", async () => {
+test("copy starts the upload in the same turn without yielding a frame", async () => {
   const events: string[] = [];
   const files = albumFiles(40);
+  let rafCalls = 0;
+  const originalRaf = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+    rafCalls += 1;
+    return typeof originalRaf === "function" ? originalRaf.call(globalThis, callback) : 0;
+  }) as typeof requestAnimationFrame;
 
-  await ingestCaptureFileList(fakeFileList(files), {
-    copyFile(file) {
-      events.push(`copy:${file.name}`);
-      return copyCaptureFile(file);
-    },
-    onCopied(file, { copiedCount }) {
-      events.push(`stage:${copiedCount}`);
-      if (copiedCount === 1) {
-        events.push(`upload-first:${file.name}`);
-      }
-    },
-    resetInput() {
-      events.push("reset");
-    },
-    yieldTurn: async () => {
-      events.push("yield");
-    },
-  });
+  try {
+    await ingestCaptureFileList(fakeFileList(files), {
+      copyFile(file) {
+        events.push(`copy:${file.name}`);
+        return copyCaptureFile(file);
+      },
+      onCopied(file, { copiedCount }) {
+        events.push(`upload:${copiedCount}:${file.name}`);
+      },
+      resetInput() {
+        events.push("reset");
+      },
+    });
+  } finally {
+    if (typeof originalRaf === "function") {
+      globalThis.requestAnimationFrame = originalRaf;
+    } else {
+      Reflect.deleteProperty(globalThis, "requestAnimationFrame");
+    }
+  }
 
+  assert.equal(rafCalls, 0);
+  assert.equal(events.includes("yield"), false);
+  assert.equal(events[0], "copy:IMG_0000.HEIC");
+  assert.equal(events[1], "upload:1:IMG_0000.HEIC");
+  assert.equal(events[2], "copy:IMG_0001.HEIC");
+  assert.equal(events[3], "upload:2:IMG_0001.HEIC");
   const firstCopy = events.indexOf("copy:IMG_0000.HEIC");
-  const firstUpload = events.indexOf("upload-first:IMG_0000.HEIC");
+  const firstUpload = events.indexOf("upload:1:IMG_0000.HEIC");
   const lastCopy = events.indexOf("copy:IMG_0039.HEIC");
-  const lastStage = events.indexOf("stage:40");
+  const lastUpload = events.indexOf("upload:40:IMG_0039.HEIC");
   const resetAt = events.indexOf("reset");
 
   assert.ok(firstCopy !== -1 && firstUpload !== -1 && lastCopy !== -1);
-  assert.ok(firstUpload > firstCopy);
+  assert.equal(firstUpload, firstCopy + 1);
   assert.ok(firstUpload < lastCopy);
-  assert.ok(firstUpload < lastStage);
-  assert.ok(resetAt > lastCopy);
+  assert.ok(lastUpload > lastCopy);
   assert.equal(events.at(-1), "reset");
+  assert.ok(resetAt > lastUpload);
 });
 
 test("input may be reset only after copies exist", async () => {
@@ -237,7 +263,6 @@ test("input may be reset only after copies exist", async () => {
     resetInput() {
       events.push("reset");
     },
-    yieldTurn: async () => {},
   });
 
   assert.equal(events.filter((event) => event === "copy").length, 12);
@@ -254,7 +279,6 @@ test("short FileList reports the received count honestly", async () => {
       received = count;
     },
     onCopied() {},
-    yieldTurn: async () => {},
   });
 
   assert.equal(received, 3);
@@ -424,40 +448,42 @@ test("oversized JPEG dumps POST original instead of canvas-compressing", async (
   }
 });
 
-test("40-file dump starts many POSTs without waiting on previews", async () => {
+test("40-file dump starts 40 POSTs without waiting on previews or earlier POSTs", async () => {
   const events: string[] = [];
+  const release: Array<() => void> = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () => {
     events.push("post");
+    await new Promise<void>((resolve) => {
+      release.push(resolve);
+    });
     return Response.json({ photo: { id: `photo_${events.length}`, momentId: "moment_dump" } });
   }) as typeof fetch;
 
   try {
-    const queue = createWorkQueue();
-    const postsStarted: number[] = [];
     const jobs = albumFiles(40).map((file, index) =>
-      queue.enqueue(async () => {
-        await uploadDisplayPhoto({
-          coordinates: null,
-          file,
-          momentId: "moment_dump",
-          onDisplayReady: async () => {
-            events.push(`preview:${index}`);
-            await new Promise((resolve) => setTimeout(resolve, 30));
-          },
-          pin: "test-capture-pin",
-          takenAt: "2026-08-25T07:00:00.000Z",
-        });
-        postsStarted.push(index);
+      uploadDisplayPhoto({
+        coordinates: null,
+        file,
+        momentId: "moment_dump",
+        onDisplayReady: async () => {
+          events.push(`preview:${index}`);
+          await new Promise((resolve) => setTimeout(resolve, 30));
+        },
+        pin: "test-capture-pin",
+        takenAt: "2026-08-25T07:00:00.000Z",
       }),
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 15));
-    const postsBeforePreviewsFinish = events.filter((event) => event === "post").length;
-    assert.ok(postsBeforePreviewsFinish >= CAPTURE_UPLOAD_CONCURRENCY);
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(events.filter((event) => event === "post").length, 40);
+    assert.equal(release.length, 40);
+    for (const resolve of release) {
+      resolve();
+    }
     await Promise.all(jobs);
     assert.equal(events.filter((event) => event === "post").length, 40);
-    assert.equal(postsStarted.length, 40);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -480,33 +506,40 @@ test("JPEG Choose Photos dump POSTs originals immediately and keeps the 40 cap",
   }) as typeof createImageBitmap;
 
   const posted: File[] = [];
+  const release: Array<() => void> = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
     const file = (init?.body as FormData).get("file");
     assert.ok(file instanceof File);
     posted.push(file);
+    await new Promise<void>((resolve) => {
+      release.push(resolve);
+    });
     return Response.json({ photo: { id: `photo_${posted.length}`, momentId: "moment_jpeg_dump" } });
   }) as typeof fetch;
 
   try {
-    const queue = createWorkQueue();
     const jobs = files.map((file) =>
-      queue.enqueue(async () => {
-        const uploaded = await uploadDisplayPhoto({
-          coordinates: null,
-          file,
-          momentId: "moment_jpeg_dump",
-          pin: "test-capture-pin",
-          takenAt: "2026-08-25T08:56:54.000Z",
-        });
+      uploadDisplayPhoto({
+        coordinates: null,
+        file,
+        momentId: "moment_jpeg_dump",
+        pin: "test-capture-pin",
+        takenAt: "2026-08-25T08:56:54.000Z",
+      }).then((uploaded) => {
         assert.equal(uploaded.display, file);
       }),
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 15));
-    assert.ok(posted.length >= CAPTURE_UPLOAD_CONCURRENCY, "first POSTs start immediately");
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(posted.length, 40, "all 40 POSTs start before any of them finish");
+    assert.equal(release.length, 40);
     assert.equal(decodeCalls, 0);
 
+    for (const resolve of release) {
+      resolve();
+    }
     await Promise.all(jobs);
     assert.equal(posted.length, 40);
     assert.deepEqual(posted, files);
@@ -545,7 +578,7 @@ test("JPEG prepare returns the original file without canvas convert", async () =
   assert.match(prepare, /isHeicPhoto\(file\) \|\| file\.type === "image\/jpeg"/);
 });
 
-test("capture page caps a dump at 40 and keeps the fast upload queue", async () => {
+test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
   const [capture, upload, prepare] = await Promise.all([
     readSource("app/family/capture/page.tsx"),
     readSource("lib/capture-upload.ts"),
@@ -564,18 +597,26 @@ test("capture page caps a dump at 40 and keeps the fast upload queue", async () 
     capture.indexOf("async function startBackgroundPhotoUpload"),
     capture.indexOf("async function startBackgroundAudioUpload"),
   );
+  const ingestFn = upload.slice(
+    upload.indexOf("export async function ingestCaptureFileList"),
+    upload.indexOf("export function createStagedCapturePhotos"),
+  );
 
-  assert.match(upload, /CAPTURE_UPLOAD_CONCURRENCY = 3/);
   assert.match(upload, /CAPTURE_DUMP_LIMIT = 40/);
   assert.match(upload, /ingestCaptureFileList/);
   assert.match(upload, /copyCaptureFile/);
   assert.match(upload, /captureDumpCapMessage/);
   assert.doesNotMatch(upload, /capturePrepareConcurrency/);
-  assert.match(capture, /createWorkQueue\(\)/);
-  assert.match(capture, /photoQueue\(\)\.enqueue/);
+  assert.doesNotMatch(capture, /createWorkQueue/);
+  assert.doesNotMatch(capture, /photoQueue/);
+  assert.doesNotMatch(uploadFn, /\.enqueue\(/);
+  assert.doesNotMatch(ingestFn, /yieldToBrowser/);
+  assert.doesNotMatch(ingestFn, /yieldTurn/);
+  assert.doesNotMatch(ingestFn, /requestAnimationFrame/);
   assert.match(addBlock, /ingestCaptureFileList\(fileList/);
   assert.match(addBlock, /limit: CAPTURE_DUMP_LIMIT/);
   assert.match(addBlock, /createStagedCapturePhotos\(\[file\]\)/);
+  assert.match(addBlock, /void startBackgroundPhotoUpload\(photo\)/);
   assert.match(addBlock, /resetInput/);
   assert.doesNotMatch(addBlock, /snapshotFileList/);
   assert.doesNotMatch(addBlock, /URL\.createObjectURL/);

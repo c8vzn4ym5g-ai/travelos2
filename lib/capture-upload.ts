@@ -49,21 +49,6 @@ export function copyCaptureFile(file: File) {
   });
 }
 
-export function yieldToBrowser() {
-  return new Promise<void>((resolve) => {
-    const later = () => {
-      setTimeout(resolve, 0);
-    };
-
-    if (typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(later);
-      return;
-    }
-
-    later();
-  });
-}
-
 export async function ingestCaptureFileList(
   fileList: FileList | null | undefined,
   options: {
@@ -72,7 +57,6 @@ export async function ingestCaptureFileList(
     onCopied: (file: File, progress: CaptureFileIngestProgress) => void | Promise<void>;
     onReceived?: (fileListLength: number) => void;
     resetInput?: () => void;
-    yieldTurn?: () => Promise<void>;
   },
 ) {
   const fileListLength = fileList?.length ?? 0;
@@ -84,7 +68,6 @@ export async function ingestCaptureFileList(
   }
 
   const copyFile = options.copyFile ?? copyCaptureFile;
-  const yieldTurn = options.yieldTurn ?? yieldToBrowser;
   const copied: File[] = [];
 
   for (let index = 0; index < fileListLength && copied.length < limit; index += 1) {
@@ -95,8 +78,10 @@ export async function ingestCaptureFileList(
 
     const independent = copyFile(file);
     copied.push(independent);
-    await options.onCopied(independent, { copiedCount: copied.length, fileListLength });
-    await yieldTurn();
+    const started = options.onCopied(independent, { copiedCount: copied.length, fileListLength });
+    if (started) {
+      await started;
+    }
   }
 
   if (copied.length > 0) {
