@@ -58,7 +58,10 @@ Current verified result:
 - Capture now starts display-JPEG upload in the background on add (and audio
   when recording stops). Save does not wait on original files or a per-photo
   sequential Blob JSON rewrite. Choose Photos dumps POST up to 40 files in
-  parallel (no 3-at-a-time queue, no frame yield between copies).
+  parallel (no 3-at-a-time queue, no frame yield between copies). A second
+  Choose Photos dump without Save clears the leftover on-screen round and
+  starts a new moment; previous warehouse photos stay. Take Photo still
+  appends onto the current unsaved round.
 - `/trips/write` lists warehouse moments as assets and saves only the
   human-typed draft. No generated journal copy.
 - A Capture note that is clearly a job becomes a warehouse job pointing at the

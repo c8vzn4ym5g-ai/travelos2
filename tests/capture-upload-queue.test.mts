@@ -7,11 +7,16 @@ import {
   CAPTURE_UPLOAD_CONCURRENCY,
   captureBatchMessage,
   captureDumpCapMessage,
+  captureDumpProgressMessage,
+  captureFreshDumpRoundMessage,
   copyCaptureFile,
+  createMomentSession,
   createStagedCapturePhotos,
   createTinyPreviewUrl,
   createWorkQueue,
+  detachStagedCapturePhotos,
   ingestCaptureFileList,
+  shouldReplaceCaptureDumpRound,
   snapshotFileList,
   uploadDisplayPhoto,
 } from "../lib/capture-upload.ts";
@@ -292,6 +297,158 @@ test("batch message reports how many were received", () => {
   assert.match(captureBatchMessage(12, 12), /已收到 12 張，分批上傳中/);
   assert.match(captureBatchMessage(12, 18), /目前共 18 張，會繼續傳到倉庫/);
   assert.match(captureBatchMessage(0, 0), /請選照片/);
+});
+
+test("a second Choose Photos dump is a fresh 40-photo round, not an append", () => {
+  assert.equal(shouldReplaceCaptureDumpRound("choose-photos", 12), true);
+  assert.equal(shouldReplaceCaptureDumpRound("choose-photos", 1), true);
+  assert.equal(shouldReplaceCaptureDumpRound("choose-photos", 0), false);
+  assert.equal(shouldReplaceCaptureDumpRound("take-photo", 12), false);
+  assert.equal(shouldReplaceCaptureDumpRound("take-photo", 0), false);
+  assert.match(captureFreshDumpRoundMessage(), /這一輪是新的 40 張，上一輪已在倉庫裡/);
+  assert.match(captureFreshDumpRoundMessage(), /This round is a fresh 40; previous photos are already in the warehouse/);
+  assert.match(captureDumpProgressMessage(40, 40, { freshRound: true }), /這一輪是新的 40 張/);
+  assert.match(captureDumpProgressMessage(40, 40, { freshRound: true }), /已收到 40 張/);
+  assert.doesNotMatch(captureDumpProgressMessage(40, 52, { freshRound: false }), /上一輪已在倉庫裡/);
+});
+
+test("detaching a leftover dump round clears the screen without aborting uploads", () => {
+  const originalRevoke = URL.revokeObjectURL;
+  const revoked: string[] = [];
+  URL.revokeObjectURL = ((url: string) => {
+    revoked.push(url);
+  }) as typeof URL.revokeObjectURL;
+
+  try {
+    const leftover = [
+      { abort: new AbortController(), id: "old_one", previewUrl: "blob:old-one" },
+      { abort: new AbortController(), id: "old_two", previewUrl: null },
+    ];
+    const next = detachStagedCapturePhotos(leftover);
+    assert.deepEqual(next, []);
+    assert.equal(leftover[0]?.abort.signal.aborted, false);
+    assert.equal(leftover[1]?.abort.signal.aborted, false);
+    assert.deepEqual(revoked, ["blob:old-one"]);
+  } finally {
+    if (typeof originalRevoke === "function") {
+      URL.revokeObjectURL = originalRevoke;
+    } else {
+      Reflect.deleteProperty(URL, "revokeObjectURL");
+    }
+  }
+});
+
+test("a new Choose Photos round posts to a new moment while the previous session stays put", async () => {
+  let creates = 0;
+  const first = createMomentSession(async () => {
+    creates += 1;
+    return { moment: { id: "moment_first_round" } };
+  });
+  const firstId = await first.ensure("2026-08-25T09:00:00.000Z");
+  assert.equal(firstId, "moment_first_round");
+
+  const second = createMomentSession(async () => {
+    creates += 1;
+    return { moment: { id: "moment_second_round" } };
+  });
+  const secondId = await second.ensure("2026-08-25T09:01:00.000Z");
+
+  assert.equal(secondId, "moment_second_round");
+  assert.equal(first.momentId, "moment_first_round");
+  assert.equal(second.momentId, "moment_second_round");
+  assert.equal(await first.ensure("2026-08-25T09:02:00.000Z"), "moment_first_round");
+  assert.equal(creates, 2);
+});
+
+test("detached leftover POSTs keep landing on the previous moment", async () => {
+  const posted: Array<{ file: string; momentId: string }> = [];
+  const release: Array<() => void> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const form = init?.body as FormData;
+    const file = form.get("file");
+    assert.ok(file instanceof File);
+    posted.push({ file: file.name, momentId: String(form.get("momentId")) });
+    await new Promise<void>((resolve) => {
+      release.push(resolve);
+    });
+    return Response.json({ photo: { id: `photo_${posted.length}`, momentId: String(form.get("momentId")) } });
+  }) as typeof fetch;
+
+  try {
+    const firstSession = createMomentSession(async () => ({ moment: { id: "moment_old" } }));
+    const firstJobs: Promise<unknown>[] = [];
+    await ingestCaptureFileList(fakeFileList(albumFiles(2, "image/jpeg")), {
+      onCopied(file) {
+        const session = firstSession;
+        firstJobs.push(
+          (async () => {
+            const momentId = await session.ensure("2026-08-25T09:10:00.000Z");
+            await uploadDisplayPhoto({
+              coordinates: null,
+              file,
+              momentId,
+              pin: "test-capture-pin",
+              takenAt: "2026-08-25T09:10:00.000Z",
+            });
+          })(),
+        );
+      },
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(posted.length, 2);
+    assert.equal(
+      posted.every((item) => item.momentId === "moment_old"),
+      true,
+    );
+
+    const leftoverScreen = [{ id: "old", previewUrl: null }];
+    const screen = detachStagedCapturePhotos(leftoverScreen);
+    assert.deepEqual(screen, []);
+
+    const secondSession = createMomentSession(async () => ({ moment: { id: "moment_new" } }));
+    const secondJobs: Promise<unknown>[] = [];
+    await ingestCaptureFileList(fakeFileList(albumFiles(2, "image/jpeg")), {
+      onCopied(file) {
+        const session = secondSession;
+        secondJobs.push(
+          (async () => {
+            const momentId = await session.ensure("2026-08-25T09:11:00.000Z");
+            await uploadDisplayPhoto({
+              coordinates: null,
+              file,
+              momentId,
+              pin: "test-capture-pin",
+              takenAt: "2026-08-25T09:11:00.000Z",
+            });
+          })(),
+        );
+      },
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(posted.length, 4);
+    assert.equal(
+      posted.filter((item) => item.momentId === "moment_old").length,
+      2,
+    );
+    assert.equal(
+      posted.filter((item) => item.momentId === "moment_new").length,
+      2,
+    );
+    assert.equal(firstSession.momentId, "moment_old");
+    assert.equal(secondSession.momentId, "moment_new");
+
+    for (const resolve of release) {
+      resolve();
+    }
+    await Promise.all([...firstJobs, ...secondJobs]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("photo POST does not wait on the preview hook", async () => {
@@ -617,10 +774,30 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
   assert.match(addBlock, /limit: CAPTURE_DUMP_LIMIT/);
   assert.match(addBlock, /createStagedCapturePhotos\(\[file\]\)/);
   assert.match(addBlock, /void startBackgroundPhotoUpload\(photo\)/);
+  assert.match(addBlock, /shouldReplaceCaptureDumpRound\(source, photosRef\.current\.length\)/);
+  assert.match(addBlock, /beginFreshDumpRound\(\)/);
+  assert.match(addBlock, /captureDumpProgressMessage/);
   assert.match(addBlock, /resetInput/);
   assert.doesNotMatch(addBlock, /snapshotFileList/);
   assert.doesNotMatch(addBlock, /URL\.createObjectURL/);
+  assert.match(chooseBlock, /"choose-photos"/);
+  assert.doesNotMatch(chooseBlock, /"take-photo"/);
   assert.doesNotMatch(chooseBlock, /event\.target\.value = ""/);
+  assert.match(capture, /addIncomingFiles\(event\.target\.files, event\.target, "take-photo"\)/);
+  assert.match(capture, /function beginFreshDumpRound/);
+  assert.match(capture, /detachStagedCapturePhotos/);
+  assert.match(capture, /momentSessionRef\.current = createLiveMomentSession\(\)/);
+  assert.match(capture, /const session = momentSession\(\)/);
+  assert.match(uploadFn, /session\.ensure\(takenAt\)/);
+  assert.match(uploadFn, /retryMoment\(takenAt, status, session\)/);
+  const freshRoundFn = capture.slice(
+    capture.indexOf("function beginFreshDumpRound"),
+    capture.indexOf("async function ensureMoment"),
+  );
+  assert.doesNotMatch(freshRoundFn, /\.abort\(\)/);
+  assert.doesNotMatch(freshRoundFn, /removeUploadedPhotoInBackground/);
+  assert.match(capture, /resetDraft\(\)/);
+  assert.match(capture, /再選一次相簿會清掉畫面上的上一輪，上一輪已在倉庫裡/);
   assert.match(uploadFn, /onDisplayReady/);
   assert.match(uploadFn, /createTinyPreviewUrl\(display\)/);
   assert.match(capture, /排隊中/);
