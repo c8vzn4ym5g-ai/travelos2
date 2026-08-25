@@ -69,25 +69,35 @@ test("capture has no tag form and is named Capture", async () => {
   assert.doesNotMatch(capture, /Travel admin/);
 });
 
-test("family Capture door copy does not use the retired JDB Capture app name", async () => {
+test("family home has one Capture door and no retired second-app cards", async () => {
   const [family, capture, unlock] = await Promise.all([
     readSource("app/family/page.tsx"),
     readSource("app/family/capture/page.tsx"),
     readSource("app/family/family-unlock-panel.tsx"),
   ]);
 
-  assert.match(family, />Capture 門</);
-  assert.match(family, /<h2 className="travel-display mt-2 text-2xl font-semibold">Capture<\/h2>/);
-  assert.match(family, />\s*打開 Capture\s*</);
-  assert.match(family, /href="\/family\/capture"/);
-  assert.match(family, />請 JDB 幫忙</);
-  assert.match(family, />\s*開啟 JDB Sana\s*</);
-  assert.match(capture, />one capture door</);
-  assert.match(capture, /<h1 className="travel-display mt-2 text-4xl font-semibold">Capture<\/h1>/);
+  assert.match(family, /FamilyUnlockPanel/);
+  assert.match(family, /旅行遊記/);
+  assert.match(family, /咖啡記憶/);
+  assert.match(family, /安裝到 iPhone/);
+  assert.match(unlock, /href="\/family\/capture"/);
   assert.match(unlock, />\s*Capture\s*</);
+  assert.match(unlock, /href="\/trips\/write"/);
+  assert.match(unlock, />\s*Write\s*</);
+  assert.match(unlock, /前往旅行編輯/);
+  assert.match(unlock, /前往咖啡編輯/);
+  assert.match(capture, /<h1 className="travel-display mt-2 text-4xl font-semibold">Capture<\/h1>/);
   assert.doesNotMatch(family, /JDB Capture/);
+  assert.doesNotMatch(family, /打開 Capture/);
+  assert.doesNotMatch(family, /Capture 門/);
+  assert.doesNotMatch(family, /請 JDB 幫忙/);
+  assert.doesNotMatch(family, /開啟 JDB Sana/);
+  assert.doesNotMatch(family, /chatgpt\.site/);
+  assert.doesNotMatch(family, /jdb-family-entry/);
+  assert.doesNotMatch(family, /href="\/family\/capture"/);
   assert.doesNotMatch(capture, /JDB Capture/);
   assert.doesNotMatch(unlock, /JDB Capture/);
+  assert.doesNotMatch(unlock, /chatgpt\.site/);
 });
 
 test("family session is required and capture does not add a PIN form", async () => {
@@ -100,7 +110,7 @@ test("family session is required and capture does not add a PIN form", async () 
     readSource("app/coffee/admin/page.tsx"),
   ]);
 
-  assert.match(family, /href="\/family\/capture"/);
+  assert.match(unlock, /href="\/family\/capture"/);
   assert.match(unlock, /id="family-pin"/);
   assert.match(unlock, /unlock\("\/family\/capture"\)/);
   assert.match(unlock, />\s*Capture\s*</);
