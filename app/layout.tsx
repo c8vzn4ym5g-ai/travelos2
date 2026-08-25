@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { TravelpayoutsDrive } from "@/components/travelpayouts-drive";
 import "./globals.css";
 
@@ -59,7 +60,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <head>
-        <TravelpayoutsDrive />
+        <Suspense fallback={null}>
+          <TravelpayoutsDrive />
+        </Suspense>
       </head>
       <body>{children}</body>
     </html>
