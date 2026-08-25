@@ -5,8 +5,10 @@ import { BookingBand } from "@/components/booking-band";
 import { JournalCostChip, JournalSpendPanel } from "@/components/journal-spend";
 import { JourneyMap } from "@/components/journey-map";
 import { JourneyMusicPlayer } from "@/components/journey-music-player";
+import { LaplandStorefrontGlance } from "@/components/lapland-storefront-glance";
 import { ShareActions } from "@/components/share-actions";
 import { readContent } from "@/lib/editable-store";
+import { isLaplandStorefrontSlug } from "@/lib/lapland-storefront-copy";
 import { LAPLAND_TRIP_SLUG, laplandBooking } from "@/lib/travelpayouts";
 import { isTripPublic } from "@/lib/trip-visibility";
 import { getTripDetailsByStartDate } from "@/lib/trips";
@@ -310,6 +312,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             route={trip.travelRoute ?? []}
             title={trip.title}
           />
+          {isLaplandStorefrontSlug(trip.slug) ? <LaplandStorefrontGlance /> : null}
           <div className="flex flex-wrap items-center gap-2">
             {[
               ["Season", seasonLabel, "border-sky-100 bg-sky-50 text-sky-950"],

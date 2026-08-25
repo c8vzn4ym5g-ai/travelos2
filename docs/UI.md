@@ -27,6 +27,16 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
 - `BookingBand` (`出發 / Go there`) stays the action for a live quote. Do not
   invent Travelpayouts widget hashes or dump booking URLs in the hero.
 
+## Public storefront glance (Lapland)
+
+- Under the map, a short bilingual why-go block about the place: where,
+  when, what it feels like, and why a stranger might go. This copy is
+  independent of journal bodies and photo captions.
+- Do not rewrite family memory lines. Keep the winter-village title
+  `記憶裡的聖誕卡 / A Christmas card from memory`.
+- No fake prices, reviews, or unsourced stats. Live quotes stay on
+  `BookingBand`. Map stays the first impression.
+
 ## Public Booking Band
 
 - Finished public trip journals may show a reusable `BookingBand`
