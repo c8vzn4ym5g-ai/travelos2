@@ -1,12 +1,14 @@
-"use client";
+import { headers } from "next/headers";
+import {
+  pathnameFromRequestHeaders,
+  shouldLoadTravelpayoutsDrive,
+  TRAVELPAYOUTS_DRIVE_SCRIPT_ID,
+  TRAVELPAYOUTS_DRIVE_SCRIPT_URL,
+} from "@/lib/travelpayouts-drive";
 
-import { usePathname } from "next/navigation";
-
-const driveScriptUrl = "https://emrldtp.cc/NTUwMzEz.js?t=550313";
-
-export function TravelpayoutsDrive() {
-  const pathname = usePathname();
-  if (pathname?.startsWith("/family/capture")) {
+export async function TravelpayoutsDrive() {
+  const pathname = pathnameFromRequestHeaders(await headers());
+  if (!shouldLoadTravelpayoutsDrive(pathname)) {
     return null;
   }
 
@@ -17,9 +19,9 @@ export function TravelpayoutsDrive() {
       data-no-defer="1"
       data-noptimize="1"
       data-wpfc-render="false"
-      id="travelpayouts-drive"
+      id={TRAVELPAYOUTS_DRIVE_SCRIPT_ID}
       seraph-accel-crit="1"
-      src={driveScriptUrl}
+      src={TRAVELPAYOUTS_DRIVE_SCRIPT_URL}
     />
   );
 }
