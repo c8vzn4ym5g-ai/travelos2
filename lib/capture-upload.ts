@@ -11,6 +11,7 @@ import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "./types.ts"
 
 export { createTinyPreviewUrl };
 export const CAPTURE_UPLOAD_CONCURRENCY = 3;
+export const CAPTURE_DUMP_LIMIT = 40;
 
 export type CapturePhotoDraft = {
   errorMessage: null;
@@ -26,35 +27,6 @@ export type CaptureFileIngestProgress = {
   fileListLength: number;
 };
 
-export function isIosCaptureClient(userAgent: string, maxTouchPoints = 0) {
-  if (/iPad|iPhone|iPod/i.test(userAgent)) {
-    return true;
-  }
-
-  return /Macintosh/i.test(userAgent) && maxTouchPoints > 1;
-}
-
-export function capturePrepareConcurrency(input?: {
-  hasHeic?: boolean;
-  maxTouchPoints?: number;
-  userAgent?: string;
-}) {
-  if (input?.hasHeic) {
-    return 1;
-  }
-
-  const userAgent =
-    input?.userAgent ?? (typeof navigator === "undefined" ? "" : navigator.userAgent);
-  const maxTouchPoints =
-    input?.maxTouchPoints ?? (typeof navigator === "undefined" ? 0 : navigator.maxTouchPoints);
-
-  if (isIosCaptureClient(userAgent, maxTouchPoints)) {
-    return 1;
-  }
-
-  return CAPTURE_UPLOAD_CONCURRENCY;
-}
-
 export function snapshotFileList(fileList: FileList | null | undefined) {
   if (!fileList || fileList.length === 0) {
     return [];
@@ -68,21 +40,6 @@ export function snapshotFileList(fileList: FileList | null | undefined) {
     }
   }
   return files;
-}
-
-export function captureFileListHasHeic(fileList: FileList | null | undefined) {
-  if (!fileList) {
-    return false;
-  }
-
-  for (let index = 0; index < fileList.length; index += 1) {
-    const file = fileList.item(index) ?? fileList[index];
-    if (file && isHeicPhoto(file)) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 export function isCaptureImageFile(file: File) {
@@ -116,6 +73,7 @@ export async function ingestCaptureFileList(
   fileList: FileList | null | undefined,
   options: {
     copyFile?: (file: File) => File;
+    limit?: number;
     onCopied: (file: File, progress: CaptureFileIngestProgress) => void | Promise<void>;
     onReceived?: (fileListLength: number) => void;
     resetInput?: () => void;
@@ -123,17 +81,18 @@ export async function ingestCaptureFileList(
   },
 ) {
   const fileListLength = fileList?.length ?? 0;
+  const limit = options.limit ?? CAPTURE_DUMP_LIMIT;
   options.onReceived?.(fileListLength);
 
   if (!fileList || fileListLength === 0) {
-    return { copied: [] as File[], fileListLength };
+    return { copied: [] as File[], fileListLength, limited: false };
   }
 
   const copyFile = options.copyFile ?? copyCaptureFile;
   const yieldTurn = options.yieldTurn ?? yieldToBrowser;
   const copied: File[] = [];
 
-  for (let index = 0; index < fileListLength; index += 1) {
+  for (let index = 0; index < fileListLength && copied.length < limit; index += 1) {
     const file = fileList.item(index) ?? fileList[index];
     if (!file || !isCaptureImageFile(file)) {
       continue;
@@ -149,7 +108,7 @@ export async function ingestCaptureFileList(
     options.resetInput?.();
   }
 
-  return { copied, fileListLength };
+  return { copied, fileListLength, limited: fileListLength > copied.length };
 }
 
 export function createStagedCapturePhotos(files: File[]): CapturePhotoDraft[] {
@@ -163,9 +122,17 @@ export function createStagedCapturePhotos(files: File[]): CapturePhotoDraft[] {
   }));
 }
 
+export function captureDumpCapMessage(limit = CAPTURE_DUMP_LIMIT) {
+  return `這一輪先上傳 ${limit} 張，其餘請再選一次繼續傳。`;
+}
+
 export function captureBatchMessage(received: number, total: number) {
   if (received <= 0) {
     return "請選照片。iPhone HEIC 會轉成 JPEG 上傳，原檔稍後另存。";
+  }
+
+  if (received > CAPTURE_DUMP_LIMIT) {
+    return captureDumpCapMessage();
   }
 
   return `已收到 ${received} 張，分批上傳中。目前共 ${total} 張，會繼續傳到倉庫。`;
@@ -371,11 +338,9 @@ export async function uploadDisplayPhoto(input: {
     throw new Error("Photo is still too large after compression. Please choose a smaller photo.");
   }
 
-  try {
-    await Promise.resolve(input.onDisplayReady?.(display));
-  } catch {
-    // Tiny previews are optional; the display upload still proceeds.
-  }
+  void Promise.resolve(input.onDisplayReady?.(display)).catch(() => {
+    // Tiny previews are optional; they must never block the display POST.
+  });
 
   const send = async (momentId: string) => {
     const formData = new FormData();

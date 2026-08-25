@@ -4,10 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
+  CAPTURE_DUMP_LIMIT,
   captureBatchMessage,
   captureErrorMessage,
-  captureFileListHasHeic,
-  capturePrepareConcurrency,
   clearMomentAudioInBackground,
   createCaptureMoment,
   createMomentSession,
@@ -150,14 +149,8 @@ export default function CapturePage() {
     };
   }, []);
 
-  function photoQueue(hasHeic = false) {
-    photoQueueRef.current ??= createWorkQueue(
-      capturePrepareConcurrency({
-        hasHeic,
-        maxTouchPoints: navigator.maxTouchPoints,
-        userAgent: navigator.userAgent,
-      }),
-    );
+  function photoQueue() {
+    photoQueueRef.current ??= createWorkQueue();
     return photoQueueRef.current;
   }
 
@@ -336,10 +329,11 @@ export default function CapturePage() {
       return;
     }
 
-    photoQueue(captureFileListHasHeic(fileList));
-    setMessage(captureBatchMessage(fileListLength, photosRef.current.length + fileListLength));
+    photoQueue();
+    setMessage(captureBatchMessage(fileListLength, photosRef.current.length + Math.min(fileListLength, CAPTURE_DUMP_LIMIT)));
 
     await ingestCaptureFileList(fileList, {
+      limit: CAPTURE_DUMP_LIMIT,
       onCopied(file, progress) {
         const incoming = createStagedCapturePhotos([file]).map((draft) => ({
           ...draft,
@@ -583,7 +577,7 @@ export default function CapturePage() {
           <p className="travel-script mt-8 text-2xl text-rose-700">one capture door</p>
           <h1 className="travel-display mt-2 text-4xl font-semibold">Capture</h1>
           <p className="mt-4 text-base leading-7 text-zinc-600">
-            打開就能拍或錄。先看剛留下的，不好就重拍或重錄，缺的再補一張。存成 Moment，不是新的旅程。一句話可以是心情，也可以是交代給 TravelOS 的工作。
+            打開就能拍或錄。先看剛留下的，不好就重拍或重錄，缺的再補一張。一次選很多張會立刻開始上傳，這一輪最多 40 張，其餘再選一次。存成 Moment，不是新的旅程。一句話可以是心情，也可以是交代給 TravelOS 的工作。
           </p>
         </div>
       </section>
@@ -592,7 +586,7 @@ export default function CapturePage() {
         <article className="rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm">
           <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">拍照與相簿都留著</p>
           <h2 className="travel-display mt-2 text-2xl font-semibold">Take Photo / Choose Photos</h2>
-          <p className="mt-3 text-sm leading-6 text-zinc-600">加入之後兩個按鈕都還在。新的會接在後面，不會蓋掉剛拍的。一次選很多張會立刻開始上傳，其餘分批收下。預覽用小圖，不一次解出全部原圖。</p>
+          <p className="mt-3 text-sm leading-6 text-zinc-600">加入之後兩個按鈕都還在。新的會接在後面，不會蓋掉剛拍的。一次最多先傳 40 張，會立刻開始上傳。其餘請再選一次。</p>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <label className={`${controlClass} border-sky-300 bg-sky-50 text-sky-950`}>

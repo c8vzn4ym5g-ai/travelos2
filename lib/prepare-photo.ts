@@ -22,58 +22,40 @@ function waitWithTimeout<T>(promise: Promise<T>, timeoutMs: number, message: str
   });
 }
 
-let decodeGate: Promise<unknown> = Promise.resolve();
-
-async function withExclusivePhotoDecode<T>(work: () => Promise<T>): Promise<T> {
-  const previous = decodeGate;
-  let release: (value?: unknown) => void = () => {};
-  decodeGate = new Promise((resolve) => {
-    release = resolve;
-  });
-  await previous;
-  try {
-    return await work();
-  } finally {
-    release();
-  }
-}
-
 async function decodePhoto(file: File) {
-  return withExclusivePhotoDecode(async () => {
-    if (typeof createImageBitmap === "function") {
-      try {
-        const bitmap = await waitWithTimeout(
-          createImageBitmap(file),
-          8000,
-          "Photo preparation timed out. Try a smaller JPG photo.",
-        );
-        return {
-          cleanup: () => bitmap.close(),
-          height: bitmap.height,
-          source: bitmap,
-          width: bitmap.width,
-        };
-      } catch {
-        // Fall through to Image() so iPhone Safari can still decode HEIC.
-      }
-    }
-
-    const imageUrl = URL.createObjectURL(file);
+  if (typeof createImageBitmap === "function") {
     try {
-      const image = new Image();
-      image.src = imageUrl;
-      await waitWithTimeout(image.decode(), 8000, "Photo preparation timed out. Try a smaller JPG photo.");
+      const bitmap = await waitWithTimeout(
+        createImageBitmap(file),
+        1500,
+        "Photo preparation timed out. Try a smaller JPG photo.",
+      );
       return {
-        cleanup: () => URL.revokeObjectURL(imageUrl),
-        height: image.naturalHeight,
-        source: image,
-        width: image.naturalWidth,
+        cleanup: () => bitmap.close(),
+        height: bitmap.height,
+        source: bitmap,
+        width: bitmap.width,
       };
-    } catch (error) {
-      URL.revokeObjectURL(imageUrl);
-      throw error;
+    } catch {
+      // Fall through to Image() for JPEGs that bitmap cannot read.
     }
-  });
+  }
+
+  const imageUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.src = imageUrl;
+    await waitWithTimeout(image.decode(), 1500, "Photo preparation timed out. Try a smaller JPG photo.");
+    return {
+      cleanup: () => URL.revokeObjectURL(imageUrl),
+      height: image.naturalHeight,
+      source: image,
+      width: image.naturalWidth,
+    };
+  } catch (error) {
+    URL.revokeObjectURL(imageUrl);
+    throw error;
+  }
 }
 
 async function renderFileAsJpeg(file: File, maxSide: number, quality: number) {
@@ -110,6 +92,12 @@ async function convertPhonePhotoToJpeg(file: File) {
 }
 
 export async function prepareDisplayPhoto(file: File) {
+  if (isHeicPhoto(file)) {
+    // iPhone HEIC decode is slow and used to serialize the whole dump. Upload the
+    // original immediately; the server already accepts HEIC.
+    return file;
+  }
+
   try {
     let display = await convertPhonePhotoToJpeg(file);
     if (display.size > maxUploadBytes) {
@@ -117,8 +105,6 @@ export async function prepareDisplayPhoto(file: File) {
     }
     return display;
   } catch {
-    // iPhone HEIC often cannot decode in Safari. Upload the original File instead
-    // of blocking Capture; the server already accepts the raw photo.
     return file;
   }
 }

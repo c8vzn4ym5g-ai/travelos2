@@ -210,7 +210,7 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   assert.match(prepare, /maxUploadBytes = 4_500_000/);
   assert.doesNotMatch(prepare, /POSITIVE_INFINITY/);
   assert.match(capture, /image\/heic,image\/heif,\.heic,\.heif/);
-  assert.match(upload, /createStagedCapturePhotos/);
+  assert.match(upload, /CAPTURE_DUMP_LIMIT = 40/);
   assert.match(upload, /createTinyPreviewUrl/);
   assert.match(upload, /prepareDisplayPhoto/);
   assert.match(upload, /uploadOriginalPhotoInBackground/);
@@ -253,11 +253,12 @@ test("background upload starts on add and Save does not wait on originals", asyn
 
   assert.match(addBlock, /void startBackgroundPhotoUpload\(photo\)/);
   assert.match(addBlock, /ingestCaptureFileList\(fileList/);
+  assert.match(addBlock, /limit: CAPTURE_DUMP_LIMIT/);
   assert.match(addBlock, /createStagedCapturePhotos\(\[file\]\)/);
   assert.match(capture, /void startBackgroundAudioUpload\(staged\)/);
   assert.match(capture, /ensureMoment/);
   assert.match(capture, /createMomentSession/);
-  assert.match(capture, /createWorkQueue\(\s*capturePrepareConcurrency/);
+  assert.match(capture, /createWorkQueue\(\)/);
   assert.match(capture, /photoQueue\(\)\.enqueue/);
   assert.match(capture, /retryMoment/);
   assert.match(capture, /captureErrorMessage/);
