@@ -37,6 +37,13 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
 - No fake prices, reviews, or unsourced stats. Live quotes stay on
   `BookingBand`. Map stays the first impression.
 
+## Public Lapland journey picture
+
+- The first picture is a printed itinerary, not a GIS widget. Left column:
+  numbered notes with a short blurb under each stop. Right: a colorful
+  regional map of Finland, Lapland to Helsinki, with route and numbered
+  pins. December / midwinter language only; no day-by-day dates.
+
 ## Public Booking Band
 
 - Finished public trip journals may show a reusable `BookingBand`

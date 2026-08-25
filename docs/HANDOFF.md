@@ -1,5 +1,21 @@
 # TravelOS Handoff
 
+## 2026-08-25 Lapland poster: left notes, blurbs, colorful Finland
+
+- Owner rejected the beige Finland infographic (legend on the right, names
+  only, pale Positron-like base). Benchmark is a printed itinerary: LEFT
+  notes with a short line under each number, RIGHT a real regional map.
+- Rebuild `scripts/generate-lapland-poster.mjs` as that architecture.
+  Notes column uses `LAPLAND_POSTER_NOTES` (Santa Claus Village, Arctic
+  Circle, red cabin, Helsinki Cathedral, South Harbour) with seasonal
+  December / midwinter / Christmas-window language only. No 2019-12-11,
+  no day-by-day dates. Map is OpenTopoMap (green terrain, blue water,
+  roads) at Finland north–south scale (zoom 8). Pins stay on the map;
+  HTML overlay percentages follow the same layout. Output:
+  `public/travelos/maps/lapland-rovaniemi.png`.
+- Do not touch Capture, family PIN, dump, PR #2, or Drive on family.
+  Merge when travelos2-63r3 CI is green.
+
 ## 2026-08-25 Capture 404 after create: unique moment item files
 
 - Live GM self-test after PR #10 (`get({ useCache: false })`) and PR #11

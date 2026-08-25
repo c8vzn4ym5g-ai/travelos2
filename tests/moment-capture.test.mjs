@@ -332,7 +332,7 @@ test("capture speed path does not touch public Lapland", async () => {
   assert.match(seed, /trip_lapland_2020/);
   assert.match(seed, /laplandTitle: "北極圈上的十二月"/);
   assert.match(seed, /finland-lapland-winter-journal"/);
-  assert.match(poster, /basemaps\.cartocdn\.com\/rastertiles\/voyager/);
+  assert.match(poster, /tile\.opentopomap\.org/);
 });
 
 test("capture and save paths are not blocked by indexing or geocoding", async () => {

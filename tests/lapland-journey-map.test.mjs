@@ -8,6 +8,9 @@ import {
   getStopCardContent,
   LAPLAND_GLANCE_LABELS,
   LAPLAND_POSTER,
+  LAPLAND_POSTER_LEGEND_RATIO,
+  LAPLAND_POSTER_NOTES,
+  LAPLAND_POSTER_TITLE,
   STREET_BASEMAP,
 } from "../lib/journey-map-model.ts";
 import { seedTripDetails } from "../lib/trips.ts";
@@ -89,7 +92,7 @@ test("long-haul is a quiet label, not an equal-size second map", async () => {
   assert.match(source, /At a glance/);
 });
 
-test("poster generator stitches Carto Voyager tiles and the PNG is committed", async () => {
+test("poster generator stitches OpenTopoMap tiles and the PNG is committed", async () => {
   const [generator, pkg, png] = await Promise.all([
     readFile(resolve(root, "scripts/generate-lapland-poster.mjs"), "utf8"),
     readFile(resolve(root, "package.json"), "utf8"),
@@ -99,7 +102,7 @@ test("poster generator stitches Carto Voyager tiles and the PNG is committed", a
 
   assert.match(pkg, /generate:lapland-poster/);
   assert.match(generator, /lib\/journey-map-model\.ts/);
-  assert.match(generator, /basemaps\.cartocdn\.com\/rastertiles\/voyager\/\{z\}\/\{x\}\/\{y\}\.png/);
+  assert.match(generator, /tile\.opentopomap\.org\/\{z\}\/\{x\}\/\{y\}\.png/);
   assert.match(generator, /getStreetTileUrl/);
   assert.match(generator, /buildPosterLayout/);
   assert.match(generator, /layout\.winterPath/);
@@ -109,19 +112,26 @@ test("poster generator stitches Carto Voyager tiles and the PNG is committed", a
   assert.match(generator, /Santa Claus Village/);
   assert.match(generator, /HELSINKI/);
   assert.match(generator, /At a glance/);
+  assert.match(generator, /drawNotesColumn/);
+  assert.match(generator, /LAPLAND_POSTER_LEGEND_RATIO/);
+  assert.match(generator, /聖誕季窗口/);
+  assert.match(generator, /item\.blurb/);
+  assert.doesNotMatch(generator, /2019-12-11/);
+  assert.doesNotMatch(generator, /8\/23|Aug 23|8月23/);
   assert.doesNotMatch(generator, /scaleBar/);
   assert.doesNotMatch(generator, /fillText\("N"/);
   assert.doesNotMatch(generator, /Winter route/);
   assert.doesNotMatch(generator, /grayscale|desaturat|opacity-55|saturate-\[/);
+  assert.doesNotMatch(generator, /positron|light_all|#f4eee3|basemaps\.cartocdn\.com/);
   assert.doesNotMatch(generator, /maps\.googleapis|mt\d\.google|@googlemaps|tile\.openstreetmap\.org/);
-  assert.equal(STREET_BASEMAP.urlTemplate, "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png");
+  assert.equal(STREET_BASEMAP.urlTemplate, "https://tile.opentopomap.org/{z}/{x}/{y}.png");
   assert.match(STREET_BASEMAP.attribution, /OpenStreetMap contributors/);
-  assert.match(STREET_BASEMAP.attribution, /CARTO/);
+  assert.match(STREET_BASEMAP.attribution, /OpenTopoMap/);
   assert.equal(png[0], 0x89);
   assert.equal(png[1], 0x50);
   assert.equal(png[2], 0x4e);
   assert.equal(png[3], 0x47);
-  assert.ok(info.size > 80_000, `poster too small to be a street raster (${info.size} bytes)`);
+  assert.ok(info.size > 400_000, `poster too small to be a street raster (${info.size} bytes)`);
 });
 
 test("JourneyMap and poster have no scale, routing, or measure chrome", async () => {
@@ -189,12 +199,23 @@ test("Lapland itinerary is a Rovaniemi journey picture, not a Hong Kong-scale ov
   assert.ok(layout.pins.some((pin) => /Helsinki Cathedral/.test(pin.label)));
   assert.ok(layout.pins.some((pin) => /South Harbour/.test(pin.label)));
   assert.equal(layout.legendItems.length, 5);
-  assert.ok(layout.legendItems.every((item) => item.x > 60 && item.x < 90));
-  assert.ok(layout.pins.every((pin) => pin.x < 66));
+  assert.ok(layout.legendItems.every((item) => item.x < 32), "notes column stays on the left");
+  assert.ok(layout.pins.every((pin) => pin.x > 36), "numbered pins stay on the map, right of the notes");
+  assert.ok(layout.legendItems.every((item) => item.blurb.length > 4));
+  assert.equal(layout.legendItems[0].label, "聖誕老人村");
+  assert.match(layout.legendItems[0].blurb, /積雪木屋/);
+  assert.match(layout.legendItems[1].blurb, /走過去/);
+  assert.match(layout.legendItems[2].blurb, /過夜/);
+  assert.match(layout.legendItems[3].blurb, /白教堂/);
+  assert.match(layout.legendItems[4].blurb, /再往南/);
+  assert.equal(LAPLAND_POSTER_NOTES.length, 5);
+  assert.match(LAPLAND_POSTER_TITLE.kickerEn, /midwinter/);
+  assert.doesNotMatch(LAPLAND_POSTER_TITLE.kickerEn, /2019|8\/23/);
+  assert.equal(LAPLAND_POSTER_LEGEND_RATIO, 0.3);
   assert.ok(!itinerary.regionalPoints.some((point) => point.latitude === hongKong.latitude && point.longitude === hongKong.longitude));
   assert.equal(layout.pins.length, 5);
-  assert.ok(layout.pins.every((pin) => pin.x >= 6 && pin.x <= 94 && pin.y >= 8 && pin.y <= 92));
-  assert.equal(layout.bounds.zoom, 7);
+  assert.ok(layout.pins.every((pin) => pin.x >= 6 && pin.x <= 98 && pin.y >= 6 && pin.y <= 94));
+  assert.equal(layout.bounds.zoom, 8);
   assert.ok(layout.arcticPath.length >= 3);
   assert.equal(layout.winterPath.length, 4);
   assert.equal(layout.sidePath.length, 2);

@@ -69,11 +69,11 @@ export type TileBounds = {
 };
 
 export const STREET_BASEMAP = {
-  attribution: "© OpenStreetMap contributors © CARTO",
+  attribution: "© OpenStreetMap contributors, SRTM © OpenTopoMap (CC-BY-SA)",
   attributionUrl: "https://www.openstreetmap.org/copyright",
-  cartoAttributionUrl: "https://carto.com/attributions",
-  name: "Carto Voyager",
-  urlTemplate: "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+  cartoAttributionUrl: "https://opentopomap.org/about",
+  name: "OpenTopoMap",
+  urlTemplate: "https://tile.opentopomap.org/{z}/{x}/{y}.png",
 } as const;
 
 export const TILE_PIXEL_SIZE = 256;
@@ -86,15 +86,80 @@ export const LAPLAND_POSTER = {
 
 export const LAPLAND_GLANCE_LABELS = "Santa Claus Village (聖誕老人村) · Helsinki";
 
-export const LAPLAND_POSTER_MAP_RATIO = 1;
-export const LAPLAND_POSTER_LEGEND_RATIO = 0;
+export const LAPLAND_POSTER_MAP_RATIO = 0.7;
+export const LAPLAND_POSTER_LEGEND_RATIO = 0.3;
 
 export const LAPLAND_POSTER_FRAME = {
-  maxLat: 68.6,
-  minLat: 59.2,
-  minLng: 20.6,
-  maxLng: 31.0,
-  zoom: 7,
+  maxLat: 67.4,
+  minLat: 59.6,
+  minLng: 21.6,
+  maxLng: 29.05,
+  zoom: 8,
+} as const;
+
+export type LaplandPosterPhase = "christmas" | "city";
+
+export type LaplandPosterNote = {
+  blurbEn: string;
+  blurbZh: string;
+  number: number;
+  phase: LaplandPosterPhase;
+  titleEn: string;
+  titleZh: string;
+};
+
+export const LAPLAND_POSTER_NOTES: LaplandPosterNote[] = [
+  {
+    blurbEn: "Snow timber houses on the Circle",
+    blurbZh: "北極圈上，積雪木屋",
+    number: 1,
+    phase: "christmas",
+    titleEn: "Santa Claus Village",
+    titleZh: "聖誕老人村",
+  },
+  {
+    blurbEn: "The line you can walk across in the square",
+    blurbZh: "廣場上可以走過去的那條線",
+    number: 2,
+    phase: "christmas",
+    titleEn: "Arctic Circle",
+    titleZh: "北極圈",
+  },
+  {
+    blurbEn: "Snowmen, a sled, the night's stay",
+    blurbZh: "雪人、雪橇、過夜的地方",
+    number: 3,
+    phase: "christmas",
+    titleEn: "Red cabin no. 4",
+    titleZh: "4 號紅木屋",
+  },
+  {
+    blurbEn: "The white church of Helsinki",
+    blurbZh: "赫爾辛基的白教堂",
+    number: 4,
+    phase: "city",
+    titleEn: "Helsinki Cathedral",
+    titleZh: "主教座堂",
+  },
+  {
+    blurbEn: "The city's sea, then further south",
+    blurbZh: "城裡的海、再往南",
+    number: 5,
+    phase: "city",
+    titleEn: "South Harbour",
+    titleZh: "南港",
+  },
+];
+
+export const LAPLAND_POSTER_TITLE = {
+  kickerZh: "十二月 · 深冬",
+  kickerEn: "December · midwinter",
+  routeEn: "Santa Claus Village → Helsinki",
+  routeZh: "聖誕老人村，然後往南",
+  seasonEn: "Christmas window",
+  seasonZh: "聖誕季窗口",
+  titleEn: "Lapland · Helsinki",
+  titleZh: "拉普蘭 · 赫爾辛基",
 } as const;
 
 export const LAPLAND_ARCTIC_LATITUDE = 66.5436;
@@ -136,10 +201,13 @@ export type PosterLeg = {
 };
 
 export type PosterLegendItem = {
+  blurb: string;
+  blurbEn: string;
   height: number;
   id: string;
   label: string;
   number: number;
+  phase: LaplandPosterPhase;
   sublabel: string | null;
   width: number;
   x: number;
@@ -797,7 +865,7 @@ export function getLaplandPosterRasterSize(bounds: TileBounds) {
 export function projectOntoLaplandPoster(point: GeoPoint, bounds: TileBounds): PosterPoint {
   const raw = projectRaw(point, bounds);
   return {
-    x: raw.x * LAPLAND_POSTER_MAP_RATIO,
+    x: LAPLAND_POSTER_LEGEND_RATIO * 100 + raw.x * LAPLAND_POSTER_MAP_RATIO,
     y: raw.y,
   };
 }
@@ -808,11 +876,11 @@ export function arcticCirclePosterPath(bounds: TileBounds): PosterPoint[] {
 }
 
 const LAPLAND_PIN_OFFSETS: Record<number, PosterPoint> = {
-  1: { x: 3.2, y: 1.0 },
-  2: { x: -3.4, y: -5.6 },
-  3: { x: -7.8, y: 5.4 },
-  4: { x: -6.2, y: -3.8 },
-  5: { x: 5.4, y: 2.0 },
+  1: { x: 4.6, y: 2.2 },
+  2: { x: -5.8, y: -4.8 },
+  3: { x: -8.4, y: 7.2 },
+  4: { x: -7.4, y: -4.4 },
+  5: { x: 6.8, y: 3.2 },
 };
 
 export function posterChineseLabel(stop: ItineraryStop) {
@@ -824,36 +892,50 @@ export function posterChineseLabel(stop: ItineraryStop) {
 }
 
 export function composeLaplandPosterPins(stops: ItineraryStop[], bounds: TileBounds): PosterPin[] {
+  const mapLeft = LAPLAND_POSTER_LEGEND_RATIO * 100;
+  const mapRight = 97.2;
+
   return stops.map((stop) => {
     const projected = projectOntoLaplandPoster(stop.point, bounds);
     const offset = LAPLAND_PIN_OFFSETS[stop.number] ?? { x: 0, y: 0 };
+    const note = LAPLAND_POSTER_NOTES.find((entry) => entry.number === stop.number);
     return {
       id: stop.id,
-      label: posterShortLabel(stop),
+      label: note?.titleEn ?? posterShortLabel(stop),
       leg: stop.leg,
       number: stop.number,
       point: stop.point,
-      sublabel: posterChineseLabel(stop),
-      x: Math.min(64, Math.max(8, projected.x + offset.x)),
-      y: Math.min(92, Math.max(8, projected.y + offset.y)),
+      sublabel: note?.titleZh ?? posterChineseLabel(stop),
+      x: Math.min(mapRight, Math.max(mapLeft + 6.5, projected.x + offset.x)),
+      y: Math.min(93, Math.max(7, projected.y + offset.y)),
     };
   });
 }
 
 export function buildLaplandLegendItems(pins: PosterPin[]): PosterLegendItem[] {
-  const startY = 11;
-  const rowHeight = 10.6;
+  const x = 1.7;
+  const width = 26.6;
+  const height = 8.0;
+  const christmasY = [15.5, 24.1, 32.7];
+  const cityY = [45.0, 53.6];
 
-  return pins.map((pin, index) => ({
-    height: 9.4,
-    id: pin.id,
-    label: pin.label,
-    number: pin.number,
-    sublabel: pin.sublabel,
-    width: 27,
-    x: 70.5,
-    y: startY + index * rowHeight,
-  }));
+  return pins.map((pin) => {
+    const note = LAPLAND_POSTER_NOTES.find((entry) => entry.number === pin.number);
+    const y = pin.number <= 3 ? christmasY[pin.number - 1] : cityY[pin.number - 4];
+    return {
+      blurb: note?.blurbZh ?? "",
+      blurbEn: note?.blurbEn ?? "",
+      height,
+      id: pin.id,
+      label: note?.titleZh ?? pin.sublabel ?? pin.label,
+      number: pin.number,
+      phase: note?.phase ?? (pin.number <= 3 ? "christmas" : "city"),
+      sublabel: note?.titleEn ?? pin.label,
+      width,
+      x,
+      y,
+    };
+  });
 }
 
 export function isLaplandPosterCity(city: string) {
