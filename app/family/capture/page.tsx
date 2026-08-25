@@ -526,7 +526,7 @@ export default function CapturePage() {
           <Link className="travel-label inline-flex min-h-11 items-center text-sm font-semibold text-emerald-800" href="/family">
             ← 家庭入口
           </Link>
-          <p className="travel-script mt-8 text-2xl text-rose-700">JDB Capture</p>
+          <p className="travel-script mt-8 text-2xl text-rose-700">one capture door</p>
           <h1 className="travel-display mt-2 text-4xl font-semibold">Capture</h1>
           <p className="mt-4 text-base leading-7 text-zinc-600">
             打開就能拍或錄。先看剛留下的，不好就重拍或重錄，缺的再補一張。存成 Moment，不是新的旅程。一句話可以是心情，也可以是交代給 TravelOS 的工作。
