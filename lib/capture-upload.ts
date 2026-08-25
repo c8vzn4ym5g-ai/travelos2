@@ -1,7 +1,105 @@
 "use client";
 
-import { maxUploadBytes, prepareDisplayPhoto, shouldKeepOriginal } from "./prepare-photo.ts";
+import { isHeicPhoto } from "./moments.ts";
+import {
+  createTinyPreviewUrl,
+  maxUploadBytes,
+  prepareDisplayPhoto,
+  shouldKeepOriginal,
+} from "./prepare-photo.ts";
 import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "./types.ts";
+
+export { createTinyPreviewUrl };
+export const CAPTURE_UPLOAD_CONCURRENCY = 3;
+
+export type CapturePhotoDraft = {
+  errorMessage: null;
+  file: File;
+  id: string;
+  previewUrl: null;
+  serverPhotoId: null;
+  status: "queued";
+};
+
+export function snapshotFileList(fileList: FileList | null | undefined) {
+  if (!fileList || fileList.length === 0) {
+    return [];
+  }
+
+  const files: File[] = [];
+  for (let index = 0; index < fileList.length; index += 1) {
+    const file = fileList[index];
+    if (file) {
+      files.push(file);
+    }
+  }
+  return files;
+}
+
+export function createStagedCapturePhotos(files: File[]): CapturePhotoDraft[] {
+  return files
+    .filter((file) => file.type.startsWith("image/") || isHeicPhoto(file))
+    .map((file) => ({
+      errorMessage: null,
+      file,
+      id: `staged_${file.name}_${file.size}_${file.lastModified}_${Math.random().toString(36).slice(2, 6)}`,
+      previewUrl: null,
+      serverPhotoId: null,
+      status: "queued" as const,
+    }));
+}
+
+export function captureBatchMessage(received: number, total: number) {
+  if (received <= 0) {
+    return "請選照片。iPhone HEIC 會轉成 JPEG 上傳，原檔稍後另存。";
+  }
+
+  return `已收到 ${received} 張，分批上傳中。目前共 ${total} 張，會繼續傳到倉庫。`;
+}
+
+export function createWorkQueue(concurrency = CAPTURE_UPLOAD_CONCURRENCY) {
+  if (!Number.isInteger(concurrency) || concurrency < 1) {
+    throw new Error("Work queue concurrency must be a positive integer.");
+  }
+
+  let active = 0;
+  const pending: Array<() => void> = [];
+
+  function pump() {
+    while (active < concurrency && pending.length > 0) {
+      const start = pending.shift();
+      if (!start) {
+        continue;
+      }
+      start();
+    }
+  }
+
+  return {
+    get activeCount() {
+      return active;
+    },
+    get pendingCount() {
+      return pending.length;
+    },
+    enqueue<T>(work: () => Promise<T>): Promise<T> {
+      return new Promise<T>((resolve, reject) => {
+        const run = () => {
+          active += 1;
+          Promise.resolve()
+            .then(work)
+            .then(resolve, reject)
+            .finally(() => {
+              active -= 1;
+              pump();
+            });
+        };
+        pending.push(run);
+        pump();
+      });
+    },
+  };
+}
 
 export function pinHeaders(pin: string): Record<string, string> {
   return { "x-travelos-admin-pin": pin };
@@ -143,6 +241,7 @@ export async function uploadDisplayPhoto(input: {
   coordinates: GeoPoint | null;
   file: File;
   momentId: string;
+  onDisplayReady?: (display: File) => void | Promise<void>;
   pin: string;
   retryMoment?: (status: number) => Promise<string>;
   signal?: AbortSignal;
@@ -156,6 +255,12 @@ export async function uploadDisplayPhoto(input: {
   }
   if (display !== input.file && display.size > maxUploadBytes) {
     throw new Error("Photo is still too large after compression. Please choose a smaller photo.");
+  }
+
+  try {
+    await Promise.resolve(input.onDisplayReady?.(display));
+  } catch {
+    // Tiny previews are optional; the display upload still proceeds.
   }
 
   const send = async (momentId: string) => {

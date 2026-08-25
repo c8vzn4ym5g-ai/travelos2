@@ -4,28 +4,34 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
+  CAPTURE_UPLOAD_CONCURRENCY,
+  captureBatchMessage,
   captureErrorMessage,
   clearMomentAudioInBackground,
   createCaptureMoment,
   createMomentSession,
+  createStagedCapturePhotos,
+  createTinyPreviewUrl,
+  createWorkQueue,
   finalizeCaptureMoment,
   removeUploadedPhotoInBackground,
+  snapshotFileList,
   uploadDisplayPhoto,
   uploadMomentAudio,
   uploadOriginalPhotoInBackground,
 } from "@/lib/capture-upload";
 import { FAMILY_ADMIN_SESSION_KEY, resolveFamilySession } from "@/lib/family-session";
-import { appendMomentPhotos, classifyCaptureNote, isHeicPhoto } from "@/lib/moments";
+import { appendMomentPhotos, classifyCaptureNote } from "@/lib/moments";
 import type { GeoPoint, TravelJob } from "@/lib/types";
 
-type UploadStatus = "uploading" | "uploaded" | "failed";
+type UploadStatus = "queued" | "uploading" | "uploaded" | "failed";
 
 type StagedPhoto = {
   abort: AbortController;
   errorMessage: string | null;
   file: File;
   id: string;
-  previewUrl: string;
+  previewUrl: string | null;
   serverPhotoId: string | null;
   status: UploadStatus;
 };
@@ -42,20 +48,6 @@ const controlClass =
   "relative flex min-h-12 cursor-pointer items-center justify-center rounded-2xl border px-4 py-3 text-center text-sm font-semibold shadow-sm";
 const hiddenFileClass = "absolute inset-0 cursor-pointer opacity-0";
 
-function makeStagedPhotos(files: File[]) {
-  return files
-    .filter((file) => file.type.startsWith("image/") || isHeicPhoto(file))
-    .map((file) => ({
-      abort: new AbortController(),
-      errorMessage: null,
-      file,
-      id: `staged_${file.name}_${file.size}_${file.lastModified}_${Math.random().toString(36).slice(2, 6)}`,
-      previewUrl: URL.createObjectURL(file),
-      serverPhotoId: null,
-      status: "uploading" as const,
-    }));
-}
-
 function sessionPin(fallback: string) {
   return window.sessionStorage.getItem(FAMILY_ADMIN_SESSION_KEY) ?? fallback;
 }
@@ -71,6 +63,7 @@ export default function CapturePage() {
   const coordinatesRef = useRef<GeoPoint | null>(null);
   const momentSessionRef = useRef<ReturnType<typeof createMomentSession> | null>(null);
   const photoUploadsRef = useRef(new Map<string, Promise<void>>());
+  const photoQueueRef = useRef(createWorkQueue(CAPTURE_UPLOAD_CONCURRENCY));
   const audioUploadRef = useRef<Promise<void> | null>(null);
   const savingRef = useRef(false);
   const [pin, setPin] = useState("");
@@ -145,7 +138,9 @@ export default function CapturePage() {
   useEffect(() => {
     return () => {
       for (const photo of photosRef.current) {
-        URL.revokeObjectURL(photo.previewUrl);
+        if (photo.previewUrl) {
+          URL.revokeObjectURL(photo.previewUrl);
+        }
       }
       if (audioRef.current) {
         URL.revokeObjectURL(audioRef.current.previewUrl);
@@ -184,14 +179,27 @@ export default function CapturePage() {
 
   function patchPhoto(photoId: string, patch: Partial<StagedPhoto>) {
     setPhotos((current) => {
-      const next = current.map((photo) => (photo.id === photoId ? { ...photo, ...patch } : photo));
+      const next = current.map((photo) => {
+        if (photo.id !== photoId) {
+          return photo;
+        }
+        if (patch.previewUrl && photo.previewUrl && patch.previewUrl !== photo.previewUrl) {
+          URL.revokeObjectURL(photo.previewUrl);
+        }
+        return { ...photo, ...patch };
+      });
       photosRef.current = next;
       return next;
     });
   }
 
   async function startBackgroundPhotoUpload(photo: StagedPhoto) {
-    const run = (async () => {
+    const run = photoQueueRef.current.enqueue(async () => {
+      if (photo.abort.signal.aborted) {
+        return;
+      }
+
+      patchPhoto(photo.id, { status: "uploading" });
       const takenAt = new Date(photo.file.lastModified).toISOString();
       try {
         const momentId = await ensureMoment(takenAt);
@@ -203,6 +211,20 @@ export default function CapturePage() {
           coordinates: coordinatesRef.current,
           file: photo.file,
           momentId,
+          onDisplayReady: async (display) => {
+            if (photo.abort.signal.aborted) {
+              return;
+            }
+            const previewUrl = await createTinyPreviewUrl(display);
+            if (!previewUrl) {
+              return;
+            }
+            if (photo.abort.signal.aborted) {
+              URL.revokeObjectURL(previewUrl);
+              return;
+            }
+            patchPhoto(photo.id, { previewUrl });
+          },
           pin: sessionPin(pinRef.current),
           retryMoment: (status) => retryMoment(takenAt, status),
           signal: photo.abort.signal,
@@ -235,7 +257,7 @@ export default function CapturePage() {
         setMessage(detail);
         throw error;
       }
-    })();
+    });
 
     photoUploadsRef.current.set(photo.id, run.then(() => undefined, () => undefined));
     return run;
@@ -297,19 +319,23 @@ export default function CapturePage() {
   }
 
   function addIncomingFiles(fileList: FileList | null) {
-    if (!fileList || fileList.length === 0) {
+    const files = snapshotFileList(fileList);
+    if (files.length === 0) {
       return;
     }
 
-    const incoming = makeStagedPhotos([...fileList]);
+    const incoming = createStagedCapturePhotos(files).map((draft) => ({
+      ...draft,
+      abort: new AbortController(),
+    }));
     if (incoming.length === 0) {
-      setMessage("請選照片。iPhone HEIC 會轉成 JPEG 上傳，原檔稍後另存。");
+      setMessage(captureBatchMessage(0, photosRef.current.length));
       return;
     }
 
     setPhotos((current) => {
       const next = appendMomentPhotos(current, incoming);
-      setMessage(`已加入 ${next.length} 張，正在背景上傳。可再拍、再選，或重拍不好的那張。`);
+      setMessage(captureBatchMessage(incoming.length, next.length));
       return next;
     });
 
@@ -333,7 +359,9 @@ export default function CapturePage() {
       const removed = current.find((photo) => photo.id === photoId);
       if (removed) {
         removed.abort.abort();
-        URL.revokeObjectURL(removed.previewUrl);
+        if (removed.previewUrl) {
+          URL.revokeObjectURL(removed.previewUrl);
+        }
         photoUploadsRef.current.delete(photoId);
         const savedMomentId = momentSession().momentId;
         if (removed.serverPhotoId && savedMomentId) {
@@ -479,7 +507,9 @@ export default function CapturePage() {
       }
 
       for (const photo of photosRef.current) {
-        URL.revokeObjectURL(photo.previewUrl);
+        if (photo.previewUrl) {
+          URL.revokeObjectURL(photo.previewUrl);
+        }
       }
       if (audioRef.current) {
         URL.revokeObjectURL(audioRef.current.previewUrl);
@@ -538,7 +568,7 @@ export default function CapturePage() {
         <article className="rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm">
           <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">拍照與相簿都留著</p>
           <h2 className="travel-display mt-2 text-2xl font-semibold">Take Photo / Choose Photos</h2>
-          <p className="mt-3 text-sm leading-6 text-zinc-600">加入之後兩個按鈕都還在。新的會接在後面，不會蓋掉剛拍的。預覽立刻出現，上傳在背景做。</p>
+          <p className="mt-3 text-sm leading-6 text-zinc-600">加入之後兩個按鈕都還在。新的會接在後面，不會蓋掉剛拍的。一次選很多張會先全部收下，再分批壓縮上傳。預覽用小圖，不一次解出全部原圖。</p>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <label className={`${controlClass} border-sky-300 bg-sky-50 text-sky-950`}>
@@ -568,10 +598,22 @@ export default function CapturePage() {
             <ul className="mt-5 grid grid-cols-2 gap-3">
               {photos.map((photo) => (
                 <li className="overflow-hidden rounded-2xl bg-stone-100" key={photo.id}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img alt="" className="h-40 w-full object-cover" src={photo.previewUrl} />
+                  {photo.previewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img alt="" className="h-40 w-full object-cover" src={photo.previewUrl} />
+                  ) : (
+                    <div className="flex h-40 items-center justify-center bg-stone-200 px-3 text-center">
+                      <p className="line-clamp-3 text-xs font-medium text-zinc-600">{photo.file.name}</p>
+                    </div>
+                  )}
                   <p className="px-2 pt-2 text-center text-xs font-semibold text-zinc-600">
-                    {photo.status === "uploaded" ? "已上傳" : photo.status === "failed" ? "上傳失敗" : "上傳中"}
+                    {photo.status === "uploaded"
+                      ? "已上傳"
+                      : photo.status === "failed"
+                        ? "上傳失敗"
+                        : photo.status === "queued"
+                          ? "排隊中"
+                          : "上傳中"}
                   </p>
                   {photo.errorMessage ? (
                     <p className="px-2 pb-1 text-center text-[11px] leading-4 text-rose-800">{photo.errorMessage}</p>
@@ -597,7 +639,7 @@ export default function CapturePage() {
             </ul>
           ) : (
             <p className="mt-5 rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/60 px-4 py-6 text-center text-sm text-zinc-600">
-              還沒有照片。先拍照或從相簿選，選完立刻看得到。
+              還沒有照片。先拍照或從相簿選。一次選很多張也可以，會分批上傳。
             </p>
           )}
 

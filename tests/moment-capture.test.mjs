@@ -210,7 +210,8 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   assert.match(prepare, /maxUploadBytes = 4_500_000/);
   assert.doesNotMatch(prepare, /POSITIVE_INFINITY/);
   assert.match(capture, /image\/heic,image\/heif,\.heic,\.heif/);
-  assert.match(capture, /URL\.createObjectURL\(file\)/);
+  assert.match(upload, /createStagedCapturePhotos/);
+  assert.match(upload, /createTinyPreviewUrl/);
   assert.match(upload, /prepareDisplayPhoto/);
   assert.match(upload, /uploadOriginalPhotoInBackground/);
   assert.match(prepare, /return file;/);
@@ -218,10 +219,12 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   assert.doesNotMatch(prepare, /supportedUploadTypes/);
   const addIndex = capture.indexOf("function addIncomingFiles");
   const saveIndex = capture.indexOf("async function saveMoment");
-  const previewIndex = capture.indexOf("URL.createObjectURL(file)");
-  assert.ok(addIndex !== -1 && saveIndex !== -1 && previewIndex !== -1);
+  const addBlock = capture.slice(addIndex, capture.indexOf("function onTakePhoto"));
+  assert.ok(addIndex !== -1 && saveIndex !== -1);
   assert.ok(addIndex < saveIndex);
-  assert.ok(previewIndex < saveIndex);
+  assert.doesNotMatch(addBlock, /URL\.createObjectURL/);
+  assert.match(addBlock, /snapshotFileList/);
+  assert.match(capture, /createTinyPreviewUrl\(display\)/);
 });
 
 test("background upload starts on add and Save does not wait on originals", async () => {
@@ -249,11 +252,17 @@ test("background upload starts on add and Save does not wait on originals", asyn
   );
 
   assert.match(addBlock, /void startBackgroundPhotoUpload\(photo\)/);
+  assert.match(addBlock, /snapshotFileList\(fileList\)/);
+  assert.match(addBlock, /createStagedCapturePhotos\(files\)/);
   assert.match(capture, /void startBackgroundAudioUpload\(staged\)/);
   assert.match(capture, /ensureMoment/);
   assert.match(capture, /createMomentSession/);
+  assert.match(capture, /createWorkQueue\(CAPTURE_UPLOAD_CONCURRENCY\)/);
+  assert.match(capture, /photoQueueRef\.current\.enqueue/);
   assert.match(capture, /retryMoment/);
   assert.match(capture, /captureErrorMessage/);
+  assert.match(capture, /captureBatchMessage/);
+  assert.match(capture, /排隊中/);
   assert.match(capture, /上傳中/);
   assert.match(capture, /已上傳/);
   assert.match(capture, /photo\.errorMessage/);
