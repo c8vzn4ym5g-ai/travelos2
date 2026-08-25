@@ -1,10 +1,73 @@
 "use client";
 
-import { maxUploadBytes, prepareDisplayPhoto, shouldKeepOriginal } from "@/lib/prepare-photo";
-import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "@/lib/types";
+import { maxUploadBytes, prepareDisplayPhoto, shouldKeepOriginal } from "./prepare-photo.ts";
+import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "./types.ts";
 
 export function pinHeaders(pin: string) {
   return { "x-travelos-admin-pin": pin };
+}
+
+export function captureErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message.trim() ? error.message : fallback;
+}
+
+export function isRetryableUploadStatus(status: number) {
+  return status === 404 || status >= 500;
+}
+
+export function createMomentSession(createMoment: (time: string) => Promise<{ moment: { id: string } }>) {
+  let momentId: string | null = null;
+  let momentPromise: Promise<string> | null = null;
+
+  return {
+    get momentId() {
+      return momentId;
+    },
+    reset() {
+      momentId = null;
+      momentPromise = null;
+    },
+    async ensure(time: string) {
+      if (momentId) {
+        return momentId;
+      }
+
+      momentPromise ??= createMoment(time).then(
+        (created) => {
+          momentId = created.moment.id;
+          return created.moment.id;
+        },
+        (error: unknown) => {
+          momentPromise = null;
+          momentId = null;
+          throw error;
+        },
+      );
+
+      try {
+        return await momentPromise;
+      } catch (error) {
+        momentPromise = null;
+        momentId = null;
+        throw error;
+      }
+    },
+  };
+}
+
+export async function sendWithMomentRetry(
+  send: (momentId: string) => Promise<Response>,
+  momentId: string,
+  retryMoment?: (status: number) => Promise<string>,
+) {
+  const first = await send(momentId);
+  if (first.ok || !retryMoment || !isRetryableUploadStatus(first.status)) {
+    return { momentId, response: first };
+  }
+
+  const nextMomentId = await retryMoment(first.status);
+  const response = await send(nextMomentId);
+  return { momentId: nextMomentId, response };
 }
 
 async function readError(response: Response, fallback: string) {
@@ -81,36 +144,46 @@ export async function uploadDisplayPhoto(input: {
   file: File;
   momentId: string;
   pin: string;
+  retryMoment?: (status: number) => Promise<string>;
   signal?: AbortSignal;
   takenAt: string;
 }) {
-  const display = await prepareDisplayPhoto(input.file);
-  if (display.size > maxUploadBytes) {
+  let display: File;
+  try {
+    display = await prepareDisplayPhoto(input.file);
+  } catch {
+    display = input.file;
+  }
+  if (display !== input.file && display.size > maxUploadBytes) {
     throw new Error("Photo is still too large after compression. Please choose a smaller photo.");
   }
 
-  const formData = new FormData();
-  formData.set("file", display);
-  formData.set("momentId", input.momentId);
-  formData.set("takenAt", input.takenAt);
-  if (input.coordinates) {
-    formData.set("latitude", String(input.coordinates.latitude));
-    formData.set("longitude", String(input.coordinates.longitude));
-  }
+  const send = async (momentId: string) => {
+    const formData = new FormData();
+    formData.set("file", display);
+    formData.set("momentId", momentId);
+    formData.set("takenAt", input.takenAt);
+    if (input.coordinates) {
+      formData.set("latitude", String(input.coordinates.latitude));
+      formData.set("longitude", String(input.coordinates.longitude));
+    }
 
-  const response = await fetch("/api/moments/photos", {
-    body: formData,
-    headers: pinHeaders(input.pin),
-    method: "POST",
-    signal: input.signal,
-  });
+    return fetch("/api/moments/photos", {
+      body: formData,
+      headers: pinHeaders(input.pin),
+      method: "POST",
+      signal: input.signal,
+    });
+  };
+
+  const { momentId, response } = await sendWithMomentRetry(send, input.momentId, input.retryMoment);
 
   if (!response.ok) {
     throw new Error(await readError(response, "Photo upload failed."));
   }
 
   const payload = (await response.json()) as { photo: MomentPhoto };
-  return { display, photo: payload.photo };
+  return { display, momentId, photo: payload.photo };
 }
 
 export function uploadOriginalPhotoInBackground(input: {
@@ -142,17 +215,22 @@ export async function uploadMomentAudio(input: {
   blob: Blob;
   momentId: string;
   pin: string;
+  retryMoment?: (status: number) => Promise<string>;
   signal?: AbortSignal;
 }) {
-  const audioData = new FormData();
-  audioData.set("momentId", input.momentId);
-  audioData.set("file", new File([input.blob], "moment-audio.webm", { type: input.blob.type || "audio/webm" }));
-  const response = await fetch("/api/moments/audio", {
-    body: audioData,
-    headers: pinHeaders(input.pin),
-    method: "POST",
-    signal: input.signal,
-  });
+  const send = async (momentId: string) => {
+    const audioData = new FormData();
+    audioData.set("momentId", momentId);
+    audioData.set("file", input.blob, "moment-audio.webm");
+    return fetch("/api/moments/audio", {
+      body: audioData,
+      headers: pinHeaders(input.pin),
+      method: "POST",
+      signal: input.signal,
+    });
+  };
+
+  const { response } = await sendWithMomentRetry(send, input.momentId, input.retryMoment);
   if (!response.ok) {
     throw new Error(await readError(response, "Audio upload failed."));
   }

@@ -177,6 +177,9 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   assert.match(capture, /URL\.createObjectURL\(file\)/);
   assert.match(upload, /prepareDisplayPhoto/);
   assert.match(upload, /uploadOriginalPhotoInBackground/);
+  assert.match(prepare, /return file;/);
+  assert.doesNotMatch(prepare, /Could not prepare this photo for upload/);
+  assert.doesNotMatch(prepare, /supportedUploadTypes/);
   const addIndex = capture.indexOf("function addIncomingFiles");
   const saveIndex = capture.indexOf("async function saveMoment");
   const previewIndex = capture.indexOf("URL.createObjectURL(file)");
@@ -186,12 +189,13 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
 });
 
 test("background upload starts on add and Save does not wait on originals", async () => {
-  const [capture, upload, photosApi, prepare, store] = await Promise.all([
+  const [capture, upload, photosApi, prepare, store, warehouseRead] = await Promise.all([
     readSource("app/family/capture/page.tsx"),
     readSource("lib/capture-upload.ts"),
     readSource("app/api/moments/photos/route.ts"),
     readSource("lib/prepare-photo.ts"),
     readSource("lib/moment-store.ts"),
+    readSource("lib/warehouse-read.ts"),
   ]);
 
   const addBlock = capture.slice(
@@ -200,7 +204,7 @@ test("background upload starts on add and Save does not wait on originals", asyn
   );
   const saveBlock = capture.slice(capture.indexOf("async function saveMoment"));
   const displayPost = photosApi.slice(
-    photosApi.indexOf("if (!(file instanceof File))"),
+    photosApi.indexOf("if (!isUploadBlob(file))"),
     photosApi.indexOf("export async function DELETE"),
   );
   const displayUpload = upload.slice(
@@ -211,8 +215,13 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(addBlock, /void startBackgroundPhotoUpload\(photo\)/);
   assert.match(capture, /void startBackgroundAudioUpload\(staged\)/);
   assert.match(capture, /ensureMoment/);
+  assert.match(capture, /createMomentSession/);
+  assert.match(capture, /retryMoment/);
+  assert.match(capture, /captureErrorMessage/);
   assert.match(capture, /上傳中/);
   assert.match(capture, /已上傳/);
+  assert.match(capture, /photo\.errorMessage/);
+  assert.match(capture, /audio\.errorMessage/);
   assert.match(capture, /disabled=\{!hasCapture\}/);
   assert.doesNotMatch(saveBlock, /preparePhotoForUpload/);
   assert.doesNotMatch(saveBlock, /prepareDisplayPhoto/);
@@ -232,6 +241,16 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(store, /flushPhotoAppends/);
   assert.match(store, /applyMomentPhotoAppends/);
   assert.match(prepare, /prepareDisplayPhoto/);
+  assert.match(upload, /createMomentSession/);
+  assert.match(upload, /sendWithMomentRetry/);
+  assert.match(store, /loadWarehouseFromBlobGet/);
+  assert.match(warehouseRead, /useCache: false/);
+  assert.match(store, /cacheControlMaxAge: 60/);
+  assert.match(store, /MomentWarehouseUnavailableError/);
+  assert.doesNotMatch(store, /list\(/);
+  assert.doesNotMatch(store, /dataBlob\.url/);
+  assert.doesNotMatch(store, /\?v=/);
+  assert.doesNotMatch(warehouseRead, /fetch\(/);
 });
 
 test("capture speed path does not touch public Lapland", async () => {

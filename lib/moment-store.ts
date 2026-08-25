@@ -1,28 +1,38 @@
-import { list, put } from "@vercel/blob";
+import { BlobNotFoundError, get, put } from "@vercel/blob";
 import { isAdminPinValid, isBlobConfigured } from "@/lib/editable-store";
 import { indexTravelMoment } from "@/lib/moment-index";
-import {
-  MOMENTS_BLOB_PATH,
-  MOMENTS_SCHEMA_VERSION,
-  applyMomentPhotoAppends,
-  normalizeTravelJob,
-  normalizeTravelMoment,
-} from "@/lib/moments";
+import { MOMENTS_BLOB_PATH, MOMENTS_SCHEMA_VERSION, applyMomentPhotoAppends, normalizeTravelJob, normalizeTravelMoment } from "@/lib/moments";
 import type { MomentPhoto, TravelJob, TravelMoment } from "@/lib/types";
+import {
+  type MomentContent,
+  MomentWarehouseUnavailableError,
+  type WarehouseGetResult,
+  createEmptyWarehouse,
+  loadWarehouseFromBlobGet,
+  withNormalizedContent,
+} from "@/lib/warehouse-read";
 
-export type MomentContent = {
-  jobs: TravelJob[];
-  moments: TravelMoment[];
-  schemaVersion?: number;
-  updatedAt: string;
-};
+export type { MomentContent, WarehouseGet, WarehouseGetResult } from "@/lib/warehouse-read";
+export {
+  MOMENTS_BLOB_PATH,
+  MomentWarehouseUnavailableError,
+  WAREHOUSE_GET_OPTIONS,
+  loadWarehouseFromBlobGet,
+} from "@/lib/warehouse-read";
 
 export type MomentStoreStatus = {
   configured: boolean;
   source: "blob" | "memory";
 };
 
-export { isAdminPinValid, MOMENTS_BLOB_PATH };
+export { isAdminPinValid };
+
+export function momentApiErrorResponse(error: unknown) {
+  if (error instanceof MomentWarehouseUnavailableError) {
+    return Response.json({ error: error.message }, { status: 503 });
+  }
+  throw error;
+}
 
 const memoryKey = "__travelosMomentWarehouse";
 
@@ -30,30 +40,12 @@ type GlobalWarehouse = typeof globalThis & { [memoryKey]?: MomentContent };
 
 function getMemoryContent() {
   const globalStore = globalThis as GlobalWarehouse;
-  globalStore[memoryKey] ??= createEmptyContent();
+  globalStore[memoryKey] ??= createEmptyWarehouse();
   return globalStore[memoryKey];
 }
 
 function setMemoryContent(content: MomentContent) {
   (globalThis as GlobalWarehouse)[memoryKey] = content;
-}
-
-function createEmptyContent(): MomentContent {
-  return {
-    jobs: [],
-    moments: [],
-    schemaVersion: MOMENTS_SCHEMA_VERSION,
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-function withNormalizedContent(content: MomentContent): MomentContent {
-  return {
-    jobs: (content.jobs ?? []).map(normalizeTravelJob),
-    moments: (content.moments ?? []).map(normalizeTravelMoment),
-    schemaVersion: content.schemaVersion ?? MOMENTS_SCHEMA_VERSION,
-    updatedAt: content.updatedAt,
-  };
 }
 
 let warehouseWriteQueue: Promise<void> = Promise.resolve();
@@ -67,6 +59,24 @@ function withWarehouseLock<T>(work: () => Promise<T>): Promise<T> {
   return run;
 }
 
+async function getWarehouseFromSdk(
+  pathname: string,
+  options: { access: "public" | "private"; useCache?: boolean },
+): Promise<WarehouseGetResult | null> {
+  try {
+    const result = await get(pathname, options);
+    if (!result) {
+      return null;
+    }
+    return { statusCode: result.statusCode, stream: result.stream };
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export async function readMoments(): Promise<{ content: MomentContent; status: MomentStoreStatus }> {
   if (!isBlobConfigured()) {
     return {
@@ -75,29 +85,13 @@ export async function readMoments(): Promise<{ content: MomentContent; status: M
     };
   }
 
-  const blobs = await list({ prefix: MOMENTS_BLOB_PATH, limit: 1 });
-  const dataBlob = blobs.blobs.find((blob) => blob.pathname === MOMENTS_BLOB_PATH);
-
-  if (!dataBlob) {
-    const content = createEmptyContent();
-    await writeWarehouse(content.moments, content.jobs);
-    return {
-      content,
-      status: { configured: true, source: "blob" },
-    };
+  const loaded = await loadWarehouseFromBlobGet(getWarehouseFromSdk);
+  if (loaded.createdEmpty) {
+    await writeWarehouse(loaded.content.moments, loaded.content.jobs);
   }
 
-  const response = await fetch(`${dataBlob.url}?v=${Date.now()}`, { cache: "no-store" });
-  if (!response.ok) {
-    return {
-      content: createEmptyContent(),
-      status: { configured: true, source: "blob" },
-    };
-  }
-
-  const content = withNormalizedContent((await response.json()) as MomentContent);
   return {
-    content,
+    content: loaded.content,
     status: { configured: true, source: "blob" },
   };
 }
@@ -118,13 +112,14 @@ export async function writeWarehouse(moments: TravelMoment[], jobs: TravelJob[])
   await put(MOMENTS_BLOB_PATH, JSON.stringify(content, null, 2), {
     access: "public",
     allowOverwrite: true,
+    cacheControlMaxAge: 60,
     contentType: "application/json",
   });
 
   return content;
 }
 
-export async function storeMomentBinary(pathname: string, file: File) {
+export async function storeMomentBinary(pathname: string, file: Blob) {
   if (!isBlobConfigured()) {
     const bytes = Buffer.from(await file.arrayBuffer());
     const mime = file.type || "application/octet-stream";
