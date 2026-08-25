@@ -4,7 +4,7 @@ import { LAPLAND_WINTER_VILLAGE_CAPTION, LAPLAND_WINTER_VILLAGE_PHOTO_ID, seedTr
 import type { MusicTrack, Photo, TripDetail } from "@/lib/types";
 
 const DATA_BLOB_PATH = "travelos/content.json";
-const CONTENT_SCHEMA_VERSION = 10;
+const CONTENT_SCHEMA_VERSION = 11;
 
 export type TravelOSContent = {
   trips: TripDetail[];
@@ -154,11 +154,13 @@ function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
       return trip;
     }
 
+    const rebuildLaplandPublicStory = savedSchemaVersion < 11 && seedTrip.id === "trip_lapland_2020";
     const repairTripText =
       recordLooksCorrupted(trip.title) ||
       recordLooksCorrupted(trip.summary) ||
+      rebuildLaplandPublicStory ||
       shouldMigrateSeedTripCopy(trip, seedTrip, savedSchemaVersion);
-    const repairTripSlug = !trip.slug || recordLooksCorrupted(trip.slug);
+    const repairTripSlug = !trip.slug || recordLooksCorrupted(trip.slug) || rebuildLaplandPublicStory;
     const repairCoverPhoto =
       !trip.coverPhotoId ||
       !trip.photos.some((photo) => photo.id === trip.coverPhotoId && photoIsRenderable(photo));
@@ -170,20 +172,31 @@ function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
       title: repairTripText ? seedTrip.title : trip.title,
       summary: repairTripText ? seedTrip.summary : trip.summary,
       slug: repairTripSlug ? seedTrip.slug : trip.slug,
-      coverPhotoId: repairCoverPhoto ? seedTrip.coverPhotoId : trip.coverPhotoId,
-      photos: mergeByIdWithRepair(trip.photos, seedTrip.photos, (photo) =>
-        photoNeedsSeedRepair(photo) || shouldMigrateSeedItemCopy(photo, seedTrip, savedSchemaVersion),
-      ),
-      journalEntries: mergeJournalEntries(
-        trip.journalEntries,
-        seedTrip.journalEntries,
-        (entry) => recordLooksCorrupted(entry) || shouldMigrateSeedItemCopy(entry, seedTrip, savedSchemaVersion),
-      ),
-      places: mergeByIdWithRepair(trip.places, seedTrip.places, (place) =>
-        recordLooksCorrupted(place) || shouldMigrateSeedItemCopy(place, seedTrip, savedSchemaVersion),
-      ),
-      travelRoute: mergeTravelRouteSegments(savedTravelRoute, seedTrip.travelRoute, savedSchemaVersion),
-      costs: mergeByIdWithRepair(trip.costs, seedTrip.costs, recordLooksCorrupted),
+      startDate: rebuildLaplandPublicStory ? seedTrip.startDate : trip.startDate,
+      endDate: rebuildLaplandPublicStory ? seedTrip.endDate : trip.endDate,
+      coordinates: rebuildLaplandPublicStory ? seedTrip.coordinates : trip.coordinates,
+      coverPhotoId: rebuildLaplandPublicStory || repairCoverPhoto ? seedTrip.coverPhotoId : trip.coverPhotoId,
+      photos: rebuildLaplandPublicStory
+        ? seedTrip.photos
+        : mergeByIdWithRepair(trip.photos, seedTrip.photos, (photo) =>
+            photoNeedsSeedRepair(photo) || shouldMigrateSeedItemCopy(photo, seedTrip, savedSchemaVersion),
+          ),
+      journalEntries: rebuildLaplandPublicStory
+        ? seedTrip.journalEntries
+        : mergeJournalEntries(
+            trip.journalEntries,
+            seedTrip.journalEntries,
+            (entry) => recordLooksCorrupted(entry) || shouldMigrateSeedItemCopy(entry, seedTrip, savedSchemaVersion),
+          ),
+      places: rebuildLaplandPublicStory
+        ? seedTrip.places
+        : mergeByIdWithRepair(trip.places, seedTrip.places, (place) =>
+            recordLooksCorrupted(place) || shouldMigrateSeedItemCopy(place, seedTrip, savedSchemaVersion),
+          ),
+      travelRoute: rebuildLaplandPublicStory
+        ? seedTrip.travelRoute
+        : mergeTravelRouteSegments(savedTravelRoute, seedTrip.travelRoute, savedSchemaVersion),
+      costs: mergeLaplandCosts(trip.costs, seedTrip.costs, rebuildLaplandPublicStory),
       musicTracks: mergeByIdWithRepair(savedMusicTracks, seedTrip.musicTracks, (track) =>
         musicTrackNeedsSeedRepair(track) || (savedSchemaVersion < 9 && seedTrip.id === "trip_lapland_2020"),
       ),
@@ -213,6 +226,24 @@ function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
     trips: [...missingSeedTrips, ...mergedTrips],
     updatedAt: new Date().toISOString(),
   };
+}
+
+function mergeLaplandCosts(
+  savedItems: TripDetail["costs"],
+  seedItems: TripDetail["costs"],
+  rebuildLaplandPublicStory: boolean,
+) {
+  if (!rebuildLaplandPublicStory) {
+    return mergeByIdWithRepair(savedItems, seedItems, recordLooksCorrupted);
+  }
+
+  const seedById = new Map(seedItems.map((item) => [item.id, item]));
+  const repairedSaved = savedItems.map((item) => {
+    const seedItem = seedById.get(item.id);
+    return seedItem ? { ...item, ...seedItem } : item;
+  });
+
+  return mergeByIdWithRepair(repairedSaved, seedItems, recordLooksCorrupted);
 }
 
 function mergeByIdWithRepair<T extends { id: string }>(
@@ -317,6 +348,10 @@ function shouldMigrateSeedTripCopy(trip: TripDetail, seedTrip: TripDetail, saved
     return false;
   }
 
+  if (savedSchemaVersion < 11 && trip.id === "trip_lapland_2020" && seedTrip.id === "trip_lapland_2020") {
+    return true;
+  }
+
   if (savedSchemaVersion < 8 && trip.id === "trip_lapland_2020" && seedTrip.id === "trip_lapland_2020") {
     return true;
   }
@@ -331,6 +366,10 @@ function shouldMigrateSeedItemCopy<T extends { id: string; tripId?: string }>(
 ) {
   if (savedSchemaVersion >= CONTENT_SCHEMA_VERSION || item.tripId !== seedTrip.id) {
     return false;
+  }
+
+  if (savedSchemaVersion < 11 && seedTrip.id === "trip_lapland_2020" && item.tripId === "trip_lapland_2020") {
+    return true;
   }
 
   if (savedSchemaVersion < 8 && seedTrip.id === "trip_lapland_2020" && item.tripId === "trip_lapland_2020") {

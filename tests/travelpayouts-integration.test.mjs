@@ -41,6 +41,7 @@ const publicSurfaces = [
   "/",
   "/drive",
   "/trips",
+  "/trips/finland-lapland-winter-journal-2019",
   "/trips/finland-lapland-winter-journal-2020",
   "/coffee",
 ];

@@ -38,40 +38,41 @@ test("Lapland storefront glance is independent cash-path copy under the map", as
 
   const hero = page.slice(page.indexOf("travel-hero"), page.indexOf("Trip memory"));
   assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("LaplandStorefrontGlance"), "glance sits under the map");
-  assert.ok(hero.indexOf("LaplandStorefrontGlance") < hero.indexOf("JournalCostChip"), "glance is before the cost chip");
+  assert.ok(hero.indexOf("LaplandStorefrontGlance") < hero.indexOf("LaplandVisualPath"), "visual path sits under why-go");
+  assert.ok(hero.indexOf("LaplandVisualPath") < hero.indexOf("JournalCostChip"), "visual path is before the cost chip");
   assert.ok(hero.indexOf("LaplandStorefrontGlance") < hero.indexOf("featurePhotos"), "glance is before the photo strip");
   assert.ok(hero.indexOf("<h1") < hero.indexOf("<JourneyMap"), "map still follows the title");
 
   assert.doesNotMatch(familyHome, /LaplandStorefrontGlance|lapland-storefront-copy/);
   assert.doesNotMatch(capture, /LaplandStorefrontGlance|lapland-storefront-copy|data-storefront-glance/);
-  assert.match(seed, /抵達北極圈 \/ Arrival at the Arctic Circle/);
-  assert.match(seed, /入夜後燈光亮起：木屋、雪徑與櫥窗/);
-  assert.match(seed, /1 月 22 日晚，雪地上的一簇火/);
+  assert.match(seed, /北極圈 \/ Arctic Circle/);
+  assert.match(seed, /已經在拉普蘭/);
+  assert.match(seed, /Finnair，是離開，不是抵達/);
   assert.equal(LAPLAND_WINTER_VILLAGE_CAPTION, "記憶裡的聖誕卡 / A Christmas card from memory");
   assert.match(seed, /LAPLAND_WINTER_VILLAGE_CAPTION/);
-  assert.doesNotMatch(seed, /北極圈上的冬日小鎮/);
-  assert.doesNotMatch(seed, /A winter town on the Arctic Circle/);
+  assert.doesNotMatch(seed, /北極圈上的冬日小鎮，然後是城市/);
+  assert.doesNotMatch(seed, /A winter town on the Arctic Circle, then a city/);
 });
 
 test("storefront wording names place, season, and feel without invented proof", () => {
   assert.equal(LAPLAND_STOREFRONT_KICKER, "為何去 / Why go");
-  assert.equal(LAPLAND_STOREFRONT_TITLE, "北極圈上的冬日小鎮 / A winter town on the Arctic Circle");
+  assert.equal(LAPLAND_STOREFRONT_TITLE, "北極圈上的冬日小鎮，然後是城市 / A winter town on the Arctic Circle, then a city");
   assert.match(LAPLAND_STOREFRONT_ZH, /芬蘭拉普蘭/);
-  assert.match(LAPLAND_STOREFRONT_ZH, /羅瓦涅米/);
-  assert.match(LAPLAND_STOREFRONT_ZH, /一月/);
+  assert.match(LAPLAND_STOREFRONT_ZH, /十二月/);
   assert.match(LAPLAND_STOREFRONT_ZH, /聖誕老人村/);
   assert.match(LAPLAND_STOREFRONT_ZH, /北極圈/);
   assert.match(LAPLAND_STOREFRONT_ZH, /香港/);
   assert.match(LAPLAND_STOREFRONT_ZH, /赫爾辛基/);
   assert.match(LAPLAND_STOREFRONT_EN, /Finnish Lapland/);
-  assert.match(LAPLAND_STOREFRONT_EN, /Rovaniemi/);
-  assert.match(LAPLAND_STOREFRONT_EN, /January/);
+  assert.match(LAPLAND_STOREFRONT_EN, /mid-December/);
   assert.match(LAPLAND_STOREFRONT_EN, /Santa Claus Village/);
   assert.match(LAPLAND_STOREFRONT_EN, /Arctic Circle/);
   assert.match(LAPLAND_STOREFRONT_EN, /Hong Kong/);
   assert.match(LAPLAND_STOREFRONT_EN, /Helsinki/);
-  assert.match(LAPLAND_STOREFRONT_ZH, /白天安靜，入夜亮燈/);
-  assert.match(LAPLAND_STOREFRONT_EN, /quiet by day, lit after dark/);
+  assert.match(LAPLAND_STOREFRONT_ZH, /白晝大約兩三小時/);
+  assert.match(LAPLAND_STOREFRONT_EN, /Daylight lasts about two to three hours/);
+  assert.doesNotMatch(LAPLAND_STOREFRONT_ZH, /一月/);
+  assert.doesNotMatch(LAPLAND_STOREFRONT_EN, /January/);
 
   const copy = `${LAPLAND_STOREFRONT_KICKER} ${LAPLAND_STOREFRONT_TITLE} ${LAPLAND_STOREFRONT_ZH} ${LAPLAND_STOREFRONT_EN}`;
   assert.equal(storefrontCopyLooksInvented(copy), false);
@@ -79,6 +80,8 @@ test("storefront wording names place, season, and feel without invented proof", 
   assert.doesNotMatch(copy, /A Christmas card from memory/);
   assert.doesNotMatch(copy, /1 月 18 日抵羅瓦涅米/);
   assert.doesNotMatch(copy, /We reached Rovaniemi on 18 January/);
+  assert.doesNotMatch(copy, /2020 年 1 月/);
+  assert.doesNotMatch(copy, /January 2020/);
   assert.doesNotMatch(copy, /記錄聖誕老人村/);
   assert.doesNotMatch(copy, /€4,280|HK\$6,600|widgetId/);
   assert.doesNotMatch(copy, /Arrival above the Arctic Circle|restrained purity|warmth is not an abstract word/);
@@ -99,6 +102,9 @@ test("family workshop pages stay free of storefront glance and booking widgets",
     assert.doesNotMatch(html, /LaplandStorefrontGlance/);
     assert.doesNotMatch(html, /data-storefront-glance/);
     assert.doesNotMatch(html, /lapland-storefront-copy/);
+    assert.doesNotMatch(html, /LaplandVisualPath/);
+    assert.doesNotMatch(html, /data-visual-path/);
+    assert.doesNotMatch(html, /LaplandPlaceKnowledge/);
     assert.doesNotMatch(html, /BookingBand/);
     assert.doesNotMatch(html, /emrldtp\.cc/);
   }

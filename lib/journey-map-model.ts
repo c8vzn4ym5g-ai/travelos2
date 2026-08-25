@@ -79,12 +79,12 @@ export const STREET_BASEMAP = {
 export const TILE_PIXEL_SIZE = 256;
 
 export const LAPLAND_POSTER = {
-  alt: "Rovaniemi winter journey: Santa Claus Village, Helsinki, Finnish Lapland",
+  alt: "December 2019: Santa Claus Village on the Arctic Circle, then Helsinki",
   relativeFile: "public/travelos/maps/lapland-rovaniemi.png",
   src: "/travelos/maps/lapland-rovaniemi.png",
 } as const;
 
-export const LAPLAND_GLANCE_LABELS = "Santa Claus Village (聖誕老人村) · Helsinki · Rovaniemi";
+export const LAPLAND_GLANCE_LABELS = "Santa Claus Village (聖誕老人村) · Helsinki";
 
 export const POSTER_THEME = {
   label: "#1e293b",
@@ -139,7 +139,6 @@ export function getStreetTileUrl(zoom: number, x: number, y: number) {
 const LOCAL_SPAN_DEGREES = 2.5;
 const LONG_HAUL_SPAN_DEGREES = 8;
 const MIN_REGIONAL_SPAN_DEGREES = 0.1;
-const LAPLAND_CAMPFIRE_POINT: GeoPoint = { latitude: 66.5004, longitude: 25.7148 };
 const LAPLAND_ARCTIC_DISPLAY: GeoPoint = { latitude: 66.5534, longitude: 25.8216 };
 const LAPLAND_CITY: GeoPoint = { latitude: 66.5039, longitude: 25.7294 };
 
@@ -287,63 +286,63 @@ function buildLaplandItinerary({
   const santa = findPlace(places, ["place_lapland_santa_village", "Santa Claus Village"]);
   const arctic = findPlace(places, ["place_lapland_arctic_circle", "Arctic Circle Line"]);
   const sled = findPlace(places, ["place_lapland_sled", "Sled route"]);
-  const cabin = findPlace(places, ["place_lapland_snow_cabin", "Snow cabin"]);
-  const arrivalJournal = findJournal(journalEntries, ["journal_lapland_arrival", "arctic circle", "抵達"]);
-  const santaJournal = findJournal(journalEntries, ["journal_lapland_santa", "santa claus village", "聖誕老人村"]);
-  const campfireJournal = findJournal(journalEntries, ["journal_lapland_campfire", "campfire", "雪地營火"]);
-  const arcticPhoto = findPhoto(photos, ["photo_lapland_arctic_circle"]);
-  const santaPhoto = findPhoto(photos, ["photo_lapland_santa_night"]);
-  const sledPhoto = findPhoto(photos, ["photo_lapland_sled"]);
-  const campfirePhoto = findPhoto(photos, ["photo_lapland_campfire"]);
-  const cabinPhoto = findPhoto(photos, ["photo_lapland_snow_cabin"]);
+  const cabin = findPlace(places, ["place_lapland_cabin", "place_lapland_snow_cabin", "Red cabin no. 4", "Snow cabin"]);
+  const arcticJournal = findJournal(journalEntries, ["journal_lapland_arctic", "arctic circle", "北極圈"]);
+  const cabinJournal = findJournal(journalEntries, ["journal_lapland_cabin", "red cabin", "4 號"]);
+  const leavingJournal = findJournal(journalEntries, ["journal_lapland_leaving", "leaving rovaniemi", "離開羅瓦涅米"]);
+  const arcticPhoto = findPhoto(photos, ["photo_lapland_dump_arctic_sign", "photo_lapland_arctic_circle"]);
+  const santaPhoto = findPhoto(photos, ["photo_lapland_dump_arctic_pillars", "photo_lapland_santa_night"]);
+  const sledPhoto = findPhoto(photos, ["photo_lapland_dump_cabin4", "photo_lapland_sled"]);
+  const cabinPhoto = findPhoto(photos, ["photo_lapland_dump_cabin4", "photo_lapland_snow_cabin"]);
+  const leavingPhoto = findPhoto(photos, ["photo_lapland_dump_finnair"]);
   const airportPoint = airport?.coordinates ?? { latitude: 66.5648, longitude: 25.8304 };
   const santaPoint = santa?.coordinates ?? { latitude: 66.5436, longitude: 25.8472 };
   const arcticPoint = arctic && pointSpan(arctic.coordinates ?? santaPoint, santaPoint) > 0.004 ? (arctic.coordinates as GeoPoint) : LAPLAND_ARCTIC_DISPLAY;
-  const sledPoint = sled?.coordinates ?? { latitude: 66.5382, longitude: 25.8595 };
-  const cabinPoint = cabin?.coordinates ?? { latitude: 66.4958, longitude: 25.7012 };
+  const sledPoint = sled?.coordinates ?? { latitude: 66.5421, longitude: 25.8456 };
+  const cabinPoint = cabin?.coordinates ?? { latitude: 66.5424, longitude: 25.8448 };
 
   const regionalStops: ItineraryStop[] = [
     {
-      dateLabel: formatStopDate(arrivalJournal?.entryDate) ?? "1/18",
-      icon: "plane",
-      id: airport?.id ?? "stop_lapland_arrival",
-      leg: "winter",
-      linkedJournalEntryId: arrivalJournal?.id ?? "journal_lapland_arrival",
-      linkedPhotoId: arcticPhoto?.id ?? arrivalJournal?.storyPhotoId ?? null,
-      listLabel: "羅瓦涅米 / Rovaniemi",
-      note: airport?.notes ?? arrivalJournal?.body ?? null,
-      number: 1,
-      point: airportPoint,
-      title: arrivalJournal?.title ?? "抵達北極圈 / Arrival at the Arctic Circle",
-    },
-    {
-      dateLabel: formatStopDate(santaJournal?.entryDate) ?? "1/20",
+      dateLabel: formatStopDate(arcticJournal?.entryDate) ?? "12/11",
       icon: "village",
       id: santa?.id ?? "stop_lapland_santa",
       leg: "winter",
-      linkedJournalEntryId: santaJournal?.id ?? "journal_lapland_santa",
-      linkedPhotoId: santaPhoto?.id ?? santaJournal?.storyPhotoId ?? null,
+      linkedJournalEntryId: null,
+      linkedPhotoId: santaPhoto?.id ?? arcticJournal?.storyPhotoId ?? null,
       listLabel: "聖誕老人村 / Santa Claus Village",
-      note: santa?.notes ?? santaJournal?.body ?? null,
-      number: 2,
+      note: santa?.notes ?? arcticJournal?.body ?? null,
+      number: 1,
       point: santaPoint,
-      title: santaJournal?.title ?? "聖誕老人村 / Santa Claus Village",
+      title: "聖誕老人村 / Santa Claus Village",
     },
     {
-      dateLabel: null,
+      dateLabel: formatStopDate(arcticJournal?.entryDate) ?? "12/11",
       icon: "circle",
       id: arctic?.id ?? "stop_lapland_arctic",
       leg: "winter",
-      linkedJournalEntryId: arrivalJournal?.id ?? null,
+      linkedJournalEntryId: arcticJournal?.id ?? null,
       linkedPhotoId: arcticPhoto?.id ?? null,
       listLabel: "北極圈 / Arctic Circle",
       note: arctic?.notes ?? arcticPhoto?.caption ?? null,
-      number: 3,
+      number: 2,
       point: arcticPoint,
-      title: arctic?.name ? "北極圈 / Arctic Circle" : "Arctic Circle",
+      title: "北極圈 / Arctic Circle",
     },
     {
-      dateLabel: formatStopDate(sledPhoto?.takenAt),
+      dateLabel: formatStopDate(cabinJournal?.entryDate) ?? "12/12",
+      icon: "cabin",
+      id: cabin?.id ?? "stop_lapland_cabin",
+      leg: "winter",
+      linkedJournalEntryId: cabinJournal?.id ?? "journal_lapland_cabin",
+      linkedPhotoId: cabinPhoto?.id ?? cabinJournal?.storyPhotoId ?? null,
+      listLabel: "4 號紅木屋 / Cabin",
+      note: cabin?.notes ?? cabinJournal?.body ?? null,
+      number: 3,
+      point: cabinPoint,
+      title: cabinJournal?.title ?? "4 號紅木屋 / Red cabin no. 4",
+    },
+    {
+      dateLabel: formatStopDate(sledPhoto?.takenAt) ?? "12/12",
       icon: "sled",
       id: sled?.id ?? "stop_lapland_sled",
       leg: "side",
@@ -356,47 +355,31 @@ function buildLaplandItinerary({
       title: "雪橇 / Sled",
     },
     {
-      dateLabel: formatStopDate(campfireJournal?.entryDate) ?? "1/22",
-      icon: "fire",
-      id: campfireJournal?.id ?? "stop_lapland_campfire",
+      dateLabel: formatStopDate(leavingJournal?.entryDate) ?? "12/13",
+      icon: "plane",
+      id: airport?.id ?? "stop_lapland_leaving",
       leg: "winter",
-      linkedJournalEntryId: campfireJournal?.id ?? "journal_lapland_campfire",
-      linkedPhotoId: campfirePhoto?.id ?? campfireJournal?.storyPhotoId ?? null,
-      listLabel: "雪地營火 / Campfire",
-      note: campfireJournal?.body ?? campfirePhoto?.caption ?? null,
+      linkedJournalEntryId: leavingJournal?.id ?? "journal_lapland_leaving",
+      linkedPhotoId: leavingPhoto?.id ?? leavingJournal?.storyPhotoId ?? null,
+      listLabel: "離開羅瓦涅米 / Leaving RVN",
+      note: airport?.notes ?? leavingJournal?.body ?? null,
       number: 5,
-      point: LAPLAND_CAMPFIRE_POINT,
-      title: campfireJournal?.title ?? "雪地營火 / Campfire in the snow",
-    },
-    {
-      dateLabel: formatStopDate(cabinPhoto?.takenAt),
-      icon: "cabin",
-      id: cabin?.id ?? "stop_lapland_cabin",
-      leg: "winter",
-      linkedJournalEntryId: null,
-      linkedPhotoId: cabinPhoto?.id ?? null,
-      listLabel: "雪屋 / Cabin",
-      note: cabin?.notes ?? cabinPhoto?.caption ?? null,
-      number: 6,
-      point: cabinPoint,
-      title: "雪屋 / Cabin",
+      point: airportPoint,
+      title: leavingJournal?.title ?? "離開羅瓦涅米 / Leaving Rovaniemi",
     },
   ];
 
   const regionalLegs: RegionalLeg[] = [
-    { from: airportPoint, id: "leg_airport_city", kind: "winter", style: "solid", to: LAPLAND_CITY },
-    { from: LAPLAND_CITY, id: "leg_city_santa", kind: "winter", style: "solid", to: santaPoint },
     { from: santaPoint, id: "leg_santa_arctic", kind: "winter", style: "solid", to: arcticPoint },
-    { from: santaPoint, id: "leg_santa_sled", kind: "side", style: "dotted", to: sledPoint },
-    { from: LAPLAND_CITY, id: "leg_city_cabin", kind: "winter", style: "solid", to: cabinPoint },
-    { from: cabinPoint, id: "leg_cabin_campfire", kind: "winter", style: "solid", to: LAPLAND_CAMPFIRE_POINT },
+    { from: santaPoint, id: "leg_santa_cabin", kind: "winter", style: "solid", to: cabinPoint },
+    { from: cabinPoint, id: "leg_cabin_sled", kind: "side", style: "dotted", to: sledPoint },
+    { from: cabinPoint, id: "leg_cabin_airport", kind: "winter", style: "solid", to: airportPoint },
   ];
 
   return {
     arrival: [
-      { id: "arrival_hk", label: "Hong Kong", shortLabel: "HK" },
-      { id: "arrival_hel", label: "Helsinki", shortLabel: "HEL" },
       { id: "arrival_rvn", label: "Rovaniemi", shortLabel: "RVN" },
+      { id: "arrival_hel", label: "Helsinki", shortLabel: "HEL" },
     ],
     regionalLegs,
     regionalPoints: [...regionalStops.map((stop) => stop.point), LAPLAND_CITY],
@@ -621,8 +604,8 @@ export function getLaplandPictureBounds(points: GeoPoint[]): TileBounds {
   };
 }
 
-export const WINTER_PICTURE_ORDER = [1, 2, 5, 6];
-export const SIDE_PICTURE_ORDER = [2, 4];
+export const WINTER_PICTURE_ORDER = [1, 2, 3, 5];
+export const SIDE_PICTURE_ORDER = [3, 4];
 
 export function pathFromPinOrder(pins: PosterPin[], order: readonly number[]): PosterPoint[] {
   return order
@@ -722,7 +705,7 @@ export function spaceItineraryPins(stops: ItineraryStop[], bounds: TileBounds): 
     leg: item.leg,
     number: item.number,
     point: item.point,
-    sublabel: item.number === 2 && item.listLabel.includes("聖誕老人村") ? "聖誕老人村" : null,
+    sublabel: item.number === 1 && item.listLabel.includes("聖誕老人村") ? "聖誕老人村" : null,
     x: Math.min(94, Math.max(6, item.position.x)),
     y: Math.min(92, Math.max(8, item.position.y)),
   }));
@@ -744,7 +727,7 @@ export function buildPosterLayout(itinerary: JourneyItinerary, city = "Rovaniemi
       style: leg.style,
       to: projectRaw(leg.to, bounds),
     })),
-    longHaulLabel: isLaplandPosterCity(city) ? "Helsinki · Rovaniemi" : formatLongHaulLabel(itinerary.arrival),
+    longHaulLabel: isLaplandPosterCity(city) ? "Rovaniemi · Helsinki" : formatLongHaulLabel(itinerary.arrival),
     pins,
     sidePath: pathFromPinOrder(pins, SIDE_PICTURE_ORDER),
     winterPath: pathFromPinOrder(pins, WINTER_PICTURE_ORDER),

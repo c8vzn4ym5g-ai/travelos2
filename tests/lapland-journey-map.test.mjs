@@ -161,32 +161,30 @@ test("Lapland itinerary is a Rovaniemi journey picture, not a Hong Kong-scale ov
   assert.ok(itinerary.arrival);
   assert.deepEqual(
     itinerary.arrival.map((city) => city.shortLabel),
-    ["HK", "HEL", "RVN"],
+    ["RVN", "HEL"],
   );
-  assert.equal(layout.longHaulLabel, "Helsinki · Rovaniemi");
+  assert.equal(layout.longHaulLabel, "Rovaniemi · Helsinki");
   assert.equal(layout.cityLabel, "Rovaniemi");
-  assert.match(itinerary.regionalStops[0].listLabel, /Rovaniemi/);
-  assert.match(itinerary.regionalStops[1].listLabel, /Santa Claus Village/);
+  assert.match(itinerary.regionalStops[0].listLabel, /Santa Claus Village/);
   assert.ok(layout.pins.some((pin) => pin.label === "Santa Claus Village" && pin.sublabel === "聖誕老人村"));
-  assert.ok(layout.pins.some((pin) => pin.label === "Rovaniemi"));
-  assert.equal(itinerary.regionalStops.length, 6);
+  assert.equal(itinerary.regionalStops.length, 5);
   assert.deepEqual(
     itinerary.regionalStops.map((stop) => stop.number),
-    [1, 2, 3, 4, 5, 6],
+    [1, 2, 3, 4, 5],
   );
-  assert.match(itinerary.regionalStops[0].listLabel, /Rovaniemi/);
-  assert.equal(itinerary.regionalStops[0].dateLabel, "1/18");
-  assert.match(itinerary.regionalStops[1].listLabel, /Santa Claus Village/);
-  assert.equal(itinerary.regionalStops[1].dateLabel, "1/20");
-  assert.match(itinerary.regionalStops[2].listLabel, /Arctic Circle/);
+  assert.match(itinerary.regionalStops[0].listLabel, /Santa Claus Village/);
+  assert.equal(itinerary.regionalStops[0].dateLabel, "12/11");
+  assert.match(itinerary.regionalStops[1].listLabel, /Arctic Circle/);
+  assert.equal(itinerary.regionalStops[1].dateLabel, "12/11");
+  assert.match(itinerary.regionalStops[2].listLabel, /Cabin/);
+  assert.equal(itinerary.regionalStops[2].dateLabel, "12/12");
   assert.match(itinerary.regionalStops[3].listLabel, /Sled/);
-  assert.match(itinerary.regionalStops[4].listLabel, /Campfire/);
-  assert.equal(itinerary.regionalStops[4].dateLabel, "1/22");
-  assert.match(itinerary.regionalStops[5].listLabel, /Cabin/);
+  assert.match(itinerary.regionalStops[4].listLabel, /Leaving RVN|Rovaniemi/);
+  assert.equal(itinerary.regionalStops[4].dateLabel, "12/13");
   assert.ok(itinerary.regionalStops.every((stop) => isRegionalPointSet([stop.point, itinerary.regionalPoints[0]])));
   assert.ok(!itinerary.regionalPoints.some((point) => point.latitude === hongKong.latitude && point.longitude === hongKong.longitude));
   assert.ok(isRegionalPointSet(itinerary.regionalPoints));
-  assert.equal(layout.pins.length, 6);
+  assert.equal(layout.pins.length, 5);
   assert.ok(layout.pins.every((pin) => pin.x >= 6 && pin.x <= 94 && pin.y >= 8 && pin.y <= 92));
   assert.ok(layout.bounds.zoom >= 12);
   assert.equal(layout.winterPath.length, 4);
@@ -198,7 +196,7 @@ test("Lapland itinerary is a Rovaniemi journey picture, not a Hong Kong-scale ov
   assert.ok(itinerary.regionalLegs.some((leg) => leg.style === "dotted" && leg.kind === "side"));
   assert.equal("scaleBar" in layout, false);
   assert.equal(LAPLAND_POSTER.src, "/travelos/maps/lapland-rovaniemi.png");
-  assert.equal(LAPLAND_GLANCE_LABELS, "Santa Claus Village (聖誕老人村) · Helsinki · Rovaniemi");
+  assert.equal(LAPLAND_GLANCE_LABELS, "Santa Claus Village (聖誕老人村) · Helsinki");
 });
 
 test("selecting stop N shows bilingual wording and the linked photo", () => {
@@ -212,29 +210,28 @@ test("selecting stop N shows bilingual wording and the linked photo", () => {
     route: lapland.travelRoute,
   });
 
-  const stopTwo = itinerary.regionalStops.find((stop) => stop.number === 2);
+  const stopOne = itinerary.regionalStops.find((stop) => stop.number === 1);
   const stopFive = itinerary.regionalStops.find((stop) => stop.number === 5);
-  assert.ok(stopTwo);
+  assert.ok(stopOne);
   assert.ok(stopFive);
 
   const santaCard = getStopCardContent({
     journalEntries: lapland.journalEntries,
     photos: lapland.photos,
-    stop: stopTwo,
+    stop: stopOne,
   });
   assert.ok(santaCard);
   assert.equal(santaCard.title, "聖誕老人村 / Santa Claus Village");
-  assert.match(santaCard.wording, /入夜後燈光亮起/);
-  assert.match(santaCard.wording, /After dark the village is lit/);
-  assert.equal(santaCard.photo?.storageKey, "/travelos/lapland/santa-village-night.jpeg");
+  assert.match(santaCard.wording, /北極圈上的聖誕老人村/);
+  assert.equal(santaCard.photo?.storageKey, "/travelos/lapland/dump-arctic-circle-pillars.jpeg");
 
-  const campfireCard = getStopCardContent({
+  const leavingCard = getStopCardContent({
     journalEntries: lapland.journalEntries,
     photos: lapland.photos,
     stop: stopFive,
   });
-  assert.ok(campfireCard);
-  assert.equal(campfireCard.title, "雪地營火 / Campfire in the snow");
-  assert.match(campfireCard.wording, /1 月 22 日晚/);
-  assert.equal(campfireCard.photo?.storageKey, "/travelos/lapland/campfire.jpeg");
+  assert.ok(leavingCard);
+  assert.equal(leavingCard.title, "離開羅瓦涅米 / Leaving Rovaniemi");
+  assert.match(leavingCard.wording, /Finnair，是離開，不是抵達/);
+  assert.equal(leavingCard.photo?.storageKey, "/travelos/lapland/dump-finnair-tarmac.jpeg");
 });

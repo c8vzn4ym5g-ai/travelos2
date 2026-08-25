@@ -5,11 +5,13 @@ import { BookingBand } from "@/components/booking-band";
 import { JournalCostChip, JournalSpendPanel } from "@/components/journal-spend";
 import { JourneyMap } from "@/components/journey-map";
 import { JourneyMusicPlayer } from "@/components/journey-music-player";
+import { LaplandPlaceKnowledge } from "@/components/lapland-place-knowledge";
 import { LaplandStorefrontGlance } from "@/components/lapland-storefront-glance";
+import { LaplandVisualPath } from "@/components/lapland-visual-path";
 import { ShareActions } from "@/components/share-actions";
 import { readContent } from "@/lib/editable-store";
 import { isLaplandStorefrontSlug } from "@/lib/lapland-storefront-copy";
-import { LAPLAND_TRIP_SLUG, laplandBooking } from "@/lib/travelpayouts";
+import { laplandBooking } from "@/lib/travelpayouts";
 import { isTripPublic } from "@/lib/trip-visibility";
 import { getTripDetailsByStartDate } from "@/lib/trips";
 import type { JournalEntry, Money, Photo, Place } from "@/lib/types";
@@ -169,7 +171,9 @@ function PhotoTile({ photo }: { photo: Photo }) {
       )}
       <div className="p-4">
         <p className="font-medium text-[color:var(--ink)]">{photo.caption ?? photo.originalFilename}</p>
-        <p className="travel-muted mt-2 text-sm">{photo.takenAt ? formatDate(photo.takenAt) : "Date not set"}</p>
+        <p className="travel-muted mt-2 text-sm">
+          {photo.takenAt ? formatDate(photo.takenAt) : photo.caption?.includes("場所圖") ? "場所圖 / Place photo" : "Date not set"}
+        </p>
       </div>
     </article>
   );
@@ -294,7 +298,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           </div>
           <div className="travel-soft-panel rounded-[1.5rem] p-4 sm:p-5">
             <p className="travel-kicker text-sm">
-              {trip.country} / {trip.city}
+              {isLaplandStorefrontSlug(trip.slug) ? "Finland / Rovaniemi · Helsinki" : `${trip.country} / ${trip.city}`}
             </p>
             <h1 className="travel-hand mt-3 text-4xl font-semibold leading-tight sm:text-6xl">{trip.title}</h1>
             <p className="travel-muted mt-4 max-w-4xl text-base leading-8 sm:text-lg">{heroSummary}</p>
@@ -313,6 +317,8 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             title={trip.title}
           />
           {isLaplandStorefrontSlug(trip.slug) ? <LaplandStorefrontGlance /> : null}
+          {isLaplandStorefrontSlug(trip.slug) ? <LaplandVisualPath photos={trip.photos} /> : null}
+          {isLaplandStorefrontSlug(trip.slug) ? <LaplandPlaceKnowledge /> : null}
           <div className="flex flex-wrap items-center gap-2">
             {[
               ["Season", seasonLabel, "border-sky-100 bg-sky-50 text-sky-950"],
@@ -327,6 +333,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               <MemoryChip label="Cost" tone="border-teal-100 bg-teal-50 text-teal-950" value="Not tracked" />
             )}
           </div>
+          {isLaplandStorefrontSlug(trip.slug) ? null : (
           <div className="grid gap-4 lg:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)] lg:items-start">
             {coverPhoto ? (
               <div className="travel-photo overflow-hidden rounded-[1.75rem] bg-[color:var(--paper-soft)]">
@@ -346,6 +353,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               </div>
             ) : null}
           </div>
+          )}
         </div>
       </section>
 
@@ -368,7 +376,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </dl>
           </section>
 
-          {trip.journalEntries.length > 0 ? (
+          {trip.journalEntries.length > 0 && !isLaplandStorefrontSlug(trip.slug) ? (
             <section className="travel-panel rounded-2xl p-4 sm:p-5">
               <SectionHeader kicker="Story route" title="Read the journey through its key moments" />
               <p className="travel-muted mt-3 line-clamp-2 text-sm leading-6">
@@ -383,7 +391,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           ) : null}
 
           <section className="travel-panel rounded-3xl p-5 sm:p-7">
-            <SectionHeader kicker="Journal" title="Narrative notes" />
+            <SectionHeader kicker="Journal" title={isLaplandStorefrontSlug(trip.slug) ? "遊記 / Journal" : "Narrative notes"} />
             <div className="mt-7 space-y-6">
               {trip.journalEntries.map((entry) => (
                 <article className="border-b border-[color:var(--line)] pb-6 last:border-0 last:pb-0" data-music-zone={`${entry.title} ${entry.body}`} key={entry.id}>
@@ -400,7 +408,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </div>
           </section>
 
-          {trip.slug === LAPLAND_TRIP_SLUG ? <BookingBand destination={laplandBooking} /> : null}
+          {isLaplandStorefrontSlug(trip.slug) ? <BookingBand destination={laplandBooking} /> : null}
 
           <section className="travel-panel rounded-3xl p-5 sm:p-7">
             <SectionHeader kicker="Album" title="Photo memories" />

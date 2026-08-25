@@ -1,6 +1,7 @@
-export const LAPLAND_TRIP_SLUG = "finland-lapland-winter-journal-2020";
+export const LAPLAND_TRIP_SLUG = "finland-lapland-winter-journal-2019";
+export const LAPLAND_TRIP_SLUG_LEGACY = "finland-lapland-winter-journal-2020";
 export const LAPLAND_JOURNAL_PATH = `/trips/${LAPLAND_TRIP_SLUG}`;
-export const LAPLAND_COVER_PHOTO = "/travelos/lapland/santa-village-night.jpeg";
+export const LAPLAND_COVER_PHOTO = "/travelos/lapland/dump-arctic-circle-pillars.jpeg";
 
 // Ordinary brand search URLs. Drive rewrites these on public pages.
 // Verified by HTTP GET before shipping (2026-08-24):

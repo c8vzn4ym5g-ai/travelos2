@@ -55,7 +55,7 @@ export default function DrivePage() {
           <Link className="grid min-h-11 gap-0 md:grid-cols-[minmax(0,16rem)_1fr]" href={LAPLAND_JOURNAL_PATH}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              alt="入夜後的聖誕老人村。 / Santa Claus Village at night."
+              alt="北極圈紅柱與聖誕老人村。 / Arctic Circle pillars at Santa Claus Village."
               className="h-48 w-full object-cover md:h-full"
               src={LAPLAND_COVER_PHOTO}
             />
@@ -63,10 +63,10 @@ export default function DrivePage() {
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Featured journal</p>
               <h2 className="mt-2 text-2xl font-semibold">芬蘭拉普蘭 / Finnish Lapland</h2>
               <p className="mt-3 text-sm leading-6 text-zinc-600">
-                2020 年 1 月，羅瓦涅米。聖誕老人村、北極圈、雪屋、雪橇與營火。
+                2019 年 12 月。聖誕老人村在北極圈上，然後往南到赫爾辛基。
               </p>
               <p className="mt-2 text-sm leading-6 text-zinc-600">
-                January 2020, Rovaniemi. Santa Claus Village, the Arctic Circle, a snow cabin, sledding, and a campfire.
+                December 2019. Santa Claus Village on the Arctic Circle, then south to Helsinki.
               </p>
               <p className="mt-4 text-sm font-semibold text-teal-800">閱讀遊記 / Read the journal</p>
             </div>

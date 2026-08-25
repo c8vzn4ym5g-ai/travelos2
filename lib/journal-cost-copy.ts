@@ -1,4 +1,4 @@
-import { LAPLAND_TRIP_SLUG } from "@/lib/travelpayouts";
+import { LAPLAND_TRIP_SLUG, LAPLAND_TRIP_SLUG_LEGACY } from "@/lib/travelpayouts";
 
 export function journalYearFromDate(date: string): string {
   const year = date.slice(0, 4);
@@ -18,9 +18,10 @@ export function journalLineRecordLabel(paidAt: string): string {
 export const JOURNAL_COST_GENERIC_ZH = "遊記裡記下的花費，不是今日報價。";
 export const JOURNAL_COST_GENERIC_EN = "Recorded in the journal, not a live quote.";
 
-export const LAPLAND_JOURNAL_COST_ZH = "2020 年該次行程，遊記記錄，約兩人、約一週。不是今日報價。";
+export const LAPLAND_JOURNAL_COST_ZH =
+  "2019 年 12 月該次行程。金額來自後來標成 2020 的遊記記錄，約兩人、約五日。不是今日報價。";
 export const LAPLAND_JOURNAL_COST_EN =
-  "2020 that trip, recorded in the journal, about 2 people and about one week. Not today's price.";
+  "December 2019 that trip. Amounts come from a later journal write-up labelled 2020, about 2 people and about five days. Not today's price.";
 
 export const LAPLAND_COST_HERO_2026_ZH =
   "2026 年 8 月參考：香港往返羅瓦涅米（HKG–RVN）來回機票常見約每人 HK$6,600–9,000。聖誕老人村小屋公開價約每晚 €250，一週約 €1,750，與 2020 住宿記錄同量級。價格波動很大。";
@@ -39,7 +40,7 @@ export const GO_THERE_HREF = "#go-there";
 export const GO_THERE_LABEL = "出發 / Go there";
 
 export function isLaplandJournalSlug(slug: string): boolean {
-  return slug === LAPLAND_TRIP_SLUG;
+  return slug === LAPLAND_TRIP_SLUG || slug === LAPLAND_TRIP_SLUG_LEGACY;
 }
 
 export function journalCostCopyHasPublicUrl(text: string): boolean {
