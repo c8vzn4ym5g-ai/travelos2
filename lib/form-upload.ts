@@ -1,4 +1,4 @@
-export function isUploadBlob(value: FormDataEntryValue | null): value is Blob {
+export function isUploadBlob(value: unknown): value is Blob {
   return typeof Blob !== "undefined" && value instanceof Blob && value.size > 0;
 }
 

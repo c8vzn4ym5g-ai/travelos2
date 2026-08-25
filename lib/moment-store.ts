@@ -1,37 +1,31 @@
 import { BlobNotFoundError, get, put } from "@vercel/blob";
 import { isAdminPinValid, isBlobConfigured } from "@/lib/editable-store";
 import { indexTravelMoment } from "@/lib/moment-index";
-import {
-  MOMENTS_BLOB_PATH,
-  MOMENTS_SCHEMA_VERSION,
-  applyMomentPhotoAppends,
-  normalizeTravelJob,
-  normalizeTravelMoment,
-} from "@/lib/moments";
+import { MOMENTS_BLOB_PATH, MOMENTS_SCHEMA_VERSION, applyMomentPhotoAppends, normalizeTravelJob, normalizeTravelMoment } from "@/lib/moments";
 import type { MomentPhoto, TravelJob, TravelMoment } from "@/lib/types";
+import {
+  type MomentContent,
+  MomentWarehouseUnavailableError,
+  type WarehouseGetResult,
+  createEmptyWarehouse,
+  loadWarehouseFromBlobGet,
+  withNormalizedContent,
+} from "@/lib/warehouse-read";
 
-export type MomentContent = {
-  jobs: TravelJob[];
-  moments: TravelMoment[];
-  schemaVersion?: number;
-  updatedAt: string;
-};
+export type { MomentContent, WarehouseGet, WarehouseGetResult } from "@/lib/warehouse-read";
+export {
+  MOMENTS_BLOB_PATH,
+  MomentWarehouseUnavailableError,
+  WAREHOUSE_GET_OPTIONS,
+  loadWarehouseFromBlobGet,
+} from "@/lib/warehouse-read";
 
 export type MomentStoreStatus = {
   configured: boolean;
   source: "blob" | "memory";
 };
 
-export { isAdminPinValid, MOMENTS_BLOB_PATH };
-
-export class MomentWarehouseUnavailableError extends Error {
-  readonly status = 503 as const;
-
-  constructor(detail?: string) {
-    super(detail ? `Could not read the moment warehouse. ${detail}` : "Could not read the moment warehouse.");
-    this.name = "MomentWarehouseUnavailableError";
-  }
-}
+export { isAdminPinValid };
 
 export function momentApiErrorResponse(error: unknown) {
   if (error instanceof MomentWarehouseUnavailableError) {
@@ -40,83 +34,18 @@ export function momentApiErrorResponse(error: unknown) {
   throw error;
 }
 
-export const WAREHOUSE_GET_OPTIONS = { access: "public", useCache: false } as const;
-
-export type WarehouseGetResult = {
-  statusCode: number;
-  stream: ReadableStream<Uint8Array> | null;
-};
-
-export type WarehouseGet = (
-  pathname: string,
-  options: { access: "public" | "private"; useCache?: boolean },
-) => Promise<WarehouseGetResult | null>;
-
-export async function loadWarehouseFromBlobGet(getWarehouse: WarehouseGet): Promise<{
-  content: MomentContent;
-  createdEmpty: boolean;
-}> {
-  const readOnce = async () => {
-    const result = await getWarehouse(MOMENTS_BLOB_PATH, WAREHOUSE_GET_OPTIONS);
-    if (!result) {
-      return { content: createEmptyContent(), createdEmpty: true };
-    }
-    if (result.statusCode !== 200 || !result.stream) {
-      throw new MomentWarehouseUnavailableError(`HTTP ${result.statusCode}`);
-    }
-
-    try {
-      const raw = (await new Response(result.stream).json()) as MomentContent;
-      return { content: withNormalizedContent(raw), createdEmpty: false };
-    } catch (error) {
-      throw new MomentWarehouseUnavailableError(error instanceof Error ? error.message : "invalid warehouse JSON");
-    }
-  };
-
-  try {
-    return await readOnce();
-  } catch {
-    try {
-      return await readOnce();
-    } catch (retryError) {
-      if (retryError instanceof MomentWarehouseUnavailableError) {
-        throw retryError;
-      }
-      throw new MomentWarehouseUnavailableError(retryError instanceof Error ? retryError.message : "blob get failed");
-    }
-  }
-}
-
 const memoryKey = "__travelosMomentWarehouse";
 
 type GlobalWarehouse = typeof globalThis & { [memoryKey]?: MomentContent };
 
 function getMemoryContent() {
   const globalStore = globalThis as GlobalWarehouse;
-  globalStore[memoryKey] ??= createEmptyContent();
+  globalStore[memoryKey] ??= createEmptyWarehouse();
   return globalStore[memoryKey];
 }
 
 function setMemoryContent(content: MomentContent) {
   (globalThis as GlobalWarehouse)[memoryKey] = content;
-}
-
-function createEmptyContent(): MomentContent {
-  return {
-    jobs: [],
-    moments: [],
-    schemaVersion: MOMENTS_SCHEMA_VERSION,
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-function withNormalizedContent(content: MomentContent): MomentContent {
-  return {
-    jobs: (content.jobs ?? []).map(normalizeTravelJob),
-    moments: (content.moments ?? []).map(normalizeTravelMoment),
-    schemaVersion: content.schemaVersion ?? MOMENTS_SCHEMA_VERSION,
-    updatedAt: content.updatedAt,
-  };
 }
 
 let warehouseWriteQueue: Promise<void> = Promise.resolve();

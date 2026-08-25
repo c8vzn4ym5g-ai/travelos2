@@ -1,6 +1,6 @@
 "use client";
 
-import { heicJpegFilename, isHeicPhoto } from "@/lib/moments";
+import { heicJpegFilename, isHeicPhoto } from "./moments.ts";
 
 export const maxUploadBytes = 4_500_000;
 export const displayMaxEdge = 1600;

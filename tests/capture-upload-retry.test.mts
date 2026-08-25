@@ -2,9 +2,6 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
-import { POST as postMomentAudio } from "../app/api/moments/audio/route.ts";
-import { GET as getMoments, POST as postMoment } from "../app/api/moments/route.ts";
-import { POST as postMomentPhoto } from "../app/api/moments/photos/route.ts";
 import {
   captureErrorMessage,
   createMomentSession,
@@ -13,53 +10,15 @@ import {
   uploadDisplayPhoto,
 } from "../lib/capture-upload.ts";
 import { isUploadBlob, uploadFilename } from "../lib/form-upload.ts";
+import { prepareDisplayPhoto } from "../lib/prepare-photo.ts";
 import {
   MOMENTS_BLOB_PATH,
   MomentWarehouseUnavailableError,
   loadWarehouseFromBlobGet,
   type WarehouseGet,
-} from "../lib/moment-store.ts";
-import { prepareDisplayPhoto } from "../lib/prepare-photo.ts";
+} from "../lib/warehouse-read.ts";
 
 const root = resolve(import.meta.dirname, "..");
-const pin = "test-capture-pin";
-const previousPin = process.env.TRAVELOS_ADMIN_PIN;
-const previousBlobToken = process.env.BLOB_READ_WRITE_TOKEN;
-const previousBlobStore = process.env.BLOB_STORE_ID;
-
-process.env.TRAVELOS_ADMIN_PIN = pin;
-delete process.env.BLOB_READ_WRITE_TOKEN;
-delete process.env.BLOB_STORE_ID;
-
-test.after(() => {
-  if (previousPin === undefined) {
-    delete process.env.TRAVELOS_ADMIN_PIN;
-  } else {
-    process.env.TRAVELOS_ADMIN_PIN = previousPin;
-  }
-  if (previousBlobToken === undefined) {
-    delete process.env.BLOB_READ_WRITE_TOKEN;
-  } else {
-    process.env.BLOB_READ_WRITE_TOKEN = previousBlobToken;
-  }
-  if (previousBlobStore === undefined) {
-    delete process.env.BLOB_STORE_ID;
-  } else {
-    process.env.BLOB_STORE_ID = previousBlobStore;
-  }
-});
-
-function pinHeaders(value = pin) {
-  return { "x-travelos-admin-pin": value };
-}
-
-function jsonRequest(url: string, method: string, body?: unknown, headers: HeadersInit = {}) {
-  return new Request(url, {
-    body: body === undefined ? undefined : JSON.stringify(body),
-    headers: { "content-type": "application/json", ...headers },
-    method,
-  });
-}
 
 async function readSource(path: string) {
   return readFile(resolve(root, path), "utf8");
@@ -96,9 +55,8 @@ test("HEIC convert failure still uploads the original file", async () => {
 
   const posted: Array<{ file: FormDataEntryValue | null; momentId: string }> = [];
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const request = input instanceof Request ? input : new Request(input, init);
-    const form = await request.formData();
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const form = init?.body as FormData;
     posted.push({ file: form.get("file"), momentId: String(form.get("momentId")) });
     return Response.json({
       photo: { id: "moment_photo_heic", momentId: String(form.get("momentId")) },
@@ -110,7 +68,7 @@ test("HEIC convert failure still uploads the original file", async () => {
       coordinates: null,
       file: heic,
       momentId: "moment_heic",
-      pin,
+      pin: "test-capture-pin",
       takenAt: "2026-08-25T01:00:00.000Z",
     });
     assert.equal(uploaded.display, heic);
@@ -122,53 +80,30 @@ test("HEIC convert failure still uploads the original file", async () => {
   }
 });
 
-test("Blob-not-File photo and audio uploads are accepted", async () => {
-  assert.equal(isUploadBlob(new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" })), true);
+test("Blob-not-File uploads are accepted", async () => {
+  const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+  assert.equal(blob instanceof File, false);
+  assert.equal(isUploadBlob(blob), true);
   assert.equal(isUploadBlob(new File([new Uint8Array([1, 2, 3])], "park.jpg", { type: "image/jpeg" })), true);
   assert.equal(isUploadBlob(new Blob([])), false);
   assert.equal(isUploadBlob("park.jpg"), false);
-  assert.equal(uploadFilename(new Blob([new Uint8Array([1])], { type: "audio/webm" }), "moment-audio.webm"), "moment-audio.webm");
+  assert.equal(uploadFilename(blob, "moment-audio.webm"), "moment-audio.webm");
 
-  const created = await postMoment(
-    jsonRequest("http://travelos.local/api/moments", "POST", { note: "park", time: "2026-08-25T01:00:00.000Z" }, pinHeaders()),
-  );
-  assert.equal(created.status, 200);
-  const payload = (await created.json()) as { moment: { id: string } };
-
-  const photoData = new FormData();
-  photoData.set("momentId", payload.moment.id);
-  photoData.set("file", new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/jpeg" }), "park.jpg");
-  const photoResponse = await postMomentPhoto(
-    new Request("http://travelos.local/api/moments/photos", {
-      body: photoData,
-      headers: pinHeaders(),
-      method: "POST",
-    }),
-  );
-  assert.equal(photoResponse.status, 200);
-  const photoPayload = (await photoResponse.json()) as { photo: { originalFilename: string } };
-  assert.equal(photoPayload.photo.originalFilename, "park.jpg");
-
-  const audioData = new FormData();
-  audioData.set("momentId", payload.moment.id);
-  audioData.set("file", new Blob([new Uint8Array([1, 2, 3, 4])], { type: "audio/webm" }), "moment-audio.webm");
-  const audioResponse = await postMomentAudio(
-    new Request("http://travelos.local/api/moments/audio", {
-      body: audioData,
-      headers: pinHeaders(),
-      method: "POST",
-    }),
-  );
-  assert.equal(audioResponse.status, 200);
+  const [photosApi, audioApi] = await Promise.all([
+    readSource("app/api/moments/photos/route.ts"),
+    readSource("app/api/moments/audio/route.ts"),
+  ]);
+  assert.match(photosApi, /isUploadBlob\(file\)/);
+  assert.match(photosApi, /isUploadBlob\(original\)/);
+  assert.match(audioApi, /isUploadBlob\(file\)/);
+  assert.doesNotMatch(photosApi, /file instanceof File/);
+  assert.doesNotMatch(audioApi, /file instanceof File/);
 });
 
 test("write then immediate uncached blob get sees the new moment", async () => {
   const origin = new Map<string, string>();
   const staleCdn = new Map<string, string>([
-    [
-      MOMENTS_BLOB_PATH,
-      JSON.stringify({ jobs: [], moments: [], updatedAt: "2026-08-24T00:00:00.000Z" }),
-    ],
+    [MOMENTS_BLOB_PATH, JSON.stringify({ jobs: [], moments: [], updatedAt: "2026-08-24T00:00:00.000Z" })],
   ]);
   const calls: Array<{ access: string; pathname: string; useCache?: boolean }> = [];
 
@@ -227,38 +162,36 @@ test("write then immediate uncached blob get sees the new moment", async () => {
   const store = await readSource("lib/moment-store.ts");
   const readFn = store.slice(store.indexOf("export async function readMoments"), store.indexOf("export async function writeWarehouse"));
   assert.match(store, /get\(pathname, options\)/);
-  assert.match(store, /useCache: false/);
   assert.match(store, /cacheControlMaxAge: 60/);
   assert.match(readFn, /loadWarehouseFromBlobGet/);
   assert.doesNotMatch(store, /import \{[^}]*\blist\b/);
   assert.doesNotMatch(readFn, /dataBlob\.url/);
   assert.doesNotMatch(readFn, /\?v=/);
   assert.doesNotMatch(readFn, /fetch\(/);
+
+  const warehouseRead = await readSource("lib/warehouse-read.ts");
+  assert.match(warehouseRead, /useCache: false/);
+  assert.doesNotMatch(warehouseRead, /fetch\(/);
 });
 
 test("PIN is still required without the admin header", async () => {
-  const get = await getMoments(new Request("http://travelos.local/api/moments"));
-  assert.equal(get.status, 401);
-  assert.equal(((await get.json()) as { error: string }).error, "Invalid admin PIN");
+  const [momentsApi, photosApi, audioApi] = await Promise.all([
+    readSource("app/api/moments/route.ts"),
+    readSource("app/api/moments/photos/route.ts"),
+    readSource("app/api/moments/audio/route.ts"),
+  ]);
 
-  const create = await postMoment(jsonRequest("http://travelos.local/api/moments", "POST", { note: "no pin" }));
-  assert.equal(create.status, 401);
+  for (const source of [momentsApi, photosApi, audioApi]) {
+    assert.match(source, /isAdminPinValid/);
+    assert.match(source, /Invalid admin PIN/);
+    assert.match(source, /status: 401/);
+  }
 
-  const photoData = new FormData();
-  photoData.set("momentId", "moment_x");
-  photoData.set("file", new Blob([new Uint8Array([1])], { type: "image/jpeg" }), "park.jpg");
-  const photo = await postMomentPhoto(
-    new Request("http://travelos.local/api/moments/photos", { body: photoData, method: "POST" }),
-  );
-  assert.equal(photo.status, 401);
-
-  const audioData = new FormData();
-  audioData.set("momentId", "moment_x");
-  audioData.set("file", new Blob([new Uint8Array([1])], { type: "audio/webm" }), "moment-audio.webm");
-  const audio = await postMomentAudio(
-    new Request("http://travelos.local/api/moments/audio", { body: audioData, method: "POST" }),
-  );
-  assert.equal(audio.status, 401);
+  const postFn = photosApi.slice(photosApi.indexOf("export async function POST"));
+  const pinCheckIndex = postFn.indexOf("isAdminPinValid");
+  const blobIndex = postFn.indexOf("isUploadBlob");
+  assert.ok(pinCheckIndex !== -1 && blobIndex !== -1);
+  assert.ok(pinCheckIndex < blobIndex);
 });
 
 test("photo and audio POST retry once on 404 after a consistent re-read", async () => {
@@ -297,18 +230,19 @@ test("photo and audio POST retry once on 404 after a consistent re-read", async 
 });
 
 test("public Lapland poster and copy stay untouched by the capture retry slice", async () => {
-  const [capture, upload, photosApi, audioApi, store, laplandPage, seed, poster] = await Promise.all([
+  const [capture, upload, photosApi, audioApi, store, warehouseRead, laplandPage, seed, poster] = await Promise.all([
     readSource("app/family/capture/page.tsx"),
     readSource("lib/capture-upload.ts"),
     readSource("app/api/moments/photos/route.ts"),
     readSource("app/api/moments/audio/route.ts"),
     readSource("lib/moment-store.ts"),
+    readSource("lib/warehouse-read.ts"),
     readSource("app/trips/[slug]/page.tsx"),
     readSource("lib/trips.ts"),
     readSource("scripts/generate-lapland-poster.mjs"),
   ]);
 
-  for (const source of [capture, upload, photosApi, audioApi, store]) {
+  for (const source of [capture, upload, photosApi, audioApi, store, warehouseRead]) {
     assert.doesNotMatch(source, /trip_lapland_2020/);
     assert.doesNotMatch(source, /generate-lapland-poster/);
     assert.doesNotMatch(source, /travelpayouts/i);

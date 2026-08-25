@@ -189,12 +189,13 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
 });
 
 test("background upload starts on add and Save does not wait on originals", async () => {
-  const [capture, upload, photosApi, prepare, store] = await Promise.all([
+  const [capture, upload, photosApi, prepare, store, warehouseRead] = await Promise.all([
     readSource("app/family/capture/page.tsx"),
     readSource("lib/capture-upload.ts"),
     readSource("app/api/moments/photos/route.ts"),
     readSource("lib/prepare-photo.ts"),
     readSource("lib/moment-store.ts"),
+    readSource("lib/warehouse-read.ts"),
   ]);
 
   const addBlock = capture.slice(
@@ -243,12 +244,13 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(upload, /createMomentSession/);
   assert.match(upload, /sendWithMomentRetry/);
   assert.match(store, /loadWarehouseFromBlobGet/);
-  assert.match(store, /useCache: false/);
+  assert.match(warehouseRead, /useCache: false/);
   assert.match(store, /cacheControlMaxAge: 60/);
   assert.match(store, /MomentWarehouseUnavailableError/);
   assert.doesNotMatch(store, /list\(/);
   assert.doesNotMatch(store, /dataBlob\.url/);
   assert.doesNotMatch(store, /\?v=/);
+  assert.doesNotMatch(warehouseRead, /fetch\(/);
 });
 
 test("capture speed path does not touch public Lapland", async () => {

@@ -1,7 +1,7 @@
 "use client";
 
-import { maxUploadBytes, prepareDisplayPhoto, shouldKeepOriginal } from "@/lib/prepare-photo";
-import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "@/lib/types";
+import { maxUploadBytes, prepareDisplayPhoto, shouldKeepOriginal } from "./prepare-photo.ts";
+import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "./types.ts";
 
 export function pinHeaders(pin: string) {
   return { "x-travelos-admin-pin": pin };
