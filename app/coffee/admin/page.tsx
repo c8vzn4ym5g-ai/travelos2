@@ -17,7 +17,6 @@ type CoffeeContentResponse = {
   };
 };
 
-const adminSessionKey = "travelos-admin-pin";
 type CoffeeTextField =
   | "address"
   | "city"

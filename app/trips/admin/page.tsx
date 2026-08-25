@@ -22,7 +22,6 @@ type PhotoTextField = "caption" | "originalFilename" | "takenAt";
 type PlaceTextField = "address" | "city" | "country" | "name" | "notes";
 type RouteTextField = "fromLabel" | "linkedJournalEntryId" | "linkedPhotoId" | "linkedPlaceId" | "note" | "toLabel";
 
-const adminSessionKey = "travelos-admin-pin";
 const inputClass =
   "mt-2 min-h-11 w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-sm text-zinc-950 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100";
 const textareaClass = `${inputClass} min-h-28 leading-6`;

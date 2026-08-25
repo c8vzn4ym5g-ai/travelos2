@@ -4,8 +4,8 @@ export type FamilyGate = {
   required: boolean;
 };
 
-export function familyPinHeaders(pin: string) {
-  return pin ? { "x-travelos-admin-pin": pin } : {};
+export function familyPinHeaders(pin: string): Record<string, string> {
+  return { "x-travelos-admin-pin": pin };
 }
 
 export function readFamilySessionPin() {

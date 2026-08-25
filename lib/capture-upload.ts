@@ -3,8 +3,8 @@
 import { maxUploadBytes, prepareDisplayPhoto, shouldKeepOriginal } from "./prepare-photo.ts";
 import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "./types.ts";
 
-export function pinHeaders(pin: string) {
-  return pin ? { "x-travelos-admin-pin": pin } : {};
+export function pinHeaders(pin: string): Record<string, string> {
+  return { "x-travelos-admin-pin": pin };
 }
 
 export function captureErrorMessage(error: unknown, fallback: string) {
