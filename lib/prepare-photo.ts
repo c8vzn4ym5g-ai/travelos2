@@ -22,40 +22,58 @@ function waitWithTimeout<T>(promise: Promise<T>, timeoutMs: number, message: str
   });
 }
 
-async function decodePhoto(file: File) {
-  if (typeof createImageBitmap === "function") {
-    try {
-      const bitmap = await waitWithTimeout(
-        createImageBitmap(file),
-        8000,
-        "Photo preparation timed out. Try a smaller JPG photo.",
-      );
-      return {
-        cleanup: () => bitmap.close(),
-        height: bitmap.height,
-        source: bitmap,
-        width: bitmap.width,
-      };
-    } catch {
-      // Fall through to Image() so iPhone Safari can still decode HEIC.
-    }
-  }
+let decodeGate: Promise<unknown> = Promise.resolve();
 
-  const imageUrl = URL.createObjectURL(file);
+async function withExclusivePhotoDecode<T>(work: () => Promise<T>): Promise<T> {
+  const previous = decodeGate;
+  let release: (value?: unknown) => void = () => {};
+  decodeGate = new Promise((resolve) => {
+    release = resolve;
+  });
+  await previous;
   try {
-    const image = new Image();
-    image.src = imageUrl;
-    await waitWithTimeout(image.decode(), 8000, "Photo preparation timed out. Try a smaller JPG photo.");
-    return {
-      cleanup: () => URL.revokeObjectURL(imageUrl),
-      height: image.naturalHeight,
-      source: image,
-      width: image.naturalWidth,
-    };
-  } catch (error) {
-    URL.revokeObjectURL(imageUrl);
-    throw error;
+    return await work();
+  } finally {
+    release();
   }
+}
+
+async function decodePhoto(file: File) {
+  return withExclusivePhotoDecode(async () => {
+    if (typeof createImageBitmap === "function") {
+      try {
+        const bitmap = await waitWithTimeout(
+          createImageBitmap(file),
+          8000,
+          "Photo preparation timed out. Try a smaller JPG photo.",
+        );
+        return {
+          cleanup: () => bitmap.close(),
+          height: bitmap.height,
+          source: bitmap,
+          width: bitmap.width,
+        };
+      } catch {
+        // Fall through to Image() so iPhone Safari can still decode HEIC.
+      }
+    }
+
+    const imageUrl = URL.createObjectURL(file);
+    try {
+      const image = new Image();
+      image.src = imageUrl;
+      await waitWithTimeout(image.decode(), 8000, "Photo preparation timed out. Try a smaller JPG photo.");
+      return {
+        cleanup: () => URL.revokeObjectURL(imageUrl),
+        height: image.naturalHeight,
+        source: image,
+        width: image.naturalWidth,
+      };
+    } catch (error) {
+      URL.revokeObjectURL(imageUrl);
+      throw error;
+    }
+  });
 }
 
 async function renderFileAsJpeg(file: File, maxSide: number, quality: number) {

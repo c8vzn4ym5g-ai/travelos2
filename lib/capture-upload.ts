@@ -21,6 +21,40 @@ export type CapturePhotoDraft = {
   status: "queued";
 };
 
+export type CaptureFileIngestProgress = {
+  copiedCount: number;
+  fileListLength: number;
+};
+
+export function isIosCaptureClient(userAgent: string, maxTouchPoints = 0) {
+  if (/iPad|iPhone|iPod/i.test(userAgent)) {
+    return true;
+  }
+
+  return /Macintosh/i.test(userAgent) && maxTouchPoints > 1;
+}
+
+export function capturePrepareConcurrency(input?: {
+  hasHeic?: boolean;
+  maxTouchPoints?: number;
+  userAgent?: string;
+}) {
+  if (input?.hasHeic) {
+    return 1;
+  }
+
+  const userAgent =
+    input?.userAgent ?? (typeof navigator === "undefined" ? "" : navigator.userAgent);
+  const maxTouchPoints =
+    input?.maxTouchPoints ?? (typeof navigator === "undefined" ? 0 : navigator.maxTouchPoints);
+
+  if (isIosCaptureClient(userAgent, maxTouchPoints)) {
+    return 1;
+  }
+
+  return CAPTURE_UPLOAD_CONCURRENCY;
+}
+
 export function snapshotFileList(fileList: FileList | null | undefined) {
   if (!fileList || fileList.length === 0) {
     return [];
@@ -28,7 +62,7 @@ export function snapshotFileList(fileList: FileList | null | undefined) {
 
   const files: File[] = [];
   for (let index = 0; index < fileList.length; index += 1) {
-    const file = fileList[index];
+    const file = fileList.item(index) ?? fileList[index];
     if (file) {
       files.push(file);
     }
@@ -36,17 +70,97 @@ export function snapshotFileList(fileList: FileList | null | undefined) {
   return files;
 }
 
+export function captureFileListHasHeic(fileList: FileList | null | undefined) {
+  if (!fileList) {
+    return false;
+  }
+
+  for (let index = 0; index < fileList.length; index += 1) {
+    const file = fileList.item(index) ?? fileList[index];
+    if (file && isHeicPhoto(file)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function isCaptureImageFile(file: File) {
+  return file.type.startsWith("image/") || isHeicPhoto(file);
+}
+
+export function copyCaptureFile(file: File) {
+  const blob = file.slice(0);
+  return new File([blob], file.name, {
+    lastModified: file.lastModified,
+    type: file.type,
+  });
+}
+
+export function yieldToBrowser() {
+  return new Promise<void>((resolve) => {
+    const later = () => {
+      setTimeout(resolve, 0);
+    };
+
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(later);
+      return;
+    }
+
+    later();
+  });
+}
+
+export async function ingestCaptureFileList(
+  fileList: FileList | null | undefined,
+  options: {
+    copyFile?: (file: File) => File;
+    onCopied: (file: File, progress: CaptureFileIngestProgress) => void | Promise<void>;
+    onReceived?: (fileListLength: number) => void;
+    resetInput?: () => void;
+    yieldTurn?: () => Promise<void>;
+  },
+) {
+  const fileListLength = fileList?.length ?? 0;
+  options.onReceived?.(fileListLength);
+
+  if (!fileList || fileListLength === 0) {
+    return { copied: [] as File[], fileListLength };
+  }
+
+  const copyFile = options.copyFile ?? copyCaptureFile;
+  const yieldTurn = options.yieldTurn ?? yieldToBrowser;
+  const copied: File[] = [];
+
+  for (let index = 0; index < fileListLength; index += 1) {
+    const file = fileList.item(index) ?? fileList[index];
+    if (!file || !isCaptureImageFile(file)) {
+      continue;
+    }
+
+    const independent = copyFile(file);
+    copied.push(independent);
+    await options.onCopied(independent, { copiedCount: copied.length, fileListLength });
+    await yieldTurn();
+  }
+
+  if (copied.length > 0) {
+    options.resetInput?.();
+  }
+
+  return { copied, fileListLength };
+}
+
 export function createStagedCapturePhotos(files: File[]): CapturePhotoDraft[] {
-  return files
-    .filter((file) => file.type.startsWith("image/") || isHeicPhoto(file))
-    .map((file) => ({
-      errorMessage: null,
-      file,
-      id: `staged_${file.name}_${file.size}_${file.lastModified}_${Math.random().toString(36).slice(2, 6)}`,
-      previewUrl: null,
-      serverPhotoId: null,
-      status: "queued" as const,
-    }));
+  return files.filter(isCaptureImageFile).map((file) => ({
+    errorMessage: null,
+    file,
+    id: `staged_${file.name}_${file.size}_${file.lastModified}_${Math.random().toString(36).slice(2, 6)}`,
+    previewUrl: null,
+    serverPhotoId: null,
+    status: "queued" as const,
+  }));
 }
 
 export function captureBatchMessage(received: number, total: number) {

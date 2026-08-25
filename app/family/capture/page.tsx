@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
-  CAPTURE_UPLOAD_CONCURRENCY,
   captureBatchMessage,
   captureErrorMessage,
+  captureFileListHasHeic,
+  capturePrepareConcurrency,
   clearMomentAudioInBackground,
   createCaptureMoment,
   createMomentSession,
@@ -14,8 +15,8 @@ import {
   createTinyPreviewUrl,
   createWorkQueue,
   finalizeCaptureMoment,
+  ingestCaptureFileList,
   removeUploadedPhotoInBackground,
-  snapshotFileList,
   uploadDisplayPhoto,
   uploadMomentAudio,
   uploadOriginalPhotoInBackground,
@@ -63,7 +64,7 @@ export default function CapturePage() {
   const coordinatesRef = useRef<GeoPoint | null>(null);
   const momentSessionRef = useRef<ReturnType<typeof createMomentSession> | null>(null);
   const photoUploadsRef = useRef(new Map<string, Promise<void>>());
-  const photoQueueRef = useRef(createWorkQueue(CAPTURE_UPLOAD_CONCURRENCY));
+  const photoQueueRef = useRef<ReturnType<typeof createWorkQueue> | null>(null);
   const audioUploadRef = useRef<Promise<void> | null>(null);
   const savingRef = useRef(false);
   const [pin, setPin] = useState("");
@@ -149,6 +150,17 @@ export default function CapturePage() {
     };
   }, []);
 
+  function photoQueue(hasHeic = false) {
+    photoQueueRef.current ??= createWorkQueue(
+      capturePrepareConcurrency({
+        hasHeic,
+        maxTouchPoints: navigator.maxTouchPoints,
+        userAgent: navigator.userAgent,
+      }),
+    );
+    return photoQueueRef.current;
+  }
+
   function momentSession() {
     momentSessionRef.current ??= createMomentSession((time) =>
       createCaptureMoment({
@@ -194,7 +206,7 @@ export default function CapturePage() {
   }
 
   async function startBackgroundPhotoUpload(photo: StagedPhoto) {
-    const run = photoQueueRef.current.enqueue(async () => {
+    const run = photoQueue().enqueue(async () => {
       if (photo.abort.signal.aborted) {
         return;
       }
@@ -318,40 +330,52 @@ export default function CapturePage() {
     return run;
   }
 
-  function addIncomingFiles(fileList: FileList | null) {
-    const files = snapshotFileList(fileList);
-    if (files.length === 0) {
+  async function addIncomingFiles(fileList: FileList | null, input?: HTMLInputElement) {
+    const fileListLength = fileList?.length ?? 0;
+    if (fileListLength === 0) {
       return;
     }
 
-    const incoming = createStagedCapturePhotos(files).map((draft) => ({
-      ...draft,
-      abort: new AbortController(),
-    }));
-    if (incoming.length === 0) {
-      setMessage(captureBatchMessage(0, photosRef.current.length));
-      return;
-    }
+    photoQueue(captureFileListHasHeic(fileList));
+    setMessage(captureBatchMessage(fileListLength, photosRef.current.length + fileListLength));
 
-    setPhotos((current) => {
-      const next = appendMomentPhotos(current, incoming);
-      setMessage(captureBatchMessage(incoming.length, next.length));
-      return next;
+    await ingestCaptureFileList(fileList, {
+      onCopied(file, progress) {
+        const incoming = createStagedCapturePhotos([file]).map((draft) => ({
+          ...draft,
+          abort: new AbortController(),
+        }));
+        if (incoming.length === 0) {
+          return;
+        }
+
+        setPhotos((current) => {
+          const next = appendMomentPhotos(current, incoming);
+          setMessage(captureBatchMessage(progress.fileListLength, next.length));
+          return next;
+        });
+
+        for (const photo of incoming) {
+          void startBackgroundPhotoUpload(photo);
+        }
+      },
+      onReceived(received) {
+        setMessage(captureBatchMessage(received, photosRef.current.length + received));
+      },
+      resetInput() {
+        if (input && input.files === fileList) {
+          input.value = "";
+        }
+      },
     });
-
-    for (const photo of incoming) {
-      void startBackgroundPhotoUpload(photo);
-    }
   }
 
   function onTakePhoto(event: React.ChangeEvent<HTMLInputElement>) {
-    addIncomingFiles(event.target.files);
-    event.target.value = "";
+    void addIncomingFiles(event.target.files, event.target);
   }
 
   function onChoosePhotos(event: React.ChangeEvent<HTMLInputElement>) {
-    addIncomingFiles(event.target.files);
-    event.target.value = "";
+    void addIncomingFiles(event.target.files, event.target);
   }
 
   function removePhoto(photoId: string) {
@@ -568,7 +592,7 @@ export default function CapturePage() {
         <article className="rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm">
           <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">拍照與相簿都留著</p>
           <h2 className="travel-display mt-2 text-2xl font-semibold">Take Photo / Choose Photos</h2>
-          <p className="mt-3 text-sm leading-6 text-zinc-600">加入之後兩個按鈕都還在。新的會接在後面，不會蓋掉剛拍的。一次選很多張會先全部收下，再分批壓縮上傳。預覽用小圖，不一次解出全部原圖。</p>
+          <p className="mt-3 text-sm leading-6 text-zinc-600">加入之後兩個按鈕都還在。新的會接在後面，不會蓋掉剛拍的。一次選很多張會立刻開始上傳，其餘分批收下。預覽用小圖，不一次解出全部原圖。</p>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <label className={`${controlClass} border-sky-300 bg-sky-50 text-sky-950`}>
