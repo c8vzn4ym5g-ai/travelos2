@@ -212,8 +212,14 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   assert.match(capture, /image\/heic,image\/heif,\.heic,\.heif/);
   assert.match(upload, /CAPTURE_DUMP_LIMIT = 40/);
   assert.match(upload, /createTinyPreviewUrl/);
-  assert.match(upload, /prepareDisplayPhoto/);
   assert.match(upload, /uploadOriginalPhotoInBackground/);
+  const displayUpload = upload.slice(
+    upload.indexOf("export async function uploadDisplayPhoto"),
+    upload.indexOf("export function uploadOriginalPhotoInBackground"),
+  );
+  assert.match(displayUpload, /const display = input\.file/);
+  assert.doesNotMatch(displayUpload, /prepareDisplayPhoto/);
+  assert.doesNotMatch(displayUpload, /await prepareDisplayPhoto/);
   assert.match(prepare, /return file;/);
   assert.doesNotMatch(prepare, /Could not prepare this photo for upload/);
   assert.doesNotMatch(prepare, /supportedUploadTypes/);
@@ -276,6 +282,8 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(saveBlock, /Promise\.all\(\[\.\.\.photoUploadsRef\.current\.values\(\)\]\)/);
   assert.doesNotMatch(saveBlock, /uploadOriginalPhotoInBackground/);
   assert.match(displayUpload, /formData\.set\("file", display\)/);
+  assert.match(displayUpload, /const display = input\.file/);
+  assert.doesNotMatch(displayUpload, /prepareDisplayPhoto/);
   assert.doesNotMatch(displayUpload, /formData\.set\("original"/);
   assert.match(upload, /void fetch\("\/api\/moments\/photos"/);
   assert.match(upload, /Originals are durable when they land; they must never block Capture/);

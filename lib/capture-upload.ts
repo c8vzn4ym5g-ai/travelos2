@@ -1,12 +1,7 @@
 "use client";
 
 import { isHeicPhoto } from "./moments.ts";
-import {
-  createTinyPreviewUrl,
-  maxUploadBytes,
-  prepareDisplayPhoto,
-  shouldKeepOriginal,
-} from "./prepare-photo.ts";
+import { createTinyPreviewUrl, shouldKeepOriginal } from "./prepare-photo.ts";
 import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "./types.ts";
 
 export { createTinyPreviewUrl };
@@ -328,15 +323,12 @@ export async function uploadDisplayPhoto(input: {
   signal?: AbortSignal;
   takenAt: string;
 }) {
-  let display: File;
-  try {
-    display = await prepareDisplayPhoto(input.file);
-  } catch {
-    display = input.file;
-  }
-  if (display !== input.file && display.size > maxUploadBytes) {
-    throw new Error("Photo is still too large after compression. Please choose a smaller photo.");
-  }
+  // iPhone "Choose Photos" almost always hands JPEG (the picker converts HEIC).
+  // Client decode + 1600px JPEG conversion used to run before this POST and
+  // serialized dumps at ~3s/photo. POST the File immediately; the server
+  // already accepts JPEG and HEIC. Oversized files are sent as-is — do not
+  // compress a 40-photo dump on the phone.
+  const display = input.file;
 
   void Promise.resolve(input.onDisplayReady?.(display)).catch(() => {
     // Tiny previews are optional; they must never block the display POST.

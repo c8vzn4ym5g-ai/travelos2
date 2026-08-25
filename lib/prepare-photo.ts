@@ -98,6 +98,9 @@ export async function prepareDisplayPhoto(file: File) {
     return file;
   }
 
+  // Capture dump POSTs no longer wait on this. iPhone "Choose Photos" hands JPEG,
+  // so a HEIC-only skip still ran canvas on the Owner's real dumps.
+
   try {
     let display = await convertPhonePhotoToJpeg(file);
     if (display.size > maxUploadBytes) {
