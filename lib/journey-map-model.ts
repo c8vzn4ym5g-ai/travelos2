@@ -79,7 +79,7 @@ export const STREET_BASEMAP = {
 export const TILE_PIXEL_SIZE = 256;
 
 export const LAPLAND_POSTER = {
-  alt: "December 2019: Santa Claus Village on the Arctic Circle, then Helsinki",
+  alt: "Santa Claus Village on the Arctic Circle, then Helsinki",
   relativeFile: "public/travelos/maps/lapland-rovaniemi.png",
   src: "/travelos/maps/lapland-rovaniemi.png",
 } as const;
@@ -303,7 +303,7 @@ function buildLaplandItinerary({
 
   const regionalStops: ItineraryStop[] = [
     {
-      dateLabel: formatStopDate(arcticJournal?.entryDate) ?? "12/11",
+      dateLabel: null,
       icon: "village",
       id: santa?.id ?? "stop_lapland_santa",
       leg: "winter",
@@ -316,7 +316,7 @@ function buildLaplandItinerary({
       title: "聖誕老人村 / Santa Claus Village",
     },
     {
-      dateLabel: formatStopDate(arcticJournal?.entryDate) ?? "12/11",
+      dateLabel: null,
       icon: "circle",
       id: arctic?.id ?? "stop_lapland_arctic",
       leg: "winter",
@@ -329,7 +329,7 @@ function buildLaplandItinerary({
       title: "北極圈 / Arctic Circle",
     },
     {
-      dateLabel: formatStopDate(cabinJournal?.entryDate) ?? "12/12",
+      dateLabel: null,
       icon: "cabin",
       id: cabin?.id ?? "stop_lapland_cabin",
       leg: "winter",
@@ -342,7 +342,7 @@ function buildLaplandItinerary({
       title: cabinJournal?.title ?? "4 號紅木屋 / Red cabin no. 4",
     },
     {
-      dateLabel: formatStopDate(sledPhoto?.takenAt) ?? "12/12",
+      dateLabel: null,
       icon: "sled",
       id: sled?.id ?? "stop_lapland_sled",
       leg: "side",
@@ -355,7 +355,7 @@ function buildLaplandItinerary({
       title: "雪橇 / Sled",
     },
     {
-      dateLabel: formatStopDate(leavingJournal?.entryDate) ?? "12/13",
+      dateLabel: null,
       icon: "plane",
       id: airport?.id ?? "stop_lapland_leaving",
       leg: "winter",

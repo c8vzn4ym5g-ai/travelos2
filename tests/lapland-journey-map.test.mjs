@@ -173,14 +173,14 @@ test("Lapland itinerary is a Rovaniemi journey picture, not a Hong Kong-scale ov
     [1, 2, 3, 4, 5],
   );
   assert.match(itinerary.regionalStops[0].listLabel, /Santa Claus Village/);
-  assert.equal(itinerary.regionalStops[0].dateLabel, "12/11");
+  assert.equal(itinerary.regionalStops[0].dateLabel, null);
   assert.match(itinerary.regionalStops[1].listLabel, /Arctic Circle/);
-  assert.equal(itinerary.regionalStops[1].dateLabel, "12/11");
+  assert.equal(itinerary.regionalStops[1].dateLabel, null);
   assert.match(itinerary.regionalStops[2].listLabel, /Cabin/);
-  assert.equal(itinerary.regionalStops[2].dateLabel, "12/12");
+  assert.equal(itinerary.regionalStops[2].dateLabel, null);
   assert.match(itinerary.regionalStops[3].listLabel, /Sled/);
   assert.match(itinerary.regionalStops[4].listLabel, /Leaving RVN|Rovaniemi/);
-  assert.equal(itinerary.regionalStops[4].dateLabel, "12/13");
+  assert.equal(itinerary.regionalStops[4].dateLabel, null);
   assert.ok(itinerary.regionalStops.every((stop) => isRegionalPointSet([stop.point, itinerary.regionalPoints[0]])));
   assert.ok(!itinerary.regionalPoints.some((point) => point.latitude === hongKong.latitude && point.longitude === hongKong.longitude));
   assert.ok(isRegionalPointSet(itinerary.regionalPoints));

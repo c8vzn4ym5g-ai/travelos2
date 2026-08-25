@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { readContent } from "@/lib/editable-store";
+import { isLaplandStorefrontSlug, LAPLAND_SEASON_LABEL } from "@/lib/lapland-storefront-copy";
 import { isTripPublic } from "@/lib/trip-visibility";
 import type { Money, Photo, TripDetail } from "@/lib/types";
 
@@ -96,7 +97,7 @@ function TripCard({ trip }: { trip: TripDetail }) {
         </div>
 
         <div className="mt-6 flex flex-col gap-3 border-t border-[color:var(--line)] pt-5 text-sm text-[color:var(--muted)] sm:flex-row sm:items-center sm:justify-between">
-          <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
+          <span>{isLaplandStorefrontSlug(trip.slug) ? LAPLAND_SEASON_LABEL : formatDateRange(trip.startDate, trip.endDate)}</span>
           <Link className="travel-primary inline-flex min-h-11 items-center justify-center rounded-full px-5 py-2 text-center font-semibold sm:px-5 sm:py-2" href={href}>
             {ui.read}
           </Link>

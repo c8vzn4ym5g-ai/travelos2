@@ -10,7 +10,7 @@ import { LaplandStorefrontGlance } from "@/components/lapland-storefront-glance"
 import { LaplandVisualPath } from "@/components/lapland-visual-path";
 import { ShareActions } from "@/components/share-actions";
 import { readContent } from "@/lib/editable-store";
-import { isLaplandStorefrontSlug } from "@/lib/lapland-storefront-copy";
+import { forLaplandPublicPage, isLaplandStorefrontSlug, LAPLAND_SEASON_LABEL } from "@/lib/lapland-storefront-copy";
 import { laplandBooking } from "@/lib/travelpayouts";
 import { isTripPublic } from "@/lib/trip-visibility";
 import { getTripDetailsByStartDate } from "@/lib/trips";
@@ -156,8 +156,17 @@ function PlaceRow({ place }: { place: Place }) {
   );
 }
 
-function PhotoTile({ photo }: { photo: Photo }) {
+function PhotoTile({ hideExactDate, photo }: { hideExactDate?: boolean; photo: Photo }) {
   const canRenderPhoto = isRenderablePhoto(photo);
+  const dateLine = hideExactDate
+    ? photo.caption?.includes("場所圖")
+      ? "場所圖 / Place photo"
+      : LAPLAND_SEASON_LABEL
+    : photo.takenAt
+      ? formatDate(photo.takenAt)
+      : photo.caption?.includes("場所圖")
+        ? "場所圖 / Place photo"
+        : "Date not set";
 
   return (
     <article className="travel-soft-panel overflow-hidden rounded-[1.5rem]" data-music-zone={`${photo.caption ?? ""} ${photo.originalFilename}`}>
@@ -171,9 +180,7 @@ function PhotoTile({ photo }: { photo: Photo }) {
       )}
       <div className="p-4">
         <p className="font-medium text-[color:var(--ink)]">{photo.caption ?? photo.originalFilename}</p>
-        <p className="travel-muted mt-2 text-sm">
-          {photo.takenAt ? formatDate(photo.takenAt) : photo.caption?.includes("場所圖") ? "場所圖 / Place photo" : "Date not set"}
-        </p>
+        <p className="travel-muted mt-2 text-sm">{dateLine}</p>
       </div>
     </article>
   );
@@ -246,18 +253,21 @@ export async function generateMetadata({ params }: TripDetailPageProps): Promise
 export default async function TripDetailPage({ params }: TripDetailPageProps) {
   const { slug } = await params;
   const { content } = await readContent();
-  const trip = content.trips.find((item) => item.slug === slug);
+  const found = content.trips.find((item) => item.slug === slug);
 
-  if (!trip || !isTripPublic(trip)) {
+  if (!found || !isTripPublic(found)) {
     notFound();
   }
+
+  const trip = isLaplandStorefrontSlug(found.slug) ? forLaplandPublicPage(found) : found;
 
   const coverPhoto =
     trip.photos.find((photo) => photo.id === trip.coverPhotoId && isRenderablePhoto(photo)) ??
     trip.photos.find(isRenderablePhoto);
   const featurePhotos = trip.photos.filter(isRenderablePhoto).slice(0, 4);
   const renderablePhotos = trip.photos.filter(isRenderablePhoto);
-  const seasonLabel = getSeasonLabel(trip.startDate);
+  const isLapland = isLaplandStorefrontSlug(trip.slug);
+  const seasonLabel = isLapland ? LAPLAND_SEASON_LABEL : getSeasonLabel(trip.startDate);
   const heroSummary = clampWords(trip.summary, 88);
   const usedStoryPhotoIds = new Set<string>();
   const storyMoments = trip.journalEntries.map((entry, index) => {
@@ -271,8 +281,6 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
   const articleJsonLd = {
     "@context": "https://schema.org",
     "@type": "TravelBlogPosting",
-    dateModified: trip.updatedAt,
-    datePublished: trip.createdAt,
     description: trip.summary,
     headline: trip.title,
     image: coverPhoto ? [coverPhoto.storageKey] : undefined,
@@ -282,6 +290,12 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
       name: `${trip.city}, ${trip.country}`,
     },
     mainEntityOfPage: `https://travelos2-63r3.vercel.app/trips/${trip.slug}`,
+    ...(isLapland
+      ? {}
+      : {
+          dateModified: trip.updatedAt,
+          datePublished: trip.createdAt,
+        }),
   };
 
   return (
@@ -397,7 +411,9 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                 <article className="border-b border-[color:var(--line)] pb-6 last:border-0 last:pb-0" data-music-zone={`${entry.title} ${entry.body}`} key={entry.id}>
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <h3 className="font-semibold text-[color:var(--ink)]">{entry.title}</h3>
-                    <p className="travel-muted text-sm">{formatDate(entry.entryDate)}</p>
+                    <p className="travel-muted text-sm">
+                      {isLaplandStorefrontSlug(trip.slug) ? LAPLAND_SEASON_LABEL : formatDate(entry.entryDate)}
+                    </p>
                   </div>
                   <NarrativeBody body={entry.body} />
                   <p className="travel-kicker mt-4 text-xs">
@@ -414,7 +430,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             <SectionHeader kicker="Album" title="Photo memories" />
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {trip.photos.map((photo) => (
-                <PhotoTile key={photo.id} photo={photo} />
+                <PhotoTile hideExactDate={isLaplandStorefrontSlug(trip.slug)} key={photo.id} photo={photo} />
               ))}
             </div>
           </section>

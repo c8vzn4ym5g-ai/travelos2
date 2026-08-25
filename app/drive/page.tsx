@@ -63,10 +63,10 @@ export default function DrivePage() {
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Featured journal</p>
               <h2 className="mt-2 text-2xl font-semibold">芬蘭拉普蘭 / Finnish Lapland</h2>
               <p className="mt-3 text-sm leading-6 text-zinc-600">
-                2019 年 12 月。聖誕老人村在北極圈上，然後往南到赫爾辛基。
+                十二月。聖誕老人村在北極圈上，然後往南到赫爾辛基。
               </p>
               <p className="mt-2 text-sm leading-6 text-zinc-600">
-                December 2019. Santa Claus Village on the Arctic Circle, then south to Helsinki.
+                December. Santa Claus Village on the Arctic Circle, then south to Helsinki.
               </p>
               <p className="mt-4 text-sm font-semibold text-teal-800">閱讀遊記 / Read the journal</p>
             </div>

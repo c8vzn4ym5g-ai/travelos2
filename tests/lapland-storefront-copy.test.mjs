@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
 import {
+  forLaplandPublicPage,
   LAPLAND_STOREFRONT_EN,
   LAPLAND_STOREFRONT_KICKER,
   LAPLAND_STOREFRONT_TITLE,
@@ -10,7 +11,7 @@ import {
   isLaplandStorefrontSlug,
   storefrontCopyLooksInvented,
 } from "../lib/lapland-storefront-copy.ts";
-import { LAPLAND_WINTER_VILLAGE_CAPTION } from "../lib/trips.ts";
+import { seedTripDetails, LAPLAND_WINTER_VILLAGE_CAPTION } from "../lib/trips.ts";
 import { LAPLAND_TRIP_SLUG } from "../lib/travelpayouts.ts";
 
 const root = resolve(import.meta.dirname, "..");
@@ -84,7 +85,9 @@ test("storefront wording names place, season, and feel without invented proof", 
   assert.doesNotMatch(copy, /January 2020/);
   assert.doesNotMatch(copy, /記錄聖誕老人村/);
   assert.doesNotMatch(copy, /€4,280|HK\$6,600|widgetId/);
-  assert.doesNotMatch(copy, /Arrival above the Arctic Circle|restrained purity|warmth is not an abstract word/);
+  assert.doesNotMatch(copy, /2019/);
+  assert.doesNotMatch(copy, /12 月 11/);
+  assert.doesNotMatch(copy, /11 December/);
 });
 
 test("family workshop pages stay free of storefront glance and booking widgets", async () => {
@@ -108,4 +111,18 @@ test("family workshop pages stay free of storefront glance and booking widgets",
     assert.doesNotMatch(html, /BookingBand/);
     assert.doesNotMatch(html, /emrldtp\.cc/);
   }
+});
+
+test("public Lapland view strips exact dump dates from the page payload", () => {
+  const lapland = seedTripDetails.find((trip) => trip.id === "trip_lapland_2020");
+  assert.ok(lapland);
+  const publicTrip = forLaplandPublicPage(lapland);
+  const payload = JSON.stringify(publicTrip);
+
+  assert.equal(publicTrip.startDate, "2019");
+  assert.ok(publicTrip.photos.every((photo) => photo.takenAt === null));
+  assert.ok(publicTrip.journalEntries.every((entry) => entry.entryDate === ""));
+  assert.ok(publicTrip.costs.every((cost) => cost.paidAt === "2019"));
+  assert.doesNotMatch(payload, /2019-12-1[0-5]/);
+  assert.doesNotMatch(payload, /12\/11/);
 });

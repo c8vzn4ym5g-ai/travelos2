@@ -35,19 +35,18 @@ test("public trip page has no writer chrome", async () => {
   assert.doesNotMatch(page, /Draft ready/);
 });
 
-test("Lapland seed copy uses the December 2019 bilingual titles", async () => {
+test("Lapland seed copy uses seasonal bilingual titles, not a year in the slug", async () => {
   const seed = await readFile(resolve(root, "lib/trips.ts"), "utf8");
 
   assert.match(seed, /laplandTitle: "北極圈上的十二月"/);
   assert.match(seed, /December on the Arctic Circle/);
-  assert.match(seed, /finland-lapland-winter-journal-2019/);
-  assert.match(seed, /startDate: "2019-12-11"/);
-  assert.match(seed, /endDate: "2019-12-15"/);
+  assert.match(seed, /slug: "finland-lapland-winter-journal"/);
+  assert.doesNotMatch(seed, /slug: "finland-lapland-winter-journal-2019"/);
+  assert.doesNotMatch(seed, /slug: "finland-lapland-winter-journal-2020"/);
   assert.match(seed, /北極圈 \/ Arctic Circle/);
   assert.match(seed, /4 號紅木屋 \/ Red cabin no. 4/);
   assert.match(seed, /離開羅瓦涅米 \/ Leaving Rovaniemi/);
   assert.match(seed, /赫爾辛基解凍 \/ Helsinki thaw/);
-  assert.doesNotMatch(seed, /finland-lapland-winter-journal-2020/);
   assert.doesNotMatch(seed, /2020-01-18/);
   assert.doesNotMatch(seed, /抵達北極圈 \/ Arrival at the Arctic Circle/);
   assert.doesNotMatch(seed, /Arrival above the Arctic Circle/);
@@ -56,6 +55,9 @@ test("Lapland seed copy uses the December 2019 bilingual titles", async () => {
   assert.doesNotMatch(seed, /Campfire in the snow/);
   assert.doesNotMatch(seed, /2020 年 1 月/);
   assert.doesNotMatch(seed, /January 2020/);
+  assert.doesNotMatch(seed, /12 月 11 日/);
+  assert.doesNotMatch(seed, /11 December/);
+  assert.doesNotMatch(seed, /December 2019\./);
 });
 
 test("Lapland journal costs stay the 2020 recorded amounts", async () => {
@@ -173,9 +175,14 @@ test("December 2019 dump photos are local public assets, not moment hotlinks", a
   assert.match(copy, /Place photograph, not from this family trip/);
   assert.match(copy, /Wikimedia Commons · Public domain/);
   assert.match(copy, /CC BY 2.0 · Ninara/);
+  assert.match(config, /destination: "\/trips\/finland-lapland-winter-journal"/);
   assert.match(config, /finland-lapland-winter-journal-2020/);
   assert.match(config, /finland-lapland-winter-journal-2019/);
   assert.match(config, /permanent: true/);
+  assert.doesNotMatch(copy, /2019/);
+  assert.doesNotMatch(copy, /12 月 11/);
+  assert.doesNotMatch(copy, /11 Dec/);
+  assert.doesNotMatch(copy, /11 December/);
 });
 
 test("Lapland winter-village photo uses Sana's Christmas-card caption", async () => {
@@ -191,10 +198,11 @@ test("Lapland winter-village photo uses Sana's Christmas-card caption", async ()
   assert.match(seed, /id: LAPLAND_WINTER_VILLAGE_PHOTO_ID/);
   assert.doesNotMatch(seed, /屋頂與雪徑/);
   assert.doesNotMatch(seed, /Roofs and snow paths/);
-  assert.match(store, /CONTENT_SCHEMA_VERSION = 11/);
+  assert.match(store, /CONTENT_SCHEMA_VERSION = 12/);
   assert.match(store, /rebuildLaplandPublicStory/);
-  assert.match(store, /savedSchemaVersion < 11 && seedTrip.id === "trip_lapland_2020"/);
-  assert.match(page, /alt=\{photo\.caption \?\? photo\.originalFilename\}/);
+  assert.match(store, /savedSchemaVersion < 12 && seedTrip.id === "trip_lapland_2020"/);
+  assert.match(page, /forLaplandPublicPage/);
+  assert.match(page, /hideExactDate=\{isLaplandStorefrontSlug\(trip\.slug\)\}/);
   assert.match(page, /alt=\{coverPhoto\.caption \?\? trip\.title\}/);
   assert.match(page, /\{photo\.caption \?\? photo\.originalFilename\}/);
   assert.doesNotMatch(page, /Unlock editor/);

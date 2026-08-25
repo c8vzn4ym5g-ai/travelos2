@@ -1,4 +1,4 @@
-import { LAPLAND_TRIP_SLUG, LAPLAND_TRIP_SLUG_LEGACY } from "@/lib/travelpayouts";
+import { isLaplandPublicSlug } from "@/lib/travelpayouts";
 
 export function journalYearFromDate(date: string): string {
   const year = date.slice(0, 4);
@@ -40,7 +40,7 @@ export const GO_THERE_HREF = "#go-there";
 export const GO_THERE_LABEL = "出發 / Go there";
 
 export function isLaplandJournalSlug(slug: string): boolean {
-  return slug === LAPLAND_TRIP_SLUG || slug === LAPLAND_TRIP_SLUG_LEGACY;
+  return isLaplandPublicSlug(slug);
 }
 
 export function journalCostCopyHasPublicUrl(text: string): boolean {

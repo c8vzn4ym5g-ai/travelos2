@@ -4,7 +4,7 @@ import { LAPLAND_WINTER_VILLAGE_CAPTION, LAPLAND_WINTER_VILLAGE_PHOTO_ID, seedTr
 import type { MusicTrack, Photo, TripDetail } from "@/lib/types";
 
 const DATA_BLOB_PATH = "travelos/content.json";
-const CONTENT_SCHEMA_VERSION = 11;
+const CONTENT_SCHEMA_VERSION = 12;
 
 export type TravelOSContent = {
   trips: TripDetail[];
@@ -154,7 +154,7 @@ function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
       return trip;
     }
 
-    const rebuildLaplandPublicStory = savedSchemaVersion < 11 && seedTrip.id === "trip_lapland_2020";
+    const rebuildLaplandPublicStory = savedSchemaVersion < 12 && seedTrip.id === "trip_lapland_2020";
     const repairTripText =
       recordLooksCorrupted(trip.title) ||
       recordLooksCorrupted(trip.summary) ||
