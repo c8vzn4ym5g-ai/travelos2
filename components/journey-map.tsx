@@ -9,7 +9,8 @@ import {
   getStopCardContent,
   isLaplandPosterCity,
   isRenderablePhoto,
-  LAPLAND_GLANCE_LABELS,
+  LAPLAND_GLANCE_HOTSPOTS,
+  LAPLAND_PATH_HEADING,
   LAPLAND_POSTER,
   STREET_BASEMAP,
   type PosterPin,
@@ -139,7 +140,11 @@ function RegionalMap({
   const usePoster = isLaplandPosterCity(city);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-[#e8f0e4]" data-map-frame="regional" data-map-poster={usePoster ? LAPLAND_POSTER.src : undefined}>
+    <div
+      className={`relative overflow-hidden bg-[#e8f0e4] ${usePoster ? "" : "rounded-2xl"}`}
+      data-map-frame="regional"
+      data-map-poster={usePoster ? LAPLAND_POSTER.src : undefined}
+    >
       {usePoster ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -152,27 +157,48 @@ function RegionalMap({
       ) : (
         <div className="min-h-[22rem] bg-[#e8f0e4] sm:min-h-[26rem] lg:min-h-[32rem]" />
       )}
-      {pins.map((pin) => {
-        const selected = selectedId === pin.id;
-        return (
-          <button
-            aria-label={`Stop ${pin.number}: ${pin.label}`}
-            aria-pressed={selected}
-            className={`absolute z-20 min-h-11 min-w-11 -translate-x-1/2 -translate-y-1/2 rounded-full bg-transparent text-transparent transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
-              selected ? "z-40 ring-4 ring-white/90 ring-offset-2 ring-offset-teal-800/30" : ""
-            }`}
-            data-map-pin={pin.number}
-            key={pin.id}
-            onClick={() => onSelect(pin.id)}
-            style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
-            title={pin.label}
-            type="button"
-          >
-            {pin.number}
-          </button>
-        );
-      })}
-      {legendItems.length > 0 ? (
+      {usePoster ? (
+        <nav aria-label="Journey picture glance links" className="absolute inset-0 z-20">
+          {LAPLAND_GLANCE_HOTSPOTS.map((spot) => (
+            <a
+              className="absolute bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800"
+              data-glance-hotspot={spot.id}
+              href={spot.href}
+              key={spot.id}
+              style={{
+                height: `${spot.h * 100}%`,
+                left: `${spot.x * 100}%`,
+                top: `${spot.y * 100}%`,
+                width: `${spot.w * 100}%`,
+              }}
+            >
+              <span className="sr-only">{spot.label}</span>
+            </a>
+          ))}
+        </nav>
+      ) : (
+        pins.map((pin) => {
+          const selected = selectedId === pin.id;
+          return (
+            <button
+              aria-label={`Stop ${pin.number}: ${pin.label}`}
+              aria-pressed={selected}
+              className={`absolute z-20 min-h-11 min-w-11 -translate-x-1/2 -translate-y-1/2 rounded-full bg-transparent text-transparent transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
+                selected ? "z-40 ring-4 ring-white/90 ring-offset-2 ring-offset-teal-800/30" : ""
+              }`}
+              data-map-pin={pin.number}
+              key={pin.id}
+              onClick={() => onSelect(pin.id)}
+              style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
+              title={pin.label}
+              type="button"
+            >
+              {pin.number}
+            </button>
+          );
+        })
+      )}
+      {usePoster || legendItems.length === 0 ? null : (
         <ol className="pointer-events-none absolute inset-0 z-10" data-map-legend="" data-stop-list>
           {legendItems.map((item) => {
             const stop = stops.find((entry) => entry.id === item.id);
@@ -204,7 +230,7 @@ function RegionalMap({
             );
           })}
         </ol>
-      ) : null}
+      )}
       <p className="sr-only">Map credit: {STREET_BASEMAP.attribution}</p>
     </div>
   );
@@ -235,31 +261,29 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
     );
   }
 
+  const laplandPoster = isLaplandPosterCity(city);
+
   return (
     <section className="travel-soft-panel overflow-hidden rounded-[1.75rem]" aria-label={`${title} journey map`} data-hero-map>
       <div className="flex items-center justify-between gap-3 border-b border-white/70 bg-white/60 px-4 py-3">
         <div>
           <p className="travel-kicker text-xs">Journey picture</p>
-          <h2 className="travel-hand mt-1 text-xl font-semibold text-[color:var(--ink)]">
-            {city}, {country}
+          <h2 className="travel-hand mt-1 text-xl font-semibold text-[color:var(--ink)]" data-glance-labels={laplandPoster ? "" : undefined}>
+            {laplandPoster ? LAPLAND_PATH_HEADING : `${city}, ${country}`}
           </h2>
-          {isLaplandPosterCity(city) ? (
-            <p className="mt-1 text-[0.82rem] font-semibold leading-5 text-slate-700" data-arrival-locator data-glance-labels data-longhaul-label>
-              {LAPLAND_GLANCE_LABELS}
-            </p>
-          ) : itinerary.arrival ? (
-            <QuietArrival cities={itinerary.arrival} />
-          ) : null}
+          {laplandPoster ? null : itinerary.arrival ? <QuietArrival cities={itinerary.arrival} /> : null}
         </div>
-        <span className="rounded-full border border-teal-100 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-950">
-          At a glance
-        </span>
+        {laplandPoster ? null : (
+          <span className="rounded-full border border-teal-100 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-950">
+            At a glance
+          </span>
+        )}
       </div>
 
       <div
         className={
-          isLaplandPosterCity(city)
-            ? "p-3 sm:p-4"
+          laplandPoster
+            ? "p-0"
             : "grid gap-4 p-3 sm:p-4 lg:grid-cols-[minmax(15rem,18.5rem)_minmax(0,1fr)] lg:items-stretch"
         }
       >
@@ -271,7 +295,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
           selectedId={selectedStop?.id ?? null}
           stops={itinerary.regionalStops}
         />
-        {isLaplandPosterCity(city) ? null : (
+        {laplandPoster ? null : (
           <ol className="flex flex-col gap-1.5 lg:order-first" data-stop-list>
             {itinerary.regionalStops.map((stop) => {
               const selected = selectedStop?.id === stop.id;
@@ -311,7 +335,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
         )}
       </div>
 
-      {selectedCard ? (
+      {laplandPoster ? null : selectedCard ? (
         <article className="grid gap-3 border-t border-white/70 bg-white/55 p-3 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] sm:p-4" data-stop-card>
           {selectedCard.photo && isRenderablePhoto(selectedCard.photo) ? (
             <div className="overflow-hidden rounded-xl bg-white">

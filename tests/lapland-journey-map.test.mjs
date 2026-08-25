@@ -6,8 +6,11 @@ import {
   buildJourneyItinerary,
   buildPosterLayout,
   getStopCardContent,
+  LAPLAND_GLANCE_HOTSPOTS,
   LAPLAND_GLANCE_LABELS,
+  LAPLAND_PATH_HEADING,
   LAPLAND_POSTER,
+  LAPLAND_POSTER_GENERATOR_FILE,
   LAPLAND_POSTER_LEGEND_RATIO,
   LAPLAND_POSTER_NOTES,
   LAPLAND_POSTER_TITLE,
@@ -30,7 +33,8 @@ test("JourneyMap hero is the generated itinerary poster, not a live tile collage
   assert.match(source, /data-map-frame="regional"/);
   assert.match(source, /data-map-poster-image/);
   assert.match(source, /LAPLAND_POSTER\.src/);
-  assert.match(model, /\/travelos\/maps\/lapland-rovaniemi\.png/);
+  assert.match(model, /\/travelos\/maps\/lapland-helsinki-poster\.jpg/);
+  assert.doesNotMatch(model, /src: "\/travelos\/maps\/lapland-rovaniemi\.png"/);
   assert.match(source, /data-arrival-locator/);
   assert.match(source, /data-longhaul-label/);
   assert.match(source, /data-glance-labels/);
@@ -42,6 +46,10 @@ test("JourneyMap hero is the generated itinerary poster, not a live tile collage
   assert.match(source, /data-stop-card/);
   assert.match(source, /data-stop-title/);
   assert.match(source, /data-stop-wording/);
+  assert.match(source, /data-glance-hotspot=\{spot\.id\}/);
+  assert.match(source, /LAPLAND_GLANCE_HOTSPOTS/);
+  assert.match(source, /LAPLAND_PATH_HEADING/);
+  assert.doesNotMatch(source, /data-travelpayouts-drive|TravelpayoutsDrive|widgetId/);
   assert.doesNotMatch(source, /getMapTiles/);
   assert.doesNotMatch(source, /data-map-tile/);
   assert.doesNotMatch(source, /tile\.openstreetmap\.org/);
@@ -53,7 +61,7 @@ test("JourneyMap hero is the generated itinerary poster, not a live tile collage
   const layout = source.slice(source.indexOf("export function JourneyMap"));
   assert.match(layout, /<RegionalMap[\s\S]*data-stop-card/);
   assert.match(source, /data-map-legend/);
-  assert.match(layout, /isLaplandPosterCity\(city\) \? null/);
+  assert.match(layout, /laplandPoster \? null/);
   assert.doesNotMatch(source, /data-map-scale=\{slice\.scale\}/);
   assert.doesNotMatch(source, /data-map-frame="overview"/);
   assert.doesNotMatch(source, /Writing guide/);
@@ -78,7 +86,7 @@ test("long-haul is a quiet label, not an equal-size second map", async () => {
 
   assert.match(locatorBlock, /data-arrival-locator/);
   assert.match(locatorBlock, /data-longhaul-label/);
-  assert.match(source, /LAPLAND_GLANCE_LABELS/);
+  assert.match(source, /LAPLAND_PATH_HEADING/);
   assert.match(source, /data-glance-labels/);
   assert.doesNotMatch(source, /How we arrived/);
   assert.doesNotMatch(locatorBlock, /tile\.openstreetmap\.org/);
@@ -96,9 +104,9 @@ test("poster generator stitches OpenTopoMap tiles and the PNG is committed", asy
   const [generator, pkg, png] = await Promise.all([
     readFile(resolve(root, "scripts/generate-lapland-poster.mjs"), "utf8"),
     readFile(resolve(root, "package.json"), "utf8"),
-    readFile(resolve(root, LAPLAND_POSTER.relativeFile)),
+    readFile(resolve(root, LAPLAND_POSTER_GENERATOR_FILE)),
   ]);
-  const info = await stat(resolve(root, LAPLAND_POSTER.relativeFile));
+  const info = await stat(resolve(root, LAPLAND_POSTER_GENERATOR_FILE));
 
   assert.match(pkg, /generate:lapland-poster/);
   assert.match(generator, /lib\/journey-map-model\.ts/);
@@ -226,10 +234,47 @@ test("Lapland itinerary is a Rovaniemi journey picture, not a Hong Kong-scale ov
   assert.ok(itinerary.regionalLegs.some((leg) => leg.style === "solid" && leg.kind === "winter"));
   assert.ok(itinerary.regionalLegs.some((leg) => leg.style === "dotted" && leg.kind === "side"));
   assert.equal("scaleBar" in layout, false);
-  assert.equal(LAPLAND_POSTER.src, "/travelos/maps/lapland-rovaniemi.png");
+  assert.equal(LAPLAND_POSTER.src, "/travelos/maps/lapland-helsinki-poster.jpg");
+  assert.equal(LAPLAND_POSTER.relativeFile, "public/travelos/maps/lapland-helsinki-poster.jpg");
   assert.match(LAPLAND_POSTER.alt, /Santa Claus Village/);
   assert.match(LAPLAND_POSTER.alt, /Helsinki/);
   assert.equal(LAPLAND_GLANCE_LABELS, "Santa Claus Village (聖誕老人村) · Helsinki");
+  assert.equal(LAPLAND_PATH_HEADING, "拉普蘭，然後赫爾辛基 / Lapland, then Helsinki");
+  assert.equal(LAPLAND_GLANCE_HOTSPOTS.length, 4);
+  assert.deepEqual(
+    LAPLAND_GLANCE_HOTSPOTS.map((spot) => [spot.id, spot.href, spot.x, spot.y, spot.w, spot.h]),
+    [
+      ["tap-arctic", "#arctic-circle", 0.005238, 0.931987, 0.220952, 0.062626],
+      ["tap-nature", "#place-knowledge", 0.23, 0.931987, 0.220952, 0.062626],
+      ["tap-stay", "#cabin-4", 0.454762, 0.931987, 0.220952, 0.062626],
+      ["tap-winter", "#christmas-window", 0.679524, 0.931987, 0.220952, 0.062626],
+    ],
+  );
+  assert.ok(!LAPLAND_GLANCE_HOTSPOTS.some((spot) => /europe|locator/i.test(spot.id)));
+});
+
+test("public Journey picture JPEG is committed and is not the old portrait PNG", async () => {
+  const jpeg = await readFile(resolve(root, LAPLAND_POSTER.relativeFile));
+  const info = await stat(resolve(root, LAPLAND_POSTER.relativeFile));
+  const composer = await readFile(resolve(root, "scripts/compose-lapland-helsinki-poster.mjs"), "utf8");
+  const map = await readFile(resolve(root, "components/journey-map.tsx"), "utf8");
+  const path = await readFile(resolve(root, "components/lapland-visual-path.tsx"), "utf8");
+  const copy = await readFile(resolve(root, "lib/lapland-storefront-copy.ts"), "utf8");
+  const knowledge = await readFile(resolve(root, "components/lapland-place-knowledge.tsx"), "utf8");
+
+  assert.equal(jpeg[0], 0xff);
+  assert.equal(jpeg[1], 0xd8);
+  assert.ok(info.size > 80_000, `journey picture too small (${info.size} bytes)`);
+  assert.match(composer, /Ninara · CC BY 2\.0/);
+  assert.doesNotMatch(composer, /2019-12-11/);
+  assert.doesNotMatch(map, /fillText\("N"/);
+  assert.doesNotMatch(map, /compass|north arrow/i);
+  assert.match(path, /id=\{beat\.sectionId\}/);
+  assert.match(copy, /sectionId: "arctic-circle"/);
+  assert.match(copy, /sectionId: "cabin-4"/);
+  assert.match(copy, /sectionId: "christmas-window"/);
+  assert.match(knowledge, /id="place-knowledge"/);
+  assert.doesNotMatch(map, /TravelpayoutsDrive|data-travelpayouts-drive/);
 });
 
 test("selecting stop N shows bilingual wording and the linked photo", () => {

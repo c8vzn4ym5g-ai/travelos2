@@ -23,7 +23,7 @@ import {
   getStreetTileUrl,
   LAPLAND_CITY,
   LAPLAND_HELSINKI,
-  LAPLAND_POSTER,
+  LAPLAND_POSTER_GENERATOR_FILE,
   LAPLAND_POSTER_LEGEND_RATIO,
   LAPLAND_POSTER_TITLE,
   POSTER_THEME,
@@ -34,7 +34,7 @@ import {
 import { seedTripDetails } from "../lib/trips.ts";
 
 const root = resolve(import.meta.dirname, "..");
-const outputPath = resolve(root, LAPLAND_POSTER.relativeFile);
+const outputPath = resolve(root, LAPLAND_POSTER_GENERATOR_FILE);
 const USER_AGENT = "TravelOS-lapland-poster/1.0 (itinerary raster generator; OpenTopoMap/OSM tiles; no Google Maps)";
 const FONT_CJK = "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc";
 const FONT_LATIN = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf";
@@ -539,7 +539,7 @@ async function main() {
   await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, poster.toBuffer("image/png"));
   console.log(
-    `Wrote ${LAPLAND_POSTER.relativeFile} (${posterRaster.width}x${posterRaster.height}px, map ${mapRaster.width}px, zoom ${layout.bounds.zoom}, ${jobs.length} OpenTopoMap tiles, ${layout.pins.length} pins, legend ${layout.legendItems.length}, long-haul ${layout.longHaulLabel ?? "none"})`,
+    `Wrote ${LAPLAND_POSTER_GENERATOR_FILE} (${posterRaster.width}x${posterRaster.height}px, map ${mapRaster.width}px, zoom ${layout.bounds.zoom}, ${jobs.length} OpenTopoMap tiles, ${layout.pins.length} pins, legend ${layout.legendItems.length}, long-haul ${layout.longHaulLabel ?? "none"})`,
   );
 }
 

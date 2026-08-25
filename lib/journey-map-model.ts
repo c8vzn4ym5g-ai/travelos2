@@ -80,11 +80,22 @@ export const TILE_PIXEL_SIZE = 256;
 
 export const LAPLAND_POSTER = {
   alt: "December path: Santa Claus Village and the Arctic Circle in Lapland, then Helsinki Cathedral and South Harbour",
-  relativeFile: "public/travelos/maps/lapland-rovaniemi.png",
-  src: "/travelos/maps/lapland-rovaniemi.png",
+  relativeFile: "public/travelos/maps/lapland-helsinki-poster.jpg",
+  src: "/travelos/maps/lapland-helsinki-poster.jpg",
 } as const;
 
+export const LAPLAND_POSTER_GENERATOR_FILE = "public/travelos/maps/lapland-rovaniemi.png";
+
 export const LAPLAND_GLANCE_LABELS = "Santa Claus Village (聖誕老人村) · Helsinki";
+
+export const LAPLAND_PATH_HEADING = "拉普蘭，然後赫爾辛基 / Lapland, then Helsinki";
+
+export const LAPLAND_GLANCE_HOTSPOTS = [
+  { href: "#arctic-circle", id: "tap-arctic", label: "Arctic Circle journal", x: 0.005238, y: 0.931987, w: 0.220952, h: 0.062626 },
+  { href: "#place-knowledge", id: "tap-nature", label: "Place knowledge / polar twilight", x: 0.23, y: 0.931987, w: 0.220952, h: 0.062626 },
+  { href: "#cabin-4", id: "tap-stay", label: "Red cabin no. 4", x: 0.454762, y: 0.931987, w: 0.220952, h: 0.062626 },
+  { href: "#christmas-window", id: "tap-winter", label: "聖誕季節窗口 / Christmas window", x: 0.679524, y: 0.931987, w: 0.220952, h: 0.062626 },
+] as const;
 
 export const LAPLAND_POSTER_MAP_RATIO = 0.7;
 export const LAPLAND_POSTER_LEGEND_RATIO = 0.3;

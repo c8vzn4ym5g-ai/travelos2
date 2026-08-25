@@ -18,7 +18,12 @@ export function LaplandVisualPath({ photos }: { photos: Photo[] }) {
         {LAPLAND_VISUAL_PATH.map((beat) => {
           const photo = photosById.get(beat.photoId);
           return (
-            <article className="travel-soft-panel overflow-hidden rounded-[1.25rem]" data-visual-beat={beat.photoId} key={beat.photoId}>
+            <article
+              className="travel-soft-panel scroll-mt-24 overflow-hidden rounded-[1.25rem]"
+              data-visual-beat={beat.photoId}
+              id={beat.sectionId}
+              key={beat.photoId}
+            >
               {photo && isRenderablePhoto(photo) ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img alt={photo.caption ?? beat.title} className="h-56 w-full object-cover sm:h-72" src={photo.storageKey} />
