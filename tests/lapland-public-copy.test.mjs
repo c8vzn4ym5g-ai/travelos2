@@ -75,6 +75,7 @@ test("public trip cost UI keeps a quiet chip and collapsed cost notes", async ()
   assert.doesNotMatch(page, /HK\$6,600/);
   assert.match(page, /<JournalSpendPanel costs=\{trip\.costs\} slug=\{trip\.slug\} startDate=\{trip\.startDate\} totalCost=\{trip\.totalCost\} \/>/);
   assert.match(page, /<BookingBand destination=\{laplandBooking\} \/>/);
+  assert.match(page, /<LaplandStorefrontGlance \/>/);
   assert.doesNotMatch(page, /Writing guide/);
   assert.doesNotMatch(page, /Unlock editor/);
   assert.doesNotMatch(page, /Edit trip/);

@@ -1,5 +1,26 @@
 # TravelOS Codex Tasks
 
+## TASK-021: Public Lapland storefront glance under the map
+
+Status: done
+
+Goal: A stranger landing on the public Lapland journal can tell in about
+one second where they went and why they might want to go, without relying
+on photo captions.
+
+Result:
+
+- Independent bilingual cash-path copy (`為何去 / Why go`) sits under the
+  JourneyMap on `/trips/finland-lapland-winter-journal-2020` only. It names
+  Finnish Lapland, Rovaniemi, January, Santa Claus Village on the Arctic
+  Circle, the HKG–HEL arrival, and the winter-town feel. No fake prices,
+  reviews, or unsourced stats.
+- Family journal bodies, photo captions, and the winter-village Christmas-card
+  title stay as they are. Cost footnotes and live quotes stay on the chip /
+  BookingBand. Map remains the first impression. Layout is unchanged.
+- Capture, family PIN, PR #2, Drive-off-family, and dump upload were not
+  touched. Drive and BookingBand stay on the public storefront only.
+
 ## TASK-020: Move Lapland cost notes behind the price chip
 
 Status: done

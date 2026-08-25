@@ -59,6 +59,7 @@ test("JourneyMap hero is the generated itinerary poster, not a live tile collage
   assert.match(page, /<JourneyMap/);
   const hero = page.slice(page.indexOf("travel-hero"), page.indexOf("Trip memory"));
   assert.ok(hero.indexOf("<h1") < hero.indexOf("<JourneyMap"), "map must follow the title");
+  assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("LaplandStorefrontGlance"), "storefront glance sits under the map");
   assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("featurePhotos"), "map must sit above the photo strip");
   assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("JournalCostChip"), "map is the first impression, not the cost footnote");
   assert.match(hero, /<JournalCostChip/);
