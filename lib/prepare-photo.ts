@@ -109,6 +109,41 @@ export function shouldKeepOriginal(original: File, display: File) {
   return original !== display && (isHeicPhoto(original) || original.size !== display.size || original.name !== display.name);
 }
 
+export async function createTinyPreviewUrl(file: File) {
+  if (isHeicPhoto(file) || !file.type.startsWith("image/")) {
+    return null;
+  }
+
+  try {
+    if (typeof createImageBitmap !== "function" || typeof document === "undefined") {
+      return null;
+    }
+
+    const bitmap = await createImageBitmap(file, {
+      resizeHeight: 240,
+      resizeQuality: "low",
+    });
+
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const context = canvas.getContext("2d");
+      if (!context || typeof URL.createObjectURL !== "function") {
+        return null;
+      }
+
+      context.drawImage(bitmap, 0, 0);
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.6));
+      return blob ? URL.createObjectURL(blob) : null;
+    } finally {
+      bitmap.close();
+    }
+  } catch {
+    return null;
+  }
+}
+
 export async function preparePhotoForUpload(file: File) {
   const original = file;
   const display = await prepareDisplayPhoto(file);
