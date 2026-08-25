@@ -209,18 +209,19 @@ test("served family HTML omits Drive; public Lapland and Drive keep Drive plus b
   assert.equal(familyResponse.ok, true);
   const familyHtml = await familyResponse.text();
   assert.match(familyHtml, /家庭編輯/);
+  // Dev RSC debug can mention travelpayouts-drive.tsx; the actual script must stay off.
   assert.doesNotMatch(familyHtml, /emrldtp\.cc/);
-  assert.doesNotMatch(familyHtml, /travelpayouts-drive/);
+  assert.doesNotMatch(familyHtml, /id="travelpayouts-drive"/);
   assert.doesNotMatch(familyHtml, /data-booking-band/);
-  assert.doesNotMatch(familyHtml, /aviasales/);
+  assert.doesNotMatch(familyHtml, /aviasales\.com/);
 
   const captureResponse = await fetch(`${base}/family/capture`);
   assert.equal(captureResponse.ok, true);
   const captureHtml = await captureResponse.text();
   assert.doesNotMatch(captureHtml, /emrldtp\.cc/);
-  assert.doesNotMatch(captureHtml, /travelpayouts-drive/);
+  assert.doesNotMatch(captureHtml, /id="travelpayouts-drive"/);
   assert.doesNotMatch(captureHtml, /data-booking-band/);
-  assert.doesNotMatch(captureHtml, /aviasales/);
+  assert.doesNotMatch(captureHtml, /aviasales\.com/);
 
   const laplandResponse = await fetch(`${base}${LAPLAND_JOURNAL_PATH}`);
   assert.equal(laplandResponse.ok, true);
