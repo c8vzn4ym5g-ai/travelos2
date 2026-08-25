@@ -92,14 +92,12 @@ async function convertPhonePhotoToJpeg(file: File) {
 }
 
 export async function prepareDisplayPhoto(file: File) {
-  if (isHeicPhoto(file)) {
-    // iPhone HEIC decode is slow and used to serialize the whole dump. Upload the
-    // original immediately; the server already accepts HEIC.
+  if (isHeicPhoto(file) || file.type === "image/jpeg") {
+    // iPhone "Choose Photos" converts HEIC to JPEG in the picker. Skip canvas
+    // for both so dumps POST the original File immediately. Same path as the
+    // 41-photos-in-8s dump; the server already accepts JPEG and HEIC.
     return file;
   }
-
-  // Capture dump POSTs no longer wait on this. iPhone "Choose Photos" hands JPEG,
-  // so a HEIC-only skip still ran canvas on the Owner's real dumps.
 
   try {
     let display = await convertPhonePhotoToJpeg(file);

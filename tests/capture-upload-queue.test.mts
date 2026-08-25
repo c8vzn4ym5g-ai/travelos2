@@ -533,6 +533,18 @@ test("HEIC prepare is cheap and does not exclusive-decode", async () => {
   assert.doesNotMatch(prepare, /8000/);
 });
 
+test("JPEG prepare returns the original file without canvas convert", async () => {
+  const jpeg = new File([new Uint8Array([1, 2, 3, 4])], "IMG_3104.jpg", { type: "image/jpeg" });
+  assert.equal(isHeicPhoto(jpeg), false);
+  const started = Date.now();
+  const display = await prepareDisplayPhoto(jpeg);
+  assert.equal(display, jpeg);
+  assert.ok(Date.now() - started < 50);
+
+  const prepare = await readSource("lib/prepare-photo.ts");
+  assert.match(prepare, /isHeicPhoto\(file\) \|\| file\.type === "image\/jpeg"/);
+});
+
 test("capture page caps a dump at 40 and keeps the fast upload queue", async () => {
   const [capture, upload, prepare] = await Promise.all([
     readSource("app/family/capture/page.tsx"),
@@ -568,18 +580,16 @@ test("capture page caps a dump at 40 and keeps the fast upload queue", async () 
   assert.doesNotMatch(addBlock, /snapshotFileList/);
   assert.doesNotMatch(addBlock, /URL\.createObjectURL/);
   assert.doesNotMatch(chooseBlock, /event\.target\.value = ""/);
-  const displayUpload = upload.slice(
-    upload.indexOf("export async function uploadDisplayPhoto"),
-    upload.indexOf("export function uploadOriginalPhotoInBackground"),
-  );
   assert.match(uploadFn, /onDisplayReady/);
   assert.match(uploadFn, /createTinyPreviewUrl\(display\)/);
   assert.match(capture, /排隊中/);
   assert.match(capture, /這一輪最多 40 張/);
-  assert.match(prepare, /isHeicPhoto\(file\)/);
-  assert.match(displayUpload, /const display = input\.file/);
-  assert.doesNotMatch(displayUpload, /prepareDisplayPhoto/);
-  assert.doesNotMatch(displayUpload, /maxUploadBytes/);
+  assert.match(prepare, /isHeicPhoto\(file\) \|\| file\.type === "image\/jpeg"/);
+  const displayUpload = upload.slice(
+    upload.indexOf("export async function uploadDisplayPhoto"),
+    upload.indexOf("export function uploadOriginalPhotoInBackground"),
+  );
+  assert.match(displayUpload, /await prepareDisplayPhoto\(input\.file\)/);
   assert.doesNotMatch(displayUpload, /createImageBitmap\(/);
   assert.doesNotMatch(displayUpload, /canvas\.toBlob/);
   assert.doesNotMatch(prepare, /withExclusivePhotoDecode/);
