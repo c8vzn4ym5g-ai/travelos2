@@ -2,7 +2,6 @@
 
 import { heicJpegFilename, isHeicPhoto } from "@/lib/moments";
 
-const supportedUploadTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 export const maxUploadBytes = 4_500_000;
 export const displayMaxEdge = 1600;
 export const displayJpegQuality = 0.72;
@@ -93,21 +92,17 @@ async function convertPhonePhotoToJpeg(file: File) {
 }
 
 export async function prepareDisplayPhoto(file: File) {
-  let display: File;
   try {
-    display = await convertPhonePhotoToJpeg(file);
-  } catch {
-    display = file;
-    if (!supportedUploadTypes.has(display.type) || display.size > maxUploadBytes) {
-      throw new Error("Could not prepare this photo for upload.");
+    let display = await convertPhonePhotoToJpeg(file);
+    if (display.size > maxUploadBytes) {
+      display = await renderFileAsJpeg(display, 1280, 0.65);
     }
+    return display;
+  } catch {
+    // iPhone HEIC often cannot decode in Safari. Upload the original File instead
+    // of blocking Capture; the server already accepts the raw photo.
+    return file;
   }
-
-  if (display.size > maxUploadBytes) {
-    display = await renderFileAsJpeg(display, 1280, 0.65);
-  }
-
-  return display;
 }
 
 export function shouldKeepOriginal(original: File, display: File) {

@@ -1,4 +1,4 @@
-import { list, put } from "@vercel/blob";
+import { BlobNotFoundError, get, put } from "@vercel/blob";
 import { isAdminPinValid, isBlobConfigured } from "@/lib/editable-store";
 import { indexTravelMoment } from "@/lib/moment-index";
 import {
@@ -23,6 +23,69 @@ export type MomentStoreStatus = {
 };
 
 export { isAdminPinValid, MOMENTS_BLOB_PATH };
+
+export class MomentWarehouseUnavailableError extends Error {
+  readonly status = 503 as const;
+
+  constructor(detail?: string) {
+    super(detail ? `Could not read the moment warehouse. ${detail}` : "Could not read the moment warehouse.");
+    this.name = "MomentWarehouseUnavailableError";
+  }
+}
+
+export function momentApiErrorResponse(error: unknown) {
+  if (error instanceof MomentWarehouseUnavailableError) {
+    return Response.json({ error: error.message }, { status: 503 });
+  }
+  throw error;
+}
+
+export const WAREHOUSE_GET_OPTIONS = { access: "public", useCache: false } as const;
+
+export type WarehouseGetResult = {
+  statusCode: number;
+  stream: ReadableStream<Uint8Array> | null;
+};
+
+export type WarehouseGet = (
+  pathname: string,
+  options: { access: "public" | "private"; useCache?: boolean },
+) => Promise<WarehouseGetResult | null>;
+
+export async function loadWarehouseFromBlobGet(getWarehouse: WarehouseGet): Promise<{
+  content: MomentContent;
+  createdEmpty: boolean;
+}> {
+  const readOnce = async () => {
+    const result = await getWarehouse(MOMENTS_BLOB_PATH, WAREHOUSE_GET_OPTIONS);
+    if (!result) {
+      return { content: createEmptyContent(), createdEmpty: true };
+    }
+    if (result.statusCode !== 200 || !result.stream) {
+      throw new MomentWarehouseUnavailableError(`HTTP ${result.statusCode}`);
+    }
+
+    try {
+      const raw = (await new Response(result.stream).json()) as MomentContent;
+      return { content: withNormalizedContent(raw), createdEmpty: false };
+    } catch (error) {
+      throw new MomentWarehouseUnavailableError(error instanceof Error ? error.message : "invalid warehouse JSON");
+    }
+  };
+
+  try {
+    return await readOnce();
+  } catch {
+    try {
+      return await readOnce();
+    } catch (retryError) {
+      if (retryError instanceof MomentWarehouseUnavailableError) {
+        throw retryError;
+      }
+      throw new MomentWarehouseUnavailableError(retryError instanceof Error ? retryError.message : "blob get failed");
+    }
+  }
+}
 
 const memoryKey = "__travelosMomentWarehouse";
 
@@ -67,6 +130,24 @@ function withWarehouseLock<T>(work: () => Promise<T>): Promise<T> {
   return run;
 }
 
+async function getWarehouseFromSdk(
+  pathname: string,
+  options: { access: "public" | "private"; useCache?: boolean },
+): Promise<WarehouseGetResult | null> {
+  try {
+    const result = await get(pathname, options);
+    if (!result) {
+      return null;
+    }
+    return { statusCode: result.statusCode, stream: result.stream };
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export async function readMoments(): Promise<{ content: MomentContent; status: MomentStoreStatus }> {
   if (!isBlobConfigured()) {
     return {
@@ -75,29 +156,13 @@ export async function readMoments(): Promise<{ content: MomentContent; status: M
     };
   }
 
-  const blobs = await list({ prefix: MOMENTS_BLOB_PATH, limit: 1 });
-  const dataBlob = blobs.blobs.find((blob) => blob.pathname === MOMENTS_BLOB_PATH);
-
-  if (!dataBlob) {
-    const content = createEmptyContent();
-    await writeWarehouse(content.moments, content.jobs);
-    return {
-      content,
-      status: { configured: true, source: "blob" },
-    };
+  const loaded = await loadWarehouseFromBlobGet(getWarehouseFromSdk);
+  if (loaded.createdEmpty) {
+    await writeWarehouse(loaded.content.moments, loaded.content.jobs);
   }
 
-  const response = await fetch(`${dataBlob.url}?v=${Date.now()}`, { cache: "no-store" });
-  if (!response.ok) {
-    return {
-      content: createEmptyContent(),
-      status: { configured: true, source: "blob" },
-    };
-  }
-
-  const content = withNormalizedContent((await response.json()) as MomentContent);
   return {
-    content,
+    content: loaded.content,
     status: { configured: true, source: "blob" },
   };
 }
@@ -118,13 +183,14 @@ export async function writeWarehouse(moments: TravelMoment[], jobs: TravelJob[])
   await put(MOMENTS_BLOB_PATH, JSON.stringify(content, null, 2), {
     access: "public",
     allowOverwrite: true,
+    cacheControlMaxAge: 60,
     contentType: "application/json",
   });
 
   return content;
 }
 
-export async function storeMomentBinary(pathname: string, file: File) {
+export async function storeMomentBinary(pathname: string, file: Blob) {
   if (!isBlobConfigured()) {
     const bytes = Buffer.from(await file.arrayBuffer());
     const mime = file.type || "application/octet-stream";

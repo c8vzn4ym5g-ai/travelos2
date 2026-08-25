@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
+  captureErrorMessage,
   clearMomentAudioInBackground,
   createCaptureMoment,
+  createMomentSession,
   finalizeCaptureMoment,
   removeUploadedPhotoInBackground,
   uploadDisplayPhoto,
@@ -20,6 +22,7 @@ type UploadStatus = "uploading" | "uploaded" | "failed";
 
 type StagedPhoto = {
   abort: AbortController;
+  errorMessage: string | null;
   file: File;
   id: string;
   previewUrl: string;
@@ -30,6 +33,7 @@ type StagedPhoto = {
 type StagedAudio = {
   abort: AbortController;
   blob: Blob;
+  errorMessage: string | null;
   previewUrl: string;
   status: UploadStatus;
 };
@@ -43,6 +47,7 @@ function makeStagedPhotos(files: File[]) {
     .filter((file) => file.type.startsWith("image/") || isHeicPhoto(file))
     .map((file) => ({
       abort: new AbortController(),
+      errorMessage: null,
       file,
       id: `staged_${file.name}_${file.size}_${file.lastModified}_${Math.random().toString(36).slice(2, 6)}`,
       previewUrl: URL.createObjectURL(file),
@@ -64,8 +69,7 @@ export default function CapturePage() {
   const chunksRef = useRef<BlobPart[]>([]);
   const pinRef = useRef("");
   const coordinatesRef = useRef<GeoPoint | null>(null);
-  const momentIdRef = useRef<string | null>(null);
-  const momentPromiseRef = useRef<Promise<string> | null>(null);
+  const momentSessionRef = useRef<ReturnType<typeof createMomentSession> | null>(null);
   const photoUploadsRef = useRef(new Map<string, Promise<void>>());
   const audioUploadRef = useRef<Promise<void> | null>(null);
   const savingRef = useRef(false);
@@ -137,28 +141,32 @@ export default function CapturePage() {
     };
   }, []);
 
+  function momentSession() {
+    momentSessionRef.current ??= createMomentSession((time) =>
+      createCaptureMoment({
+        coordinates: coordinatesRef.current,
+        pin: sessionPin(pinRef.current),
+        time,
+      }),
+    );
+    return momentSessionRef.current;
+  }
+
   function resetDraft() {
-    momentIdRef.current = null;
-    momentPromiseRef.current = null;
+    momentSession().reset();
     photoUploadsRef.current = new Map();
     audioUploadRef.current = null;
   }
 
   async function ensureMoment(time: string) {
-    if (momentIdRef.current) {
-      return momentIdRef.current;
+    return momentSession().ensure(time);
+  }
+
+  async function retryMoment(time: string, status: number) {
+    if (status === 404 && !momentSession().momentId) {
+      momentSession().reset();
     }
-
-    momentPromiseRef.current ??= createCaptureMoment({
-      coordinates: coordinatesRef.current,
-      pin: sessionPin(pinRef.current),
-      time,
-    }).then((created) => {
-      momentIdRef.current = created.moment.id;
-      return created.moment.id;
-    });
-
-    return momentPromiseRef.current;
+    return momentSession().ensure(time);
   }
 
   function patchPhoto(photoId: string, patch: Partial<StagedPhoto>) {
@@ -171,8 +179,9 @@ export default function CapturePage() {
 
   async function startBackgroundPhotoUpload(photo: StagedPhoto) {
     const run = (async () => {
+      const takenAt = new Date(photo.file.lastModified).toISOString();
       try {
-        const momentId = await ensureMoment(new Date(photo.file.lastModified).toISOString());
+        const momentId = await ensureMoment(takenAt);
         if (photo.abort.signal.aborted) {
           return;
         }
@@ -182,23 +191,24 @@ export default function CapturePage() {
           file: photo.file,
           momentId,
           pin: sessionPin(pinRef.current),
+          retryMoment: (status) => retryMoment(takenAt, status),
           signal: photo.abort.signal,
-          takenAt: new Date(photo.file.lastModified).toISOString(),
+          takenAt,
         });
 
         if (photo.abort.signal.aborted) {
           removeUploadedPhotoInBackground({
-            momentId,
+            momentId: uploaded.momentId,
             photoId: uploaded.photo.id,
             pin: sessionPin(pinRef.current),
           });
           return;
         }
 
-        patchPhoto(photo.id, { serverPhotoId: uploaded.photo.id, status: "uploaded" });
+        patchPhoto(photo.id, { errorMessage: null, serverPhotoId: uploaded.photo.id, status: "uploaded" });
         uploadOriginalPhotoInBackground({
           display: uploaded.display,
-          momentId,
+          momentId: uploaded.momentId,
           original: photo.file,
           photoId: uploaded.photo.id,
           pin: sessionPin(pinRef.current),
@@ -207,7 +217,9 @@ export default function CapturePage() {
         if (photo.abort.signal.aborted) {
           return;
         }
-        patchPhoto(photo.id, { status: "failed" });
+        const detail = captureErrorMessage(error, "Photo upload failed.");
+        patchPhoto(photo.id, { errorMessage: detail, status: "failed" });
+        setMessage(detail);
         throw error;
       }
     })();
@@ -218,8 +230,9 @@ export default function CapturePage() {
 
   async function startBackgroundAudioUpload(staged: StagedAudio) {
     const run = (async () => {
+      const recordedAt = new Date().toISOString();
       try {
-        const momentId = await ensureMoment(new Date().toISOString());
+        const momentId = await ensureMoment(recordedAt);
         if (staged.abort.signal.aborted) {
           return;
         }
@@ -228,11 +241,15 @@ export default function CapturePage() {
           blob: staged.blob,
           momentId,
           pin: sessionPin(pinRef.current),
+          retryMoment: (status) => retryMoment(recordedAt, status),
           signal: staged.abort.signal,
         });
 
         if (staged.abort.signal.aborted) {
-          clearMomentAudioInBackground({ momentId, pin: sessionPin(pinRef.current) });
+          clearMomentAudioInBackground({
+            momentId: momentSession().momentId ?? momentId,
+            pin: sessionPin(pinRef.current),
+          });
           return;
         }
 
@@ -240,7 +257,7 @@ export default function CapturePage() {
           if (current?.previewUrl !== staged.previewUrl) {
             return current;
           }
-          const next = { ...current, status: "uploaded" as const };
+          const next = { ...current, errorMessage: null, status: "uploaded" as const };
           audioRef.current = next;
           return next;
         });
@@ -248,14 +265,16 @@ export default function CapturePage() {
         if (staged.abort.signal.aborted) {
           return;
         }
+        const detail = captureErrorMessage(error, "Audio upload failed.");
         setAudio((current) => {
           if (current?.previewUrl !== staged.previewUrl) {
             return current;
           }
-          const next = { ...current, status: "failed" as const };
+          const next = { ...current, errorMessage: detail, status: "failed" as const };
           audioRef.current = next;
           return next;
         });
+        setMessage(detail);
         throw error;
       }
     })();
@@ -303,9 +322,10 @@ export default function CapturePage() {
         removed.abort.abort();
         URL.revokeObjectURL(removed.previewUrl);
         photoUploadsRef.current.delete(photoId);
-        if (removed.serverPhotoId && momentIdRef.current) {
+        const savedMomentId = momentSession().momentId;
+        if (removed.serverPhotoId && savedMomentId) {
           removeUploadedPhotoInBackground({
-            momentId: momentIdRef.current,
+            momentId: savedMomentId,
             photoId: removed.serverPhotoId,
             pin: sessionPin(pinRef.current),
           });
@@ -328,8 +348,9 @@ export default function CapturePage() {
     audio.abort.abort();
     URL.revokeObjectURL(audio.previewUrl);
     audioUploadRef.current = null;
-    if (momentIdRef.current) {
-      clearMomentAudioInBackground({ momentId: momentIdRef.current, pin: sessionPin(pinRef.current) });
+    const savedMomentId = momentSession().momentId;
+    if (savedMomentId) {
+      clearMomentAudioInBackground({ momentId: savedMomentId, pin: sessionPin(pinRef.current) });
     }
     setAudio(null);
   }
@@ -360,6 +381,7 @@ export default function CapturePage() {
         const staged: StagedAudio = {
           abort: new AbortController(),
           blob,
+          errorMessage: null,
           previewUrl,
           status: "uploading",
         };
@@ -421,11 +443,12 @@ export default function CapturePage() {
       }
 
       let createdJob: TravelJob | null = null;
-      if (momentIdRef.current) {
+      const savedMomentId = momentSession().momentId;
+      if (savedMomentId) {
         const saved = await finalizeCaptureMoment({
           command: classified.command,
           coordinates: coordinatesRef.current,
-          momentId: momentIdRef.current,
+          momentId: savedMomentId,
           note: classified.note,
           pin: sessionPin(pinRef.current),
           time,
@@ -533,6 +556,9 @@ export default function CapturePage() {
                   <p className="px-2 pt-2 text-center text-xs font-semibold text-zinc-600">
                     {photo.status === "uploaded" ? "已上傳" : photo.status === "failed" ? "上傳失敗" : "上傳中"}
                   </p>
+                  {photo.errorMessage ? (
+                    <p className="px-2 pb-1 text-center text-[11px] leading-4 text-rose-800">{photo.errorMessage}</p>
+                  ) : null}
                   <div className="grid grid-cols-2 gap-1 p-2">
                     <button
                       className="inline-flex min-h-11 items-center justify-center rounded-xl bg-white text-xs font-semibold text-zinc-800"
@@ -602,6 +628,7 @@ export default function CapturePage() {
                 <p className="text-xs font-semibold text-zinc-600">
                   {audio.status === "uploaded" ? "已上傳" : audio.status === "failed" ? "上傳失敗" : "上傳中"}
                 </p>
+                {audio.errorMessage ? <p className="text-[11px] leading-4 text-rose-800">{audio.errorMessage}</p> : null}
                 <button
                   className="min-h-11 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold text-zinc-800"
                   onClick={clearAudio}

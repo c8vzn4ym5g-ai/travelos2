@@ -1,5 +1,31 @@
 # TravelOS Handoff
 
+## 2026-08-25 iPhone Capture 上傳失敗 (stale Blob CDN read)
+
+- Confirmed from the live warehouse: the iPhone dump DID create a moment in
+  `travelos/moments.json` (createdAt ~08:49 Taipei, GPS present, time from the
+  photo lastModified). `photos: []` and `originalAudioUrl: null`. So
+  `POST /api/moments` succeeded. Immediate `POST /api/moments/photos` and
+  `/audio` then 404'd.
+- Root cause: `readMoments()` used `list()` + `fetch(publicUrl?v=)`. The
+  public Blob URL is CDN-cached (`cache-control max-age=2592000`). Overwrite
+  of a public pathname can take up to ~60s to show through that CDN. `?v=`
+  does not bust it. `addPhotoToMoment` / `momentExists` therefore did not see
+  the moment just written.
+- Primary fix: warehouse reads now use `@vercel/blob` `get(path, { access:
+  "public", useCache: false })` so appends see the origin write immediately.
+  Missing blob still creates an empty warehouse. If the blob exists but the
+  consistent read fails, throw 503 — never return empty (that can wipe
+  moments on the next write). `writeWarehouse` sets `cacheControlMaxAge: 60`.
+  Photo/audio binaries stay public.
+- Secondary hardenings: rejected `ensureMoment` is cleared so create can
+  retry; 上傳失敗 shows the real error; HEIC convert failure still uploads
+  the original File; photo/audio routes accept `Blob` with `size > 0`;
+  photo/audio POST retries once on 404 after a consistent re-read.
+- PIN still required. Instant object-URL preview stays. Originals stay
+  fire-and-forget. No Drive/ads. 44px targets. Public Lapland untouched.
+- Do not merge. Do not touch PR #2, PR #8, or the Lapland poster.
+
 ## 2026-08-24 Capture upload speed (display-first, background)
 
 - Live owner test: photo/recording Save on `/family/capture` took 10+ seconds
