@@ -2,14 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookingBand } from "@/components/booking-band";
+import { JournalCostHeroNote, JournalSpendPanel } from "@/components/journal-spend";
 import { JourneyMap } from "@/components/journey-map";
 import { JourneyMusicPlayer } from "@/components/journey-music-player";
 import { ShareActions } from "@/components/share-actions";
 import { readContent } from "@/lib/editable-store";
+import { journalCostChipLabel } from "@/lib/journal-cost-copy";
 import { LAPLAND_TRIP_SLUG, laplandBooking } from "@/lib/travelpayouts";
 import { isTripPublic } from "@/lib/trip-visibility";
 import { getTripDetailsByStartDate } from "@/lib/trips";
-import type { Cost, JournalEntry, Money, Photo, Place } from "@/lib/types";
+import type { JournalEntry, Money, Photo, Place } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -53,14 +55,6 @@ function formatMoney(totalCost: Money | null): string {
     maximumFractionDigits: 0,
     style: "currency",
   }).format(totalCost.amount);
-}
-
-function formatCost(cost: Cost): string {
-  return new Intl.NumberFormat("en", {
-    currency: cost.currency,
-    maximumFractionDigits: 0,
-    style: "currency",
-  }).format(cost.amount);
 }
 
 function isRenderablePhoto(photo: Photo) {
@@ -155,22 +149,6 @@ function PlaceRow({ place }: { place: Place }) {
         <span className="text-sm font-semibold text-[color:var(--pine)]">{place.rating ? `${place.rating}/5` : "Unrated"}</span>
       </div>
       {place.notes ? <p className="travel-muted mt-2 text-sm leading-6">{place.notes}</p> : null}
-    </article>
-  );
-}
-
-function CostRow({ cost }: { cost: Cost }) {
-  return (
-    <article className="grid gap-2 border-b border-[color:var(--line)] py-4 text-sm first:pt-0 last:border-0 last:pb-0 sm:grid-cols-[1fr_auto]">
-      <div>
-        <p className="font-semibold capitalize text-[color:var(--ink)]">{cost.category}</p>
-        <p className="travel-muted mt-1">
-          {formatDate(cost.paidAt)}
-          {cost.merchant ? ` / ${cost.merchant}` : ""}
-        </p>
-        {cost.notes ? <p className="travel-muted mt-2 leading-6">{cost.notes}</p> : null}
-      </div>
-      <p className="font-semibold text-[color:var(--pine)]">{formatCost(cost)}</p>
     </article>
   );
 }
@@ -325,15 +303,22 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                   <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  ["Season", seasonLabel, "border-sky-100 bg-sky-50 text-sky-950"],
-                  ["Mood", trip.journalEntries[0]?.mood ?? "Memory", "border-rose-100 bg-rose-50 text-rose-950"],
-                  ["Photos", `${trip.photos.length}`, "border-amber-100 bg-amber-50 text-amber-950"],
-                  ["Cost", formatMoney(trip.totalCost), "border-teal-100 bg-teal-50 text-teal-950"],
-                ].map(([label, value, tone]) => (
-                  <MemoryChip key={label} label={label} tone={tone} value={value} />
-                ))}
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    ["Season", seasonLabel, "border-sky-100 bg-sky-50 text-sky-950"],
+                    ["Mood", trip.journalEntries[0]?.mood ?? "Memory", "border-rose-100 bg-rose-50 text-rose-950"],
+                    ["Photos", `${trip.photos.length}`, "border-amber-100 bg-amber-50 text-amber-950"],
+                    [
+                      journalCostChipLabel(trip.startDate),
+                      formatMoney(trip.totalCost),
+                      "border-teal-100 bg-teal-50 text-teal-950",
+                    ],
+                  ].map(([label, value, tone]) => (
+                    <MemoryChip key={label} label={label} tone={tone} value={value} />
+                  ))}
+                </div>
+                <JournalCostHeroNote hasCost={Boolean(trip.totalCost)} slug={trip.slug} />
               </div>
             </div>
             <div className="grid content-start gap-4 lg:min-h-[41rem] lg:max-w-[26rem]">
@@ -462,14 +447,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               ))}
             </div>
           </section>
-          <section className="travel-panel rounded-2xl p-4">
-            <SectionHeader kicker="Costs" title="Tracked spend" />
-            <div className="mt-4">
-              {trip.costs.map((cost) => (
-                <CostRow key={cost.id} cost={cost} />
-              ))}
-            </div>
-          </section>
+          <JournalSpendPanel costs={trip.costs} slug={trip.slug} startDate={trip.startDate} totalCost={trip.totalCost} />
         </aside>
       </section>
     </main>

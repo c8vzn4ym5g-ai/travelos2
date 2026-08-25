@@ -1,5 +1,26 @@
 # TravelOS Codex Tasks
 
+## TASK-019: Label Lapland 2020 journal costs and add an August 2026 reference
+
+Status: done
+
+Goal: Stop the public Lapland Cost chip and Tracked spend from looking like
+today's price or a fake round number, without inventing a 2026 exact total.
+
+Result:
+
+- Shared public cost UI (`JournalCostHeroNote`, `JournalSpendPanel`) labels
+  amounts as `{year} 遊記 / Journal` records. Line items keep the existing
+  euro figures and add `2020 遊記記錄 / Journal record`.
+- Lapland copy states the 2020 trip was recorded in the journal, about 2
+  people and about one week. Numbers stay €4,280 / €1,560 / €1,720 (live
+  Blob still supplies attraction €640).
+- Dated August 2026 reference uses ranges (HKG–RVN about HK$6,600–9,000 pp;
+  Classic Cottage about €250/night, ~€1,750/week) and paraphrased source
+  notes. No URLs in the hero. `出發 / Go there` still jumps to BookingBand.
+- Public page has no edit buttons. Capture, family PIN, Drive-off-family,
+  and PR #2 were not touched. BookingBand stays.
+
 ## TASK-018: JDB Capture, TravelMoment warehouse, and sit-and-write
 
 Status: in_progress

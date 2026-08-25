@@ -14,6 +14,18 @@ Show high-level travel stats, latest journeys, a map-ready visual region, and cl
 
 Use compact cards only for repeated records and dashboard panels. Avoid nested cards. Use stable dimensions for map, list, and stat regions. Keep color restrained with clear contrast.
 
+## Public Journal Costs
+
+- Cost chips and Tracked spend on public trip journals are **journal records**
+  from the trip dates, not live quotes. Label them with the trip year and
+  `遊記 / Journal`.
+- The Lapland 2020 journal keeps €4,280 / €1,560 / €1,720 / €640 and names
+  them as that trip, about two people and about one week. A dated August 2026
+  reference may sit beside them as ranges, not as a fake exact total.
+- Point readers to `BookingBand` (`出發 / Go there`) for today's flight/hotel
+  quote. Do not invent Travelpayouts widget hashes or dump booking URLs in the
+  hero.
+
 ## Public Booking Band
 
 - Finished public trip journals may show a reusable `BookingBand`
