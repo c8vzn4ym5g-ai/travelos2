@@ -5,9 +5,7 @@ export function journalYearFromDate(date: string): string {
   return /^\d{4}$/.test(year) ? year : "journal";
 }
 
-export function journalCostChipLabel(startDate: string): string {
-  return `${journalYearFromDate(startDate)} 遊記 / Journal`;
-}
+export const JOURNAL_COST_CHIP_LABEL = "Cost";
 
 export function journalSpendTitle(startDate: string): string {
   return `${journalYearFromDate(startDate)} 遊記花費 / Tracked spend`;
@@ -34,8 +32,8 @@ export const LAPLAND_COST_ASIDE_2026_ZH =
 export const LAPLAND_COST_ASIDE_2026_EN =
   "August 2026 reference, not an exact quote. Expedia Hong Kong listed round-trips from about HK$6,642 in the past 7 days; RatePunk typical range about US$721–1,054, median ~US$873, data updated 26 Jul 2026. Kissandfly showed tickets from about US$758. Santa Claus Holiday Village Classic Cottage listed about €250/night. A week in one cottage is then about €1,750 — same ballpark as the 2020 hotel line. Prices move a lot.";
 
-export const LAPLAND_COST_GO_THERE_ZH = "查今日航班與住宿。";
-export const LAPLAND_COST_GO_THERE_EN = "for today's flight/hotel quote.";
+export const LAPLAND_COST_GO_THERE_ZH = "不是今日報價，點 出發 查即時機票。";
+export const LAPLAND_COST_GO_THERE_EN = "Not today's quote, tap 出發 for live fares.";
 
 export const GO_THERE_HREF = "#go-there";
 export const GO_THERE_LABEL = "出發 / Go there";

@@ -1,5 +1,20 @@
 # TravelOS Codex Tasks
 
+## TASK-020: Move Lapland cost notes behind the price chip
+
+Status: done
+
+Goal: First-time readers see the Lapland story, not a lecture about prices.
+
+Result:
+
+- Hero cost chip is a quiet `Cost` + €4,280. The 2020 journal record,
+  August 2026 range, and “not today's quote, tap 出發 for live fares”
+  sit in a collapsed `<details>` on the chip and on Tracked spend.
+- `BookingBand` stays the action. Winter-village caption
+  `記憶裡的聖誕卡 / A Christmas card from memory` is unchanged.
+- JourneyMap, Capture, family, Drive, and PR #2 were not touched.
+
 ## TASK-019: Label Lapland 2020 journal costs and add an August 2026 reference
 
 Status: done

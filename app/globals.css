@@ -70,6 +70,17 @@ a {
   box-shadow: 0 10px 26px rgba(20, 45, 40, 0.08);
 }
 
+.journal-cost-chip > summary,
+.journal-cost-notes > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.journal-cost-chip > summary::-webkit-details-marker,
+.journal-cost-notes > summary::-webkit-details-marker {
+  display: none;
+}
+
 .travel-primary {
   background: linear-gradient(135deg, var(--pine), var(--teal));
   color: white;
