@@ -1,5 +1,25 @@
 # TravelOS Codex Tasks
 
+## TASK-022: Lapland poster — left notes, blurbs, colorful Finland map
+
+Status: done
+
+Goal: The public Lapland first picture must beat a printed itinerary
+poster: left notes column, short blurb under each number, colorful
+street-map Finland from Lapland to Helsinki.
+
+Result:
+
+- Raster poster `public/travelos/maps/lapland-rovaniemi.png` is a split
+  itinerary picture. Left column is 一眼 / At a glance with a December ·
+  midwinter title bar, Christmas-window and then-the-city phases, numbered
+  stops 1–5, and a short bilingual blurb under each number. Right is an
+  OpenTopoMap mosaic of Finland (zoom 8: green terrain, blue water, roads),
+  route, numbered pins, and callouts. Overlay hit targets stay aligned
+  with pins and notes.
+- No 2019-12-11, no day-by-day calendar, no Kyushu dates. Capture, family
+  PIN, dump, PR #2, and Drive on family were not touched.
+
 ## TASK-021: Public Lapland storefront glance under the map
 
 Status: done

@@ -218,7 +218,7 @@ test("public Lapland stays independent of the family PIN gate", async () => {
   assert.match(seed, /trip_lapland_2020/);
   assert.match(seed, /laplandTitle: "北極圈上的十二月"/);
   assert.match(seed, /finland-lapland-winter-journal"/);
-  assert.match(poster, /basemaps\.cartocdn.com\/rastertiles\/voyager/);
+  assert.match(poster, /tile\.opentopomap\.org/);
   assert.doesNotMatch(page, /isAdminPinValid/);
   assert.doesNotMatch(page, /isFamilyPinRequired/);
   assert.doesNotMatch(page, /TRAVELOS_REQUIRE_FAMILY_PIN/);

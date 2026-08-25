@@ -255,5 +255,5 @@ test("public Lapland poster and copy stay untouched by the capture retry slice",
   assert.match(seed, /trip_lapland_2020/);
   assert.match(seed, /laplandTitle: "北極圈上的十二月"/);
   assert.match(seed, /finland-lapland-winter-journal"/);
-  assert.match(poster, /basemaps.cartocdn.com\/rastertiles\/voyager/);
+  assert.match(poster, /tile\.opentopomap\.org/);
 });
