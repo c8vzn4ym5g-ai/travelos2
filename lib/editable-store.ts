@@ -1,4 +1,5 @@
 import { list, put } from "@vercel/blob";
+import { isAdminPinValid, isFamilyPinRequired } from "./family-pin.ts";
 import { seedTripDetails } from "@/lib/trips";
 import type { MusicTrack, Photo, TripDetail } from "@/lib/types";
 
@@ -20,10 +21,7 @@ export function isBlobConfigured() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
 }
 
-export function isAdminPinValid(pin: string | null) {
-  const expectedPin = process.env.TRAVELOS_ADMIN_PIN;
-  return Boolean(expectedPin && pin && pin === expectedPin);
-}
+export { isAdminPinValid, isFamilyPinRequired };
 
 export async function readContent(): Promise<{ content: TravelOSContent; status: StoreStatus }> {
   if (!isBlobConfigured()) {

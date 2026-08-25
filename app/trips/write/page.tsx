@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TravelOSContent } from "@/lib/editable-store";
-import { FAMILY_ADMIN_SESSION_KEY } from "@/lib/family-session";
+import { FAMILY_ADMIN_SESSION_KEY, familyPinHeaders, resolveFamilySession } from "@/lib/family-session";
 import {
   filterMomentsByDayAndPlace,
   findFoundSetJob,
@@ -41,13 +41,14 @@ function makeId(prefix: string) {
 }
 
 function pinHeaders(pin: string) {
-  return { "x-travelos-admin-pin": pin };
+  return familyPinHeaders(pin);
 }
 
 export default function SitAndWritePage() {
   const router = useRouter();
   const [pin, setPin] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [moments, setMoments] = useState<TravelMoment[]>([]);
   const [jobs, setJobs] = useState<TravelJob[]>([]);
   const [trips, setTrips] = useState<TripDetail[]>([]);
@@ -62,14 +63,26 @@ export default function SitAndWritePage() {
   const [message, setMessage] = useState("選一個 Moment 或工作，看著照片慢慢寫。這裡不會代寫。");
 
   useEffect(() => {
-    const storedPin = window.sessionStorage.getItem(FAMILY_ADMIN_SESSION_KEY);
-    if (storedPin) {
-      setPin(storedPin);
-      setAuthenticated(true);
-      return;
-    }
+    let cancelled = false;
 
-    router.replace("/family");
+    void resolveFamilySession().then((session) => {
+      if (cancelled) {
+        return;
+      }
+
+      if (session.allowed) {
+        setPin(session.pin);
+        setAuthenticated(true);
+        return;
+      }
+
+      setRedirecting(true);
+      router.replace("/family");
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   const load = useCallback(async () => {
@@ -360,8 +373,12 @@ export default function SitAndWritePage() {
       <main className="travel-body min-h-screen bg-[#f8f3ea] text-zinc-950">
         <section className="mx-auto max-w-md px-6 py-8 lg:px-10">
           <div className="rounded-3xl border border-sky-200 bg-white p-6 text-center shadow-sm">
-            <p className="travel-label text-sm font-semibold text-sky-900">正在返回家庭登入…</p>
-            <p className="mt-3 text-sm leading-6 text-zinc-600">寫作頁使用同一個家庭密碼，不會另外開密碼表單。</p>
+            <p className="travel-label text-sm font-semibold text-sky-900">
+              {redirecting ? "正在返回家庭登入…" : "正在開啟 Write…"}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-zinc-600">
+              {redirecting ? "寫作頁使用同一個家庭密碼，不會另外開密碼表單。" : "家庭入口開啟中，不必先輸入密碼。"}
+            </p>
           </div>
         </section>
       </main>

@@ -82,8 +82,11 @@ test("family session is required and capture does not add a PIN form", async () 
   assert.match(unlock, /id="family-pin"/);
   assert.match(unlock, /unlock\("\/family\/capture"\)/);
   assert.match(unlock, />\s*Capture\s*</);
+  assert.match(unlock, /fetchFamilyGate/);
   assert.match(capture, /FAMILY_ADMIN_SESSION_KEY/);
+  assert.match(capture, /resolveFamilySession/);
   assert.match(capture, /router\.replace\("\/family"\)/);
+  assert.match(write, /resolveFamilySession/);
   assert.match(write, /router\.replace\("\/family"\)/);
   assert.doesNotMatch(capture, /type="password"/);
   assert.doesNotMatch(capture, /id="family-pin"/);
@@ -91,6 +94,7 @@ test("family session is required and capture does not add a PIN form", async () 
 
   for (const editor of [travelAdmin, coffeeAdmin, capture, write]) {
     assert.match(editor, /router\.replace\("\/family"\)/);
+    assert.match(editor, /resolveFamilySession/);
     assert.doesNotMatch(editor, /type="password"/);
   }
 });

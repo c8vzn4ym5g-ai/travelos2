@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TravelOSContent } from "@/lib/editable-store";
+import { resolveFamilySession } from "@/lib/family-session";
 import type { GeoPoint, JournalEntry, Photo, Place, PlaceType, RouteTransport, TravelRouteSegment, TravelVisibility, TripDetail } from "@/lib/types";
 
 type TravelContentResponse = {
@@ -272,15 +273,26 @@ export default function TravelAdminPage() {
   const [message, setMessage] = useState("Unlock admin to edit existing trips or create a new draft.");
 
   useEffect(() => {
-    const storedPin = window.sessionStorage.getItem(adminSessionKey);
-    if (storedPin) {
-      setPin(storedPin);
-      setAuthenticated(true);
-      setMessage("Admin session unlocked from the shared admin workspace.");
-      return;
-    }
+    let cancelled = false;
 
-    router.replace("/family");
+    void resolveFamilySession().then((session) => {
+      if (cancelled) {
+        return;
+      }
+
+      if (session.allowed) {
+        setPin(session.pin);
+        setAuthenticated(true);
+        setMessage("Admin session unlocked from the shared admin workspace.");
+        return;
+      }
+
+      router.replace("/family");
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   const loadContent = useCallback(async () => {

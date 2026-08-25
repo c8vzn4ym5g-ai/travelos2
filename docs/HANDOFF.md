@@ -1,5 +1,12 @@
 # TravelOS Handoff
 
+## 2026-08-25 Development family PIN is off
+
+- Development PIN is off. Capture, Write, and family APIs are open unless
+  `TRAVELOS_REQUIRE_FAMILY_PIN=1`.
+- Production puts `TRAVELOS_REQUIRE_FAMILY_PIN=1`. Keep `TRAVELOS_ADMIN_PIN`
+  set; the flag just ignores it while off. No app rewrite to turn PIN back on.
+
 ## 2026-08-25 iPhone Capture 上傳失敗 (stale Blob CDN read)
 
 - Confirmed from the live warehouse: the iPhone dump DID create a moment in
