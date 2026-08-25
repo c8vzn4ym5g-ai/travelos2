@@ -126,29 +126,26 @@ Production evidence:
 
 ## TASK-014: Add a sustainable Travelpayouts monetization layer
 
-Status: in_progress
+Status: done
 
 Current verified result:
 
-- Travelpayouts Drive now loads once from the application root instead of only
-  on an empty page.
-- `/drive` accurately explains the Plan & Book product area and includes an
-  affiliate disclosure.
-- Removed the incorrect claim that Drive is a car-rental widget and removed the
-  non-functional widget placeholder.
-- Focused tests passed 2/2; navigation, TypeScript, ESLint, and production build
-  passed in a clean validation copy.
-- GitHub/Vercel production deployment is active at commit
-  `c36b2b28ccaab2111ab8e60ab1bef2a1f5da8ac8`.
-- Live `/drive` and public Lapland checks confirm exactly one Drive loader and
-  script, a visible disclosure, and no fake widget container.
+- PR #14 Drive isolation stays intact: `lib/travelpayouts-drive.ts` plus
+  middleware `x-travelos-pathname`. Family, Capture, `/trips/write`, admin,
+  and `/api` still do not load Drive. Script URL is unchanged:
+  `https://emrldtp.cc/NTUwMzEz.js?t=550313`.
+- Public Lapland journal and `/drive` now render a reusable `BookingBand`
+  (`出發 / Go there`) with ordinary Aviasales, Hotellook, and Klook URLs.
+  Default origin HKG, Lapland dest RVN/HEL, hotel city Rovaniemi.
+- One bilingual affiliate line sits in the band footer. No yellow lecture
+  card. No invented widget JS hashes. Draft PR #8 was not merged.
+- Capture dump, moment warehouse, PIN, family home cards, and PR #2 are
+  untouched.
 
 Remaining:
 
-- Read the result of Travelpayouts `Check setup`; the check was opened, but the
-  Windows browser-control channel timed out before the result could be read.
-- Add official program-generated flight and stay/activity tools with stable
-  placement SubIDs; do not guess widget code or expose API credentials.
+- Confirm live `travelos2-63r3` after this slice merges: Lapland shows
+  booking links; `/family` and `/family/capture` still have 0 `emrldtp.cc`.
 
 ## JDB-066: Add the installable Family Editing workspace
 
