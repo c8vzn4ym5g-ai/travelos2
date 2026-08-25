@@ -173,7 +173,7 @@ function RegionalMap({
         );
       })}
       {legendItems.length > 0 ? (
-        <ol className="absolute inset-0 z-10" data-map-legend="" data-stop-list>
+        <ol className="pointer-events-none absolute inset-0 z-10" data-map-legend="" data-stop-list>
           {legendItems.map((item) => {
             const stop = stops.find((entry) => entry.id === item.id);
             const selected = selectedId === item.id;
@@ -191,7 +191,7 @@ function RegionalMap({
                 <button
                   aria-label={`${item.number}. ${stop?.listLabel ?? item.label}`}
                   aria-pressed={selected}
-                  className={`h-full min-h-11 w-full rounded-2xl bg-transparent text-transparent transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
+                  className={`pointer-events-auto h-full min-h-11 w-full rounded-2xl bg-transparent text-transparent transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
                     selected ? "ring-4 ring-white/90 ring-offset-2 ring-offset-teal-800/30" : ""
                   }`}
                   data-stop-button={item.number}
