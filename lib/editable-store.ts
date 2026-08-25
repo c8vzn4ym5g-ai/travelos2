@@ -1,10 +1,10 @@
 import { list, put } from "@vercel/blob";
 import { isAdminPinValid, isFamilyPinRequired } from "./family-pin.ts";
-import { seedTripDetails } from "@/lib/trips";
+import { LAPLAND_WINTER_VILLAGE_CAPTION, LAPLAND_WINTER_VILLAGE_PHOTO_ID, seedTripDetails } from "@/lib/trips";
 import type { MusicTrack, Photo, TripDetail } from "@/lib/types";
 
 const DATA_BLOB_PATH = "travelos/content.json";
-const CONTENT_SCHEMA_VERSION = 9;
+const CONTENT_SCHEMA_VERSION = 10;
 
 export type TravelOSContent = {
   trips: TripDetail[];
@@ -337,7 +337,15 @@ function shouldMigrateSeedItemCopy<T extends { id: string; tripId?: string }>(
     return true;
   }
 
-  return !containsTraditionalTravelosMarker(JSON.stringify(item));
+  if (savedSchemaVersion < 10 && item.id === LAPLAND_WINTER_VILLAGE_PHOTO_ID) {
+    return true;
+  }
+
+  if (savedSchemaVersion < 8) {
+    return !containsTraditionalTravelosMarker(JSON.stringify(item));
+  }
+
+  return false;
 }
 
 function seedContainsTraditionalChinese(seedTrip: TripDetail) {
@@ -358,7 +366,12 @@ function looksLikeMojibake(text: string) {
 }
 
 function photoNeedsSeedRepair(photo: Photo) {
-  return recordLooksCorrupted(photo) || !photoIsRenderable(photo) || photo.storageKey.startsWith("placeholder/");
+  return (
+    recordLooksCorrupted(photo) ||
+    !photoIsRenderable(photo) ||
+    photo.storageKey.startsWith("placeholder/") ||
+    (photo.id === LAPLAND_WINTER_VILLAGE_PHOTO_ID && photo.caption !== LAPLAND_WINTER_VILLAGE_CAPTION)
+  );
 }
 
 function photoIsRenderable(photo: Photo) {
