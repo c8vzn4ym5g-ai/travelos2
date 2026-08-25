@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   GO_THERE_HREF,
   GO_THERE_LABEL,
+  JOURNAL_COST_CHIP_LABEL,
   JOURNAL_COST_GENERIC_EN,
   JOURNAL_COST_GENERIC_ZH,
   LAPLAND_COST_ASIDE_2026_EN,
@@ -15,7 +16,6 @@ import {
   LAPLAND_COST_HERO_2026_ZH,
   LAPLAND_JOURNAL_COST_EN,
   LAPLAND_JOURNAL_COST_ZH,
-  journalCostChipLabel,
   journalCostCopyHasPublicUrl,
   journalLineRecordLabel,
   journalSpendTitle,
@@ -61,16 +61,18 @@ test("Lapland journal costs stay the 2020 recorded amounts", async () => {
   assert.doesNotMatch(seed, /amount: 4281/);
 });
 
-test("public trip cost UI labels journal records and keeps BookingBand", async () => {
+test("public trip cost UI keeps a quiet chip and collapsed cost notes", async () => {
   const [page, spend, booking] = await Promise.all([
     readFile(resolve(root, "app/trips/[slug]/page.tsx"), "utf8"),
     readFile(resolve(root, "components/journal-spend.tsx"), "utf8"),
     readFile(resolve(root, "components/booking-band.tsx"), "utf8"),
   ]);
 
-  assert.match(page, /journalCostChipLabel\(trip\.startDate\)/);
-  assert.doesNotMatch(page, /\["Cost", formatMoney\(trip\.totalCost\)/);
-  assert.match(page, /<JournalCostHeroNote hasCost=\{Boolean\(trip\.totalCost\)\} slug=\{trip\.slug\} \/>/);
+  assert.match(page, /<JournalCostChip amount=\{formatMoney\(trip\.totalCost\)\} slug=\{trip\.slug\} \/>/);
+  assert.doesNotMatch(page, /journalCostChipLabel/);
+  assert.doesNotMatch(page, /JournalCostHeroNote/);
+  assert.doesNotMatch(page, /LAPLAND_COST_HERO_2026/);
+  assert.doesNotMatch(page, /HK\$6,600/);
   assert.match(page, /<JournalSpendPanel costs=\{trip\.costs\} slug=\{trip\.slug\} startDate=\{trip\.startDate\} totalCost=\{trip\.totalCost\} \/>/);
   assert.match(page, /<BookingBand destination=\{laplandBooking\} \/>/);
   assert.doesNotMatch(page, /Writing guide/);
@@ -78,9 +80,14 @@ test("public trip cost UI labels journal records and keeps BookingBand", async (
   assert.doesNotMatch(page, /Edit trip/);
   assert.doesNotMatch(page, /\/family\/capture/);
 
+  assert.match(spend, /data-journal-cost-chip/);
   assert.match(spend, /data-journal-spend/);
   assert.match(spend, /data-lapland-cost-2026/);
+  assert.match(spend, /<details className="journal-cost-chip/);
+  assert.match(spend, /<details className="journal-cost-notes/);
+  assert.doesNotMatch(spend, /<details[^>]*\sopen/);
   assert.match(spend, /journalLineRecordLabel\(cost\.paidAt\)/);
+  assert.match(spend, /JOURNAL_COST_CHIP_LABEL/);
   assert.match(spend, /LAPLAND_JOURNAL_COST_ZH/);
   assert.match(spend, /LAPLAND_COST_HERO_2026_ZH/);
   assert.match(spend, /LAPLAND_COST_ASIDE_2026_ZH/);
@@ -95,7 +102,7 @@ test("public trip cost UI labels journal records and keeps BookingBand", async (
 });
 
 test("Lapland 2020 and August 2026 cost copy is bilingual and not a live quote", () => {
-  assert.equal(journalCostChipLabel("2020-01-18"), "2020 遊記 / Journal");
+  assert.equal(JOURNAL_COST_CHIP_LABEL, "Cost");
   assert.equal(journalSpendTitle("2020-01-18"), "2020 遊記花費 / Tracked spend");
   assert.equal(journalLineRecordLabel("2020-01-18"), "2020 遊記記錄 / Journal record");
   assert.equal(LAPLAND_JOURNAL_COST_ZH, "2020 年該次行程，遊記記錄，約兩人、約一週。不是今日報價。");
@@ -117,16 +124,16 @@ test("Lapland 2020 and August 2026 cost copy is bilingual and not a live quote",
   assert.match(LAPLAND_COST_ASIDE_2026_EN, /same ballpark as the 2020 hotel line/);
   assert.equal(GO_THERE_HREF, "#go-there");
   assert.equal(GO_THERE_LABEL, "出發 / Go there");
-  assert.equal(LAPLAND_COST_GO_THERE_ZH, "查今日航班與住宿。");
-  assert.equal(LAPLAND_COST_GO_THERE_EN, "for today's flight/hotel quote.");
+  assert.equal(LAPLAND_COST_GO_THERE_ZH, "不是今日報價，點 出發 查即時機票。");
+  assert.equal(LAPLAND_COST_GO_THERE_EN, "Not today's quote, tap 出發 for live fares.");
   assert.equal(JOURNAL_COST_GENERIC_ZH, "遊記裡記下的花費，不是今日報價。");
   assert.equal(JOURNAL_COST_GENERIC_EN, "Recorded in the journal, not a live quote.");
 
-  const heroCopy = `${LAPLAND_JOURNAL_COST_ZH} ${LAPLAND_JOURNAL_COST_EN} ${LAPLAND_COST_HERO_2026_ZH} ${LAPLAND_COST_HERO_2026_EN}`;
+  const footnoteCopy = `${LAPLAND_JOURNAL_COST_ZH} ${LAPLAND_JOURNAL_COST_EN} ${LAPLAND_COST_HERO_2026_ZH} ${LAPLAND_COST_HERO_2026_EN} ${LAPLAND_COST_GO_THERE_ZH} ${LAPLAND_COST_GO_THERE_EN}`;
   const asideCopy = `${LAPLAND_COST_ASIDE_2026_ZH} ${LAPLAND_COST_ASIDE_2026_EN}`;
-  assert.equal(journalCostCopyHasPublicUrl(heroCopy), false);
+  assert.equal(journalCostCopyHasPublicUrl(footnoteCopy), false);
   assert.equal(journalCostCopyHasPublicUrl(asideCopy), false);
-  assert.doesNotMatch(heroCopy, /expedia\.com|ratepunk\.com|kissandfly/i);
+  assert.doesNotMatch(footnoteCopy, /expedia\.com|ratepunk\.com|kissandfly/i);
 });
 
 test("Lapland winter-village photo uses Sana's Christmas-card caption", async () => {

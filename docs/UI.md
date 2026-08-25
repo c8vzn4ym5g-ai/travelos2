@@ -16,15 +16,16 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
 
 ## Public Journal Costs
 
-- Cost chips and Tracked spend on public trip journals are **journal records**
-  from the trip dates, not live quotes. Label them with the trip year and
-  `遊記 / Journal`.
-- The Lapland 2020 journal keeps €4,280 / €1,560 / €1,720 / €640 and names
-  them as that trip, about two people and about one week. A dated August 2026
-  reference may sit beside them as ranges, not as a fake exact total.
-- Point readers to `BookingBand` (`出發 / Go there`) for today's flight/hotel
-  quote. Do not invent Travelpayouts widget hashes or dump booking URLs in the
-  hero.
+- The first screen is the story. The hero cost chip is a quiet number
+  (`Cost` + €4,280). Do not put the 2020 disclaimer or August 2026 range
+  next to the title.
+- 2020 journal record, August 2026 range, and “not today's quote, tap 出發
+  for live fares” sit behind a collapsed `<details>` on the cost chip and on
+  Tracked spend. Small print. Default closed.
+- The Lapland 2020 journal keeps €4,280 / €1,560 / €1,720 / €640. Ranges are
+  not a fake exact total.
+- `BookingBand` (`出發 / Go there`) stays the action for a live quote. Do not
+  invent Travelpayouts widget hashes or dump booking URLs in the hero.
 
 ## Public Booking Band
 
