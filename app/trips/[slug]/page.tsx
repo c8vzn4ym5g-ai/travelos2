@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BookingBand } from "@/components/booking-band";
 import { JourneyMap } from "@/components/journey-map";
 import { JourneyMusicPlayer } from "@/components/journey-music-player";
 import { ShareActions } from "@/components/share-actions";
 import { readContent } from "@/lib/editable-store";
+import { LAPLAND_TRIP_SLUG, laplandBooking } from "@/lib/travelpayouts";
 import { isTripPublic } from "@/lib/trip-visibility";
 import { getTripDetailsByStartDate } from "@/lib/trips";
 import type { Cost, JournalEntry, Money, Photo, Place } from "@/lib/types";
@@ -417,6 +419,8 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               ))}
             </div>
           </section>
+
+          {trip.slug === LAPLAND_TRIP_SLUG ? <BookingBand destination={laplandBooking} /> : null}
 
           <section className="travel-panel rounded-3xl p-5 sm:p-7">
             <SectionHeader kicker="Album" title="Photo memories" />

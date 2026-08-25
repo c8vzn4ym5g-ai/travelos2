@@ -14,6 +14,15 @@ Show high-level travel stats, latest journeys, a map-ready visual region, and cl
 
 Use compact cards only for repeated records and dashboard panels. Avoid nested cards. Use stable dimensions for map, list, and stat regions. Keep color restrained with clear contrast.
 
+## Public Booking Band
+
+- Finished public trip journals may show a reusable `BookingBand`
+  (`出發 / Go there`) with ordinary Aviasales, Hotellook, and Klook search
+  URLs. Default origin is HKG.
+- `/drive` uses the same band as its main tools, not a lecture card.
+- One bilingual affiliate line belongs in the band footer. Family, Capture,
+  Write, and admin routes never render the band or Drive.
+
 ## Family Workspace Rules
 
 - `/family` is the single authentication layer for every family department.
