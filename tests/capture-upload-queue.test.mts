@@ -377,21 +377,18 @@ test("detached leftover POSTs keep landing on the previous moment", async () => 
 
   try {
     const firstSession = createMomentSession(async () => ({ moment: { id: "moment_old" } }));
+    const firstMomentId = await firstSession.ensure("2026-08-25T09:10:00.000Z");
     const firstJobs: Promise<unknown>[] = [];
     await ingestCaptureFileList(fakeFileList(albumFiles(2, "image/jpeg")), {
       onCopied(file) {
-        const session = firstSession;
         firstJobs.push(
-          (async () => {
-            const momentId = await session.ensure("2026-08-25T09:10:00.000Z");
-            await uploadDisplayPhoto({
-              coordinates: null,
-              file,
-              momentId,
-              pin: "test-capture-pin",
-              takenAt: "2026-08-25T09:10:00.000Z",
-            });
-          })(),
+          uploadDisplayPhoto({
+            coordinates: null,
+            file,
+            momentId: firstMomentId,
+            pin: "test-capture-pin",
+            takenAt: "2026-08-25T09:10:00.000Z",
+          }),
         );
       },
     });
@@ -409,21 +406,18 @@ test("detached leftover POSTs keep landing on the previous moment", async () => 
     assert.deepEqual(screen, []);
 
     const secondSession = createMomentSession(async () => ({ moment: { id: "moment_new" } }));
+    const secondMomentId = await secondSession.ensure("2026-08-25T09:11:00.000Z");
     const secondJobs: Promise<unknown>[] = [];
     await ingestCaptureFileList(fakeFileList(albumFiles(2, "image/jpeg")), {
       onCopied(file) {
-        const session = secondSession;
         secondJobs.push(
-          (async () => {
-            const momentId = await session.ensure("2026-08-25T09:11:00.000Z");
-            await uploadDisplayPhoto({
-              coordinates: null,
-              file,
-              momentId,
-              pin: "test-capture-pin",
-              takenAt: "2026-08-25T09:11:00.000Z",
-            });
-          })(),
+          uploadDisplayPhoto({
+            coordinates: null,
+            file,
+            momentId: secondMomentId,
+            pin: "test-capture-pin",
+            takenAt: "2026-08-25T09:11:00.000Z",
+          }),
         );
       },
     });
