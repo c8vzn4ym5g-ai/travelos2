@@ -42,7 +42,7 @@ export default function FamilyWorkspacePage() {
 
       <section className="mx-auto max-w-5xl px-6 pt-8 lg:px-10">
         <article className="rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm">
-          <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">JDB Capture</p>
+          <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">Capture 門</p>
           <h2 className="travel-display mt-2 text-2xl font-semibold">Capture</h2>
           <p className="mt-3 text-sm leading-6 text-zinc-600">
             打開 Capture：拍照、選照片或錄音，立刻看到剛留下的，不好就重拍。存成 Moment，不是新的旅程。

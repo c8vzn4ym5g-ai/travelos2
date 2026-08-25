@@ -69,6 +69,27 @@ test("capture has no tag form and is named Capture", async () => {
   assert.doesNotMatch(capture, /Travel admin/);
 });
 
+test("family Capture door copy does not use the retired JDB Capture app name", async () => {
+  const [family, capture, unlock] = await Promise.all([
+    readSource("app/family/page.tsx"),
+    readSource("app/family/capture/page.tsx"),
+    readSource("app/family/family-unlock-panel.tsx"),
+  ]);
+
+  assert.match(family, />Capture 門</);
+  assert.match(family, /<h2 className="travel-display mt-2 text-2xl font-semibold">Capture<\/h2>/);
+  assert.match(family, />打開 Capture</);
+  assert.match(family, /href="\/family\/capture"/);
+  assert.match(family, />請 JDB 幫忙</);
+  assert.match(family, />開啟 JDB Sana</);
+  assert.match(capture, />one capture door</);
+  assert.match(capture, /<h1 className="travel-display mt-2 text-4xl font-semibold">Capture<\/h1>/);
+  assert.match(unlock, />\s*Capture\s*</);
+  assert.doesNotMatch(family, /JDB Capture/);
+  assert.doesNotMatch(capture, /JDB Capture/);
+  assert.doesNotMatch(unlock, /JDB Capture/);
+});
+
 test("family session is required and capture does not add a PIN form", async () => {
   const [family, unlock, capture, write, travelAdmin, coffeeAdmin] = await Promise.all([
     readSource("app/family/page.tsx"),
