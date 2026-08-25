@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { resolveFamilySession } from "@/lib/family-session";
 import type { CoffeeMood, CoffeePhoto, CoffeeShop } from "@/lib/types";
 
 type CoffeeContentResponse = {
@@ -16,7 +17,6 @@ type CoffeeContentResponse = {
   };
 };
 
-const adminSessionKey = "travelos-admin-pin";
 type CoffeeTextField =
   | "address"
   | "city"
@@ -327,15 +327,26 @@ export default function CoffeeAdminPage() {
   const [activeShopId, setActiveShopId] = useState<string | null>(null);
 
   useEffect(() => {
-    const storedPin = window.sessionStorage.getItem(adminSessionKey);
-    if (storedPin) {
-      setPin(storedPin);
-      setAuthenticated(true);
-      setMessage("Admin session unlocked from the shared admin workspace.");
-      return;
-    }
+    let cancelled = false;
 
-    router.replace("/family");
+    void resolveFamilySession().then((session) => {
+      if (cancelled) {
+        return;
+      }
+
+      if (session.allowed) {
+        setPin(session.pin);
+        setAuthenticated(true);
+        setMessage("Admin session unlocked from the shared admin workspace.");
+        return;
+      }
+
+      router.replace("/family");
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   async function loadContent() {

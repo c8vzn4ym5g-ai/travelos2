@@ -7,8 +7,9 @@ Status: in_progress
 Current verified result:
 
 - Added a TravelMoment warehouse at Vercel Blob `travelos/moments.json`.
-- PIN-gated moment APIs create a moment, append photos, and store original
-  audio without writing a new trip.
+- Moment APIs create a moment, append photos, and store original audio
+  without writing a new trip. PIN is off unless
+  `TRAVELOS_REQUIRE_FAMILY_PIN=1`.
 - `/family/capture` is named Capture, reuses the family session, keeps camera
   and library after each add, previews immediately, and supports retake/remove.
 - Capture now starts display-JPEG upload in the background on add (and audio
@@ -22,16 +23,17 @@ Current verified result:
 - `/trips/write` can list and filter warehouse moments by Asia/Taipei day and
   by place. A day/place found set becomes the writing photos together. Saving
   that set stores a warehouse job with the human draft so it survives reload.
-- Existing trip Blob APIs, live Lapland, coffee, and family PIN are unchanged.
+- Existing trip Blob APIs, live Lapland, coffee stay. Family PIN is now off
+  unless `TRAVELOS_REQUIRE_FAMILY_PIN=1`.
 - PR #2 remains held; warehouse Capture/Write/moments APIs merged to `main`
   from PR #3 without merging PR #2. Public booking PR #8 and the Lapland
   poster are untouched.
 
 Remaining:
 
-- Do not merge this speed-fix PR; do not merge PR #2 or PR #8.
-- Real iPhone Capture acceptance on the live family door after Vercel
-  `travelos2-63r3` deploys: a photo must not be a 10-second wait.
+- Do not merge PR #2 or PR #8.
+- Production can put `TRAVELOS_REQUIRE_FAMILY_PIN=1` later without rewriting
+  the app. Real iPhone Capture acceptance on the live family door.
 
 
 ## TASK-017: Swap Lapland itinerary basemap to labeled Carto Voyager streets

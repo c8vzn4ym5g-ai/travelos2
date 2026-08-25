@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TravelOSContent } from "@/lib/editable-store";
+import { resolveFamilySession } from "@/lib/family-session";
 import type { GeoPoint, JournalEntry, Photo, Place, PlaceType, RouteTransport, TravelRouteSegment, TravelVisibility, TripDetail } from "@/lib/types";
 
 type TravelContentResponse = {
@@ -21,7 +22,6 @@ type PhotoTextField = "caption" | "originalFilename" | "takenAt";
 type PlaceTextField = "address" | "city" | "country" | "name" | "notes";
 type RouteTextField = "fromLabel" | "linkedJournalEntryId" | "linkedPhotoId" | "linkedPlaceId" | "note" | "toLabel";
 
-const adminSessionKey = "travelos-admin-pin";
 const inputClass =
   "mt-2 min-h-11 w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-sm text-zinc-950 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100";
 const textareaClass = `${inputClass} min-h-28 leading-6`;
@@ -272,15 +272,26 @@ export default function TravelAdminPage() {
   const [message, setMessage] = useState("Unlock admin to edit existing trips or create a new draft.");
 
   useEffect(() => {
-    const storedPin = window.sessionStorage.getItem(adminSessionKey);
-    if (storedPin) {
-      setPin(storedPin);
-      setAuthenticated(true);
-      setMessage("Admin session unlocked from the shared admin workspace.");
-      return;
-    }
+    let cancelled = false;
 
-    router.replace("/family");
+    void resolveFamilySession().then((session) => {
+      if (cancelled) {
+        return;
+      }
+
+      if (session.allowed) {
+        setPin(session.pin);
+        setAuthenticated(true);
+        setMessage("Admin session unlocked from the shared admin workspace.");
+        return;
+      }
+
+      router.replace("/family");
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   const loadContent = useCallback(async () => {

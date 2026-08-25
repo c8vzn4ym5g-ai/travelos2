@@ -45,7 +45,7 @@ export default function FamilyWorkspacePage() {
           <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">JDB Capture</p>
           <h2 className="travel-display mt-2 text-2xl font-semibold">Capture</h2>
           <p className="mt-3 text-sm leading-6 text-zinc-600">
-            家庭密碼解鎖後打開 Capture：拍照、選照片或錄音，立刻看到剛留下的，不好就重拍。存成 Moment，不是新的旅程。
+            打開 Capture：拍照、選照片或錄音，立刻看到剛留下的，不好就重拍。存成 Moment，不是新的旅程。
           </p>
           <Link
             className="mt-5 flex min-h-12 items-center justify-center rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-center font-semibold text-emerald-950"

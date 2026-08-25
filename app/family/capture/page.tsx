@@ -14,7 +14,7 @@ import {
   uploadMomentAudio,
   uploadOriginalPhotoInBackground,
 } from "@/lib/capture-upload";
-import { FAMILY_ADMIN_SESSION_KEY } from "@/lib/family-session";
+import { FAMILY_ADMIN_SESSION_KEY, resolveFamilySession } from "@/lib/family-session";
 import { appendMomentPhotos, classifyCaptureNote, isHeicPhoto } from "@/lib/moments";
 import type { GeoPoint, TravelJob } from "@/lib/types";
 
@@ -75,6 +75,7 @@ export default function CapturePage() {
   const savingRef = useRef(false);
   const [pin, setPin] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [photos, setPhotos] = useState<StagedPhoto[]>([]);
   const [note, setNote] = useState("");
   const [audio, setAudio] = useState<StagedAudio | null>(null);
@@ -86,15 +87,27 @@ export default function CapturePage() {
   const hasCapture = note.trim().length > 0 || photos.length > 0 || Boolean(audio);
 
   useEffect(() => {
-    const storedPin = window.sessionStorage.getItem(FAMILY_ADMIN_SESSION_KEY);
-    if (storedPin) {
-      setPin(storedPin);
-      pinRef.current = storedPin;
-      setAuthenticated(true);
-      return;
-    }
+    let cancelled = false;
 
-    router.replace("/family");
+    void resolveFamilySession().then((session) => {
+      if (cancelled) {
+        return;
+      }
+
+      if (session.allowed) {
+        setPin(session.pin);
+        pinRef.current = session.pin;
+        setAuthenticated(true);
+        return;
+      }
+
+      setRedirecting(true);
+      router.replace("/family");
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   useEffect(() => {
@@ -494,8 +507,12 @@ export default function CapturePage() {
       <main className="travel-body min-h-screen bg-[#f8f3ea] text-zinc-950">
         <section className="mx-auto max-w-md px-6 py-8 lg:px-10">
           <div className="rounded-3xl border border-emerald-200 bg-white p-6 text-center shadow-sm">
-            <p className="travel-label text-sm font-semibold text-emerald-900">正在返回家庭登入…</p>
-            <p className="mt-3 text-sm leading-6 text-zinc-600">Capture 使用同一個家庭密碼，不會另外開密碼表單。</p>
+            <p className="travel-label text-sm font-semibold text-emerald-900">
+              {redirecting ? "正在返回家庭登入…" : "正在開啟 Capture…"}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-zinc-600">
+              {redirecting ? "Capture 使用同一個家庭密碼，不會另外開密碼表單。" : "家庭入口開啟中，不必先輸入密碼。"}
+            </p>
           </div>
         </section>
       </main>
