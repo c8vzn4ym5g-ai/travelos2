@@ -1,5 +1,33 @@
 # TravelOS Handoff
 
+## 2026-08-25 Capture 404 after create: unique moment item files
+
+- Live GM self-test after PR #10 (`get({ useCache: false })`) and PR #11
+  (PIN off): `POST /api/moments` returned 200 with a moment id, but the
+  immediate `POST /api/moments/photos` and `/audio` 404'd `Moment not
+  found`. `GET /api/moments` also omitted the new id. About 30s later GET
+  listed the moment (`photos: []`); photo/audio then 200'd.
+- Root cause: `travelos/moments.json` is one public pathname overwritten on
+  every write. Vercel Blob public overwrite is eventually consistent even
+  with `get({ access: "public", useCache: false })`. Photo/audio hit another
+  instance and read the pre-overwrite JSON.
+- Fix: keep `travelos/moments.json` as the listing index, but stop using
+  that overwrite as the existence check for Capture appends. On create, also
+  `put` a unique item file `travelos/moments/items/{momentId}.json` with
+  `addRandomSuffix: false`. Unique puts are readable immediately.
+  `momentExists` / `addPhotoToMoment` / `setMomentAudio` / `setPhotoOriginal`
+  read/write the item file first (source of truth for that moment's photos
+  and audio), then update the index best-effort. Photo/audio binaries stay
+  on unique paths. If the index is stale, appends still succeed because the
+  item file exists. Same-instance last-write cache is a plus, not enough
+  for multi-instance.
+- Do not rely on waiting 60s or on `useCache: false` for overwrite of the
+  same public key. Client retry-on-404 can remain as belt-and-suspenders
+  but is not the real fix. Instant preview / background upload stay. PIN
+  stays off unless `TRAVELOS_REQUIRE_FAMILY_PIN=1`.
+- Do not merge. Do not touch PR #2, PR #8, Lapland poster, Drive, or the
+  PIN flag.
+
 ## 2026-08-25 Development family PIN is off
 
 - Development PIN is off. Capture, Write, and family APIs are open unless

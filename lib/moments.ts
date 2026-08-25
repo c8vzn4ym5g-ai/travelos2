@@ -2,7 +2,13 @@ import { calendarDayInTimeZone, momentCalendarDay, shiftCalendarDay } from "./mo
 import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "@/lib/types";
 
 export const MOMENTS_BLOB_PATH = "travelos/moments.json";
+export const MOMENT_ITEM_PREFIX = "travelos/moments/items";
 export const MOMENTS_SCHEMA_VERSION = 2;
+
+export function momentItemBlobPath(momentId: string) {
+  const safeId = momentId.replace(/[^A-Za-z0-9._-]/g, "-");
+  return `${MOMENT_ITEM_PREFIX}/${safeId}.json`;
+}
 
 const heicTypes = new Set(["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"]);
 

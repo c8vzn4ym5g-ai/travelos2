@@ -160,10 +160,12 @@ test("write then immediate uncached blob get sees the new moment", async () => {
   );
 
   const store = await readSource("lib/moment-store.ts");
+  const blob = await readSource("lib/moment-blob.ts");
   const readFn = store.slice(store.indexOf("export async function readMoments"), store.indexOf("export async function writeWarehouse"));
-  assert.match(store, /get\(pathname, options\)/);
+  assert.match(blob, /get\(pathname, options\)/);
   assert.match(store, /cacheControlMaxAge: 60/);
-  assert.match(readFn, /loadWarehouseFromBlobGet/);
+  assert.match(store, /momentItemBlobPath|writeMomentItem|readMomentItem/);
+  assert.match(readFn, /loadWarehouseFromBlobGet|readIndexRaw/);
   assert.doesNotMatch(store, /import \{[^}]*\blist\b/);
   assert.doesNotMatch(readFn, /dataBlob\.url/);
   assert.doesNotMatch(readFn, /\?v=/);

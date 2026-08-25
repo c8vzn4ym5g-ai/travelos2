@@ -31,6 +31,7 @@ test("capture does not create trips and photos append to a moment", async () => 
   assert.match(photosApi, /addPhotoToMoment\(momentId, photo\)/);
   assert.match(photosApi, /storeMomentBinary/);
   assert.match(helpers, /MOMENTS_BLOB_PATH = "travelos\/moments.json"/);
+  assert.match(helpers, /travelos\/moments\/items/);
 });
 
 test("capture keeps camera and library, with retake and remove", async () => {
@@ -244,6 +245,9 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(store, /withWarehouseLock/);
   assert.match(store, /flushPhotoAppends/);
   assert.match(store, /applyMomentPhotoAppends/);
+  assert.match(store, /writeMomentItem/);
+  assert.match(store, /readMomentItem/);
+  assert.match(store, /momentItemBlobPath/);
   assert.match(prepare, /prepareDisplayPhoto/);
   assert.match(upload, /createMomentSession/);
   assert.match(upload, /sendWithMomentRetry/);

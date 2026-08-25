@@ -11,6 +11,7 @@ import {
   heicJpegFilename,
   isHeicPhoto,
   looksLikeSystemCommand,
+  momentItemBlobPath,
   selectMomentIdsForCommand,
 } from "../lib/moments.ts";
 import {
@@ -27,6 +28,10 @@ import {
 
 test("warehouse moments live at travelos/moments.json", () => {
   assert.equal(MOMENTS_BLOB_PATH, "travelos/moments.json");
+});
+
+test("each moment also has a unique item path keyed by id", () => {
+  assert.equal(momentItemBlobPath("moment_abc_1"), "travelos/moments/items/moment_abc_1.json");
 });
 
 test("capture photos accumulate instead of replacing previous ones", () => {

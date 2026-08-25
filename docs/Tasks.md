@@ -7,6 +7,10 @@ Status: in_progress
 Current verified result:
 
 - Added a TravelMoment warehouse at Vercel Blob `travelos/moments.json`.
+  Capture appends no longer treat overwrite of that public index as the
+  existence check. Each moment also has a unique item file
+  `travelos/moments/items/{momentId}.json` (`addRandomSuffix: false`)
+  that photo/audio attach immediately.
 - Moment APIs create a moment, append photos, and store original audio
   without writing a new trip. PIN is off unless
   `TRAVELOS_REQUIRE_FAMILY_PIN=1`.
