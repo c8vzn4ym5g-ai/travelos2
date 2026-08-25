@@ -20,6 +20,7 @@ import {
   journalLineRecordLabel,
   journalSpendTitle,
 } from "../lib/journal-cost-copy.ts";
+import { LAPLAND_WINTER_VILLAGE_CAPTION } from "../lib/trips.ts";
 
 const root = resolve(import.meta.dirname, "..");
 
@@ -126,4 +127,27 @@ test("Lapland 2020 and August 2026 cost copy is bilingual and not a live quote",
   assert.equal(journalCostCopyHasPublicUrl(heroCopy), false);
   assert.equal(journalCostCopyHasPublicUrl(asideCopy), false);
   assert.doesNotMatch(heroCopy, /expedia\.com|ratepunk\.com|kissandfly/i);
+});
+
+test("Lapland winter-village photo uses Sana's Christmas-card caption", async () => {
+  const [seed, store, page] = await Promise.all([
+    readFile(resolve(root, "lib/trips.ts"), "utf8"),
+    readFile(resolve(root, "lib/editable-store.ts"), "utf8"),
+    readFile(resolve(root, "app/trips/[slug]/page.tsx"), "utf8"),
+  ]);
+
+  assert.equal(LAPLAND_WINTER_VILLAGE_CAPTION, "記憶裡的聖誕卡 / A Christmas card from memory");
+  assert.match(seed, /laplandWinterVillage: "記憶裡的聖誕卡"/);
+  assert.match(seed, /LAPLAND_WINTER_VILLAGE_CAPTION/);
+  assert.match(seed, /id: LAPLAND_WINTER_VILLAGE_PHOTO_ID/);
+  assert.doesNotMatch(seed, /屋頂與雪徑/);
+  assert.doesNotMatch(seed, /Roofs and snow paths/);
+  assert.match(store, /CONTENT_SCHEMA_VERSION = 10/);
+  assert.match(store, /savedSchemaVersion < 10 && item\.id === LAPLAND_WINTER_VILLAGE_PHOTO_ID/);
+  assert.match(store, /photo\.id === LAPLAND_WINTER_VILLAGE_PHOTO_ID && photo\.caption !== LAPLAND_WINTER_VILLAGE_CAPTION/);
+  assert.match(page, /alt=\{photo\.caption \?\? photo\.originalFilename\}/);
+  assert.match(page, /alt=\{coverPhoto\.caption \?\? trip\.title\}/);
+  assert.match(page, /\{photo\.caption \?\? photo\.originalFilename\}/);
+  assert.doesNotMatch(page, /Unlock editor/);
+  assert.doesNotMatch(page, /Edit trip/);
 });

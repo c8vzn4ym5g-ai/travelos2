@@ -8,9 +8,13 @@ const zh = {
   laplandSummary:
     "芬蘭拉普蘭，2020 年 1 月。以羅瓦涅米為基地，記錄聖誕老人村、北極圈、雪屋、雪橇與營火。",
   laplandTitle: "拉普蘭冬日記憶",
+  laplandWinterVillage: "記憶裡的聖誕卡",
   londonTitle: "\u502b\u6566\u8f49\u4e58\u9031\u672b",
   parisTitle: "\u5df4\u9ece\u51ac\u65e5\u535a\u7269\u9928\u6563\u6b65",
 };
+
+export const LAPLAND_WINTER_VILLAGE_PHOTO_ID = "photo_lapland_winter_village";
+export const LAPLAND_WINTER_VILLAGE_CAPTION = `${zh.laplandWinterVillage} / A Christmas card from memory`;
 
 export const seedTripDetails: TripDetail[] = [
   {
@@ -149,11 +153,11 @@ export const seedTripDetails: TripDetail[] = [
         createdAt: "2020-01-23T11:15:00.000Z",
       },
       {
-        id: "photo_lapland_winter_village",
+        id: LAPLAND_WINTER_VILLAGE_PHOTO_ID,
         tripId: "trip_lapland_2020",
         storageKey: "/travelos/lapland/winter-village.jpeg",
         originalFilename: "winter-village.jpeg",
-        caption: "屋頂與雪徑。 / Roofs and snow paths.",
+        caption: LAPLAND_WINTER_VILLAGE_CAPTION,
         takenAt: "2020-01-24T16:45:00.000Z",
         coordinates: null,
         cameraMake: null,

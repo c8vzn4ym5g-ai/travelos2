@@ -20,6 +20,9 @@ Result:
   notes. No URLs in the hero. `出發 / Go there` still jumps to BookingBand.
 - Public page has no edit buttons. Capture, family PIN, Drive-off-family,
   and PR #2 were not touched. BookingBand stays.
+- `winter-village.jpeg` (`photo_lapland_winter_village`) caption is now
+  `記憶裡的聖誕卡 / A Christmas card from memory`. Blob schema 10 repairs that
+  photo on the next public read so alt text and every caption display update.
 
 ## TASK-018: JDB Capture, TravelMoment warehouse, and sit-and-write
 
