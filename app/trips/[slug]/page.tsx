@@ -2,12 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookingBand } from "@/components/booking-band";
-import { JournalCostHeroNote, JournalSpendPanel } from "@/components/journal-spend";
+import { JournalCostChip, JournalSpendPanel } from "@/components/journal-spend";
 import { JourneyMap } from "@/components/journey-map";
 import { JourneyMusicPlayer } from "@/components/journey-music-player";
 import { ShareActions } from "@/components/share-actions";
 import { readContent } from "@/lib/editable-store";
-import { journalCostChipLabel } from "@/lib/journal-cost-copy";
 import { LAPLAND_TRIP_SLUG, laplandBooking } from "@/lib/travelpayouts";
 import { isTripPublic } from "@/lib/trip-visibility";
 import { getTripDetailsByStartDate } from "@/lib/trips";
@@ -311,22 +310,19 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             route={trip.travelRoute ?? []}
             title={trip.title}
           />
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap gap-2">
-              {[
-                ["Season", seasonLabel, "border-sky-100 bg-sky-50 text-sky-950"],
-                ["Mood", trip.journalEntries[0]?.mood ?? "Memory", "border-rose-100 bg-rose-50 text-rose-950"],
-                ["Photos", `${trip.photos.length}`, "border-amber-100 bg-amber-50 text-amber-950"],
-                [
-                  journalCostChipLabel(trip.startDate),
-                  formatMoney(trip.totalCost),
-                  "border-teal-100 bg-teal-50 text-teal-950",
-                ],
-              ].map(([label, value, tone]) => (
-                <MemoryChip key={label} label={label} tone={tone} value={value} />
-              ))}
-            </div>
-            <JournalCostHeroNote hasCost={Boolean(trip.totalCost)} slug={trip.slug} />
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              ["Season", seasonLabel, "border-sky-100 bg-sky-50 text-sky-950"],
+              ["Mood", trip.journalEntries[0]?.mood ?? "Memory", "border-rose-100 bg-rose-50 text-rose-950"],
+              ["Photos", `${trip.photos.length}`, "border-amber-100 bg-amber-50 text-amber-950"],
+            ].map(([label, value, tone]) => (
+              <MemoryChip key={label} label={label} tone={tone} value={value} />
+            ))}
+            {trip.totalCost ? (
+              <JournalCostChip amount={formatMoney(trip.totalCost)} slug={trip.slug} />
+            ) : (
+              <MemoryChip label="Cost" tone="border-teal-100 bg-teal-50 text-teal-950" value="Not tracked" />
+            )}
           </div>
           <div className="grid gap-4 lg:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)] lg:items-start">
             {coverPhoto ? (
