@@ -7,6 +7,7 @@ import {
   buildPosterLayout,
   getStopCardContent,
   isRegionalPointSet,
+  LAPLAND_GLANCE_LABELS,
   LAPLAND_POSTER,
   STREET_BASEMAP,
 } from "../lib/journey-map-model.ts";
@@ -30,6 +31,8 @@ test("JourneyMap hero is the generated itinerary poster, not a live tile collage
   assert.match(model, /\/travelos\/maps\/lapland-rovaniemi\.png/);
   assert.match(source, /data-arrival-locator/);
   assert.match(source, /data-longhaul-label/);
+  assert.match(source, /data-glance-labels/);
+  assert.match(source, /data-hero-map/);
   assert.match(source, /data-stop-list/);
   assert.match(source, /min-h-11 min-w-11/);
   assert.match(source, /data-map-pin=\{pin\.number\}/);
@@ -45,7 +48,8 @@ test("JourneyMap hero is the generated itinerary poster, not a live tile collage
   assert.doesNotMatch(model, /maps\.googleapis|mt\d\.google|@googlemaps/);
   assert.doesNotMatch(pkg, /@googlemaps/);
   const layout = source.slice(source.indexOf("export function JourneyMap"));
-  assert.match(layout, /data-stop-list[\s\S]*<RegionalMap[\s\S]*data-stop-card/);
+  assert.match(layout, /<RegionalMap[\s\S]*data-stop-list[\s\S]*data-stop-card/);
+  assert.match(layout, /lg:order-first/);
   assert.doesNotMatch(source, /data-map-scale=\{slice\.scale\}/);
   assert.doesNotMatch(source, /data-map-frame="overview"/);
   assert.doesNotMatch(source, /Writing guide/);
@@ -53,6 +57,12 @@ test("JourneyMap hero is the generated itinerary poster, not a live tile collage
   assert.doesNotMatch(page, /Writing guide/);
   assert.doesNotMatch(page, /Visitor scan/);
   assert.match(page, /<JourneyMap/);
+  const hero = page.slice(page.indexOf("travel-hero"), page.indexOf("Trip memory"));
+  assert.ok(hero.indexOf("<h1") < hero.indexOf("<JourneyMap"), "map must follow the title");
+  assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("featurePhotos"), "map must sit above the photo strip");
+  assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("JournalCostHeroNote"), "map is the first impression, not the cost note");
+  assert.match(hero, /<JournalCostHeroNote/);
+  assert.match(hero, /coverPhoto\.caption/);
 });
 
 test("long-haul is a quiet label, not an equal-size second map", async () => {
@@ -62,8 +72,9 @@ test("long-haul is a quiet label, not an equal-size second map", async () => {
 
   assert.match(locatorBlock, /data-arrival-locator/);
   assert.match(locatorBlock, /data-longhaul-label/);
-  assert.match(locatorBlock, /via \{labels\}/);
-  assert.doesNotMatch(locatorBlock, /How we arrived/);
+  assert.match(source, /LAPLAND_GLANCE_LABELS/);
+  assert.match(source, /data-glance-labels/);
+  assert.doesNotMatch(source, /How we arrived/);
   assert.doesNotMatch(locatorBlock, /tile\.openstreetmap\.org/);
   assert.doesNotMatch(locatorBlock, /basemaps\.cartocdn\.com/);
   assert.doesNotMatch(locatorBlock, /min-h-\[22rem\]/);
@@ -150,15 +161,20 @@ test("Lapland itinerary is a Rovaniemi journey picture, not a Hong Kong-scale ov
     itinerary.arrival.map((city) => city.shortLabel),
     ["HK", "HEL", "RVN"],
   );
-  assert.equal(layout.longHaulLabel, "HK · HEL · RVN");
+  assert.equal(layout.longHaulLabel, "Helsinki · Rovaniemi");
+  assert.equal(layout.cityLabel, "Rovaniemi");
+  assert.match(itinerary.regionalStops[0].listLabel, /Rovaniemi/);
+  assert.match(itinerary.regionalStops[1].listLabel, /Santa Claus Village/);
+  assert.ok(layout.pins.some((pin) => pin.label === "Santa Claus Village" && pin.sublabel === "聖誕老人村"));
+  assert.ok(layout.pins.some((pin) => pin.label === "Rovaniemi"));
   assert.equal(itinerary.regionalStops.length, 6);
   assert.deepEqual(
     itinerary.regionalStops.map((stop) => stop.number),
     [1, 2, 3, 4, 5, 6],
   );
-  assert.match(itinerary.regionalStops[0].listLabel, /Arrival/);
+  assert.match(itinerary.regionalStops[0].listLabel, /Rovaniemi/);
   assert.equal(itinerary.regionalStops[0].dateLabel, "1/18");
-  assert.match(itinerary.regionalStops[1].listLabel, /Santa Village/);
+  assert.match(itinerary.regionalStops[1].listLabel, /Santa Claus Village/);
   assert.equal(itinerary.regionalStops[1].dateLabel, "1/20");
   assert.match(itinerary.regionalStops[2].listLabel, /Arctic Circle/);
   assert.match(itinerary.regionalStops[3].listLabel, /Sled/);
@@ -180,6 +196,7 @@ test("Lapland itinerary is a Rovaniemi journey picture, not a Hong Kong-scale ov
   assert.ok(itinerary.regionalLegs.some((leg) => leg.style === "dotted" && leg.kind === "side"));
   assert.equal("scaleBar" in layout, false);
   assert.equal(LAPLAND_POSTER.src, "/travelos/maps/lapland-rovaniemi.png");
+  assert.equal(LAPLAND_GLANCE_LABELS, "Santa Claus Village (聖誕老人村) · Helsinki · Rovaniemi");
 });
 
 test("selecting stop N shows bilingual wording and the linked photo", () => {

@@ -79,10 +79,12 @@ export const STREET_BASEMAP = {
 export const TILE_PIXEL_SIZE = 256;
 
 export const LAPLAND_POSTER = {
-  alt: "Rovaniemi, Finnish Lapland regional itinerary",
+  alt: "Rovaniemi winter journey: Santa Claus Village, Helsinki, Finnish Lapland",
   relativeFile: "public/travelos/maps/lapland-rovaniemi.png",
   src: "/travelos/maps/lapland-rovaniemi.png",
 } as const;
+
+export const LAPLAND_GLANCE_LABELS = "Santa Claus Village (聖誕老人村) · Helsinki · Rovaniemi";
 
 export const POSTER_THEME = {
   label: "#1e293b",
@@ -104,6 +106,7 @@ export type PosterPin = {
   leg: "winter" | "side";
   number: number;
   point: GeoPoint;
+  sublabel: string | null;
   x: number;
   y: number;
 };
@@ -307,7 +310,7 @@ function buildLaplandItinerary({
       leg: "winter",
       linkedJournalEntryId: arrivalJournal?.id ?? "journal_lapland_arrival",
       linkedPhotoId: arcticPhoto?.id ?? arrivalJournal?.storyPhotoId ?? null,
-      listLabel: "抵達羅瓦涅米 / Arrival",
+      listLabel: "羅瓦涅米 / Rovaniemi",
       note: airport?.notes ?? arrivalJournal?.body ?? null,
       number: 1,
       point: airportPoint,
@@ -320,7 +323,7 @@ function buildLaplandItinerary({
       leg: "winter",
       linkedJournalEntryId: santaJournal?.id ?? "journal_lapland_santa",
       linkedPhotoId: santaPhoto?.id ?? santaJournal?.storyPhotoId ?? null,
-      listLabel: "聖誕老人村 / Santa Village",
+      listLabel: "聖誕老人村 / Santa Claus Village",
       note: santa?.notes ?? santaJournal?.body ?? null,
       number: 2,
       point: santaPoint,
@@ -719,6 +722,7 @@ export function spaceItineraryPins(stops: ItineraryStop[], bounds: TileBounds): 
     leg: item.leg,
     number: item.number,
     point: item.point,
+    sublabel: item.number === 2 && item.listLabel.includes("聖誕老人村") ? "聖誕老人村" : null,
     x: Math.min(94, Math.max(6, item.position.x)),
     y: Math.min(92, Math.max(8, item.position.y)),
   }));
@@ -732,7 +736,7 @@ export function buildPosterLayout(itinerary: JourneyItinerary, city = "Rovaniemi
 
   return {
     bounds,
-    cityLabel: isLaplandPosterCity(city) ? "Rovaniemi · winter days" : `${city} · itinerary`,
+    cityLabel: isLaplandPosterCity(city) ? "Rovaniemi" : `${city} · itinerary`,
     legs: itinerary.regionalLegs.map((leg) => ({
       from: projectRaw(leg.from, bounds),
       id: leg.id,
@@ -740,7 +744,7 @@ export function buildPosterLayout(itinerary: JourneyItinerary, city = "Rovaniemi
       style: leg.style,
       to: projectRaw(leg.to, bounds),
     })),
-    longHaulLabel: formatLongHaulLabel(itinerary.arrival),
+    longHaulLabel: isLaplandPosterCity(city) ? "Helsinki · Rovaniemi" : formatLongHaulLabel(itinerary.arrival),
     pins,
     sidePath: pathFromPinOrder(pins, SIDE_PICTURE_ORDER),
     winterPath: pathFromPinOrder(pins, WINTER_PICTURE_ORDER),

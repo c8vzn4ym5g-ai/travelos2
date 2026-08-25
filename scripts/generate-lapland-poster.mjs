@@ -234,6 +234,9 @@ async function main() {
     const alignRight = pin.x > 62 || pin.number === 2 || pin.number === 3;
     const labelX = x + (alignRight ? -26 : 26);
     drawLabel(ctx, pin.label, labelX, y - 26, alignRight ? "right" : "left");
+    if (pin.sublabel) {
+      drawLabel(ctx, pin.sublabel, labelX, y + 26, alignRight ? "right" : "left");
+    }
   }
 
   ctx.save();
