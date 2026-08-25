@@ -15,7 +15,8 @@ import {
   snapshotFileList,
   uploadDisplayPhoto,
 } from "../lib/capture-upload.ts";
-import { prepareDisplayPhoto } from "../lib/prepare-photo.ts";
+import { isHeicPhoto } from "../lib/moments.ts";
+import { maxUploadBytes, prepareDisplayPhoto } from "../lib/prepare-photo.ts";
 
 const root = resolve(import.meta.dirname, "..");
 
@@ -155,6 +156,24 @@ test("a Choose Photos dump is capped at 40 files", async () => {
   assert.equal(captureBatchMessage(100, 40), captureDumpCapMessage());
 });
 
+test("a JPEG Choose Photos dump is still capped at 40 files", async () => {
+  const result = await ingestCaptureFileList(fakeFileList(albumFiles(100, "image/jpeg")), {
+    onCopied() {},
+    yieldTurn: async () => {},
+  });
+
+  assert.equal(result.fileListLength, 100);
+  assert.equal(result.copied.length, 40);
+  assert.equal(result.limited, true);
+  assert.equal(result.copied[0]?.name, "IMG_0000.JPG");
+  assert.equal(result.copied[0]?.type, "image/jpeg");
+  assert.equal(result.copied[39]?.name, "IMG_0039.JPG");
+  assert.equal(
+    result.copied.every((file) => file.type === "image/jpeg" && !isHeicPhoto(file)),
+    true,
+  );
+});
+
 test("selecting 40 or fewer does not show the cap message", async () => {
   const result = await ingestCaptureFileList(fakeFileList(albumFiles(40)), {
     onCopied() {},
@@ -254,10 +273,12 @@ test("batch message reports how many were received", () => {
 test("photo POST does not wait on the preview hook", async () => {
   const jpeg = new File([new Uint8Array([1, 2, 3, 4])], "park.jpg", { type: "image/jpeg" });
   let posted = 0;
+  let postedFile: FormDataEntryValue | null = null;
   let previewDone = false;
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async () => {
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
     posted += 1;
+    postedFile = (init?.body as FormData).get("file");
     assert.equal(previewDone, false);
     return Response.json({ photo: { id: "moment_photo_ready", momentId: "moment_ready" } });
   }) as typeof fetch;
@@ -277,10 +298,129 @@ test("photo POST does not wait on the preview hook", async () => {
 
     await new Promise((resolve) => setTimeout(resolve, 10));
     assert.equal(posted, 1);
+    assert.equal(postedFile, jpeg);
     const result = await uploaded;
     assert.equal(result.photo.id, "moment_photo_ready");
+    assert.equal(result.display, jpeg);
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("JPEG dump files POST the original without canvas convert", async () => {
+  const jpeg = new File([new Uint8Array(1_204_120).fill(7)], "IMG_3104.jpg", { type: "image/jpeg" });
+  assert.equal(jpeg.type, "image/jpeg");
+  assert.equal(isHeicPhoto(jpeg), false);
+
+  let decodeCalls = 0;
+  let canvasCalls = 0;
+  const originalCreateImageBitmap = globalThis.createImageBitmap;
+  const originalDocument = globalThis.document;
+  globalThis.createImageBitmap = (async () => {
+    decodeCalls += 1;
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    throw new Error("JPEG dumps must not decode before POST");
+  }) as typeof createImageBitmap;
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: {
+      createElement(tag: string) {
+        canvasCalls += 1;
+        throw new Error(`JPEG dumps must not create <${tag}> before POST`);
+      },
+    },
+  });
+
+  let postedAt: number | null = null;
+  const posted: File[] = [];
+  const started = Date.now();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    postedAt = Date.now() - started;
+    const file = (init?.body as FormData).get("file");
+    assert.ok(file instanceof File);
+    posted.push(file);
+    return Response.json({ photo: { id: "moment_photo_jpeg", momentId: "moment_jpeg" } });
+  }) as typeof fetch;
+
+  try {
+    const uploaded = uploadDisplayPhoto({
+      coordinates: null,
+      file: jpeg,
+      momentId: "moment_jpeg",
+      pin: "test-capture-pin",
+      takenAt: "2026-08-25T08:56:54.000Z",
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(posted.length, 1, "first POST starts immediately");
+    assert.ok(postedAt !== null && postedAt < 50);
+    assert.equal(posted[0], jpeg);
+    assert.equal(posted[0]?.type, "image/jpeg");
+    assert.equal(posted[0]?.name, "IMG_3104.jpg");
+    assert.equal(decodeCalls, 0);
+    assert.equal(canvasCalls, 0);
+
+    const result = await uploaded;
+    assert.equal(result.display, jpeg);
+    assert.equal(decodeCalls, 0);
+    assert.equal(canvasCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (typeof originalCreateImageBitmap === "function") {
+      globalThis.createImageBitmap = originalCreateImageBitmap;
+    } else {
+      Reflect.deleteProperty(globalThis, "createImageBitmap");
+    }
+    if (originalDocument === undefined) {
+      Reflect.deleteProperty(globalThis, "document");
+    } else {
+      Object.defineProperty(globalThis, "document", {
+        configurable: true,
+        value: originalDocument,
+      });
+    }
+  }
+});
+
+test("oversized JPEG dumps POST original instead of canvas-compressing", async () => {
+  const jpeg = new File([new Uint8Array(4_600_000).fill(3)], "IMG_big.jpg", { type: "image/jpeg" });
+  assert.ok(jpeg.size > maxUploadBytes);
+  let decodeCalls = 0;
+  const originalCreateImageBitmap = globalThis.createImageBitmap;
+  globalThis.createImageBitmap = (async () => {
+    decodeCalls += 1;
+    throw new Error("oversized JPEG dumps must not canvas-compress");
+  }) as typeof createImageBitmap;
+
+  const posted: File[] = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const file = (init?.body as FormData).get("file");
+    assert.ok(file instanceof File);
+    posted.push(file);
+    return Response.json({ photo: { id: "moment_photo_big", momentId: "moment_big" } });
+  }) as typeof fetch;
+
+  try {
+    const result = await uploadDisplayPhoto({
+      coordinates: null,
+      file: jpeg,
+      momentId: "moment_big",
+      pin: "test-capture-pin",
+      takenAt: "2026-08-25T08:56:54.000Z",
+    });
+    assert.equal(posted.length, 1);
+    assert.equal(posted[0], jpeg);
+    assert.equal(result.display, jpeg);
+    assert.equal(decodeCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (typeof originalCreateImageBitmap === "function") {
+      globalThis.createImageBitmap = originalCreateImageBitmap;
+    } else {
+      Reflect.deleteProperty(globalThis, "createImageBitmap");
+    }
   }
 });
 
@@ -323,6 +463,64 @@ test("40-file dump starts many POSTs without waiting on previews", async () => {
   }
 });
 
+test("JPEG Choose Photos dump POSTs originals immediately and keeps the 40 cap", async () => {
+  const files = albumFiles(CAPTURE_DUMP_LIMIT, "image/jpeg");
+  assert.equal(files.length, 40);
+  assert.equal(
+    files.every((file) => file.type === "image/jpeg" && !isHeicPhoto(file)),
+    true,
+  );
+
+  let decodeCalls = 0;
+  const originalCreateImageBitmap = globalThis.createImageBitmap;
+  globalThis.createImageBitmap = (async () => {
+    decodeCalls += 1;
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    throw new Error("JPEG dumps must not canvas convert before POST");
+  }) as typeof createImageBitmap;
+
+  const posted: File[] = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const file = (init?.body as FormData).get("file");
+    assert.ok(file instanceof File);
+    posted.push(file);
+    return Response.json({ photo: { id: `photo_${posted.length}`, momentId: "moment_jpeg_dump" } });
+  }) as typeof fetch;
+
+  try {
+    const queue = createWorkQueue();
+    const jobs = files.map((file) =>
+      queue.enqueue(async () => {
+        const uploaded = await uploadDisplayPhoto({
+          coordinates: null,
+          file,
+          momentId: "moment_jpeg_dump",
+          pin: "test-capture-pin",
+          takenAt: "2026-08-25T08:56:54.000Z",
+        });
+        assert.equal(uploaded.display, file);
+      }),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 15));
+    assert.ok(posted.length >= CAPTURE_UPLOAD_CONCURRENCY, "first POSTs start immediately");
+    assert.equal(decodeCalls, 0);
+
+    await Promise.all(jobs);
+    assert.equal(posted.length, 40);
+    assert.deepEqual(posted, files);
+    assert.equal(decodeCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (typeof originalCreateImageBitmap === "function") {
+      globalThis.createImageBitmap = originalCreateImageBitmap;
+    } else {
+      Reflect.deleteProperty(globalThis, "createImageBitmap");
+    }
+  }
+});
+
 test("HEIC prepare is cheap and does not exclusive-decode", async () => {
   const heic = new File([new Uint8Array([0, 1, 2, 3, 4])], "IMG_1001.HEIC", { type: "image/heic" });
   const started = Date.now();
@@ -333,6 +531,18 @@ test("HEIC prepare is cheap and does not exclusive-decode", async () => {
   const prepare = await readSource("lib/prepare-photo.ts");
   assert.doesNotMatch(prepare, /withExclusivePhotoDecode/);
   assert.doesNotMatch(prepare, /8000/);
+});
+
+test("JPEG prepare returns the original file without canvas convert", async () => {
+  const jpeg = new File([new Uint8Array([1, 2, 3, 4])], "IMG_3104.jpg", { type: "image/jpeg" });
+  assert.equal(isHeicPhoto(jpeg), false);
+  const started = Date.now();
+  const display = await prepareDisplayPhoto(jpeg);
+  assert.equal(display, jpeg);
+  assert.ok(Date.now() - started < 50);
+
+  const prepare = await readSource("lib/prepare-photo.ts");
+  assert.match(prepare, /isHeicPhoto\(file\) \|\| file\.type === "image\/jpeg"/);
 });
 
 test("capture page caps a dump at 40 and keeps the fast upload queue", async () => {
@@ -374,7 +584,14 @@ test("capture page caps a dump at 40 and keeps the fast upload queue", async () 
   assert.match(uploadFn, /createTinyPreviewUrl\(display\)/);
   assert.match(capture, /排隊中/);
   assert.match(capture, /這一輪最多 40 張/);
-  assert.match(prepare, /isHeicPhoto\(file\)/);
+  assert.match(prepare, /isHeicPhoto\(file\) \|\| file\.type === "image\/jpeg"/);
+  const displayUpload = upload.slice(
+    upload.indexOf("export async function uploadDisplayPhoto"),
+    upload.indexOf("export function uploadOriginalPhotoInBackground"),
+  );
+  assert.match(displayUpload, /await prepareDisplayPhoto\(input\.file\)/);
+  assert.doesNotMatch(displayUpload, /createImageBitmap\(/);
+  assert.doesNotMatch(displayUpload, /canvas\.toBlob/);
   assert.doesNotMatch(prepare, /withExclusivePhotoDecode/);
   assert.doesNotMatch(capture, /from "@\/lib\/trips"/);
   assert.doesNotMatch(capture, /travelpayouts/i);

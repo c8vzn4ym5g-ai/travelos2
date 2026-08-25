@@ -1,12 +1,7 @@
 "use client";
 
 import { isHeicPhoto } from "./moments.ts";
-import {
-  createTinyPreviewUrl,
-  maxUploadBytes,
-  prepareDisplayPhoto,
-  shouldKeepOriginal,
-} from "./prepare-photo.ts";
+import { createTinyPreviewUrl, prepareDisplayPhoto, shouldKeepOriginal } from "./prepare-photo.ts";
 import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "./types.ts";
 
 export { createTinyPreviewUrl };
@@ -333,9 +328,6 @@ export async function uploadDisplayPhoto(input: {
     display = await prepareDisplayPhoto(input.file);
   } catch {
     display = input.file;
-  }
-  if (display !== input.file && display.size > maxUploadBytes) {
-    throw new Error("Photo is still too large after compression. Please choose a smaller photo.");
   }
 
   void Promise.resolve(input.onDisplayReady?.(display)).catch(() => {
