@@ -4,7 +4,7 @@ import { LAPLAND_WINTER_VILLAGE_CAPTION, LAPLAND_WINTER_VILLAGE_PHOTO_ID, seedTr
 import type { MusicTrack, Photo, TripDetail } from "@/lib/types";
 
 const DATA_BLOB_PATH = "travelos/content.json";
-const CONTENT_SCHEMA_VERSION = 12;
+const CONTENT_SCHEMA_VERSION = 13;
 
 export type TravelOSContent = {
   trips: TripDetail[];
@@ -368,6 +368,10 @@ function shouldMigrateSeedItemCopy<T extends { id: string; tripId?: string }>(
     return false;
   }
 
+  if (savedSchemaVersion < 13 && seedTrip.id === "trip_lapland_2020" && item.id.startsWith("photo_lapland_garnish_")) {
+    return true;
+  }
+
   if (savedSchemaVersion < 11 && seedTrip.id === "trip_lapland_2020" && item.tripId === "trip_lapland_2020") {
     return true;
   }
@@ -409,7 +413,8 @@ function photoNeedsSeedRepair(photo: Photo) {
     recordLooksCorrupted(photo) ||
     !photoIsRenderable(photo) ||
     photo.storageKey.startsWith("placeholder/") ||
-    (photo.id === LAPLAND_WINTER_VILLAGE_PHOTO_ID && photo.caption !== LAPLAND_WINTER_VILLAGE_CAPTION)
+    (photo.id === LAPLAND_WINTER_VILLAGE_PHOTO_ID && photo.caption !== LAPLAND_WINTER_VILLAGE_CAPTION) ||
+    (photo.id.startsWith("photo_lapland_garnish_") && /不是這次家庭照片|not from this family trip/i.test(photo.caption ?? ""))
   );
 }
 

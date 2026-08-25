@@ -10,7 +10,7 @@ import { LaplandStorefrontGlance } from "@/components/lapland-storefront-glance"
 import { LaplandVisualPath } from "@/components/lapland-visual-path";
 import { ShareActions } from "@/components/share-actions";
 import { readContent } from "@/lib/editable-store";
-import { forLaplandPublicPage, isLaplandStorefrontSlug, LAPLAND_SEASON_LABEL } from "@/lib/lapland-storefront-copy";
+import { forLaplandPublicPage, isLaplandStorefrontSlug, LAPLAND_PHOTO_CREDITS, LAPLAND_SEASON_LABEL, garnishCaptionCredit } from "@/lib/lapland-storefront-copy";
 import { laplandBooking } from "@/lib/travelpayouts";
 import { isTripPublic } from "@/lib/trip-visibility";
 import { getTripDetailsByStartDate } from "@/lib/trips";
@@ -158,14 +158,13 @@ function PlaceRow({ place }: { place: Place }) {
 
 function PhotoTile({ hideExactDate, photo }: { hideExactDate?: boolean; photo: Photo }) {
   const canRenderPhoto = isRenderablePhoto(photo);
+  const garnishCredit = garnishCaptionCredit(photo.id);
   const dateLine = hideExactDate
-    ? photo.caption?.includes("場所圖")
-      ? "場所圖 / Place photo"
-      : LAPLAND_SEASON_LABEL
+    ? garnishCredit ?? LAPLAND_SEASON_LABEL
     : photo.takenAt
       ? formatDate(photo.takenAt)
-      : photo.caption?.includes("場所圖")
-        ? "場所圖 / Place photo"
+      : garnishCredit
+        ? garnishCredit
         : "Date not set";
 
   return (
@@ -180,7 +179,7 @@ function PhotoTile({ hideExactDate, photo }: { hideExactDate?: boolean; photo: P
       )}
       <div className="p-4">
         <p className="font-medium text-[color:var(--ink)]">{photo.caption ?? photo.originalFilename}</p>
-        <p className="travel-muted mt-2 text-sm">{dateLine}</p>
+        <p className={`mt-2 text-sm ${garnishCredit ? "text-slate-500" : "travel-muted"}`}>{dateLine}</p>
       </div>
     </article>
   );
@@ -434,6 +433,17 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               ))}
             </div>
           </section>
+
+          {isLaplandStorefrontSlug(trip.slug) ? (
+            <footer className="travel-muted px-1 text-[0.7rem] leading-6" data-photo-credits="">
+              <p className="travel-kicker text-[0.65rem]">圖片出處 / Photo credits</p>
+              {LAPLAND_PHOTO_CREDITS.map((credit) => (
+                <p key={credit.id}>
+                  {credit.lineZh} {credit.line}
+                </p>
+              ))}
+            </footer>
+          ) : null}
         </div>
 
         <aside className="space-y-5 lg:sticky lg:top-5">

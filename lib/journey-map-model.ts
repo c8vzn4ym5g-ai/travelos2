@@ -2,7 +2,7 @@ import type { GeoPoint, JournalEntry, Photo, Place, TravelRouteSegment } from ".
 
 export type MapScale = "regional" | "overview" | "detail" | "single";
 
-export type StopIcon = "plane" | "village" | "circle" | "sled" | "fire" | "cabin" | "pin";
+export type StopIcon = "plane" | "village" | "circle" | "sled" | "fire" | "cabin" | "cathedral" | "harbour" | "pin";
 
 export type MapPin = {
   id: string;
@@ -79,12 +79,28 @@ export const STREET_BASEMAP = {
 export const TILE_PIXEL_SIZE = 256;
 
 export const LAPLAND_POSTER = {
-  alt: "Santa Claus Village on the Arctic Circle, then Helsinki",
+  alt: "December path: Santa Claus Village and the Arctic Circle in Lapland, then Helsinki Cathedral and South Harbour",
   relativeFile: "public/travelos/maps/lapland-rovaniemi.png",
   src: "/travelos/maps/lapland-rovaniemi.png",
 } as const;
 
 export const LAPLAND_GLANCE_LABELS = "Santa Claus Village (聖誕老人村) · Helsinki";
+
+export const LAPLAND_POSTER_MAP_RATIO = 1;
+export const LAPLAND_POSTER_LEGEND_RATIO = 0;
+
+export const LAPLAND_POSTER_FRAME = {
+  maxLat: 68.6,
+  minLat: 59.2,
+  minLng: 20.6,
+  maxLng: 31.0,
+  zoom: 7,
+} as const;
+
+export const LAPLAND_ARCTIC_LATITUDE = 66.5436;
+export const LAPLAND_HELSINKI: GeoPoint = { latitude: 60.1699, longitude: 24.9384 };
+export const LAPLAND_HELSINKI_CATHEDRAL: GeoPoint = { latitude: 60.1704, longitude: 24.9521 };
+export const LAPLAND_HELSINKI_HARBOUR: GeoPoint = { latitude: 60.1666, longitude: 24.9575 };
 
 export const POSTER_THEME = {
   label: "#1e293b",
@@ -119,11 +135,26 @@ export type PosterLeg = {
   to: PosterPoint;
 };
 
+export type PosterLegendItem = {
+  height: number;
+  id: string;
+  label: string;
+  number: number;
+  sublabel: string | null;
+  width: number;
+  x: number;
+  y: number;
+};
+
 export type PosterLayout = {
+  arcticPath: PosterPoint[];
   bounds: TileBounds;
   cityLabel: string;
+  legendItems: PosterLegendItem[];
+  legendRatio: number;
   legs: PosterLeg[];
   longHaulLabel: string | null;
+  mapRatio: number;
   pins: PosterPin[];
   sidePath: PosterPoint[];
   winterPath: PosterPoint[];
@@ -140,7 +171,7 @@ const LOCAL_SPAN_DEGREES = 2.5;
 const LONG_HAUL_SPAN_DEGREES = 8;
 const MIN_REGIONAL_SPAN_DEGREES = 0.1;
 const LAPLAND_ARCTIC_DISPLAY: GeoPoint = { latitude: 66.5534, longitude: 25.8216 };
-const LAPLAND_CITY: GeoPoint = { latitude: 66.5039, longitude: 25.7294 };
+export const LAPLAND_CITY: GeoPoint = { latitude: 66.5039, longitude: 25.7294 };
 
 export function isVisibleRoute(segment: TravelRouteSegment) {
   return segment.visibility !== "private";
@@ -282,24 +313,22 @@ function buildLaplandItinerary({
   photos: Photo[];
   places: Place[];
 }): JourneyItinerary {
-  const airport = findPlace(places, ["place_lapland_rovaniemi_airport", "Rovaniemi Airport"]);
   const santa = findPlace(places, ["place_lapland_santa_village", "Santa Claus Village"]);
   const arctic = findPlace(places, ["place_lapland_arctic_circle", "Arctic Circle Line"]);
-  const sled = findPlace(places, ["place_lapland_sled", "Sled route"]);
   const cabin = findPlace(places, ["place_lapland_cabin", "place_lapland_snow_cabin", "Red cabin no. 4", "Snow cabin"]);
+  const helsinki = findPlace(places, ["place_lapland_helsinki", "Helsinki"]);
   const arcticJournal = findJournal(journalEntries, ["journal_lapland_arctic", "arctic circle", "北極圈"]);
   const cabinJournal = findJournal(journalEntries, ["journal_lapland_cabin", "red cabin", "4 號"]);
-  const leavingJournal = findJournal(journalEntries, ["journal_lapland_leaving", "leaving rovaniemi", "離開羅瓦涅米"]);
   const arcticPhoto = findPhoto(photos, ["photo_lapland_dump_arctic_sign", "photo_lapland_arctic_circle"]);
   const santaPhoto = findPhoto(photos, ["photo_lapland_dump_arctic_pillars", "photo_lapland_santa_night"]);
-  const sledPhoto = findPhoto(photos, ["photo_lapland_dump_cabin4", "photo_lapland_sled"]);
   const cabinPhoto = findPhoto(photos, ["photo_lapland_dump_cabin4", "photo_lapland_snow_cabin"]);
-  const leavingPhoto = findPhoto(photos, ["photo_lapland_dump_finnair"]);
-  const airportPoint = airport?.coordinates ?? { latitude: 66.5648, longitude: 25.8304 };
+  const cathedralPhoto = findPhoto(photos, ["photo_lapland_garnish_cathedral"]);
+  const harbourPhoto = findPhoto(photos, ["photo_lapland_garnish_harbour"]);
   const santaPoint = santa?.coordinates ?? { latitude: 66.5436, longitude: 25.8472 };
   const arcticPoint = arctic && pointSpan(arctic.coordinates ?? santaPoint, santaPoint) > 0.004 ? (arctic.coordinates as GeoPoint) : LAPLAND_ARCTIC_DISPLAY;
-  const sledPoint = sled?.coordinates ?? { latitude: 66.5421, longitude: 25.8456 };
   const cabinPoint = cabin?.coordinates ?? { latitude: 66.5424, longitude: 25.8448 };
+  const cathedralPoint = cathedralPhoto?.coordinates ?? LAPLAND_HELSINKI_CATHEDRAL;
+  const harbourPoint = harbourPhoto?.coordinates ?? LAPLAND_HELSINKI_HARBOUR;
 
   const regionalStops: ItineraryStop[] = [
     {
@@ -343,37 +372,37 @@ function buildLaplandItinerary({
     },
     {
       dateLabel: null,
-      icon: "sled",
-      id: sled?.id ?? "stop_lapland_sled",
+      icon: "cathedral",
+      id: cathedralPhoto?.id ?? "stop_lapland_cathedral",
       leg: "side",
       linkedJournalEntryId: null,
-      linkedPhotoId: sledPhoto?.id ?? null,
-      listLabel: "雪橇 / Sled",
-      note: sled?.notes ?? sledPhoto?.caption ?? null,
+      linkedPhotoId: cathedralPhoto?.id ?? null,
+      listLabel: "赫爾辛基主教座堂 / Helsinki Cathedral",
+      note: "冬日的赫爾辛基主教座堂。 / Helsinki Cathedral in winter.",
       number: 4,
-      point: sledPoint,
-      title: "雪橇 / Sled",
+      point: cathedralPoint,
+      title: "赫爾辛基主教座堂 / Helsinki Cathedral",
     },
     {
       dateLabel: null,
-      icon: "plane",
-      id: airport?.id ?? "stop_lapland_leaving",
-      leg: "winter",
-      linkedJournalEntryId: leavingJournal?.id ?? "journal_lapland_leaving",
-      linkedPhotoId: leavingPhoto?.id ?? leavingJournal?.storyPhotoId ?? null,
-      listLabel: "離開羅瓦涅米 / Leaving RVN",
-      note: airport?.notes ?? leavingJournal?.body ?? null,
+      icon: "harbour",
+      id: harbourPhoto?.id ?? "stop_lapland_harbour",
+      leg: "side",
+      linkedJournalEntryId: null,
+      linkedPhotoId: harbourPhoto?.id ?? null,
+      listLabel: "南港 / South Harbour",
+      note: "冬日南港。 / South Harbour in winter.",
       number: 5,
-      point: airportPoint,
-      title: leavingJournal?.title ?? "離開羅瓦涅米 / Leaving Rovaniemi",
+      point: harbourPoint,
+      title: "南港 / South Harbour",
     },
   ];
 
   const regionalLegs: RegionalLeg[] = [
     { from: santaPoint, id: "leg_santa_arctic", kind: "winter", style: "solid", to: arcticPoint },
     { from: santaPoint, id: "leg_santa_cabin", kind: "winter", style: "solid", to: cabinPoint },
-    { from: cabinPoint, id: "leg_cabin_sled", kind: "side", style: "dotted", to: sledPoint },
-    { from: cabinPoint, id: "leg_cabin_airport", kind: "winter", style: "solid", to: airportPoint },
+    { from: cabinPoint, id: "leg_cabin_helsinki", kind: "winter", style: "solid", to: helsinki?.coordinates ?? LAPLAND_HELSINKI },
+    { from: cathedralPoint, id: "leg_cathedral_harbour", kind: "side", style: "dotted", to: harbourPoint },
   ];
 
   return {
@@ -382,7 +411,7 @@ function buildLaplandItinerary({
       { id: "arrival_hel", label: "Helsinki", shortLabel: "HEL" },
     ],
     regionalLegs,
-    regionalPoints: [...regionalStops.map((stop) => stop.point), LAPLAND_CITY],
+    regionalPoints: [...regionalStops.map((stop) => stop.point), LAPLAND_CITY, LAPLAND_HELSINKI],
     regionalStops,
   };
 }
@@ -586,26 +615,22 @@ export function getTileBounds(points: GeoPoint[], scale: MapScale = "regional"):
   };
 }
 
-export function getLaplandPictureBounds(points: GeoPoint[]): TileBounds {
-  const zoom = 13;
-  const xs = points.map((point) => longitudeToTileX(point.longitude, zoom));
-  const ys = points.map((point) => latitudeToTileY(point.latitude, zoom));
-  const xSpan = Math.max(Math.max(...xs) - Math.min(...xs), 0.01);
-  const ySpan = Math.max(Math.max(...ys) - Math.min(...ys), 0.01);
-  const padX = Math.max(0.32, xSpan * 0.16);
-  const padY = Math.max(0.26, ySpan * 0.14);
+export function getLaplandPictureBounds(points: GeoPoint[] = []): TileBounds {
+  void points;
+  const zoom = LAPLAND_POSTER_FRAME.zoom;
 
   return {
-    maxX: Math.max(...xs) + padX + 0.06,
-    maxY: Math.max(...ys) + padY * 0.7,
-    minX: Math.min(...xs) - padX,
-    minY: Math.min(...ys) - padY - 0.08,
+    maxX: longitudeToTileX(LAPLAND_POSTER_FRAME.maxLng, zoom),
+    maxY: latitudeToTileY(LAPLAND_POSTER_FRAME.minLat, zoom),
+    minX: longitudeToTileX(LAPLAND_POSTER_FRAME.minLng, zoom),
+    minY: latitudeToTileY(LAPLAND_POSTER_FRAME.maxLat, zoom),
     zoom,
   };
 }
 
-export const WINTER_PICTURE_ORDER = [1, 2, 3, 5];
-export const SIDE_PICTURE_ORDER = [3, 4];
+export const WINTER_PICTURE_ORDER = [1, 2, 3, 4];
+export const SIDE_PICTURE_ORDER = [4, 5];
+export const LAPLAND_JOURNEY_ORDER = [1, 3, 4, 5];
 
 export function pathFromPinOrder(pins: PosterPin[], order: readonly number[]): PosterPoint[] {
   return order
@@ -714,23 +739,31 @@ export function spaceItineraryPins(stops: ItineraryStop[], bounds: TileBounds): 
 export function buildPosterLayout(itinerary: JourneyItinerary, city = "Rovaniemi"): PosterLayout {
   const points = itinerary.regionalPoints.length > 0 ? itinerary.regionalPoints : itinerary.regionalStops.map((stop) => stop.point);
   const fallback = points.length > 0 ? points : [{ latitude: 66.5039, longitude: 25.7294 }];
-  const bounds = isLaplandPosterCity(city) ? getLaplandPictureBounds(fallback) : getTileBounds(fallback, "regional");
-  const pins = spaceItineraryPins(itinerary.regionalStops, bounds);
+  const lapland = isLaplandPosterCity(city);
+  const bounds = lapland ? getLaplandPictureBounds(fallback) : getTileBounds(fallback, "regional");
+  const pins = lapland ? composeLaplandPosterPins(itinerary.regionalStops, bounds) : spaceItineraryPins(itinerary.regionalStops, bounds);
+  const projectPoint = lapland
+    ? (point: GeoPoint) => projectOntoLaplandPoster(point, bounds)
+    : (point: GeoPoint) => projectRaw(point, bounds);
 
   return {
+    arcticPath: lapland ? arcticCirclePosterPath(bounds) : [],
     bounds,
-    cityLabel: isLaplandPosterCity(city) ? "Rovaniemi" : `${city} · itinerary`,
+    cityLabel: lapland ? "Lapland · Helsinki" : `${city} · itinerary`,
+    legendItems: lapland ? buildLaplandLegendItems(pins) : [],
+    legendRatio: lapland ? LAPLAND_POSTER_LEGEND_RATIO : 0,
     legs: itinerary.regionalLegs.map((leg) => ({
-      from: projectRaw(leg.from, bounds),
+      from: projectPoint(leg.from),
       id: leg.id,
       kind: leg.kind,
       style: leg.style,
-      to: projectRaw(leg.to, bounds),
+      to: projectPoint(leg.to),
     })),
-    longHaulLabel: isLaplandPosterCity(city) ? "Rovaniemi · Helsinki" : formatLongHaulLabel(itinerary.arrival),
+    longHaulLabel: lapland ? "Santa Claus Village · Helsinki" : formatLongHaulLabel(itinerary.arrival),
+    mapRatio: lapland ? LAPLAND_POSTER_MAP_RATIO : 1,
     pins,
     sidePath: pathFromPinOrder(pins, SIDE_PICTURE_ORDER),
-    winterPath: pathFromPinOrder(pins, WINTER_PICTURE_ORDER),
+    winterPath: pathFromPinOrder(pins, lapland ? LAPLAND_JOURNEY_ORDER : WINTER_PICTURE_ORDER),
   };
 }
 
@@ -750,6 +783,77 @@ export function getPosterRasterSize(bounds: TileBounds) {
     height: Math.max(1, Math.round((bounds.maxY - bounds.minY) * TILE_PIXEL_SIZE)),
     width: Math.max(1, Math.round((bounds.maxX - bounds.minX) * TILE_PIXEL_SIZE)),
   };
+}
+
+export function getLaplandPosterRasterSize(bounds: TileBounds) {
+  const map = getPosterRasterSize(bounds);
+  return {
+    height: map.height,
+    mapWidth: map.width,
+    width: Math.max(1, Math.round(map.width / LAPLAND_POSTER_MAP_RATIO)),
+  };
+}
+
+export function projectOntoLaplandPoster(point: GeoPoint, bounds: TileBounds): PosterPoint {
+  const raw = projectRaw(point, bounds);
+  return {
+    x: raw.x * LAPLAND_POSTER_MAP_RATIO,
+    y: raw.y,
+  };
+}
+
+export function arcticCirclePosterPath(bounds: TileBounds): PosterPoint[] {
+  const longitudes = [20.8, 22.6, 24.4, 26.2, 28.0, 29.6, 30.8];
+  return longitudes.map((longitude) => projectOntoLaplandPoster({ latitude: LAPLAND_ARCTIC_LATITUDE, longitude }, bounds));
+}
+
+const LAPLAND_PIN_OFFSETS: Record<number, PosterPoint> = {
+  1: { x: 3.2, y: 1.0 },
+  2: { x: -3.4, y: -5.6 },
+  3: { x: -7.8, y: 5.4 },
+  4: { x: -6.2, y: -3.8 },
+  5: { x: 5.4, y: 2.0 },
+};
+
+export function posterChineseLabel(stop: ItineraryStop) {
+  if (!stop.listLabel.includes(" / ")) {
+    return null;
+  }
+
+  return stop.listLabel.split(" / ")[0]?.trim() || null;
+}
+
+export function composeLaplandPosterPins(stops: ItineraryStop[], bounds: TileBounds): PosterPin[] {
+  return stops.map((stop) => {
+    const projected = projectOntoLaplandPoster(stop.point, bounds);
+    const offset = LAPLAND_PIN_OFFSETS[stop.number] ?? { x: 0, y: 0 };
+    return {
+      id: stop.id,
+      label: posterShortLabel(stop),
+      leg: stop.leg,
+      number: stop.number,
+      point: stop.point,
+      sublabel: posterChineseLabel(stop),
+      x: Math.min(64, Math.max(8, projected.x + offset.x)),
+      y: Math.min(92, Math.max(8, projected.y + offset.y)),
+    };
+  });
+}
+
+export function buildLaplandLegendItems(pins: PosterPin[]): PosterLegendItem[] {
+  const startY = 11;
+  const rowHeight = 10.6;
+
+  return pins.map((pin, index) => ({
+    height: 9.4,
+    id: pin.id,
+    label: pin.label,
+    number: pin.number,
+    sublabel: pin.sublabel,
+    width: 27,
+    x: 70.5,
+    y: startY + index * rowHeight,
+  }));
 }
 
 export function isLaplandPosterCity(city: string) {
