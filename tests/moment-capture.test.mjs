@@ -78,10 +78,10 @@ test("family Capture door copy does not use the retired JDB Capture app name", a
 
   assert.match(family, />Capture 門</);
   assert.match(family, /<h2 className="travel-display mt-2 text-2xl font-semibold">Capture<\/h2>/);
-  assert.match(family, />打開 Capture</);
+  assert.match(family, />\s*打開 Capture\s*</);
   assert.match(family, /href="\/family\/capture"/);
   assert.match(family, />請 JDB 幫忙</);
-  assert.match(family, />開啟 JDB Sana</);
+  assert.match(family, />\s*開啟 JDB Sana\s*</);
   assert.match(capture, />one capture door</);
   assert.match(capture, /<h1 className="travel-display mt-2 text-4xl font-semibold">Capture<\/h1>/);
   assert.match(unlock, />\s*Capture\s*</);
