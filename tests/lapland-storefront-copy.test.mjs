@@ -65,13 +65,17 @@ test("storefront wording names place, season, and feel without invented proof", 
   assert.match(LAPLAND_STOREFRONT_ZH, /香港/);
   assert.match(LAPLAND_STOREFRONT_ZH, /赫爾辛基/);
   assert.match(LAPLAND_STOREFRONT_EN, /Finnish Lapland/);
-  assert.match(LAPLAND_STOREFRONT_EN, /mid-December/);
+  assert.match(LAPLAND_STOREFRONT_EN, /December/);
   assert.match(LAPLAND_STOREFRONT_EN, /Santa Claus Village/);
   assert.match(LAPLAND_STOREFRONT_EN, /Arctic Circle/);
   assert.match(LAPLAND_STOREFRONT_EN, /Hong Kong/);
   assert.match(LAPLAND_STOREFRONT_EN, /Helsinki/);
-  assert.match(LAPLAND_STOREFRONT_ZH, /白晝大約兩三小時/);
-  assert.match(LAPLAND_STOREFRONT_EN, /Daylight lasts about two to three hours/);
+  assert.match(LAPLAND_STOREFRONT_ZH, /白晝只剩兩三小時/);
+  assert.match(LAPLAND_STOREFRONT_EN, /two or three hours of daylight/);
+  assert.match(LAPLAND_STOREFRONT_ZH, /走過去就是北極圈/);
+  assert.match(LAPLAND_STOREFRONT_EN, /walk across/);
+  assert.match(LAPLAND_STOREFRONT_ZH, /港口與主教座堂/);
+  assert.match(LAPLAND_STOREFRONT_EN, /harbour and the cathedral/);
   assert.doesNotMatch(LAPLAND_STOREFRONT_ZH, /一月/);
   assert.doesNotMatch(LAPLAND_STOREFRONT_EN, /January/);
 

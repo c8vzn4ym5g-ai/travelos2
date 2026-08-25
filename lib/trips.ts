@@ -289,8 +289,7 @@ export const seedTripDetails: TripDetail[] = [
         tripId: "trip_lapland_2020",
         storageKey: "/travelos/lapland/garnish-helsinki-cathedral.jpeg",
         originalFilename: "garnish-helsinki-cathedral.jpeg",
-        caption:
-          "赫爾辛基主教座堂。場所圖，不是這次家庭照片。Wikimedia Commons · Public domain · Veritas-iustitia-libertas. / Helsinki Cathedral. Place photograph, not from this family trip.",
+        caption: "赫爾辛基主教座堂。 / Helsinki Cathedral.",
         takenAt: null,
         coordinates: { latitude: 60.1704, longitude: 24.9521 },
         cameraMake: null,
@@ -302,8 +301,7 @@ export const seedTripDetails: TripDetail[] = [
         tripId: "trip_lapland_2020",
         storageKey: "/travelos/lapland/garnish-helsinki-harbour.jpeg",
         originalFilename: "garnish-helsinki-harbour.jpeg",
-        caption:
-          "赫爾辛基南港。場所圖，不是這次家庭照片。Wikimedia Commons · CC BY 2.0 · Ninara. / South Harbour, Helsinki. Place photograph, not from this family trip.",
+        caption: "赫爾辛基南港。 / South Harbour, Helsinki.",
         takenAt: null,
         coordinates: { latitude: 60.1666, longitude: 24.9575 },
         cameraMake: null,

@@ -6,7 +6,6 @@ import {
   buildJourneyItinerary,
   buildPosterLayout,
   getStopCardContent,
-  isRegionalPointSet,
   LAPLAND_GLANCE_LABELS,
   LAPLAND_POSTER,
   STREET_BASEMAP,
@@ -34,6 +33,7 @@ test("JourneyMap hero is the generated itinerary poster, not a live tile collage
   assert.match(source, /data-glance-labels/);
   assert.match(source, /data-hero-map/);
   assert.match(source, /data-stop-list/);
+  assert.match(source, /data-map-legend/);
   assert.match(source, /min-h-11 min-w-11/);
   assert.match(source, /data-map-pin=\{pin\.number\}/);
   assert.match(source, /data-stop-card/);
@@ -48,8 +48,9 @@ test("JourneyMap hero is the generated itinerary poster, not a live tile collage
   assert.doesNotMatch(model, /maps\.googleapis|mt\d\.google|@googlemaps/);
   assert.doesNotMatch(pkg, /@googlemaps/);
   const layout = source.slice(source.indexOf("export function JourneyMap"));
-  assert.match(layout, /<RegionalMap[\s\S]*data-stop-list[\s\S]*data-stop-card/);
-  assert.match(layout, /lg:order-first/);
+  assert.match(layout, /<RegionalMap[\s\S]*data-stop-card/);
+  assert.match(source, /data-map-legend/);
+  assert.match(layout, /isLaplandPosterCity\(city\) \? null/);
   assert.doesNotMatch(source, /data-map-scale=\{slice\.scale\}/);
   assert.doesNotMatch(source, /data-map-frame="overview"/);
   assert.doesNotMatch(source, /Writing guide/);
@@ -103,6 +104,11 @@ test("poster generator stitches Carto Voyager tiles and the PNG is committed", a
   assert.match(generator, /buildPosterLayout/);
   assert.match(generator, /layout\.winterPath/);
   assert.match(generator, /layout\.longHaulLabel/);
+  assert.match(generator, /layout\.legendItems/);
+  assert.match(generator, /arcticCirclePosterPath/);
+  assert.match(generator, /Santa Claus Village/);
+  assert.match(generator, /HELSINKI/);
+  assert.match(generator, /At a glance/);
   assert.doesNotMatch(generator, /scaleBar/);
   assert.doesNotMatch(generator, /fillText\("N"/);
   assert.doesNotMatch(generator, /Winter route/);
@@ -163,8 +169,8 @@ test("Lapland itinerary is a Rovaniemi journey picture, not a Hong Kong-scale ov
     itinerary.arrival.map((city) => city.shortLabel),
     ["RVN", "HEL"],
   );
-  assert.equal(layout.longHaulLabel, "Rovaniemi · Helsinki");
-  assert.equal(layout.cityLabel, "Rovaniemi");
+  assert.equal(layout.longHaulLabel, "Santa Claus Village · Helsinki");
+  assert.equal(layout.cityLabel, "Lapland · Helsinki");
   assert.match(itinerary.regionalStops[0].listLabel, /Santa Claus Village/);
   assert.ok(layout.pins.some((pin) => pin.label === "Santa Claus Village" && pin.sublabel === "聖誕老人村"));
   assert.equal(itinerary.regionalStops.length, 5);
@@ -178,24 +184,30 @@ test("Lapland itinerary is a Rovaniemi journey picture, not a Hong Kong-scale ov
   assert.equal(itinerary.regionalStops[1].dateLabel, null);
   assert.match(itinerary.regionalStops[2].listLabel, /Cabin/);
   assert.equal(itinerary.regionalStops[2].dateLabel, null);
-  assert.match(itinerary.regionalStops[3].listLabel, /Sled/);
-  assert.match(itinerary.regionalStops[4].listLabel, /Leaving RVN|Rovaniemi/);
-  assert.equal(itinerary.regionalStops[4].dateLabel, null);
-  assert.ok(itinerary.regionalStops.every((stop) => isRegionalPointSet([stop.point, itinerary.regionalPoints[0]])));
+  assert.match(itinerary.regionalStops[3].listLabel, /Helsinki Cathedral/);
+  assert.match(itinerary.regionalStops[4].listLabel, /South Harbour/);
+  assert.ok(layout.pins.some((pin) => /Helsinki Cathedral/.test(pin.label)));
+  assert.ok(layout.pins.some((pin) => /South Harbour/.test(pin.label)));
+  assert.equal(layout.legendItems.length, 5);
+  assert.ok(layout.legendItems.every((item) => item.x > 60 && item.x < 90));
+  assert.ok(layout.pins.every((pin) => pin.x < 66));
   assert.ok(!itinerary.regionalPoints.some((point) => point.latitude === hongKong.latitude && point.longitude === hongKong.longitude));
-  assert.ok(isRegionalPointSet(itinerary.regionalPoints));
   assert.equal(layout.pins.length, 5);
   assert.ok(layout.pins.every((pin) => pin.x >= 6 && pin.x <= 94 && pin.y >= 8 && pin.y <= 92));
-  assert.ok(layout.bounds.zoom >= 12);
+  assert.equal(layout.bounds.zoom, 7);
+  assert.ok(layout.arcticPath.length >= 3);
   assert.equal(layout.winterPath.length, 4);
   assert.equal(layout.sidePath.length, 2);
   assert.equal(layout.winterPath[0].x, layout.pins.find((pin) => pin.number === 1)?.x);
-  assert.equal(layout.winterPath[1].x, layout.pins.find((pin) => pin.number === 2)?.x);
-  assert.equal(layout.sidePath[1].x, layout.pins.find((pin) => pin.number === 4)?.x);
+  assert.equal(layout.winterPath[1].x, layout.pins.find((pin) => pin.number === 3)?.x);
+  assert.equal(layout.sidePath[1].x, layout.pins.find((pin) => pin.number === 5)?.x);
+  assert.ok(layout.pins.find((pin) => pin.number === 1).y < layout.pins.find((pin) => pin.number === 4).y);
   assert.ok(itinerary.regionalLegs.some((leg) => leg.style === "solid" && leg.kind === "winter"));
   assert.ok(itinerary.regionalLegs.some((leg) => leg.style === "dotted" && leg.kind === "side"));
   assert.equal("scaleBar" in layout, false);
   assert.equal(LAPLAND_POSTER.src, "/travelos/maps/lapland-rovaniemi.png");
+  assert.match(LAPLAND_POSTER.alt, /Santa Claus Village/);
+  assert.match(LAPLAND_POSTER.alt, /Helsinki/);
   assert.equal(LAPLAND_GLANCE_LABELS, "Santa Claus Village (聖誕老人村) · Helsinki");
 });
 
@@ -231,7 +243,7 @@ test("selecting stop N shows bilingual wording and the linked photo", () => {
     stop: stopFive,
   });
   assert.ok(leavingCard);
-  assert.equal(leavingCard.title, "離開羅瓦涅米 / Leaving Rovaniemi");
-  assert.match(leavingCard.wording, /Finnair，是離開，不是抵達/);
-  assert.equal(leavingCard.photo?.storageKey, "/travelos/lapland/dump-finnair-tarmac.jpeg");
+  assert.equal(leavingCard.title, "南港 / South Harbour");
+  assert.match(leavingCard.wording, /South Harbour/);
+  assert.equal(leavingCard.photo?.storageKey, "/travelos/lapland/garnish-helsinki-harbour.jpeg");
 });

@@ -152,6 +152,7 @@ test("December 2019 dump photos are local public assets, not moment hotlinks", a
   const seed = await readFile(resolve(root, "lib/trips.ts"), "utf8");
   const config = await readFile(resolve(root, "next.config.ts"), "utf8");
   const copy = await readFile(resolve(root, "lib/lapland-storefront-copy.ts"), "utf8");
+  const page = await readFile(resolve(root, "app/trips/[slug]/page.tsx"), "utf8");
   const dumpFiles = [
     "dump-arctic-circle-pillars.jpeg",
     "dump-arctic-circle-sign.jpeg",
@@ -171,10 +172,13 @@ test("December 2019 dump photos are local public assets, not moment hotlinks", a
 
   assert.doesNotMatch(seed, /twnwgydxea5cgnyi\.public\.blob\.vercel-storage\.com/);
   assert.doesNotMatch(seed, /IMG_3665/);
-  assert.match(seed, /場所圖，不是這次家庭照片/);
-  assert.match(copy, /Place photograph, not from this family trip/);
-  assert.match(copy, /Wikimedia Commons · Public domain/);
-  assert.match(copy, /CC BY 2.0 · Ninara/);
+  assert.doesNotMatch(seed, /場所圖，不是這次家庭照片/);
+  assert.doesNotMatch(copy, /Place photograph, not from this family trip/);
+  assert.doesNotMatch(copy, /不是這次家庭照片/);
+  assert.match(copy, /Wikimedia Commons · public domain/);
+  assert.match(copy, /Ninara · CC BY 2.0/);
+  assert.match(copy, /data-photo-credits|LAPLAND_PHOTO_CREDITS/);
+  assert.match(page, /data-photo-credits/);
   assert.match(config, /destination: "\/trips\/finland-lapland-winter-journal"/);
   assert.match(config, /finland-lapland-winter-journal-2020/);
   assert.match(config, /finland-lapland-winter-journal-2019/);
@@ -198,8 +202,9 @@ test("Lapland winter-village photo uses Sana's Christmas-card caption", async ()
   assert.match(seed, /id: LAPLAND_WINTER_VILLAGE_PHOTO_ID/);
   assert.doesNotMatch(seed, /屋頂與雪徑/);
   assert.doesNotMatch(seed, /Roofs and snow paths/);
-  assert.match(store, /CONTENT_SCHEMA_VERSION = 12/);
+  assert.match(store, /CONTENT_SCHEMA_VERSION = 13/);
   assert.match(store, /rebuildLaplandPublicStory/);
+  assert.match(store, /photo_lapland_garnish_/);
   assert.match(store, /savedSchemaVersion < 12 && seedTrip.id === "trip_lapland_2020"/);
   assert.match(page, /forLaplandPublicPage/);
   assert.match(page, /hideExactDate=\{isLaplandStorefrontSlug\(trip\.slug\)\}/);

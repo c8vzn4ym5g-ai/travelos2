@@ -85,6 +85,24 @@ function StopGlyph({ icon }: { icon: StopIcon }) {
     );
   }
 
+  if (icon === "cathedral") {
+    return (
+      <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16">
+        <path d="M8 2v3M6.5 5h3" {...common} />
+        <path d="M4 14V8.5L8 5.5 12 8.5V14H4Z" {...common} />
+      </svg>
+    );
+  }
+
+  if (icon === "harbour") {
+    return (
+      <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16">
+        <path d="M3 11c1.2 1.4 2.8 2 5 2s3.8-.6 5-2" {...common} />
+        <path d="M8 4v7M5.5 7.5 8 6l2.5 1.5" {...common} />
+      </svg>
+    );
+  }
+
   return (
     <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16">
       <circle cx="8" cy="7" r="2.4" {...common} />
@@ -105,14 +123,18 @@ function QuietArrival({ cities }: { cities: { id: string; label: string; shortLa
 
 function RegionalMap({
   city,
+  legendItems,
   onSelect,
   pins,
   selectedId,
+  stops,
 }: {
   city: string;
+  legendItems: ReturnType<typeof buildPosterLayout>["legendItems"];
   onSelect: (id: string) => void;
   pins: PosterPin[];
   selectedId: string | null;
+  stops: ReturnType<typeof buildJourneyItinerary>["regionalStops"];
 }) {
   const usePoster = isLaplandPosterCity(city);
 
@@ -136,7 +158,7 @@ function RegionalMap({
           <button
             aria-label={`Stop ${pin.number}: ${pin.label}`}
             aria-pressed={selected}
-            className={`absolute min-h-11 min-w-11 -translate-x-1/2 -translate-y-1/2 rounded-full bg-transparent text-transparent transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
+            className={`absolute z-20 min-h-11 min-w-11 -translate-x-1/2 -translate-y-1/2 rounded-full bg-transparent text-transparent transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
               selected ? "z-40 ring-4 ring-white/90 ring-offset-2 ring-offset-teal-800/30" : ""
             }`}
             data-map-pin={pin.number}
@@ -150,6 +172,39 @@ function RegionalMap({
           </button>
         );
       })}
+      {legendItems.length > 0 ? (
+        <ol className="absolute inset-0 z-10" data-map-legend="" data-stop-list>
+          {legendItems.map((item) => {
+            const stop = stops.find((entry) => entry.id === item.id);
+            const selected = selectedId === item.id;
+            return (
+              <li
+                className="absolute"
+                key={item.id}
+                style={{
+                  height: `${item.height}%`,
+                  left: `${item.x}%`,
+                  top: `${item.y}%`,
+                  width: `${item.width}%`,
+                }}
+              >
+                <button
+                  aria-label={`${item.number}. ${stop?.listLabel ?? item.label}`}
+                  aria-pressed={selected}
+                  className={`h-full min-h-11 w-full rounded-2xl bg-transparent text-transparent transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
+                    selected ? "ring-4 ring-white/90 ring-offset-2 ring-offset-teal-800/30" : ""
+                  }`}
+                  data-stop-button={item.number}
+                  onClick={() => onSelect(item.id)}
+                  type="button"
+                >
+                  {item.number}
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      ) : null}
       <p className="sr-only">Map credit: {STREET_BASEMAP.attribution}</p>
     </div>
   );
@@ -201,44 +256,59 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
         </span>
       </div>
 
-      <div className="grid gap-4 p-3 sm:p-4 lg:grid-cols-[minmax(15rem,18.5rem)_minmax(0,1fr)] lg:items-stretch">
-        <RegionalMap city={city} onSelect={setSelectedId} pins={posterLayout.pins} selectedId={selectedStop?.id ?? null} />
-        <ol className="flex flex-col gap-1.5 lg:order-first" data-stop-list>
-          {itinerary.regionalStops.map((stop) => {
-            const selected = selectedStop?.id === stop.id;
-            return (
-              <li key={stop.id}>
-                <button
-                  aria-label={`${stop.number}. ${stop.listLabel}`}
-                  aria-pressed={selected}
-                  className={`grid min-h-11 w-full grid-cols-[2rem_minmax(0,1fr)_1.25rem] items-center gap-2 rounded-2xl border px-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
-                    selected
-                      ? "border-teal-200 bg-teal-50 text-teal-950 shadow-sm"
-                      : "border-transparent bg-white/70 text-slate-700 hover:border-sky-100 hover:bg-sky-50"
-                  }`}
-                  data-stop-button={stop.number}
-                  onClick={() => setSelectedId(stop.id)}
-                  type="button"
-                >
-                  <span
-                    className={`grid h-7 w-7 place-items-center rounded-full text-[0.72rem] font-bold text-white ${
-                      stop.leg === "side" ? "bg-[#b65f44]" : "bg-[#0f4f48]"
+      <div
+        className={
+          isLaplandPosterCity(city)
+            ? "p-3 sm:p-4"
+            : "grid gap-4 p-3 sm:p-4 lg:grid-cols-[minmax(15rem,18.5rem)_minmax(0,1fr)] lg:items-stretch"
+        }
+      >
+        <RegionalMap
+          city={city}
+          legendItems={posterLayout.legendItems}
+          onSelect={setSelectedId}
+          pins={posterLayout.pins}
+          selectedId={selectedStop?.id ?? null}
+          stops={itinerary.regionalStops}
+        />
+        {isLaplandPosterCity(city) ? null : (
+          <ol className="flex flex-col gap-1.5 lg:order-first" data-stop-list>
+            {itinerary.regionalStops.map((stop) => {
+              const selected = selectedStop?.id === stop.id;
+              return (
+                <li key={stop.id}>
+                  <button
+                    aria-label={`${stop.number}. ${stop.listLabel}`}
+                    aria-pressed={selected}
+                    className={`grid min-h-11 w-full grid-cols-[2rem_minmax(0,1fr)_1.25rem] items-center gap-2 rounded-2xl border px-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
+                      selected
+                        ? "border-teal-200 bg-teal-50 text-teal-950 shadow-sm"
+                        : "border-transparent bg-white/70 text-slate-700 hover:border-sky-100 hover:bg-sky-50"
                     }`}
+                    data-stop-button={stop.number}
+                    onClick={() => setSelectedId(stop.id)}
+                    type="button"
                   >
-                    {stop.number}
-                  </span>
-                  <span className="min-w-0">
-                    {stop.dateLabel ? <span className="mr-1.5 whitespace-nowrap text-[0.62rem] font-bold tracking-wide text-teal-800">{stop.dateLabel}</span> : null}
-                    <span className="block truncate text-[0.8rem] font-semibold leading-5">{stop.listLabel}</span>
-                  </span>
-                  <span className={selected ? "text-teal-800" : "text-slate-400"}>
-                    <StopGlyph icon={stop.icon} />
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
+                    <span
+                      className={`grid h-7 w-7 place-items-center rounded-full text-[0.72rem] font-bold text-white ${
+                        stop.leg === "side" ? "bg-[#b65f44]" : "bg-[#0f4f48]"
+                      }`}
+                    >
+                      {stop.number}
+                    </span>
+                    <span className="min-w-0">
+                      {stop.dateLabel ? <span className="mr-1.5 whitespace-nowrap text-[0.62rem] font-bold tracking-wide text-teal-800">{stop.dateLabel}</span> : null}
+                      <span className="block truncate text-[0.8rem] font-semibold leading-5">{stop.listLabel}</span>
+                    </span>
+                    <span className={selected ? "text-teal-800" : "text-slate-400"}>
+                      <StopGlyph icon={stop.icon} />
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        )}
       </div>
 
       {selectedCard ? (
@@ -255,7 +325,8 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
           )}
           <div className="min-w-0">
             <p className="travel-kicker text-[0.65rem]">{selectedStop ? `Stop ${selectedStop.number}` : "Stop"}</p>
-            <h3 className="mt-1 text-base font-semibold leading-6 text-[color:var(--ink)]" data-stop-title>
+            <h3 className="mt-1 flex items-center gap-2 text-base font-semibold leading-6 text-[color:var(--ink)]" data-stop-title>
+              {selectedStop ? <StopGlyph icon={selectedStop.icon} /> : null}
               {selectedCard.title}
             </h3>
             <p className="travel-muted mt-2 text-sm leading-6" data-stop-wording>

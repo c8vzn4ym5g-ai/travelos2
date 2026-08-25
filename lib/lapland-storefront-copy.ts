@@ -6,10 +6,10 @@ export const LAPLAND_STOREFRONT_KICKER = "為何去 / Why go";
 export const LAPLAND_STOREFRONT_TITLE = "北極圈上的冬日小鎮，然後是城市 / A winter town on the Arctic Circle, then a city";
 
 export const LAPLAND_STOREFRONT_ZH =
-  "芬蘭拉普蘭，十二月、深冬、聖誕季。聖誕老人村在北極圈上：積雪、木屋，廣場上有一條可以走過去的線。白晝大約兩三小時，日出近中午，日落在下午。然後往南到赫爾辛基，雪後是城市與設計。從香港通常經赫爾辛基轉機進羅瓦涅米。極光在十二月有機會，但不是保證。";
+  "芬蘭拉普蘭，十二月。深冬，雪很厚，白晝只剩兩三小時，暮光像停在中午。聖誕老人村在北極圈上：木屋、積雪，廣場上有一條線，走過去就是北極圈。然後往南，解凍的赫爾辛基，港口與主教座堂，雪後是城市。從香港通常經赫爾辛基轉機進羅瓦涅米。極光在十二月有機會，但不是保證。";
 
 export const LAPLAND_STOREFRONT_EN =
-  "Finnish Lapland, mid-December: deep winter, the Christmas window. Santa Claus Village sits on the Arctic Circle: snow, timber houses, and a line you can walk across in the square. Daylight lasts about two to three hours; sunrise late morning, sunset early afternoon. Then south to Helsinki — city and design after the snow. From Hong Kong the usual way in is via Helsinki to Rovaniemi. Aurora is possible in December. It is not a promise.";
+  "Finnish Lapland in December. Deep winter, heavy snow, and only two or three hours of daylight — twilight parked at midday. Santa Claus Village sits on the Arctic Circle: timber houses, snow, and a line in the square you can walk across. Then south, to Helsinki thawing by the harbour and the cathedral — city after snow. From Hong Kong the usual way in is via Helsinki to Rovaniemi. Aurora is possible in December. It is not a promise.";
 
 export const LAPLAND_HOOK_ZH = "十二月。聖誕老人村在北極圈上，然後往南到赫爾辛基。";
 export const LAPLAND_HOOK_EN = "December. Santa Claus Village on the Arctic Circle, then south to Helsinki.";
@@ -20,6 +20,7 @@ export type VisualPathKind = "family" | "garnish";
 
 export type LaplandVisualBeat = {
   credit: string | null;
+  creditPlacement?: "caption" | "footer" | null;
   en: string;
   kind: VisualPathKind;
   kicker: string;
@@ -93,22 +94,24 @@ export const LAPLAND_VISUAL_PATH: LaplandVisualBeat[] = [
     zh: "飯店大樓梯。雪之後是赫爾辛基。",
   },
   {
-    credit: "Wikimedia Commons · Public domain · Veritas-iustitia-libertas",
-    en: "Helsinki Cathedral in winter. Place photograph, not from this family trip.",
+    credit: "Wikimedia Commons · public domain · Veritas-iustitia-libertas",
+    creditPlacement: "footer",
+    en: "Helsinki Cathedral in winter.",
     kind: "garnish",
-    kicker: "場所圖 / Place photo",
+    kicker: "赫爾辛基 / Helsinki",
     photoId: "photo_lapland_garnish_cathedral",
     title: "赫爾辛基主教座堂 / Helsinki Cathedral",
-    zh: "冬日的赫爾辛基主教座堂。場所圖，不是這次家庭照片。",
+    zh: "冬日的赫爾辛基主教座堂。",
   },
   {
-    credit: "Wikimedia Commons · CC BY 2.0 · Ninara",
-    en: "South Harbour in winter. Place photograph, not from this family trip.",
+    credit: "Ninara · CC BY 2.0",
+    creditPlacement: "caption",
+    en: "South Harbour in winter.",
     kind: "garnish",
-    kicker: "場所圖 / Place photo",
+    kicker: "赫爾辛基 / Helsinki",
     photoId: "photo_lapland_garnish_harbour",
     title: "南港 / South Harbour",
-    zh: "冬日南港。場所圖，不是這次家庭照片。",
+    zh: "冬日南港。",
   },
 ];
 
@@ -141,8 +144,31 @@ export const LAPLAND_PLACE_KNOWLEDGE: LaplandPlaceFact[] = [
   },
 ];
 
-export const LAPLAND_GARNISH_CREDIT_ZH = "場所圖，不是這次家庭照片。";
-export const LAPLAND_GARNISH_CREDIT_EN = "Place photograph, not from this family trip.";
+export const LAPLAND_PHOTO_CREDITS = [
+  {
+    id: "photo_lapland_garnish_cathedral",
+    line: "Helsinki Cathedral — Wikimedia Commons, public domain (Veritas-iustitia-libertas).",
+    lineZh: "赫爾辛基主教座堂 — Wikimedia Commons，公有領域（Veritas-iustitia-libertas）。",
+  },
+  {
+    id: "photo_lapland_garnish_harbour",
+    line: "South Harbour — Ninara, CC BY 2.0, via Wikimedia Commons.",
+    lineZh: "南港 — Ninara，CC BY 2.0，via Wikimedia Commons。",
+  },
+] as const;
+
+export function isLaplandGarnishPhoto(photo: { id?: string; originalFilename?: string }) {
+  return photo.id?.startsWith("photo_lapland_garnish_") || Boolean(photo.originalFilename?.startsWith("garnish-"));
+}
+
+export function garnishCaptionCredit(photoId: string) {
+  const beat = LAPLAND_VISUAL_PATH.find((item) => item.photoId === photoId);
+  if (beat?.creditPlacement === "caption") {
+    return beat.credit;
+  }
+
+  return null;
+}
 
 export function isLaplandStorefrontSlug(slug: string): boolean {
   return isLaplandPublicSlug(slug);
