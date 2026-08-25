@@ -12,7 +12,6 @@ import {
   createMomentSession,
   createStagedCapturePhotos,
   createTinyPreviewUrl,
-  createWorkQueue,
   finalizeCaptureMoment,
   ingestCaptureFileList,
   removeUploadedPhotoInBackground,
@@ -63,7 +62,6 @@ export default function CapturePage() {
   const coordinatesRef = useRef<GeoPoint | null>(null);
   const momentSessionRef = useRef<ReturnType<typeof createMomentSession> | null>(null);
   const photoUploadsRef = useRef(new Map<string, Promise<void>>());
-  const photoQueueRef = useRef<ReturnType<typeof createWorkQueue> | null>(null);
   const audioUploadRef = useRef<Promise<void> | null>(null);
   const savingRef = useRef(false);
   const [pin, setPin] = useState("");
@@ -149,11 +147,6 @@ export default function CapturePage() {
     };
   }, []);
 
-  function photoQueue() {
-    photoQueueRef.current ??= createWorkQueue();
-    return photoQueueRef.current;
-  }
-
   function momentSession() {
     momentSessionRef.current ??= createMomentSession((time) =>
       createCaptureMoment({
@@ -199,7 +192,7 @@ export default function CapturePage() {
   }
 
   async function startBackgroundPhotoUpload(photo: StagedPhoto) {
-    const run = photoQueue().enqueue(async () => {
+    const run = (async () => {
       if (photo.abort.signal.aborted) {
         return;
       }
@@ -262,7 +255,7 @@ export default function CapturePage() {
         setMessage(detail);
         throw error;
       }
-    });
+    })();
 
     photoUploadsRef.current.set(photo.id, run.then(() => undefined, () => undefined));
     return run;
@@ -329,7 +322,6 @@ export default function CapturePage() {
       return;
     }
 
-    photoQueue();
     setMessage(captureBatchMessage(fileListLength, photosRef.current.length + Math.min(fileListLength, CAPTURE_DUMP_LIMIT)));
 
     await ingestCaptureFileList(fileList, {
