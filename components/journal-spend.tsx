@@ -47,13 +47,13 @@ function GoThereLink() {
   );
 }
 
-function CostRow({ cost }: { cost: Cost }) {
+function CostRow({ cost, hideExactDate }: { cost: Cost; hideExactDate?: boolean }) {
   return (
     <article className="grid gap-2 border-b border-[color:var(--line)] py-4 text-sm first:pt-0 last:border-0 last:pb-0 sm:grid-cols-[1fr_auto]">
       <div>
         <p className="font-semibold capitalize text-[color:var(--ink)]">{cost.category}</p>
         <p className="travel-muted mt-1">
-          {formatDate(cost.paidAt)}
+          {hideExactDate ? journalYearFromDate(cost.paidAt) : formatDate(cost.paidAt)}
           {cost.merchant ? ` / ${cost.merchant}` : ""}
         </p>
         {cost.notes ? <p className="travel-muted mt-2 leading-6">{cost.notes}</p> : null}
@@ -137,7 +137,7 @@ export function JournalSpendPanel({
       </details>
       <div className="mt-4">
         {costs.map((cost) => (
-          <CostRow cost={cost} key={cost.id} />
+          <CostRow cost={cost} hideExactDate={isLaplandJournalSlug(slug)} key={cost.id} />
         ))}
       </div>
     </section>

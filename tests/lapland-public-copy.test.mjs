@@ -35,19 +35,29 @@ test("public trip page has no writer chrome", async () => {
   assert.doesNotMatch(page, /Draft ready/);
 });
 
-test("Lapland seed copy uses the professional bilingual titles", async () => {
+test("Lapland seed copy uses seasonal bilingual titles, not a year in the slug", async () => {
   const seed = await readFile(resolve(root, "lib/trips.ts"), "utf8");
 
-  assert.match(seed, /laplandTitle: "拉普蘭冬日記憶"/);
-  assert.match(seed, /Lapland Winter Journal/);
-  assert.match(seed, /抵達北極圈 \/ Arrival at the Arctic Circle/);
-  assert.match(seed, /laplandSanta: "聖誕老人村"/);
-  assert.match(seed, / \/ Santa Claus Village`/);
-  assert.match(seed, /laplandCampfire: "雪地營火"/);
-  assert.match(seed, /Campfire in the snow/);
+  assert.match(seed, /laplandTitle: "北極圈上的十二月"/);
+  assert.match(seed, /December on the Arctic Circle/);
+  assert.match(seed, /slug: "finland-lapland-winter-journal"/);
+  assert.doesNotMatch(seed, /slug: "finland-lapland-winter-journal-2019"/);
+  assert.doesNotMatch(seed, /slug: "finland-lapland-winter-journal-2020"/);
+  assert.match(seed, /北極圈 \/ Arctic Circle/);
+  assert.match(seed, /4 號紅木屋 \/ Red cabin no. 4/);
+  assert.match(seed, /離開羅瓦涅米 \/ Leaving Rovaniemi/);
+  assert.match(seed, /赫爾辛基解凍 \/ Helsinki thaw/);
+  assert.doesNotMatch(seed, /2020-01-18/);
+  assert.doesNotMatch(seed, /抵達北極圈 \/ Arrival at the Arctic Circle/);
   assert.doesNotMatch(seed, /Arrival above the Arctic Circle/);
   assert.doesNotMatch(seed, /warmth is not an abstract word/);
   assert.doesNotMatch(seed, /restrained purity/);
+  assert.doesNotMatch(seed, /Campfire in the snow/);
+  assert.doesNotMatch(seed, /2020 年 1 月/);
+  assert.doesNotMatch(seed, /January 2020/);
+  assert.doesNotMatch(seed, /12 月 11 日/);
+  assert.doesNotMatch(seed, /11 December/);
+  assert.doesNotMatch(seed, /December 2019\./);
 });
 
 test("Lapland journal costs stay the 2020 recorded amounts", async () => {
@@ -104,12 +114,12 @@ test("public trip cost UI keeps a quiet chip and collapsed cost notes", async ()
 
 test("Lapland 2020 and August 2026 cost copy is bilingual and not a live quote", () => {
   assert.equal(JOURNAL_COST_CHIP_LABEL, "Cost");
-  assert.equal(journalSpendTitle("2020-01-18"), "2020 遊記花費 / Tracked spend");
-  assert.equal(journalLineRecordLabel("2020-01-18"), "2020 遊記記錄 / Journal record");
-  assert.equal(LAPLAND_JOURNAL_COST_ZH, "2020 年該次行程，遊記記錄，約兩人、約一週。不是今日報價。");
+  assert.equal(journalSpendTitle("2019-12-11"), "2019 遊記花費 / Tracked spend");
+  assert.equal(journalLineRecordLabel("2019-12-11"), "2019 遊記記錄 / Journal record");
+  assert.equal(LAPLAND_JOURNAL_COST_ZH, "2019 年 12 月該次行程。金額來自後來標成 2020 的遊記記錄，約兩人、約五日。不是今日報價。");
   assert.equal(
     LAPLAND_JOURNAL_COST_EN,
-    "2020 that trip, recorded in the journal, about 2 people and about one week. Not today's price.",
+    "December 2019 that trip. Amounts come from a later journal write-up labelled 2020, about 2 people and about five days. Not today's price.",
   );
   assert.match(LAPLAND_COST_HERO_2026_ZH, /2026 年 8 月參考/);
   assert.match(LAPLAND_COST_HERO_2026_ZH, /HK\$6,600–9,000/);
@@ -137,6 +147,44 @@ test("Lapland 2020 and August 2026 cost copy is bilingual and not a live quote",
   assert.doesNotMatch(footnoteCopy, /expedia\.com|ratepunk\.com|kissandfly/i);
 });
 
+test("December 2019 dump photos are local public assets, not moment hotlinks", async () => {
+  const { access } = await import("node:fs/promises");
+  const seed = await readFile(resolve(root, "lib/trips.ts"), "utf8");
+  const config = await readFile(resolve(root, "next.config.ts"), "utf8");
+  const copy = await readFile(resolve(root, "lib/lapland-storefront-copy.ts"), "utf8");
+  const dumpFiles = [
+    "dump-arctic-circle-pillars.jpeg",
+    "dump-arctic-circle-sign.jpeg",
+    "dump-cabin-4-snowman.jpeg",
+    "dump-cabin-window.jpeg",
+    "dump-finnair-tarmac.jpeg",
+    "dump-helsinki-staircase.jpeg",
+    "dump-post-office.jpeg",
+    "garnish-helsinki-cathedral.jpeg",
+    "garnish-helsinki-harbour.jpeg",
+  ];
+
+  for (const file of dumpFiles) {
+    await access(resolve(root, "public/travelos/lapland", file));
+    assert.match(seed, new RegExp(`/travelos/lapland/${file.replace(".", "\\.")}`));
+  }
+
+  assert.doesNotMatch(seed, /twnwgydxea5cgnyi\.public\.blob\.vercel-storage\.com/);
+  assert.doesNotMatch(seed, /IMG_3665/);
+  assert.match(seed, /場所圖，不是這次家庭照片/);
+  assert.match(copy, /Place photograph, not from this family trip/);
+  assert.match(copy, /Wikimedia Commons · Public domain/);
+  assert.match(copy, /CC BY 2.0 · Ninara/);
+  assert.match(config, /destination: "\/trips\/finland-lapland-winter-journal"/);
+  assert.match(config, /finland-lapland-winter-journal-2020/);
+  assert.match(config, /finland-lapland-winter-journal-2019/);
+  assert.match(config, /permanent: true/);
+  assert.doesNotMatch(copy, /2019/);
+  assert.doesNotMatch(copy, /12 月 11/);
+  assert.doesNotMatch(copy, /11 Dec/);
+  assert.doesNotMatch(copy, /11 December/);
+});
+
 test("Lapland winter-village photo uses Sana's Christmas-card caption", async () => {
   const [seed, store, page] = await Promise.all([
     readFile(resolve(root, "lib/trips.ts"), "utf8"),
@@ -150,10 +198,11 @@ test("Lapland winter-village photo uses Sana's Christmas-card caption", async ()
   assert.match(seed, /id: LAPLAND_WINTER_VILLAGE_PHOTO_ID/);
   assert.doesNotMatch(seed, /屋頂與雪徑/);
   assert.doesNotMatch(seed, /Roofs and snow paths/);
-  assert.match(store, /CONTENT_SCHEMA_VERSION = 10/);
-  assert.match(store, /savedSchemaVersion < 10 && item\.id === LAPLAND_WINTER_VILLAGE_PHOTO_ID/);
-  assert.match(store, /photo\.id === LAPLAND_WINTER_VILLAGE_PHOTO_ID && photo\.caption !== LAPLAND_WINTER_VILLAGE_CAPTION/);
-  assert.match(page, /alt=\{photo\.caption \?\? photo\.originalFilename\}/);
+  assert.match(store, /CONTENT_SCHEMA_VERSION = 12/);
+  assert.match(store, /rebuildLaplandPublicStory/);
+  assert.match(store, /savedSchemaVersion < 12 && seedTrip.id === "trip_lapland_2020"/);
+  assert.match(page, /forLaplandPublicPage/);
+  assert.match(page, /hideExactDate=\{isLaplandStorefrontSlug\(trip\.slug\)\}/);
   assert.match(page, /alt=\{coverPhoto\.caption \?\? trip\.title\}/);
   assert.match(page, /\{photo\.caption \?\? photo\.originalFilename\}/);
   assert.doesNotMatch(page, /Unlock editor/);
