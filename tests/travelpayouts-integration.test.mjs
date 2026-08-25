@@ -19,7 +19,10 @@ const familySurfaces = [
   "/family/capture?from=home",
   "/trips/write",
   "/trips/admin",
+  "/trips/new",
   "/coffee/admin",
+  "/coffee/new",
+  "/admin",
   "/api/moments",
   "/api/family/gate",
 ];

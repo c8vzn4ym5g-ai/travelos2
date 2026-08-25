@@ -6,7 +6,10 @@ const privateDriveRoutes = [
   "/family",
   "/trips/write",
   "/trips/admin",
+  "/trips/new",
   "/coffee/admin",
+  "/coffee/new",
+  "/admin",
   "/api",
 ] as const;
 
