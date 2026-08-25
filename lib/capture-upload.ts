@@ -106,6 +106,38 @@ export function captureDumpCapMessage(limit = CAPTURE_DUMP_LIMIT) {
   return `這一輪先上傳 ${limit} 張，其餘請再選一次繼續傳。`;
 }
 
+export function captureFreshDumpRoundMessage(limit = CAPTURE_DUMP_LIMIT) {
+  return `這一輪是新的 ${limit} 張，上一輪已在倉庫裡。This round is a fresh ${limit}; previous photos are already in the warehouse.`;
+}
+
+export function shouldReplaceCaptureDumpRound(
+  source: "choose-photos" | "take-photo",
+  existingPhotoCount: number,
+) {
+  return source === "choose-photos" && existingPhotoCount > 0;
+}
+
+export function captureDumpProgressMessage(
+  received: number,
+  total: number,
+  options: { freshRound?: boolean } = {},
+) {
+  const batch = captureBatchMessage(received, total);
+  if (!options.freshRound || received <= 0) {
+    return batch;
+  }
+  return `${captureFreshDumpRoundMessage()} ${batch}`;
+}
+
+export function detachStagedCapturePhotos<T extends { previewUrl: string | null }>(photos: T[]) {
+  for (const photo of photos) {
+    if (photo.previewUrl) {
+      URL.revokeObjectURL(photo.previewUrl);
+    }
+  }
+  return [] as T[];
+}
+
 export function captureBatchMessage(received: number, total: number) {
   if (received <= 0) {
     return "請選照片。iPhone HEIC 會轉成 JPEG 上傳，原檔稍後另存。";

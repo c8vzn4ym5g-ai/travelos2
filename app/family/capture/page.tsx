@@ -5,16 +5,18 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   CAPTURE_DUMP_LIMIT,
-  captureBatchMessage,
+  captureDumpProgressMessage,
   captureErrorMessage,
   clearMomentAudioInBackground,
   createCaptureMoment,
   createMomentSession,
   createStagedCapturePhotos,
   createTinyPreviewUrl,
+  detachStagedCapturePhotos,
   finalizeCaptureMoment,
   ingestCaptureFileList,
   removeUploadedPhotoInBackground,
+  shouldReplaceCaptureDumpRound,
   uploadDisplayPhoto,
   uploadMomentAudio,
   uploadOriginalPhotoInBackground,
@@ -147,14 +149,18 @@ export default function CapturePage() {
     };
   }, []);
 
-  function momentSession() {
-    momentSessionRef.current ??= createMomentSession((time) =>
+  function createLiveMomentSession() {
+    return createMomentSession((time) =>
       createCaptureMoment({
         coordinates: coordinatesRef.current,
         pin: sessionPin(pinRef.current),
         time,
       }),
     );
+  }
+
+  function momentSession() {
+    momentSessionRef.current ??= createLiveMomentSession();
     return momentSessionRef.current;
   }
 
@@ -164,19 +170,40 @@ export default function CapturePage() {
     audioUploadRef.current = null;
   }
 
+  function beginFreshDumpRound() {
+    photosRef.current = detachStagedCapturePhotos(photosRef.current);
+    setPhotos(() => photosRef.current);
+    photoUploadsRef.current = new Map();
+    momentSessionRef.current = createLiveMomentSession();
+  }
+
   async function ensureMoment(time: string) {
     return momentSession().ensure(time);
   }
 
-  async function retryMoment(time: string, status: number) {
-    if (status === 404 && !momentSession().momentId) {
-      momentSession().reset();
+  async function retryMoment(
+    time: string,
+    status: number,
+    session = momentSession(),
+  ) {
+    if (status === 404 && !session.momentId) {
+      session.reset();
     }
-    return momentSession().ensure(time);
+    return session.ensure(time);
+  }
+
+  function photoIsOnScreen(photoId: string) {
+    return photosRef.current.some((photo) => photo.id === photoId);
   }
 
   function patchPhoto(photoId: string, patch: Partial<StagedPhoto>) {
     setPhotos((current) => {
+      if (!current.some((photo) => photo.id === photoId)) {
+        if (patch.previewUrl) {
+          URL.revokeObjectURL(patch.previewUrl);
+        }
+        return current;
+      }
       const next = current.map((photo) => {
         if (photo.id !== photoId) {
           return photo;
@@ -192,6 +219,7 @@ export default function CapturePage() {
   }
 
   async function startBackgroundPhotoUpload(photo: StagedPhoto) {
+    const session = momentSession();
     const run = (async () => {
       if (photo.abort.signal.aborted) {
         return;
@@ -200,7 +228,7 @@ export default function CapturePage() {
       patchPhoto(photo.id, { status: "uploading" });
       const takenAt = new Date(photo.file.lastModified).toISOString();
       try {
-        const momentId = await ensureMoment(takenAt);
+        const momentId = await session.ensure(takenAt);
         if (photo.abort.signal.aborted) {
           return;
         }
@@ -217,14 +245,14 @@ export default function CapturePage() {
             if (!previewUrl) {
               return;
             }
-            if (photo.abort.signal.aborted) {
+            if (photo.abort.signal.aborted || !photoIsOnScreen(photo.id)) {
               URL.revokeObjectURL(previewUrl);
               return;
             }
             patchPhoto(photo.id, { previewUrl });
           },
           pin: sessionPin(pinRef.current),
-          retryMoment: (status) => retryMoment(takenAt, status),
+          retryMoment: (status) => retryMoment(takenAt, status, session),
           signal: photo.abort.signal,
           takenAt,
         });
@@ -247,7 +275,7 @@ export default function CapturePage() {
           pin: sessionPin(pinRef.current),
         });
       } catch (error) {
-        if (photo.abort.signal.aborted) {
+        if (photo.abort.signal.aborted || !photoIsOnScreen(photo.id)) {
           return;
         }
         const detail = captureErrorMessage(error, "Photo upload failed.");
@@ -316,13 +344,28 @@ export default function CapturePage() {
     return run;
   }
 
-  async function addIncomingFiles(fileList: FileList | null, input?: HTMLInputElement) {
+  async function addIncomingFiles(
+    fileList: FileList | null,
+    input: HTMLInputElement | undefined,
+    source: "choose-photos" | "take-photo",
+  ) {
     const fileListLength = fileList?.length ?? 0;
     if (fileListLength === 0) {
       return;
     }
 
-    setMessage(captureBatchMessage(fileListLength, photosRef.current.length + Math.min(fileListLength, CAPTURE_DUMP_LIMIT)));
+    const freshRound = shouldReplaceCaptureDumpRound(source, photosRef.current.length);
+    if (freshRound) {
+      beginFreshDumpRound();
+    }
+
+    setMessage(
+      captureDumpProgressMessage(
+        fileListLength,
+        photosRef.current.length + Math.min(fileListLength, CAPTURE_DUMP_LIMIT),
+        { freshRound },
+      ),
+    );
 
     await ingestCaptureFileList(fileList, {
       limit: CAPTURE_DUMP_LIMIT,
@@ -337,7 +380,8 @@ export default function CapturePage() {
 
         setPhotos((current) => {
           const next = appendMomentPhotos(current, incoming);
-          setMessage(captureBatchMessage(progress.fileListLength, next.length));
+          photosRef.current = next;
+          setMessage(captureDumpProgressMessage(progress.fileListLength, next.length, { freshRound }));
           return next;
         });
 
@@ -346,7 +390,9 @@ export default function CapturePage() {
         }
       },
       onReceived(received) {
-        setMessage(captureBatchMessage(received, photosRef.current.length + received));
+        setMessage(
+          captureDumpProgressMessage(received, photosRef.current.length + received, { freshRound }),
+        );
       },
       resetInput() {
         if (input && input.files === fileList) {
@@ -357,11 +403,11 @@ export default function CapturePage() {
   }
 
   function onTakePhoto(event: React.ChangeEvent<HTMLInputElement>) {
-    void addIncomingFiles(event.target.files, event.target);
+    void addIncomingFiles(event.target.files, event.target, "take-photo");
   }
 
   function onChoosePhotos(event: React.ChangeEvent<HTMLInputElement>) {
-    void addIncomingFiles(event.target.files, event.target);
+    void addIncomingFiles(event.target.files, event.target, "choose-photos");
   }
 
   function removePhoto(photoId: string) {
@@ -569,7 +615,7 @@ export default function CapturePage() {
           <p className="travel-script mt-8 text-2xl text-rose-700">one capture door</p>
           <h1 className="travel-display mt-2 text-4xl font-semibold">Capture</h1>
           <p className="mt-4 text-base leading-7 text-zinc-600">
-            打開就能拍或錄。先看剛留下的，不好就重拍或重錄，缺的再補一張。一次選很多張會立刻開始上傳，這一輪最多 40 張，其餘再選一次。存成 Moment，不是新的旅程。一句話可以是心情，也可以是交代給 TravelOS 的工作。
+            打開就能拍或錄。先看剛留下的，不好就重拍或重錄，缺的再補一張。一次選很多張會立刻開始上傳，這一輪最多 40 張，其餘再選一次。再選一次相簿會清掉畫面上的上一輪，上一輪已在倉庫裡。存成 Moment，不是新的旅程。一句話可以是心情，也可以是交代給 TravelOS 的工作。
           </p>
         </div>
       </section>
@@ -578,7 +624,7 @@ export default function CapturePage() {
         <article className="rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm">
           <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">拍照與相簿都留著</p>
           <h2 className="travel-display mt-2 text-2xl font-semibold">Take Photo / Choose Photos</h2>
-          <p className="mt-3 text-sm leading-6 text-zinc-600">加入之後兩個按鈕都還在。新的會接在後面，不會蓋掉剛拍的。一次最多先傳 40 張，會立刻開始上傳。其餘請再選一次。</p>
+          <p className="mt-3 text-sm leading-6 text-zinc-600">加入之後兩個按鈕都還在。拍照會接在這一輪後面。再選一次相簿會清掉畫面上的上一輪，上一輪已在倉庫裡。一次最多先傳 40 張，會立刻開始上傳。其餘請再選一次。</p>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <label className={`${controlClass} border-sky-300 bg-sky-50 text-sky-950`}>

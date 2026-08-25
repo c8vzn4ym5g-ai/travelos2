@@ -268,7 +268,7 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.doesNotMatch(capture, /photoQueue/);
   assert.match(capture, /retryMoment/);
   assert.match(capture, /captureErrorMessage/);
-  assert.match(capture, /captureBatchMessage/);
+  assert.match(capture, /captureDumpProgressMessage/);
   assert.match(capture, /排隊中/);
   assert.match(capture, /上傳中/);
   assert.match(capture, /已上傳/);
