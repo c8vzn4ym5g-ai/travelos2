@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Rebuild the Rovaniemi itinerary poster from lib/journey-map-model.ts.
+ * Rebuild the Rovaniemi journey picture from lib/journey-map-model.ts.
  *
  * Fetches Carto Voyager street tiles from
  * https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png
- * (no Google, no API key), stitches one raster, then draws pins, routes,
- * legend, scale, and north. Run again when stops change:
- * `pnpm generate:lapland-poster`
+ * (no Google, no API key), stitches one raster, then draws a glanceable
+ * numbered itinerary. Glanceable picture only: no GIS chrome.
+ * Run again when stops change: `pnpm generate:lapland-poster`
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -54,39 +54,75 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
   ctx.closePath();
 }
 
-function drawRoute(ctx, fromX, fromY, toX, toY, { color, dashed, width, halo }) {
+function toPixels(path, width, height) {
+  return path.map((point) => ({ x: pctX(width, point.x), y: pctY(height, point.y) }));
+}
+
+function traceSmoothPath(ctx, points) {
+  if (points.length < 2) {
+    return;
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+
+  if (points.length === 2) {
+    ctx.lineTo(points[1].x, points[1].y);
+    return;
+  }
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const previous = points[Math.max(0, index - 1)];
+    const current = points[index];
+    const next = points[index + 1];
+    const after = points[Math.min(points.length - 1, index + 2)];
+    ctx.bezierCurveTo(
+      current.x + (next.x - previous.x) / 6,
+      current.y + (next.y - previous.y) / 6,
+      next.x - (after.x - current.x) / 6,
+      next.y - (after.y - current.y) / 6,
+      next.x,
+      next.y,
+    );
+  }
+}
+
+function drawPicturePath(ctx, points, { color, dashed, width }) {
+  if (points.length < 2) {
+    return;
+  }
+
   ctx.save();
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  if (halo) {
-    ctx.strokeStyle = "rgba(255,255,255,0.9)";
-    ctx.lineWidth = width + 5;
-    ctx.setLineDash(dashed ? [14, 10] : []);
-    ctx.beginPath();
-    ctx.moveTo(fromX, fromY);
-    ctx.lineTo(toX, toY);
-    ctx.stroke();
-  }
+  ctx.strokeStyle = "rgba(255,255,255,0.92)";
+  ctx.lineWidth = width + 7;
+  ctx.setLineDash(dashed ? [16, 12] : []);
+  traceSmoothPath(ctx, points);
+  ctx.stroke();
   ctx.strokeStyle = color;
   ctx.lineWidth = width;
-  ctx.setLineDash(dashed ? [10, 8] : []);
-  ctx.beginPath();
-  ctx.moveTo(fromX, fromY);
-  ctx.lineTo(toX, toY);
+  ctx.setLineDash(dashed ? [12, 10] : []);
+  traceSmoothPath(ctx, points);
   ctx.stroke();
   ctx.restore();
 }
 
 function drawLabel(ctx, text, x, y, align) {
   ctx.save();
-  ctx.font = "600 22px 'DejaVu Sans', 'Liberation Sans', sans-serif";
-  ctx.textAlign = align;
-  ctx.textBaseline = "middle";
-  ctx.lineWidth = 5;
-  ctx.strokeStyle = "rgba(255,255,255,0.92)";
-  ctx.strokeText(text, x, y);
+  ctx.font = "600 21px 'DejaVu Sans', 'Liberation Sans', sans-serif";
+  const metrics = ctx.measureText(text);
+  const paddingX = 10;
+  const boxWidth = metrics.width + paddingX * 2;
+  const boxHeight = 26;
+  const boxX = align === "right" ? x - boxWidth : x;
+  drawRoundedRect(ctx, boxX, y - boxHeight / 2, boxWidth, boxHeight, 13);
+  ctx.fillStyle = "rgba(255,255,255,0.94)";
+  ctx.fill();
   ctx.fillStyle = POSTER_THEME.label;
-  ctx.fillText(text, x, y);
+  ctx.textAlign = align === "right" ? "right" : "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, align === "right" ? x - paddingX : x + paddingX, y + 0.5);
   ctx.restore();
 }
 
@@ -141,23 +177,45 @@ async function main() {
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(mosaic, cropX, cropY, raster.width, raster.height, 0, 0, raster.width, raster.height);
 
-  for (const leg of layout.legs) {
-    drawRoute(ctx, pctX(raster.width, leg.from.x), pctY(raster.height, leg.from.y), pctX(raster.width, leg.to.x), pctY(raster.height, leg.to.y), {
-      color: leg.kind === "side" ? POSTER_THEME.side : POSTER_THEME.winter,
-      dashed: leg.style === "dotted",
-      halo: true,
-      width: leg.kind === "side" ? 4 : 5.5,
-    });
-  }
+  ctx.fillStyle = "rgba(255, 248, 236, 0.07)";
+  ctx.fillRect(0, 0, raster.width, raster.height);
+
+  const vignette = ctx.createRadialGradient(
+    raster.width / 2,
+    raster.height / 2,
+    Math.min(raster.width, raster.height) * 0.38,
+    raster.width / 2,
+    raster.height / 2,
+    Math.max(raster.width, raster.height) * 0.72,
+  );
+  vignette.addColorStop(0, "rgba(0,0,0,0)");
+  vignette.addColorStop(1, "rgba(24, 36, 32, 0.1)");
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, raster.width, raster.height);
+
+  drawPicturePath(ctx, toPixels(layout.winterPath, raster.width, raster.height), {
+    color: POSTER_THEME.winter,
+    dashed: false,
+    width: 6,
+  });
+  drawPicturePath(ctx, toPixels(layout.sidePath, raster.width, raster.height), {
+    color: POSTER_THEME.side,
+    dashed: true,
+    width: 4.5,
+  });
 
   for (const pin of layout.pins) {
     const x = pctX(raster.width, pin.x);
     const y = pctY(raster.height, pin.y);
-    const radius = 18;
+    const radius = 20;
     ctx.save();
     ctx.beginPath();
+    ctx.arc(x, y + 1.5, radius + 2, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(15, 40, 36, 0.16)";
+    ctx.fill();
+    ctx.beginPath();
     ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255,255,255,0.95)";
+    ctx.fillStyle = "rgba(255,255,255,0.97)";
     ctx.fill();
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -167,74 +225,45 @@ async function main() {
     ctx.strokeStyle = pin.leg === "side" ? POSTER_THEME.sideBorder : POSTER_THEME.pinBorder;
     ctx.stroke();
     ctx.fillStyle = "#ffffff";
-    ctx.font = "700 18px 'DejaVu Sans', 'Liberation Sans', sans-serif";
+    ctx.font = "700 19px 'DejaVu Sans', 'Liberation Sans', sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(String(pin.number), x, y + 0.5);
     ctx.restore();
 
-    const alignRight = pin.x > 62 || pin.number === 2;
+    const alignRight = pin.x > 62 || pin.number === 2 || pin.number === 3;
     const labelX = x + (alignRight ? -26 : 26);
-    drawLabel(ctx, pin.label, labelX, y - 22, alignRight ? "right" : "left");
+    drawLabel(ctx, pin.label, labelX, y - 26, alignRight ? "right" : "left");
+    if (pin.sublabel) {
+      drawLabel(ctx, pin.sublabel, labelX, y + 26, alignRight ? "right" : "left");
+    }
   }
 
   ctx.save();
-  drawRoundedRect(ctx, 18, 18, 268, 36, 18);
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  drawRoundedRect(ctx, 16, 16, 248, 40, 20);
+  ctx.fillStyle = "rgba(255,255,255,0.94)";
   ctx.fill();
-  ctx.font = "700 13px 'DejaVu Sans', 'Liberation Sans', sans-serif";
-    ctx.fillStyle = POSTER_THEME.title;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(layout.cityLabel, 152, 37);
-  ctx.restore();
-
-  ctx.save();
-  drawRoundedRect(ctx, raster.width - 58, 18, 40, 46, 8);
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.fill();
+  ctx.font = "700 14px 'DejaVu Sans', 'Liberation Sans', sans-serif";
   ctx.fillStyle = POSTER_THEME.title;
   ctx.textAlign = "center";
-  ctx.font = "700 16px 'DejaVu Sans', 'Liberation Sans', sans-serif";
-  ctx.fillText("▲", raster.width - 38, 36);
-  ctx.font = "700 12px 'DejaVu Sans', 'Liberation Sans', sans-serif";
-  ctx.fillText("N", raster.width - 38, 52);
+  ctx.textBaseline = "middle";
+  ctx.fillText(layout.cityLabel, 140, 37);
   ctx.restore();
 
-  const legendX = 18;
-  const legendY = raster.height - 118;
-  ctx.save();
-  drawRoundedRect(ctx, legendX, legendY, 176, 100, 14);
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.fill();
-  ctx.strokeStyle = POSTER_THEME.winter;
-  ctx.lineWidth = 4;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(legendX + 16, legendY + 24);
-  ctx.lineTo(legendX + 52, legendY + 24);
-  ctx.stroke();
-  ctx.strokeStyle = POSTER_THEME.side;
-  ctx.setLineDash([6, 5]);
-  ctx.beginPath();
-  ctx.moveTo(legendX + 16, legendY + 48);
-  ctx.lineTo(legendX + 52, legendY + 48);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle = "#0f172a";
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(legendX + 16, legendY + 76);
-  ctx.lineTo(legendX + 16 + Math.min(layout.scaleBar.widthPercent, 28) * 2.1, legendY + 76);
-  ctx.stroke();
-  ctx.fillStyle = POSTER_THEME.title;
-  ctx.font = "600 13px 'DejaVu Sans', 'Liberation Sans', sans-serif";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillText("Winter route", legendX + 62, legendY + 24);
-  ctx.fillText("Side leg", legendX + 62, legendY + 48);
-  ctx.fillText(layout.scaleBar.label, legendX + 62, legendY + 76);
-  ctx.restore();
+  if (layout.longHaulLabel) {
+    ctx.save();
+    const inset = `via ${layout.longHaulLabel}`;
+    ctx.font = "600 13px 'DejaVu Sans', 'Liberation Sans', sans-serif";
+    const insetWidth = ctx.measureText(inset).width + 22;
+    drawRoundedRect(ctx, 16, raster.height - 44, insetWidth, 28, 14);
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fill();
+    ctx.fillStyle = "#64748b";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(inset, 27, raster.height - 29);
+    ctx.restore();
+  }
 
   ctx.save();
   ctx.font = "600 12px 'DejaVu Sans', 'Liberation Sans', sans-serif";
@@ -252,7 +281,7 @@ async function main() {
   await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, poster.toBuffer("image/png"));
   console.log(
-    `Wrote ${LAPLAND_POSTER.relativeFile} (${raster.width}x${raster.height}px, zoom ${layout.bounds.zoom}, ${jobs.length} Voyager tiles, ${layout.pins.length} pins, scale ${layout.scaleBar.label})`,
+    `Wrote ${LAPLAND_POSTER.relativeFile} (${raster.width}x${raster.height}px, zoom ${layout.bounds.zoom}, ${jobs.length} Voyager tiles, ${layout.pins.length} pins, long-haul ${layout.longHaulLabel ?? "none"})`,
   );
 }
 

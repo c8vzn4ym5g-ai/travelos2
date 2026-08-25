@@ -60,12 +60,6 @@ export type StopCardContent = {
   wording: string;
 };
 
-export type ScaleBar = {
-  km: number;
-  label: string;
-  widthPercent: number;
-};
-
 export type TileBounds = {
   maxX: number;
   maxY: number;
@@ -85,10 +79,12 @@ export const STREET_BASEMAP = {
 export const TILE_PIXEL_SIZE = 256;
 
 export const LAPLAND_POSTER = {
-  alt: "Rovaniemi, Finnish Lapland regional itinerary",
+  alt: "Rovaniemi winter journey: Santa Claus Village, Helsinki, Finnish Lapland",
   relativeFile: "public/travelos/maps/lapland-rovaniemi.png",
   src: "/travelos/maps/lapland-rovaniemi.png",
 } as const;
+
+export const LAPLAND_GLANCE_LABELS = "Santa Claus Village (聖誕老人村) · Helsinki · Rovaniemi";
 
 export const POSTER_THEME = {
   label: "#1e293b",
@@ -110,6 +106,7 @@ export type PosterPin = {
   leg: "winter" | "side";
   number: number;
   point: GeoPoint;
+  sublabel: string | null;
   x: number;
   y: number;
 };
@@ -126,8 +123,10 @@ export type PosterLayout = {
   bounds: TileBounds;
   cityLabel: string;
   legs: PosterLeg[];
+  longHaulLabel: string | null;
   pins: PosterPin[];
-  scaleBar: ScaleBar;
+  sidePath: PosterPoint[];
+  winterPath: PosterPoint[];
 };
 
 export function getStreetTileUrl(zoom: number, x: number, y: number) {
@@ -311,7 +310,7 @@ function buildLaplandItinerary({
       leg: "winter",
       linkedJournalEntryId: arrivalJournal?.id ?? "journal_lapland_arrival",
       linkedPhotoId: arcticPhoto?.id ?? arrivalJournal?.storyPhotoId ?? null,
-      listLabel: "抵達羅瓦涅米 / Arrival",
+      listLabel: "羅瓦涅米 / Rovaniemi",
       note: airport?.notes ?? arrivalJournal?.body ?? null,
       number: 1,
       point: airportPoint,
@@ -324,7 +323,7 @@ function buildLaplandItinerary({
       leg: "winter",
       linkedJournalEntryId: santaJournal?.id ?? "journal_lapland_santa",
       linkedPhotoId: santaPhoto?.id ?? santaJournal?.storyPhotoId ?? null,
-      listLabel: "聖誕老人村 / Santa Village",
+      listLabel: "聖誕老人村 / Santa Claus Village",
       note: santa?.notes ?? santaJournal?.body ?? null,
       number: 2,
       point: santaPoint,
@@ -604,6 +603,42 @@ export function getTileBounds(points: GeoPoint[], scale: MapScale = "regional"):
   };
 }
 
+export function getLaplandPictureBounds(points: GeoPoint[]): TileBounds {
+  const zoom = 13;
+  const xs = points.map((point) => longitudeToTileX(point.longitude, zoom));
+  const ys = points.map((point) => latitudeToTileY(point.latitude, zoom));
+  const xSpan = Math.max(Math.max(...xs) - Math.min(...xs), 0.01);
+  const ySpan = Math.max(Math.max(...ys) - Math.min(...ys), 0.01);
+  const padX = Math.max(0.32, xSpan * 0.16);
+  const padY = Math.max(0.26, ySpan * 0.14);
+
+  return {
+    maxX: Math.max(...xs) + padX + 0.06,
+    maxY: Math.max(...ys) + padY * 0.7,
+    minX: Math.min(...xs) - padX,
+    minY: Math.min(...ys) - padY - 0.08,
+    zoom,
+  };
+}
+
+export const WINTER_PICTURE_ORDER = [1, 2, 5, 6];
+export const SIDE_PICTURE_ORDER = [2, 4];
+
+export function pathFromPinOrder(pins: PosterPin[], order: readonly number[]): PosterPoint[] {
+  return order
+    .map((number) => pins.find((pin) => pin.number === number))
+    .filter((pin): pin is PosterPin => Boolean(pin))
+    .map((pin) => ({ x: pin.x, y: pin.y }));
+}
+
+export function formatLongHaulLabel(arrival: ArrivalCity[] | null) {
+  if (!arrival || arrival.length === 0) {
+    return null;
+  }
+
+  return arrival.map((city) => city.shortLabel).join(" · ");
+}
+
 export function getMapTiles(bounds: TileBounds) {
   const tileCount = 2 ** bounds.zoom;
   const minX = Math.floor(bounds.minX);
@@ -687,6 +722,7 @@ export function spaceItineraryPins(stops: ItineraryStop[], bounds: TileBounds): 
     leg: item.leg,
     number: item.number,
     point: item.point,
+    sublabel: item.number === 2 && item.listLabel.includes("聖誕老人村") ? "聖誕老人村" : null,
     x: Math.min(94, Math.max(6, item.position.x)),
     y: Math.min(92, Math.max(8, item.position.y)),
   }));
@@ -694,12 +730,13 @@ export function spaceItineraryPins(stops: ItineraryStop[], bounds: TileBounds): 
 
 export function buildPosterLayout(itinerary: JourneyItinerary, city = "Rovaniemi"): PosterLayout {
   const points = itinerary.regionalPoints.length > 0 ? itinerary.regionalPoints : itinerary.regionalStops.map((stop) => stop.point);
-  const bounds = getTileBounds(points.length > 0 ? points : [{ latitude: 66.5039, longitude: 25.7294 }], "regional");
+  const fallback = points.length > 0 ? points : [{ latitude: 66.5039, longitude: 25.7294 }];
+  const bounds = isLaplandPosterCity(city) ? getLaplandPictureBounds(fallback) : getTileBounds(fallback, "regional");
   const pins = spaceItineraryPins(itinerary.regionalStops, bounds);
 
   return {
     bounds,
-    cityLabel: `${city.toUpperCase()} · LAPLAND`,
+    cityLabel: isLaplandPosterCity(city) ? "Rovaniemi" : `${city} · itinerary`,
     legs: itinerary.regionalLegs.map((leg) => ({
       from: projectRaw(leg.from, bounds),
       id: leg.id,
@@ -707,8 +744,10 @@ export function buildPosterLayout(itinerary: JourneyItinerary, city = "Rovaniemi
       style: leg.style,
       to: projectRaw(leg.to, bounds),
     })),
+    longHaulLabel: isLaplandPosterCity(city) ? "Helsinki · Rovaniemi" : formatLongHaulLabel(itinerary.arrival),
     pins,
-    scaleBar: getScaleBar(bounds, points[0]?.latitude ?? 66.5),
+    sidePath: pathFromPinOrder(pins, SIDE_PICTURE_ORDER),
+    winterPath: pathFromPinOrder(pins, WINTER_PICTURE_ORDER),
   };
 }
 
@@ -732,22 +771,6 @@ export function getPosterRasterSize(bounds: TileBounds) {
 
 export function isLaplandPosterCity(city: string) {
   return city.trim().toLowerCase() === "rovaniemi";
-}
-
-export function getScaleBar(bounds: TileBounds, latitude: number): ScaleBar {
-  const lngSpanDeg = ((bounds.maxX - bounds.minX) / 2 ** bounds.zoom) * 360;
-  const kmPerPercent = (lngSpanDeg * 111.32 * Math.cos((latitude * Math.PI) / 180)) / 100;
-  const chosen =
-    [1, 2, 5, 10, 20].find((km) => {
-      const width = km / Math.max(kmPerPercent, 0.0001);
-      return width >= 12 && width <= 28;
-    }) ?? 5;
-
-  return {
-    km: chosen,
-    label: `${chosen} km`,
-    widthPercent: chosen / Math.max(kmPerPercent, 0.0001),
-  };
 }
 
 export function isRegionalPointSet(points: GeoPoint[]) {

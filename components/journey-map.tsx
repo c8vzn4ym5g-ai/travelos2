@@ -9,6 +9,7 @@ import {
   getStopCardContent,
   isLaplandPosterCity,
   isRenderablePhoto,
+  LAPLAND_GLANCE_LABELS,
   LAPLAND_POSTER,
   STREET_BASEMAP,
   type PosterPin,
@@ -25,8 +26,6 @@ type JourneyMapProps = {
   route: TravelRouteSegment[];
   title: string;
 };
-
-const FLIGHT_STROKE = "#64748b";
 
 function StopGlyph({ icon }: { icon: StopIcon }) {
   const common = {
@@ -94,28 +93,13 @@ function StopGlyph({ icon }: { icon: StopIcon }) {
   );
 }
 
-function ArrivalLocator({ cities }: { cities: { id: string; label: string; shortLabel: string }[] }) {
+function QuietArrival({ cities }: { cities: { id: string; label: string; shortLabel: string }[] }) {
+  const labels = cities.map((city) => city.label).join(" · ");
+
   return (
-    <div className="border-b border-[color:var(--line)] bg-white/55 px-4 py-2.5" data-arrival-locator>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="travel-kicker text-[0.62rem]">How we arrived</p>
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[0.72rem] font-semibold text-slate-600">
-          {cities.map((city, index) => (
-            <span className="flex items-center gap-1.5" key={city.id}>
-              {index > 0 ? (
-                <svg aria-hidden="true" className="h-3 w-7 shrink-0 text-slate-400" viewBox="0 0 32 12">
-                  <path d="M1 6h30" fill="none" stroke={FLIGHT_STROKE} strokeDasharray="2 2.5" strokeLinecap="round" strokeWidth="1.4" />
-                </svg>
-              ) : null}
-              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">
-                <span className="text-[0.62rem] tracking-wide text-slate-500">{city.shortLabel}</span>
-                <span className="text-slate-800">{city.label}</span>
-              </span>
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
+    <p className="mt-1 text-[0.7rem] leading-5 text-slate-500" data-arrival-locator data-longhaul-label>
+      via {labels}
+    </p>
   );
 }
 
@@ -197,23 +181,29 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
   }
 
   return (
-    <section className="travel-soft-panel overflow-hidden rounded-[1.75rem]" aria-label={`${title} journey map`}>
+    <section className="travel-soft-panel overflow-hidden rounded-[1.75rem]" aria-label={`${title} journey map`} data-hero-map>
       <div className="flex items-center justify-between gap-3 border-b border-white/70 bg-white/60 px-4 py-3">
         <div>
-          <p className="travel-kicker text-xs">Journey map</p>
+          <p className="travel-kicker text-xs">Journey picture</p>
           <h2 className="travel-hand mt-1 text-xl font-semibold text-[color:var(--ink)]">
             {city}, {country}
           </h2>
+          {isLaplandPosterCity(city) ? (
+            <p className="mt-1 text-[0.82rem] font-semibold leading-5 text-slate-700" data-arrival-locator data-glance-labels data-longhaul-label>
+              {LAPLAND_GLANCE_LABELS}
+            </p>
+          ) : itinerary.arrival ? (
+            <QuietArrival cities={itinerary.arrival} />
+          ) : null}
         </div>
         <span className="rounded-full border border-teal-100 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-950">
-          Regional itinerary
+          At a glance
         </span>
       </div>
 
-      {itinerary.arrival ? <ArrivalLocator cities={itinerary.arrival} /> : null}
-
       <div className="grid gap-4 p-3 sm:p-4 lg:grid-cols-[minmax(15rem,18.5rem)_minmax(0,1fr)] lg:items-stretch">
-        <ol className="flex flex-col gap-1.5" data-stop-list>
+        <RegionalMap city={city} onSelect={setSelectedId} pins={posterLayout.pins} selectedId={selectedStop?.id ?? null} />
+        <ol className="flex flex-col gap-1.5 lg:order-first" data-stop-list>
           {itinerary.regionalStops.map((stop) => {
             const selected = selectedStop?.id === stop.id;
             return (
@@ -249,8 +239,6 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
             );
           })}
         </ol>
-
-        <RegionalMap city={city} onSelect={setSelectedId} pins={posterLayout.pins} selectedId={selectedStop?.id ?? null} />
       </div>
 
       {selectedCard ? (

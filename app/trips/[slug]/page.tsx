@@ -290,53 +290,16 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </Link>
             <span className="travel-chip rounded-full px-4 py-2 text-sm font-semibold">{trip.visibility}</span>
           </div>
-          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,26rem)] lg:items-stretch">
-            <div className="flex min-w-0 flex-col gap-4">
-              <div className="travel-soft-panel min-h-[24rem] rounded-[1.5rem] p-4 sm:p-5 lg:min-h-[28rem]">
-                <p className="travel-kicker text-sm">
-                  {trip.country} / {trip.city}
-                </p>
-                <h1 className="travel-hand mt-3 text-4xl font-semibold leading-tight sm:text-6xl">{trip.title}</h1>
-                <p className="travel-muted mt-5 max-w-none text-base leading-8 sm:text-lg lg:line-clamp-8">{heroSummary}</p>
-                <div className="mt-6">
-                  <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  ["Season", seasonLabel, "border-sky-100 bg-sky-50 text-sky-950"],
-                  ["Mood", trip.journalEntries[0]?.mood ?? "Memory", "border-rose-100 bg-rose-50 text-rose-950"],
-                  ["Photos", `${trip.photos.length}`, "border-amber-100 bg-amber-50 text-amber-950"],
-                ].map(([label, value, tone]) => (
-                  <MemoryChip key={label} label={label} tone={tone} value={value} />
-                ))}
-                {trip.totalCost ? (
-                  <JournalCostChip amount={formatMoney(trip.totalCost)} slug={trip.slug} />
-                ) : (
-                  <MemoryChip label="Cost" tone="border-teal-100 bg-teal-50 text-teal-950" value="Not tracked" />
-                )}
-              </div>
-            </div>
-            <div className="grid content-start gap-4 lg:min-h-[41rem] lg:max-w-[26rem]">
-              {coverPhoto ? (
-                <div className="travel-photo overflow-hidden rounded-[1.75rem] bg-[color:var(--paper-soft)]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img alt={coverPhoto.caption ?? trip.title} className="aspect-[4/3] w-full object-cover" src={coverPhoto.storageKey} />
-                </div>
-              ) : null}
+          <div className="travel-soft-panel rounded-[1.5rem] p-4 sm:p-5">
+            <p className="travel-kicker text-sm">
+              {trip.country} / {trip.city}
+            </p>
+            <h1 className="travel-hand mt-3 text-4xl font-semibold leading-tight sm:text-6xl">{trip.title}</h1>
+            <p className="travel-muted mt-4 max-w-4xl text-base leading-8 sm:text-lg">{heroSummary}</p>
+            <div className="mt-5">
+              <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
             </div>
           </div>
-          {featurePhotos.length > 1 ? (
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              {featurePhotos.map((photo) => (
-                <article className="travel-soft-panel overflow-hidden rounded-2xl" data-music-zone={`${photo.caption ?? ""} ${photo.originalFilename}`} key={photo.id}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img alt={photo.caption ?? photo.originalFilename} className="h-32 w-full object-cover sm:h-40" src={photo.storageKey} />
-                  <p className="travel-muted p-3 text-xs leading-5 sm:text-sm">{photo.caption ?? photo.originalFilename}</p>
-                </article>
-              ))}
-            </div>
-          ) : null}
           <JourneyMap
             center={trip.coordinates}
             city={trip.city}
@@ -347,6 +310,39 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             route={trip.travelRoute ?? []}
             title={trip.title}
           />
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              ["Season", seasonLabel, "border-sky-100 bg-sky-50 text-sky-950"],
+              ["Mood", trip.journalEntries[0]?.mood ?? "Memory", "border-rose-100 bg-rose-50 text-rose-950"],
+              ["Photos", `${trip.photos.length}`, "border-amber-100 bg-amber-50 text-amber-950"],
+            ].map(([label, value, tone]) => (
+              <MemoryChip key={label} label={label} tone={tone} value={value} />
+            ))}
+            {trip.totalCost ? (
+              <JournalCostChip amount={formatMoney(trip.totalCost)} slug={trip.slug} />
+            ) : (
+              <MemoryChip label="Cost" tone="border-teal-100 bg-teal-50 text-teal-950" value="Not tracked" />
+            )}
+          </div>
+          <div className="grid gap-4 lg:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)] lg:items-start">
+            {coverPhoto ? (
+              <div className="travel-photo overflow-hidden rounded-[1.75rem] bg-[color:var(--paper-soft)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img alt={coverPhoto.caption ?? trip.title} className="aspect-[4/3] w-full object-cover" src={coverPhoto.storageKey} />
+              </div>
+            ) : null}
+            {featurePhotos.length > 1 ? (
+              <div className="grid grid-cols-2 gap-3">
+                {featurePhotos.map((photo) => (
+                  <article className="travel-soft-panel overflow-hidden rounded-2xl" data-music-zone={`${photo.caption ?? ""} ${photo.originalFilename}`} key={photo.id}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img alt={photo.caption ?? photo.originalFilename} className="h-32 w-full object-cover sm:h-40" src={photo.storageKey} />
+                    <p className="travel-muted p-3 text-xs leading-5 sm:text-sm">{photo.caption ?? photo.originalFilename}</p>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
       </section>
 

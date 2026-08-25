@@ -7,6 +7,7 @@ import {
   buildPosterLayout,
   getStopCardContent,
   isRegionalPointSet,
+  LAPLAND_GLANCE_LABELS,
   LAPLAND_POSTER,
   STREET_BASEMAP,
 } from "../lib/journey-map-model.ts";
@@ -29,6 +30,9 @@ test("JourneyMap hero is the generated itinerary poster, not a live tile collage
   assert.match(source, /LAPLAND_POSTER\.src/);
   assert.match(model, /\/travelos\/maps\/lapland-rovaniemi\.png/);
   assert.match(source, /data-arrival-locator/);
+  assert.match(source, /data-longhaul-label/);
+  assert.match(source, /data-glance-labels/);
+  assert.match(source, /data-hero-map/);
   assert.match(source, /data-stop-list/);
   assert.match(source, /min-h-11 min-w-11/);
   assert.match(source, /data-map-pin=\{pin\.number\}/);
@@ -44,7 +48,8 @@ test("JourneyMap hero is the generated itinerary poster, not a live tile collage
   assert.doesNotMatch(model, /maps\.googleapis|mt\d\.google|@googlemaps/);
   assert.doesNotMatch(pkg, /@googlemaps/);
   const layout = source.slice(source.indexOf("export function JourneyMap"));
-  assert.match(layout, /data-stop-list[\s\S]*<RegionalMap[\s\S]*data-stop-card/);
+  assert.match(layout, /<RegionalMap[\s\S]*data-stop-list[\s\S]*data-stop-card/);
+  assert.match(layout, /lg:order-first/);
   assert.doesNotMatch(source, /data-map-scale=\{slice\.scale\}/);
   assert.doesNotMatch(source, /data-map-frame="overview"/);
   assert.doesNotMatch(source, /Writing guide/);
@@ -52,21 +57,34 @@ test("JourneyMap hero is the generated itinerary poster, not a live tile collage
   assert.doesNotMatch(page, /Writing guide/);
   assert.doesNotMatch(page, /Visitor scan/);
   assert.match(page, /<JourneyMap/);
+  const hero = page.slice(page.indexOf("travel-hero"), page.indexOf("Trip memory"));
+  assert.ok(hero.indexOf("<h1") < hero.indexOf("<JourneyMap"), "map must follow the title");
+  assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("featurePhotos"), "map must sit above the photo strip");
+  assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("JournalCostChip"), "map is the first impression, not the cost footnote");
+  assert.match(hero, /<JournalCostChip/);
+  assert.doesNotMatch(hero, /JournalCostHeroNote/);
+  assert.match(hero, /coverPhoto\.caption/);
 });
 
-test("arrival locator is not an equal-size second map", async () => {
+test("long-haul is a quiet label, not an equal-size second map", async () => {
   const source = await readFile(resolve(root, "components/journey-map.tsx"), "utf8");
-  const locatorBlock = source.slice(source.indexOf("function ArrivalLocator"), source.indexOf("function RegionalMap"));
+  const locatorBlock = source.slice(source.indexOf("function QuietArrival"), source.indexOf("function RegionalMap"));
   const regionalBlock = source.slice(source.indexOf("function RegionalMap"), source.indexOf("export function JourneyMap"));
 
   assert.match(locatorBlock, /data-arrival-locator/);
+  assert.match(locatorBlock, /data-longhaul-label/);
+  assert.match(source, /LAPLAND_GLANCE_LABELS/);
+  assert.match(source, /data-glance-labels/);
+  assert.doesNotMatch(source, /How we arrived/);
   assert.doesNotMatch(locatorBlock, /tile\.openstreetmap\.org/);
   assert.doesNotMatch(locatorBlock, /basemaps\.cartocdn\.com/);
   assert.doesNotMatch(locatorBlock, /min-h-\[22rem\]/);
+  assert.doesNotMatch(locatorBlock, /polyline|LineString|svg[\s\S]*Hong Kong/i);
   assert.match(regionalBlock, /data-map-frame="regional"/);
   assert.match(regionalBlock, /data-map-poster-image/);
   assert.match(regionalBlock, /LAPLAND_POSTER/);
-  assert.match(source, /How we arrived/);
+  assert.match(source, /Journey picture/);
+  assert.match(source, /At a glance/);
 });
 
 test("poster generator stitches Carto Voyager tiles and the PNG is committed", async () => {
@@ -82,6 +100,11 @@ test("poster generator stitches Carto Voyager tiles and the PNG is committed", a
   assert.match(generator, /basemaps\.cartocdn\.com\/rastertiles\/voyager\/\{z\}\/\{x\}\/\{y\}\.png/);
   assert.match(generator, /getStreetTileUrl/);
   assert.match(generator, /buildPosterLayout/);
+  assert.match(generator, /layout\.winterPath/);
+  assert.match(generator, /layout\.longHaulLabel/);
+  assert.doesNotMatch(generator, /scaleBar/);
+  assert.doesNotMatch(generator, /fillText\("N"/);
+  assert.doesNotMatch(generator, /Winter route/);
   assert.doesNotMatch(generator, /grayscale|desaturat|opacity-55|saturate-\[/);
   assert.doesNotMatch(generator, /maps\.googleapis|mt\d\.google|@googlemaps|tile\.openstreetmap\.org/);
   assert.equal(STREET_BASEMAP.urlTemplate, "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png");
@@ -92,6 +115,19 @@ test("poster generator stitches Carto Voyager tiles and the PNG is committed", a
   assert.equal(png[2], 0x4e);
   assert.equal(png[3], 0x47);
   assert.ok(info.size > 80_000, `poster too small to be a street raster (${info.size} bytes)`);
+});
+
+test("JourneyMap and poster have no scale, routing, or measure chrome", async () => {
+  const [source, generator] = await Promise.all([
+    readFile(resolve(root, "components/journey-map.tsx"), "utf8"),
+    readFile(resolve(root, "scripts/generate-lapland-poster.mjs"), "utf8"),
+  ]);
+
+  assert.doesNotMatch(source, /scale bar|scaleBar|ruler|measure tool/i);
+  assert.doesNotMatch(source, /data-map-frame="overview"/);
+  assert.doesNotMatch(generator, /layout\.scaleBar|getScaleBar/);
+  assert.doesNotMatch(generator, /fillText\("▲"/);
+  assert.doesNotMatch(generator, /fillText\("N"/);
 });
 
 test("Lapland default music stays one quiet CC0 winter bed", async () => {
@@ -109,7 +145,7 @@ test("Lapland default music stays one quiet CC0 winter bed", async () => {
   assert.match(player, /activeTrack\.credit/);
 });
 
-test("Lapland itinerary is a Rovaniemi regional poster layout, not a Hong Kong-scale overview", () => {
+test("Lapland itinerary is a Rovaniemi journey picture, not a Hong Kong-scale overview", () => {
   assert.ok(lapland);
   const itinerary = buildJourneyItinerary({
     center: lapland.coordinates,
@@ -126,14 +162,20 @@ test("Lapland itinerary is a Rovaniemi regional poster layout, not a Hong Kong-s
     itinerary.arrival.map((city) => city.shortLabel),
     ["HK", "HEL", "RVN"],
   );
+  assert.equal(layout.longHaulLabel, "Helsinki · Rovaniemi");
+  assert.equal(layout.cityLabel, "Rovaniemi");
+  assert.match(itinerary.regionalStops[0].listLabel, /Rovaniemi/);
+  assert.match(itinerary.regionalStops[1].listLabel, /Santa Claus Village/);
+  assert.ok(layout.pins.some((pin) => pin.label === "Santa Claus Village" && pin.sublabel === "聖誕老人村"));
+  assert.ok(layout.pins.some((pin) => pin.label === "Rovaniemi"));
   assert.equal(itinerary.regionalStops.length, 6);
   assert.deepEqual(
     itinerary.regionalStops.map((stop) => stop.number),
     [1, 2, 3, 4, 5, 6],
   );
-  assert.match(itinerary.regionalStops[0].listLabel, /Arrival/);
+  assert.match(itinerary.regionalStops[0].listLabel, /Rovaniemi/);
   assert.equal(itinerary.regionalStops[0].dateLabel, "1/18");
-  assert.match(itinerary.regionalStops[1].listLabel, /Santa Village/);
+  assert.match(itinerary.regionalStops[1].listLabel, /Santa Claus Village/);
   assert.equal(itinerary.regionalStops[1].dateLabel, "1/20");
   assert.match(itinerary.regionalStops[2].listLabel, /Arctic Circle/);
   assert.match(itinerary.regionalStops[3].listLabel, /Sled/);
@@ -146,10 +188,16 @@ test("Lapland itinerary is a Rovaniemi regional poster layout, not a Hong Kong-s
   assert.equal(layout.pins.length, 6);
   assert.ok(layout.pins.every((pin) => pin.x >= 6 && pin.x <= 94 && pin.y >= 8 && pin.y <= 92));
   assert.ok(layout.bounds.zoom >= 12);
+  assert.equal(layout.winterPath.length, 4);
+  assert.equal(layout.sidePath.length, 2);
+  assert.equal(layout.winterPath[0].x, layout.pins.find((pin) => pin.number === 1)?.x);
+  assert.equal(layout.winterPath[1].x, layout.pins.find((pin) => pin.number === 2)?.x);
+  assert.equal(layout.sidePath[1].x, layout.pins.find((pin) => pin.number === 4)?.x);
   assert.ok(itinerary.regionalLegs.some((leg) => leg.style === "solid" && leg.kind === "winter"));
   assert.ok(itinerary.regionalLegs.some((leg) => leg.style === "dotted" && leg.kind === "side"));
-  assert.ok(layout.scaleBar.km <= 5, `expected a local scale bar, got ${layout.scaleBar.label}`);
+  assert.equal("scaleBar" in layout, false);
   assert.equal(LAPLAND_POSTER.src, "/travelos/maps/lapland-rovaniemi.png");
+  assert.equal(LAPLAND_GLANCE_LABELS, "Santa Claus Village (聖誕老人村) · Helsinki · Rovaniemi");
 });
 
 test("selecting stop N shows bilingual wording and the linked photo", () => {
