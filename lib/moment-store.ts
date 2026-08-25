@@ -1,12 +1,24 @@
-import { BlobNotFoundError, get, put } from "@vercel/blob";
+import { put } from "@vercel/blob";
+import { getMomentJsonBlob, isMomentJsonBlobConfigured, putMomentItemJson, putMomentJsonBlob, setMomentBlobAdapterForTests } from "@/lib/moment-blob";
 import { isAdminPinValid, isBlobConfigured } from "@/lib/editable-store";
+import {
+  loadMomentItemFromBlobGet,
+  overlayMoments,
+  putMomentItemRecord,
+} from "@/lib/moment-item";
 import { indexTravelMoment } from "@/lib/moment-index";
-import { MOMENTS_BLOB_PATH, MOMENTS_SCHEMA_VERSION, applyMomentPhotoAppends, normalizeTravelJob, normalizeTravelMoment } from "@/lib/moments";
+import {
+  MOMENTS_BLOB_PATH,
+  MOMENTS_SCHEMA_VERSION,
+  appendMomentPhotos,
+  applyMomentPhotoAppends,
+  normalizeTravelJob,
+  normalizeTravelMoment,
+} from "@/lib/moments";
 import type { MomentPhoto, TravelJob, TravelMoment } from "@/lib/types";
 import {
   type MomentContent,
   MomentWarehouseUnavailableError,
-  type WarehouseGetResult,
   createEmptyWarehouse,
   loadWarehouseFromBlobGet,
   withNormalizedContent,
@@ -19,6 +31,8 @@ export {
   WAREHOUSE_GET_OPTIONS,
   loadWarehouseFromBlobGet,
 } from "@/lib/warehouse-read";
+export { momentItemBlobPath } from "@/lib/moments";
+export { setMomentBlobAdapterForTests };
 
 export type MomentStoreStatus = {
   configured: boolean;
@@ -35,8 +49,14 @@ export function momentApiErrorResponse(error: unknown) {
 }
 
 const memoryKey = "__travelosMomentWarehouse";
+const itemCacheKey = "__travelosMomentItemCache";
+const lastIndexKey = "__travelosMomentLastIndexWrite";
 
-type GlobalWarehouse = typeof globalThis & { [memoryKey]?: MomentContent };
+type GlobalWarehouse = typeof globalThis & {
+  [memoryKey]?: MomentContent;
+  [itemCacheKey]?: Map<string, TravelMoment>;
+  [lastIndexKey]?: MomentContent | null;
+};
 
 function getMemoryContent() {
   const globalStore = globalThis as GlobalWarehouse;
@@ -46,6 +66,30 @@ function getMemoryContent() {
 
 function setMemoryContent(content: MomentContent) {
   (globalThis as GlobalWarehouse)[memoryKey] = content;
+}
+
+function getItemCache() {
+  const globalStore = globalThis as GlobalWarehouse;
+  globalStore[itemCacheKey] ??= new Map<string, TravelMoment>();
+  return globalStore[itemCacheKey];
+}
+
+function getLastIndexWrite() {
+  return (globalThis as GlobalWarehouse)[lastIndexKey] ?? null;
+}
+
+function setLastIndexWrite(content: MomentContent | null) {
+  (globalThis as GlobalWarehouse)[lastIndexKey] = content;
+}
+
+export function resetMomentStoreForTests() {
+  setMomentBlobAdapterForTests(null);
+  setMemoryContent(createEmptyWarehouse());
+  getItemCache().clear();
+  setLastIndexWrite(null);
+  warehouseWriteQueue = Promise.resolve();
+  pendingPhotoAppends.length = 0;
+  photoAppendFlush = null;
 }
 
 let warehouseWriteQueue: Promise<void> = Promise.resolve();
@@ -59,40 +103,112 @@ function withWarehouseLock<T>(work: () => Promise<T>): Promise<T> {
   return run;
 }
 
-async function getWarehouseFromSdk(
-  pathname: string,
-  options: { access: "public" | "private"; useCache?: boolean },
-): Promise<WarehouseGetResult | null> {
+function rememberItem(moment: TravelMoment) {
+  const next = normalizeTravelMoment(moment);
+  getItemCache().set(next.id, next);
+  return next;
+}
+
+async function readIndexRaw(): Promise<MomentContent> {
+  if (!isMomentJsonBlobConfigured()) {
+    return withNormalizedContent(getMemoryContent());
+  }
+
+  const loaded = await loadWarehouseFromBlobGet(getMomentJsonBlob);
+  const lastWrite = getLastIndexWrite();
+  const mergedMoments = overlayMoments(loaded.content.moments, [
+    ...(lastWrite?.moments ?? []),
+    ...getItemCache().values(),
+  ]);
+  const mergedJobs = lastWrite
+    ? overlayJobs(loaded.content.jobs, lastWrite.jobs)
+    : loaded.content.jobs;
+
+  if (loaded.createdEmpty && getItemCache().size === 0 && !lastWrite) {
+    await writeWarehouse(mergedMoments, mergedJobs);
+  }
+
+  return {
+    ...loaded.content,
+    jobs: mergedJobs,
+    moments: mergedMoments,
+  };
+}
+
+function overlayJobs(indexJobs: TravelJob[], extraJobs: TravelJob[]) {
+  const byId = new Map(indexJobs.map((job) => [job.id, job]));
+  for (const job of extraJobs) {
+    byId.set(job.id, job);
+  }
+  const extra = extraJobs.filter((job) => !indexJobs.some((item) => item.id === job.id));
+  return [...extra, ...indexJobs.map((job) => byId.get(job.id) ?? job)];
+}
+
+async function readMomentItem(momentId: string): Promise<TravelMoment | null> {
+  const cached = getItemCache().get(momentId);
+  if (cached) {
+    return cached;
+  }
+
+  if (isMomentJsonBlobConfigured()) {
+    const fromBlob = await loadMomentItemFromBlobGet(getMomentJsonBlob, momentId);
+    if (fromBlob) {
+      return rememberItem(fromBlob);
+    }
+  }
+
+  const index = await readIndexRaw();
+  const fromIndex = index.moments.find((moment) => moment.id === momentId) ?? null;
+  if (fromIndex) {
+    return rememberItem(fromIndex);
+  }
+
+  return null;
+}
+
+async function writeMomentItem(moment: TravelMoment) {
+  const saved = rememberItem(moment);
+  if (!isMomentJsonBlobConfigured()) {
+    return saved;
+  }
+
+  await putMomentItemRecord(putMomentItemJson, saved);
+  return saved;
+}
+
+async function syncIndexBestEffort(
+  updatedMoments: TravelMoment[] = [],
+  photoAppends: Array<{ momentId: string; photo: MomentPhoto }> = [],
+) {
+  for (const moment of updatedMoments) {
+    rememberItem(moment);
+  }
+
+  const index = await readIndexRaw();
+  const withPhotos = photoAppends.length > 0 ? applyMomentPhotoAppends(index.moments, photoAppends) : index.moments;
+  const moments = overlayMoments(withPhotos, [...getItemCache().values()]);
   try {
-    const result = await get(pathname, options);
-    if (!result) {
-      return null;
-    }
-    return { statusCode: result.statusCode, stream: result.stream };
-  } catch (error) {
-    if (error instanceof BlobNotFoundError) {
-      return null;
-    }
-    throw error;
+    return await writeWarehouse(moments, index.jobs);
+  } catch {
+    return {
+      ...index,
+      moments,
+      updatedAt: new Date().toISOString(),
+    };
   }
 }
 
 export async function readMoments(): Promise<{ content: MomentContent; status: MomentStoreStatus }> {
-  if (!isBlobConfigured()) {
-    return {
-      content: withNormalizedContent(getMemoryContent()),
-      status: { configured: false, source: "memory" },
-    };
-  }
-
-  const loaded = await loadWarehouseFromBlobGet(getWarehouseFromSdk);
-  if (loaded.createdEmpty) {
-    await writeWarehouse(loaded.content.moments, loaded.content.jobs);
-  }
-
+  const content = await readIndexRaw();
   return {
-    content: loaded.content,
-    status: { configured: true, source: "blob" },
+    content: {
+      ...content,
+      moments: overlayMoments(content.moments, [...getItemCache().values()]),
+    },
+    status: {
+      configured: isMomentJsonBlobConfigured(),
+      source: isMomentJsonBlobConfigured() ? "blob" : "memory",
+    },
   };
 }
 
@@ -104,12 +220,14 @@ export async function writeWarehouse(moments: TravelMoment[], jobs: TravelJob[])
     updatedAt: new Date().toISOString(),
   };
 
-  if (!isBlobConfigured()) {
+  setLastIndexWrite(content);
+
+  if (!isMomentJsonBlobConfigured()) {
     setMemoryContent(content);
     return content;
   }
 
-  await put(MOMENTS_BLOB_PATH, JSON.stringify(content, null, 2), {
+  await putMomentJsonBlob(MOMENTS_BLOB_PATH, JSON.stringify(content, null, 2), {
     access: "public",
     allowOverwrite: true,
     cacheControlMaxAge: 60,
@@ -134,40 +252,41 @@ export async function storeMomentBinary(pathname: string, file: Blob) {
 }
 
 export async function momentExists(momentId: string) {
-  const { content } = await readMoments();
-  return content.moments.some((moment) => moment.id === momentId);
+  return Boolean(await readMomentItem(momentId));
 }
 
 export async function addMoment(moment: TravelMoment) {
   return withWarehouseLock(async () => {
-    const { content } = await readMoments();
-    if (content.moments.some((item) => item.id === moment.id)) {
+    const existing = await readMomentItem(moment.id);
+    if (existing) {
+      const { content } = await readMoments();
       return { conflict: true as const, content };
     }
 
-    const saved = await writeWarehouse([normalizeTravelMoment(moment), ...content.moments], content.jobs);
-    return { conflict: false as const, content: saved, moment: normalizeTravelMoment(moment) };
+    const savedMoment = await writeMomentItem(moment);
+    const content = await syncIndexBestEffort([savedMoment]);
+    return { conflict: false as const, content, moment: savedMoment };
   });
 }
 
 export async function updateMoment(moment: Partial<TravelMoment> & { id: string }) {
   return withWarehouseLock(async () => {
-    const { content } = await readMoments();
-    const current = content.moments.find((item) => item.id === moment.id);
+    const current = await readMomentItem(moment.id);
     if (!current) {
       return null;
     }
 
-    const next = normalizeTravelMoment({
-      ...current,
-      ...moment,
-      originalAudioUrl:
-        moment.originalAudioUrl !== undefined ? moment.originalAudioUrl : current.originalAudioUrl,
-      photos: moment.photos ?? current.photos,
-    });
-    const moments = content.moments.map((item) => (item.id === next.id ? next : item));
-    const saved = await writeWarehouse(moments, content.jobs);
-    return { content: saved, moment: next };
+    const next = await writeMomentItem(
+      normalizeTravelMoment({
+        ...current,
+        ...moment,
+        originalAudioUrl:
+          moment.originalAudioUrl !== undefined ? moment.originalAudioUrl : current.originalAudioUrl,
+        photos: moment.photos ?? current.photos,
+      }),
+    );
+    const content = await syncIndexBestEffort([next]);
+    return { content, moment: next };
   });
 }
 
@@ -218,18 +337,41 @@ async function flushPhotoAppends() {
     }
 
     try {
+      const grouped = new Map<string, PendingPhotoAppend[]>();
+      for (const item of batch) {
+        const list = grouped.get(item.momentId) ?? [];
+        list.push(item);
+        grouped.set(item.momentId, list);
+      }
+
+      const acceptedItems: TravelMoment[] = [];
+      const accepted: PendingPhotoAppend[] = [];
+      const missing: PendingPhotoAppend[] = [];
+
+      for (const [momentId, items] of grouped) {
+        const current = await readMomentItem(momentId);
+        if (!current) {
+          missing.push(...items);
+          continue;
+        }
+
+        const next = await writeMomentItem({
+          ...current,
+          photos: appendMomentPhotos(
+            current.photos,
+            items.map((item) => item.photo),
+          ),
+        });
+        acceptedItems.push(next);
+        accepted.push(...items);
+      }
+
       const { content } = await readMoments();
-      const knownIds = new Set(content.moments.map((moment) => moment.id));
-      const accepted = batch.filter((item) => knownIds.has(item.momentId));
-      const missing = batch.filter((item) => !knownIds.has(item.momentId));
       const saved =
-        accepted.length > 0
-          ? await writeWarehouse(
-              applyMomentPhotoAppends(
-                content.moments,
-                accepted.map((item) => ({ momentId: item.momentId, photo: item.photo })),
-              ),
-              content.jobs,
+        acceptedItems.length > 0
+          ? await syncIndexBestEffort(
+              acceptedItems,
+              accepted.map((item) => ({ momentId: item.momentId, photo: item.photo })),
             )
           : content;
 
@@ -256,74 +398,60 @@ export function addPhotoToMoment(momentId: string, photo: MomentPhoto) {
 
 export async function setMomentAudio(momentId: string, originalAudioUrl: string | null) {
   return withWarehouseLock(async () => {
-    const { content } = await readMoments();
-    const current = content.moments.find((moment) => moment.id === momentId);
+    const current = await readMomentItem(momentId);
     if (!current) {
       return null;
     }
 
-    const next = {
+    const next = await writeMomentItem({
       ...current,
       originalAudioUrl,
-    };
-    const saved = await writeWarehouse(
-      content.moments.map((moment) => (moment.id === momentId ? next : moment)),
-      content.jobs,
-    );
-    return { content: saved, moment: next };
+    });
+    const content = await syncIndexBestEffort([next]);
+    return { content, moment: next };
   });
 }
 
 export async function setPhotoOriginal(momentId: string, photoId: string, originalStorageKey: string) {
   return withWarehouseLock(async () => {
-    const { content } = await readMoments();
+    const current = await readMomentItem(momentId);
+    if (!current) {
+      return null;
+    }
+
     let nextPhoto: MomentPhoto | null = null;
-    const moments = content.moments.map((moment) => {
-      if (moment.id !== momentId) {
-        return moment;
+    const photos = current.photos.map((photo) => {
+      if (photo.id !== photoId) {
+        return photo;
       }
-
-      return {
-        ...moment,
-        photos: moment.photos.map((photo) => {
-          if (photo.id !== photoId) {
-            return photo;
-          }
-
-          nextPhoto = { ...photo, originalStorageKey };
-          return nextPhoto;
-        }),
-      };
+      nextPhoto = { ...photo, originalStorageKey };
+      return nextPhoto;
     });
 
     if (!nextPhoto) {
       return null;
     }
 
-    const saved = await writeWarehouse(moments, content.jobs);
-    return { content: saved, photo: nextPhoto };
+    const next = await writeMomentItem({ ...current, photos });
+    const content = await syncIndexBestEffort([next]);
+    return { content, photo: nextPhoto, moment: next };
   });
 }
 
 export async function removePhotoFromMoment(momentId: string, photoId: string) {
   return withWarehouseLock(async () => {
-    const { content } = await readMoments();
-    let found = false;
-    const moments = content.moments.map((moment) => {
-      if (moment.id !== momentId) {
-        return moment;
-      }
-
-      const photos = moment.photos.filter((photo) => photo.id !== photoId);
-      found = photos.length !== moment.photos.length;
-      return { ...moment, photos };
-    });
-
-    if (!found) {
+    const current = await readMomentItem(momentId);
+    if (!current) {
       return null;
     }
 
-    return writeWarehouse(moments, content.jobs);
+    const photos = current.photos.filter((photo) => photo.id !== photoId);
+    if (photos.length === current.photos.length) {
+      return null;
+    }
+
+    const next = await writeMomentItem({ ...current, photos });
+    return syncIndexBestEffort([next]);
   });
 }
 
@@ -333,8 +461,7 @@ export function scheduleMomentIndex(momentId: string) {
 
 async function indexSavedMoment(momentId: string) {
   try {
-    const { content } = await readMoments();
-    const current = content.moments.find((moment) => moment.id === momentId);
+    const current = await readMomentItem(momentId);
     if (!current) {
       return;
     }
@@ -345,17 +472,14 @@ async function indexSavedMoment(momentId: string) {
     }
 
     await withWarehouseLock(async () => {
-      const latest = await readMoments();
-      const latestMoment = latest.content.moments.find((moment) => moment.id === momentId);
+      const latestMoment = await readMomentItem(momentId);
       if (!latestMoment) {
         return;
       }
 
       const next = indexTravelMoment(latestMoment);
-      await writeWarehouse(
-        latest.content.moments.map((moment) => (moment.id === momentId ? next : moment)),
-        latest.content.jobs,
-      );
+      await writeMomentItem(next);
+      await syncIndexBestEffort([next]);
     });
   } catch {
     // Indexing must never fail capture or photo upload.
