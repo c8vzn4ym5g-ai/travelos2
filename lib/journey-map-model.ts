@@ -140,12 +140,12 @@ export const LAPLAND_POSTER_NOTES: LaplandPosterNote[] = [
     titleZh: "北極圈",
   },
   {
-    blurbEn: "Snowmen, a sled, the night's stay",
+    blurbEn: "A snowman, a sled, the night's stay",
     blurbZh: "雪人、雪橇、過夜的地方",
     number: 3,
     phase: "christmas",
-    titleEn: "Red cabin no. 4",
-    titleZh: "4 號紅木屋",
+    titleEn: "Rovaniemi",
+    titleZh: "羅瓦涅米",
   },
   {
     blurbEn: "The white church of Helsinki",

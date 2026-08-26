@@ -571,9 +571,12 @@ async function main() {
   [pin1, pin2, pin3, pin4, pin5].forEach((pin) => drawPin(ctx, pin.x, pin.y, pin.number, pin.color));
 
   ctx.fillStyle = INK;
-  ctx.font = "700 13px PosterLatin, sans-serif";
+  ctx.font = "700 13px PosterCjk, sans-serif";
   ctx.textAlign = "left";
-  ctx.fillText("ROVANIEMI", pin1.x + 18, pin1.y - 16);
+  ctx.fillText("羅瓦涅米", pin3.x + 18, pin3.y - 4);
+  ctx.font = "700 11px PosterLatin, sans-serif";
+  ctx.fillText("Rovaniemi", pin3.x + 18, pin3.y + 12);
+  ctx.font = "700 13px PosterLatin, sans-serif";
   ctx.fillText("HELSINKI", pin4.x + 18, pin4.y - 14);
   ctx.fillText("LAPLAND", pin1.x - 8, pin1.y - 36);
 

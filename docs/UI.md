@@ -41,9 +41,10 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
 
 - The first picture is a printed **portrait** itinerary plate, not a GIS
   widget and not the landscape A3. Left column: numbered notes with dump
-  thumbs. Right: Finland, Lapland to Helsinki. Footer: map key, four
+  thumbs. Stop 3 is 羅瓦涅米 / Rovaniemi; the cabin is only the thumb and
+  stay line. Right: Finland, Lapland to Helsinki. Footer: map key, four
   theme cards, Europe locator (locator is not a tap). December /
-  midwinter language only; no day-by-day dates; no mid-map Then south box.
+  midwinter language only; no day-by-day dates; no mid-map southward box.
 
 ## Public Booking Band
 

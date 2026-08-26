@@ -215,6 +215,11 @@ test("Lapland itinerary is a Rovaniemi journey picture, not a Hong Kong-scale ov
   assert.equal(layout.legendItems[0].label, "聖誕老人村");
   assert.match(layout.legendItems[0].blurb, /積雪木屋/);
   assert.match(layout.legendItems[1].blurb, /走過去/);
+  assert.equal(layout.legendItems[2].label, "羅瓦涅米");
+  assert.equal(LAPLAND_POSTER_NOTES[2].titleEn, "Rovaniemi");
+  assert.equal(LAPLAND_POSTER_NOTES[2].titleZh, "羅瓦涅米");
+  assert.match(LAPLAND_POSTER_NOTES[2].blurbEn, /snowman|sled|stay/i);
+  assert.ok(layout.pins.some((pin) => pin.number === 3 && pin.label === "Rovaniemi" && pin.sublabel === "羅瓦涅米"));
   assert.match(layout.legendItems[2].blurb, /過夜/);
   assert.match(layout.legendItems[3].blurb, /白教堂/);
   assert.match(layout.legendItems[4].blurb, /再往南/);
@@ -301,6 +306,9 @@ test("public Journey picture JPEG is a committed portrait v5 plate, not landscap
   assert.match(composer, /drawEuropeLocator/);
   assert.match(composer, /blurbZh/);
   assert.match(composer, /極夜與雪國的純淨體驗/);
+  assert.match(composer, /dump-cabin-4-snowman/);
+  assert.match(composer, /fillText\("羅瓦涅米"/);
+  assert.match(composer, /fillText\("Rovaniemi"/);
   assert.doesNotMatch(composer, /fillText\(["']Then South["']\)/);
   assert.doesNotMatch(composer, /fillText\(["']向南前行["']\)/);
   assert.doesNotMatch(composer, /2019-12-11/);
