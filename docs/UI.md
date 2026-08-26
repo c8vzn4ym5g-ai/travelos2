@@ -45,6 +45,9 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
   stay line. Right: Finland, Lapland to Helsinki. Footer: map key, four
   theme cards, Europe locator (locator is not a tap). December /
   midwinter language only; no day-by-day dates; no mid-map southward box.
+- Show the **whole** 2:3 plate in about one screen: `max-height: 90vh`,
+  width auto, `object-fit: contain`. Do not stretch, and do not crop the
+  sidebar or footer. Drive chrome stays off the picture.
 
 ## Public Booking Band
 
