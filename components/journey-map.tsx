@@ -278,13 +278,13 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
           </h2>
           {laplandPoster ? null : itinerary.arrival ? <QuietArrival cities={itinerary.arrival} /> : null}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 self-center">
           {laplandPoster ? null : (
             <span className="rounded-full border border-teal-100 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-950">
               At a glance
             </span>
           )}
-          <div data-journey-music-slot="" />
+          <div className="flex items-center" data-journey-music-slot="" />
         </div>
       </div>
 
