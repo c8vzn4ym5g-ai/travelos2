@@ -1,5 +1,29 @@
 # TravelOS Codex Tasks
 
+## TASK-023: Public Lapland page chrome — stops and booking dates
+
+Status: done
+
+Goal: Stranger-eyes chrome on `/trips/finland-lapland-winter-journal`.
+Do not present the village cabin as a peer public stop, hide CMS
+"Unrated", and replace hardcoded 2027-01-18 booking dates with a live
+December quote window. Frozen poster bytes stay untouched.
+
+Result:
+
+- Right rail Saved stops lists Santa Claus Village, Arctic Circle,
+  Helsinki Cathedral, and South Harbour. Cabin lodging stays in the
+  journal / visual path / photos, not the peer stop list. "On this page"
+  skips the cabin journal. Rating badges omit "Unrated".
+- BookingBand / Hotellook defaults use the next December 18–25 window
+  (or a remaining December week if already in-season). No 2019 itinerary
+  day, no leftover January 2027 week. Year stays in the collapsed cost
+  footnote.
+- Music pill docks in the Journey picture header while the poster is on
+  screen, then floats bottom-left after scroll. Drive/booking stay off
+  the poster. `/family` and PR #2 were not touched.
+
+
 ## TASK-022: Lapland poster — left notes, blurbs, colorful Finland map
 
 Status: done

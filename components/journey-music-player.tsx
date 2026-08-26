@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
+import { createPortal } from "react-dom";
 import type { MusicTrack } from "@/lib/types";
 
 type JourneyMusicPlayerProps = {
@@ -40,6 +41,8 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
   const [isOn, setIsOn] = useState(false);
   const [activeTrackId, setActiveTrackId] = useState(playableTracks[0]?.id ?? "");
   const [isWaitingForNext, setIsWaitingForNext] = useState(false);
+  const [host, setHost] = useState<"hidden" | "slot" | "float">("hidden");
+  const [slotEl, setSlotEl] = useState<Element | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastSwitchAtRef = useRef(0);
   const nextTrackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -144,6 +147,40 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
     };
   }, []);
 
+  useEffect(() => {
+    const map = document.querySelector("[data-hero-map]");
+
+    const sync = () => {
+      const nextSlot = document.querySelector("[data-journey-music-slot]");
+      const mapEl = document.querySelector("[data-hero-map]");
+      setSlotEl(nextSlot);
+
+      if (!mapEl) {
+        setHost("float");
+        return;
+      }
+
+      const rect = mapEl.getBoundingClientRect();
+      const mapOnScreen = rect.bottom > 0 && rect.top < window.innerHeight;
+      setHost(mapOnScreen && nextSlot ? "slot" : "float");
+    };
+
+    sync();
+    if (!map) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(sync, { threshold: [0, 0.08, 0.4, 1] });
+    observer.observe(map);
+    window.addEventListener("resize", sync);
+    window.addEventListener("scroll", sync, { passive: true });
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", sync);
+      window.removeEventListener("scroll", sync);
+    };
+  }, [playableTracks.length]);
+
   function moveToNextTrack() {
     if (!activeTrack) {
       setIsOn(false);
@@ -171,18 +208,26 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
     moveToNextTrack();
   }
 
-  if (!activeTrack) {
+  if (!activeTrack || host === "hidden") {
     return null;
   }
 
-  return (
-    <div className="fixed bottom-4 left-4 z-40 flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-full border border-white/70 bg-white/90 p-2 text-sm text-zinc-800 shadow-[0_16px_45px_rgba(30,41,59,0.16)] backdrop-blur sm:bottom-6 sm:left-6">
+  const pill = (
+    <div
+      className={
+        host === "slot"
+          ? "flex max-w-[11rem] items-center gap-1.5 rounded-full border border-white/70 bg-white/90 py-0.5 pl-0.5 pr-2 text-sm text-zinc-800"
+          : "fixed bottom-4 left-4 z-40 flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-full border border-white/70 bg-white/90 p-2 text-sm text-zinc-800 shadow-[0_16px_45px_rgba(30,41,59,0.16)] backdrop-blur sm:bottom-6 sm:left-6"
+      }
+      data-journey-music=""
+      data-music-host={host}
+    >
       <audio key={activeTrack.id} onEnded={handleTrackEnded} ref={audioRef} src={activeTrack.audioUrl} />
       <button
         aria-label={isOn ? "Turn journey music off" : "Turn journey music on"}
-        className={`grid h-10 w-10 place-items-center rounded-full text-base font-semibold transition ${
-          isOn ? "bg-teal-800 text-white" : "bg-zinc-950 text-white hover:bg-zinc-800"
-        }`}
+        className={`grid place-items-center rounded-full text-base font-semibold transition ${
+          host === "slot" ? "h-8 w-8" : "h-10 w-10"
+        } ${isOn ? "bg-teal-800 text-white" : "bg-zinc-950 text-white hover:bg-zinc-800"}`}
         onClick={() => {
           setIsOn((current) => !current);
         }}
@@ -191,12 +236,28 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
       >
         <span aria-hidden="true">{"\u266a"}</span>
       </button>
-      <div className={isOn ? "min-w-0 max-w-44 pr-2 sm:max-w-56" : "hidden sm:block sm:max-w-28 sm:pr-2"}>
+      <div
+        className={
+          host === "slot"
+            ? "hidden min-w-0 max-w-[7rem] pr-1 sm:block"
+            : isOn
+              ? "min-w-0 max-w-44 pr-2 sm:max-w-56"
+              : "hidden sm:block sm:max-w-28 sm:pr-2"
+        }
+      >
         <p className="truncate text-xs font-semibold">{isOn ? activeTrack.title : "Music"}</p>
-        <p className="truncate text-[0.68rem] text-zinc-500">
-          {isOn ? (isWaitingForNext ? "Next song in a moment" : activeTrack.credit ?? "One calm pass") : "Tap to play"}
-        </p>
+        {host === "slot" ? null : (
+          <p className="truncate text-[0.68rem] text-zinc-500">
+            {isOn ? (isWaitingForNext ? "Next song in a moment" : activeTrack.credit ?? "One calm pass") : "Tap to play"}
+          </p>
+        )}
       </div>
     </div>
   );
+
+  if (host === "slot" && slotEl) {
+    return createPortal(pill, slotEl);
+  }
+
+  return pill;
 }

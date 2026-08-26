@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BookingBand } from "@/components/booking-band";
-import { drivePageMetadata, LAPLAND_COVER_PHOTO, LAPLAND_JOURNAL_PATH, laplandBooking } from "@/lib/travelpayouts";
+import { drivePageMetadata, getLaplandBooking, LAPLAND_COVER_PHOTO, LAPLAND_JOURNAL_PATH } from "@/lib/travelpayouts";
 
 export const metadata: Metadata = {
   description: drivePageMetadata.description,
@@ -74,7 +74,7 @@ export default function DrivePage() {
         </article>
 
         <div className="mt-6">
-          <BookingBand destination={laplandBooking} />
+          <BookingBand destination={getLaplandBooking()} />
         </div>
       </section>
     </main>

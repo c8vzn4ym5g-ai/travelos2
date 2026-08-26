@@ -4,11 +4,14 @@ import { resolve } from "node:path";
 import test from "node:test";
 import {
   forLaplandPublicPage,
+  isLaplandStayJournal,
+  isLaplandPeerLandmarkName,
+  isLaplandStorefrontSlug,
+  laplandPublicStops,
   LAPLAND_STOREFRONT_EN,
   LAPLAND_STOREFRONT_KICKER,
   LAPLAND_STOREFRONT_TITLE,
   LAPLAND_STOREFRONT_ZH,
-  isLaplandStorefrontSlug,
   storefrontCopyLooksInvented,
 } from "../lib/lapland-storefront-copy.ts";
 import { seedTripDetails, LAPLAND_WINTER_VILLAGE_CAPTION } from "../lib/trips.ts";
@@ -129,4 +132,39 @@ test("public Lapland view strips exact dump dates from the page payload", () => 
   assert.ok(publicTrip.costs.every((cost) => cost.paidAt === "2019"));
   assert.doesNotMatch(payload, /2019-12-1[0-5]/);
   assert.doesNotMatch(payload, /12\/11/);
+});
+
+test("public Lapland rail lists landmarks, not the village cabin as a peer stop", async () => {
+  const lapland = seedTripDetails.find((trip) => trip.id === "trip_lapland_2020");
+  assert.ok(lapland);
+  const stops = laplandPublicStops(lapland.places);
+  const names = stops.map((stop) => stop.name).join(" | ");
+  const [page, travelpayouts] = await Promise.all([
+    readFile(resolve(root, "app/trips/[slug]/page.tsx"), "utf8"),
+    readFile(resolve(root, "lib/travelpayouts.ts"), "utf8"),
+  ]);
+
+  assert.equal(stops.length, 4);
+  assert.match(names, /Santa Claus Village/);
+  assert.match(names, /Arctic Circle/);
+  assert.match(names, /Helsinki Cathedral/);
+  assert.match(names, /South Harbour/);
+  assert.doesNotMatch(names, /Red cabin|4 號紅木屋|Sled route|Airport|Unrated/i);
+  assert.equal(
+    stops.some((stop) => isLaplandPeerLandmarkName(stop.name)),
+    true,
+  );
+  assert.equal(isLaplandStayJournal({ id: "journal_lapland_cabin", title: "4 號紅木屋 / Red cabin no. 4" }), true);
+  assert.equal(isLaplandStayJournal({ id: "journal_lapland_arctic", title: "北極圈 / Arctic Circle" }), false);
+  assert.ok(lapland.places.some((place) => place.id === "place_lapland_cabin"), "cabin remains in the story seed");
+  assert.ok(lapland.journalEntries.some((entry) => entry.id === "journal_lapland_cabin"));
+
+  assert.match(page, /laplandPublicStops/);
+  assert.match(page, /isLaplandStayJournal/);
+  assert.match(page, /pageMoments/);
+  assert.doesNotMatch(page, /Unrated/);
+  assert.match(page, /getLaplandBooking\(\)/);
+  assert.doesNotMatch(travelpayouts, /2027-01-18/);
+  assert.doesNotMatch(travelpayouts, /2027-01-25/);
+  assert.doesNotMatch(travelpayouts, /2019-12-11/);
 });

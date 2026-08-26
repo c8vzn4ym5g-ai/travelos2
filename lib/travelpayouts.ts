@@ -30,16 +30,54 @@ export type BookingDestination = {
   originIata: string;
 };
 
-export const laplandBooking: BookingDestination = {
+const LAPLAND_BOOKING_BASE = {
   activitiesQuery: "Rovaniemi",
   city: "Rovaniemi",
   country: "Finland",
-  defaultDepartDate: "2027-01-18",
-  defaultReturnDate: "2027-01-25",
   destinationIata: "RVN",
   extraIata: "HEL",
   originIata: "HKG",
-};
+} as const;
+
+function utcYmd(year: number, monthIndex: number, day: number): string {
+  return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function utcDate(year: number, monthIndex: number, day: number): Date {
+  return new Date(Date.UTC(year, monthIndex, day));
+}
+
+function isoUtc(date: Date): string {
+  return utcYmd(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
+/** Next December quote week a stranger would search — not the 2019 itinerary, not a leftover January 2027 week. */
+export function laplandQuoteDates(now = new Date()): Pick<BookingDestination, "defaultDepartDate" | "defaultReturnDate"> {
+  const lead = utcDate(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 2);
+  const year = lead.getUTCFullYear();
+
+  if (lead.getUTCMonth() === 11) {
+    if (lead.getUTCDate() <= 18) {
+      return { defaultDepartDate: utcYmd(year, 11, 18), defaultReturnDate: utcYmd(year, 11, 25) };
+    }
+
+    return {
+      defaultDepartDate: isoUtc(lead),
+      defaultReturnDate: isoUtc(utcDate(lead.getUTCFullYear(), lead.getUTCMonth(), lead.getUTCDate() + 7)),
+    };
+  }
+
+  return { defaultDepartDate: utcYmd(year, 11, 18), defaultReturnDate: utcYmd(year, 11, 25) };
+}
+
+export function getLaplandBooking(now = new Date()): BookingDestination {
+  return {
+    ...LAPLAND_BOOKING_BASE,
+    ...laplandQuoteDates(now),
+  };
+}
+
+export const laplandBooking: BookingDestination = getLaplandBooking();
 
 export function aviasalesSearchUrl(originIata: string, destinationIata: string, departDate: string, returnDate: string) {
   const url = new URL(AVIASALES_SEARCH_URL);
