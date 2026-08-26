@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -177,8 +178,13 @@ test("Lapland default music stays one quiet CC0 winter bed", async () => {
   assert.match(seed, /title: "Arctic Circle blue swing"[\s\S]*enabled: false/);
   assert.match(seed, /title: "Winter village brass parade"[\s\S]*enabled: false/);
   assert.match(player, /activeTrack\.credit/);
+  assert.match(player, /data-journey-music-slot/);
+  assert.match(player, /createPortal/);
+  assert.match(player, /data-hero-map/);
   assert.match(player, /fixed bottom-4 left-4/);
   assert.doesNotMatch(player, /fixed right-4 top-4/);
+  const map = await readFile(resolve(root, "components/journey-map.tsx"), "utf8");
+  assert.match(map, /data-journey-music-slot/);
 });
 
 test("Lapland itinerary is a Rovaniemi journey picture, not a Hong Kong-scale overview", () => {
@@ -306,7 +312,8 @@ test("public Journey picture JPEG is a committed portrait v5 plate, not landscap
 
   assert.equal(jpeg[0], 0xff);
   assert.equal(jpeg[1], 0xd8);
-  assert.ok(info.size > 80_000, `journey picture too small (${info.size} bytes)`);
+  assert.equal(info.size, 442789);
+  assert.equal(createHash("sha256").update(jpeg).digest("hex"), "480debd99daad4ecbd9fba70dcc2a42fe1bf82007cc13531bfe12ac42a23090a");
   assert.ok(size, "JPEG must include a SOF size marker");
   assert.equal(size.width, 1200);
   assert.equal(size.height, 1800);

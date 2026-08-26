@@ -12,12 +12,14 @@ import {
 import {
   AVIASALES_SEARCH_URL,
   aviasalesSearchUrl,
+  getLaplandBooking,
   HOTELLOOK_SEARCH_URL,
   hotellookSearchUrl,
   KLOOK_SEARCH_URL,
   klookActivitiesUrl,
   LAPLAND_JOURNAL_PATH,
   laplandBooking,
+  laplandQuoteDates,
 } from "../lib/travelpayouts.ts";
 
 const root = resolve(import.meta.dirname, "..");
@@ -123,8 +125,8 @@ test("public trip and Drive contain a working BookingBand with real brand hrefs"
     readFile(resolve(root, "components/affiliate-disclosure.tsx"), "utf8"),
   ]);
 
-  assert.match(tripPage, /<BookingBand destination=\{laplandBooking\} \/>/);
-  assert.match(drivePage, /<BookingBand destination=\{laplandBooking\} \/>/);
+  assert.match(tripPage, /<BookingBand destination=\{getLaplandBooking\(\)\} \/>/);
+  assert.match(drivePage, /<BookingBand destination=\{getLaplandBooking\(\)\} \/>/);
   assert.match(drivePage, /data-booking-desk/);
   assert.match(drivePage, /data-featured-destination="lapland"/);
   assert.match(band, /data-booking-band/);
@@ -162,9 +164,28 @@ test("public trip and Drive contain a working BookingBand with real brand hrefs"
   assert.equal(laplandBooking.destinationIata, "RVN");
   assert.equal(laplandBooking.extraIata, "HEL");
   assert.equal(laplandBooking.city, "Rovaniemi");
+  assert.doesNotMatch(JSON.stringify(getLaplandBooking(new Date("2026-08-26T12:00:00Z"))), /2027-01-1[85]/);
+  assert.doesNotMatch(JSON.stringify(getLaplandBooking(new Date("2026-08-26T12:00:00Z"))), /2019-12-1[0-5]/);
+  assert.deepEqual(laplandQuoteDates(new Date("2026-08-26T12:00:00Z")), {
+    defaultDepartDate: "2026-12-18",
+    defaultReturnDate: "2026-12-25",
+  });
+  assert.deepEqual(laplandQuoteDates(new Date("2026-12-01T12:00:00Z")), {
+    defaultDepartDate: "2026-12-18",
+    defaultReturnDate: "2026-12-25",
+  });
+  assert.deepEqual(laplandQuoteDates(new Date("2026-12-20T12:00:00Z")), {
+    defaultDepartDate: "2026-12-22",
+    defaultReturnDate: "2026-12-29",
+  });
+  assert.deepEqual(laplandQuoteDates(new Date("2027-01-10T12:00:00Z")), {
+    defaultDepartDate: "2027-12-18",
+    defaultReturnDate: "2027-12-25",
+  });
+  assert.equal(getLaplandBooking(new Date("2026-08-26T12:00:00Z")).defaultDepartDate, "2026-12-18");
 
-  const flights = aviasalesSearchUrl("HKG", "RVN", "2027-01-18", "2027-01-25");
-  const stays = hotellookSearchUrl("Rovaniemi", "2027-01-18", "2027-01-25");
+  const flights = aviasalesSearchUrl("HKG", "RVN", "2026-12-18", "2026-12-25");
+  const stays = hotellookSearchUrl("Rovaniemi", "2026-12-18", "2026-12-25");
   const activities = klookActivitiesUrl("Rovaniemi");
   assert.match(flights, /^https:\/\/www\.aviasales\.com\/search\?/);
   assert.match(flights, /origin_iata=HKG/);

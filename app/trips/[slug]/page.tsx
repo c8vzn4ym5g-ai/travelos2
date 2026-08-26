@@ -10,8 +10,17 @@ import { LaplandStorefrontGlance } from "@/components/lapland-storefront-glance"
 import { LaplandVisualPath } from "@/components/lapland-visual-path";
 import { ShareActions } from "@/components/share-actions";
 import { readContent } from "@/lib/editable-store";
-import { forLaplandPublicPage, isLaplandStorefrontSlug, LAPLAND_PHOTO_CREDITS, LAPLAND_SEASON_LABEL, garnishCaptionCredit } from "@/lib/lapland-storefront-copy";
-import { laplandBooking } from "@/lib/travelpayouts";
+import {
+  forLaplandPublicPage,
+  garnishCaptionCredit,
+  isLaplandStayJournal,
+  isLaplandStorefrontSlug,
+  laplandPublicStops,
+  LAPLAND_PHOTO_CREDITS,
+  LAPLAND_SEASON_LABEL,
+  type LaplandPublicStop,
+} from "@/lib/lapland-storefront-copy";
+import { getLaplandBooking } from "@/lib/travelpayouts";
 import { isTripPublic } from "@/lib/trip-visibility";
 import { getTripDetailsByStartDate } from "@/lib/trips";
 import type { JournalEntry, Money, Photo, Place } from "@/lib/types";
@@ -139,17 +148,25 @@ function NarrativeBody({ body }: { body: string }) {
   );
 }
 
-function PlaceRow({ place }: { place: Place }) {
+function toStopRow(place: Place): LaplandPublicStop {
+  return {
+    detail: `${place.type} / ${place.city}, ${place.country}`,
+    id: place.id,
+    name: place.name,
+    notes: place.notes,
+    rating: place.rating,
+  };
+}
+
+function PlaceRow({ place }: { place: LaplandPublicStop }) {
   return (
     <article className="border-b border-[color:var(--line)] py-4 first:pt-0 last:border-0 last:pb-0">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="font-semibold text-[color:var(--ink)]">{place.name}</p>
-          <p className="travel-muted mt-1 text-sm">
-            {place.type} / {place.city}, {place.country}
-          </p>
+          <p className="travel-muted mt-1 text-sm">{place.detail}</p>
         </div>
-        <span className="text-sm font-semibold text-[color:var(--pine)]">{place.rating ? `${place.rating}/5` : "Unrated"}</span>
+        {place.rating ? <span className="text-sm font-semibold text-[color:var(--pine)]">{place.rating}/5</span> : null}
       </div>
       {place.notes ? <p className="travel-muted mt-2 text-sm leading-6">{place.notes}</p> : null}
     </article>
@@ -277,6 +294,8 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
 
     return { entry, index, photo };
   });
+  const pageMoments = isLapland ? storyMoments.filter(({ entry }) => !isLaplandStayJournal(entry)) : storyMoments;
+  const savedStops = isLapland ? laplandPublicStops(trip.places) : trip.places.map(toStopRow);
   const articleJsonLd = {
     "@context": "https://schema.org",
     "@type": "TravelBlogPosting",
@@ -379,7 +398,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                 ["Base city", trip.city],
                 ["Coordinates", trip.coordinates ? `${trip.coordinates.latitude}, ${trip.coordinates.longitude}` : "Not mapped"],
                 ["Journal entries", String(trip.journalEntries.length)],
-                ["Saved places", String(trip.places.length)],
+                ["Saved places", String(savedStops.length)],
               ].map(([label, value]) => (
                 <div key={label}>
                   <dt className="travel-kicker text-[0.65rem]">{label}</dt>
@@ -423,7 +442,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </div>
           </section>
 
-          {isLaplandStorefrontSlug(trip.slug) ? <BookingBand destination={laplandBooking} /> : null}
+          {isLaplandStorefrontSlug(trip.slug) ? <BookingBand destination={getLaplandBooking()} /> : null}
 
           <section className="travel-panel rounded-3xl p-5 sm:p-7">
             <SectionHeader kicker="Album" title="Photo memories" />
@@ -450,7 +469,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           <section className="travel-panel rounded-2xl p-4">
             <SectionHeader kicker="Story contents" title="On this page" />
             <div className="mt-4 grid gap-2">
-              {storyMoments.map(({ entry, photo }, index) => (
+              {pageMoments.map(({ entry, photo }, index) => (
                 <article className="grid grid-cols-[3.25rem_1fr] gap-3 rounded-2xl border border-[color:var(--line)] bg-white/60 p-2" key={entry.id}>
                   <div className="overflow-hidden rounded-xl bg-[color:var(--paper-soft)]">
                     {photo && isRenderablePhoto(photo) ? (
@@ -471,7 +490,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           <section className="travel-panel rounded-2xl p-4">
             <SectionHeader kicker="Places" title="Saved stops" />
             <div className="mt-4">
-              {trip.places.map((place) => (
+              {savedStops.map((place) => (
                 <PlaceRow key={place.id} place={place} />
               ))}
             </div>

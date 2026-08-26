@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
+import { createPortal } from "react-dom";
 import type { MusicTrack } from "@/lib/types";
 
 type JourneyMusicPlayerProps = {
@@ -40,6 +41,8 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
   const [isOn, setIsOn] = useState(false);
   const [activeTrackId, setActiveTrackId] = useState(playableTracks[0]?.id ?? "");
   const [isWaitingForNext, setIsWaitingForNext] = useState(false);
+  const [host, setHost] = useState<"hidden" | "slot" | "float">("hidden");
+  const [slotEl, setSlotEl] = useState<Element | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastSwitchAtRef = useRef(0);
   const nextTrackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -144,6 +147,34 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
     };
   }, []);
 
+  useEffect(() => {
+    const slot = document.querySelector("[data-journey-music-slot]");
+    const map = document.querySelector("[data-hero-map]");
+    setSlotEl(slot);
+
+    if (!map) {
+      setHost("float");
+      return;
+    }
+
+    const sync = () => {
+      const rect = map.getBoundingClientRect();
+      const mapInView = rect.bottom > 64 && rect.top < window.innerHeight;
+      setHost(mapInView && slot ? "slot" : "float");
+    };
+
+    sync();
+    const observer = new IntersectionObserver(sync, { threshold: [0, 0.08, 0.4, 1] });
+    observer.observe(map);
+    window.addEventListener("resize", sync);
+    window.addEventListener("scroll", sync, { passive: true });
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", sync);
+      window.removeEventListener("scroll", sync);
+    };
+  }, [playableTracks.length]);
+
   function moveToNextTrack() {
     if (!activeTrack) {
       setIsOn(false);
@@ -171,12 +202,20 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
     moveToNextTrack();
   }
 
-  if (!activeTrack) {
+  if (!activeTrack || host === "hidden") {
     return null;
   }
 
-  return (
-    <div className="fixed bottom-4 left-4 z-40 flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-full border border-white/70 bg-white/90 p-2 text-sm text-zinc-800 shadow-[0_16px_45px_rgba(30,41,59,0.16)] backdrop-blur sm:bottom-6 sm:left-6">
+  const pill = (
+    <div
+      className={
+        host === "slot"
+          ? "flex max-w-[min(100%,16rem)] items-center gap-2 rounded-full border border-white/70 bg-white/90 p-1.5 text-sm text-zinc-800 shadow-sm"
+          : "fixed bottom-4 left-4 z-40 flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-full border border-white/70 bg-white/90 p-2 text-sm text-zinc-800 shadow-[0_16px_45px_rgba(30,41,59,0.16)] backdrop-blur sm:bottom-6 sm:left-6"
+      }
+      data-journey-music=""
+      data-music-host={host}
+    >
       <audio key={activeTrack.id} onEnded={handleTrackEnded} ref={audioRef} src={activeTrack.audioUrl} />
       <button
         aria-label={isOn ? "Turn journey music off" : "Turn journey music on"}
@@ -199,4 +238,10 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
       </div>
     </div>
   );
+
+  if (host === "slot" && slotEl) {
+    return createPortal(pill, slotEl);
+  }
+
+  return pill;
 }

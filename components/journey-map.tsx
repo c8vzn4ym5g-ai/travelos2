@@ -271,18 +271,21 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
   return (
     <section className="travel-soft-panel overflow-hidden rounded-[1.75rem]" aria-label={`${title} journey map`} data-hero-map>
       <div className="flex items-center justify-between gap-3 border-b border-white/70 bg-white/60 px-4 py-3">
-        <div>
+        <div className="min-w-0">
           <p className="travel-kicker text-xs">Journey picture</p>
           <h2 className="travel-hand mt-1 text-xl font-semibold text-[color:var(--ink)]" data-glance-labels={laplandPoster ? "" : undefined}>
             {laplandPoster ? LAPLAND_PATH_HEADING : `${city}, ${country}`}
           </h2>
           {laplandPoster ? null : itinerary.arrival ? <QuietArrival cities={itinerary.arrival} /> : null}
         </div>
-        {laplandPoster ? null : (
-          <span className="rounded-full border border-teal-100 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-950">
-            At a glance
-          </span>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {laplandPoster ? null : (
+            <span className="rounded-full border border-teal-100 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-950">
+              At a glance
+            </span>
+          )}
+          <div data-journey-music-slot="" />
+        </div>
       </div>
 
       <div

@@ -1,5 +1,5 @@
 import { isLaplandPublicSlug } from "@/lib/travelpayouts";
-import type { TripDetail } from "@/lib/types";
+import type { Place, TripDetail } from "@/lib/types";
 
 export const LAPLAND_STOREFRONT_KICKER = "為何去 / Why go";
 
@@ -176,6 +176,65 @@ export function garnishCaptionCredit(photoId: string) {
 
 export function isLaplandStorefrontSlug(slug: string): boolean {
   return isLaplandPublicSlug(slug);
+}
+
+export const LAPLAND_STAY_JOURNAL_ID = "journal_lapland_cabin";
+
+export type LaplandPublicStop = {
+  detail: string;
+  id: string;
+  name: string;
+  notes: string | null;
+  rating: number | null;
+};
+
+export function isLaplandStayJournal(entry: { id: string; title?: string }): boolean {
+  return entry.id === LAPLAND_STAY_JOURNAL_ID || /red cabin no\.?\s*4|4 號紅木屋/i.test(entry.title ?? "");
+}
+
+export function isLaplandPeerLandmarkName(name: string): boolean {
+  return /santa claus village|arctic circle|helsinki cathedral|south harbour|聖誕老人村|北極圈|主教座堂|南港/i.test(
+    name,
+  );
+}
+
+/** Public headline stops only. Village lodging stays in the journal/photo sequence, not this list. */
+export function laplandPublicStops(places: Place[]): LaplandPublicStop[] {
+  const santa = places.find((place) => place.id === "place_lapland_santa_village");
+  const arctic = places.find((place) => place.id === "place_lapland_arctic_circle");
+  const cathedral = LAPLAND_VISUAL_PATH.find((beat) => beat.photoId === "photo_lapland_garnish_cathedral");
+  const harbour = LAPLAND_VISUAL_PATH.find((beat) => beat.photoId === "photo_lapland_garnish_harbour");
+
+  return [
+    {
+      detail: "Rovaniemi, Finland",
+      id: santa?.id ?? "place_lapland_santa_village",
+      name: "聖誕老人村 / Santa Claus Village",
+      notes: santa?.notes ?? null,
+      rating: santa?.rating ?? null,
+    },
+    {
+      detail: "Rovaniemi, Finland",
+      id: arctic?.id ?? "place_lapland_arctic_circle",
+      name: "北極圈 / Arctic Circle",
+      notes: arctic?.notes ?? null,
+      rating: arctic?.rating ?? null,
+    },
+    {
+      detail: "Helsinki, Finland",
+      id: "stop_helsinki_cathedral",
+      name: cathedral?.title ?? "赫爾辛基主教座堂 / Helsinki Cathedral",
+      notes: cathedral ? `${cathedral.zh} / ${cathedral.en}` : null,
+      rating: null,
+    },
+    {
+      detail: "Helsinki, Finland",
+      id: "stop_south_harbour",
+      name: harbour?.title ?? "南港 / South Harbour",
+      notes: harbour ? `${harbour.zh} / ${harbour.en}` : null,
+      rating: null,
+    },
+  ];
 }
 
 export function forLaplandPublicPage(trip: TripDetail): TripDetail {
