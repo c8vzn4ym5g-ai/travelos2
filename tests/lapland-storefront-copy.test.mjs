@@ -43,12 +43,14 @@ test("Lapland storefront glance is independent cash-path copy under the map", as
   const hero = page.slice(page.indexOf("travel-hero"), page.indexOf("Trip memory"));
   assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("LaplandStorefrontGlance"), "glance sits under the map");
   assert.ok(hero.indexOf("LaplandStorefrontGlance") < hero.indexOf("LaplandVisualPath"), "visual path sits under why-go");
+  assert.ok(hero.indexOf("LaplandVisualPath") < hero.indexOf("LaplandPublicCut"), "public cut sits under the visual story");
+  assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("LaplandPublicCut"), "public cut does not replace the poster");
   assert.ok(hero.indexOf("LaplandVisualPath") < hero.indexOf("JournalCostChip"), "visual path is before the cost chip");
   assert.ok(hero.indexOf("LaplandStorefrontGlance") < hero.indexOf("featurePhotos"), "glance is before the photo strip");
   assert.ok(hero.indexOf("<h1") < hero.indexOf("<JourneyMap"), "map still follows the title");
 
-  assert.doesNotMatch(familyHome, /LaplandStorefrontGlance|lapland-storefront-copy/);
-  assert.doesNotMatch(capture, /LaplandStorefrontGlance|lapland-storefront-copy|data-storefront-glance/);
+  assert.doesNotMatch(familyHome, /LaplandStorefrontGlance|lapland-storefront-copy|LaplandPublicCut/);
+  assert.doesNotMatch(capture, /LaplandStorefrontGlance|lapland-storefront-copy|data-storefront-glance|LaplandPublicCut/);
   assert.match(seed, /北極圈 \/ Arctic Circle/);
   assert.match(seed, /已經在拉普蘭/);
   assert.match(seed, /Finnair，是離開，不是抵達/);
@@ -115,6 +117,8 @@ test("family workshop pages stay free of storefront glance and booking widgets",
     assert.doesNotMatch(html, /LaplandVisualPath/);
     assert.doesNotMatch(html, /data-visual-path/);
     assert.doesNotMatch(html, /LaplandPlaceKnowledge/);
+    assert.doesNotMatch(html, /LaplandPublicCut/);
+    assert.doesNotMatch(html, /data-lapland-public-cut/);
     assert.doesNotMatch(html, /BookingBand/);
     assert.doesNotMatch(html, /emrldtp\.cc/);
   }
