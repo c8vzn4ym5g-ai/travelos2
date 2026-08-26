@@ -16,6 +16,11 @@ export const LAPLAND_HOOK_EN = "December. Santa Claus Village on the Arctic Circ
 
 export const LAPLAND_SEASON_LABEL = "十二月 · 深冬 / December · midwinter";
 
+export const LAPLAND_PUBLIC_CUT_FILENAME = "Lapland_那年冬天_Public_Cut.mp4";
+export const LAPLAND_PUBLIC_CUT_SRC = `/travelos/lapland/${LAPLAND_PUBLIC_CUT_FILENAME}`;
+export const LAPLAND_PUBLIC_CUT_BYTES = 8946351;
+export const LAPLAND_PUBLIC_CUT_SHA256 = "896c041b9442b593fded9d8c0c55eb97091439696d9c7bc8a89a2793064c156e";
+
 export type VisualPathKind = "family" | "garnish";
 
 export type LaplandVisualBeat = {

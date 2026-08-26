@@ -213,3 +213,46 @@ test("Lapland winter-village photo uses Sana's Christmas-card caption", async ()
   assert.doesNotMatch(page, /Unlock editor/);
   assert.doesNotMatch(page, /Edit trip/);
 });
+
+test("Lapland public short is the exact Codex cut under Journey, not a substitute file", async () => {
+  const { createHash } = await import("node:crypto");
+  const { stat } = await import("node:fs/promises");
+  const {
+    LAPLAND_PUBLIC_CUT_BYTES,
+    LAPLAND_PUBLIC_CUT_FILENAME,
+    LAPLAND_PUBLIC_CUT_SHA256,
+    LAPLAND_PUBLIC_CUT_SRC,
+    LAPLAND_SEASON_LABEL,
+  } = await import("../lib/lapland-storefront-copy.ts");
+  const videoPath = resolve(root, "public/travelos/lapland", LAPLAND_PUBLIC_CUT_FILENAME);
+  const [video, info, page, cut, poster] = await Promise.all([
+    readFile(videoPath),
+    stat(videoPath),
+    readFile(resolve(root, "app/trips/[slug]/page.tsx"), "utf8"),
+    readFile(resolve(root, "components/lapland-public-cut.tsx"), "utf8"),
+    readFile(resolve(root, "public/travelos/maps/lapland-helsinki-poster.jpg")),
+  ]);
+
+  assert.equal(info.size, 8946351);
+  assert.equal(info.size, LAPLAND_PUBLIC_CUT_BYTES);
+  assert.equal(createHash("sha256").update(video).digest("hex"), LAPLAND_PUBLIC_CUT_SHA256);
+  assert.equal(video.subarray(4, 8).toString("ascii"), "ftyp");
+  assert.equal(LAPLAND_PUBLIC_CUT_SRC, `/travelos/lapland/${LAPLAND_PUBLIC_CUT_FILENAME}`);
+  assert.match(page, /<LaplandPublicCut \/>/);
+  assert.match(page, /<JourneyMap/);
+  assert.ok(page.indexOf("<JourneyMap") < page.indexOf("<LaplandPublicCut"));
+  assert.match(cut, /data-lapland-public-cut=""/);
+  assert.match(cut, /LAPLAND_PUBLIC_CUT_SRC/);
+  assert.match(cut, /autoPlay/);
+  assert.match(cut, /muted/);
+  assert.match(cut, /playsInline/);
+  assert.match(cut, /controls/);
+  assert.match(cut, /LAPLAND_SEASON_LABEL/);
+  assert.doesNotMatch(cut, /2019-12-1[0-5]|36s|60s/);
+  assert.doesNotMatch(page, /2019-12-1[0-5]/);
+  assert.equal(LAPLAND_SEASON_LABEL, "十二月 · 深冬 / December · midwinter");
+  assert.equal(
+    createHash("sha256").update(poster).digest("hex"),
+    "480debd99daad4ecbd9fba70dcc2a42fe1bf82007cc13531bfe12ac42a23090a",
+  );
+});

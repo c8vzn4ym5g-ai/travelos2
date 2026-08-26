@@ -6,6 +6,7 @@ import { JournalCostChip, JournalSpendPanel } from "@/components/journal-spend";
 import { JourneyMap } from "@/components/journey-map";
 import { JourneyMusicPlayer } from "@/components/journey-music-player";
 import { LaplandPlaceKnowledge } from "@/components/lapland-place-knowledge";
+import { LaplandPublicCut } from "@/components/lapland-public-cut";
 import { LaplandStorefrontGlance } from "@/components/lapland-storefront-glance";
 import { LaplandVisualPath } from "@/components/lapland-visual-path";
 import { ShareActions } from "@/components/share-actions";
@@ -350,6 +351,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           />
           {isLaplandStorefrontSlug(trip.slug) ? <LaplandStorefrontGlance /> : null}
           {isLaplandStorefrontSlug(trip.slug) ? <LaplandVisualPath photos={trip.photos} /> : null}
+          {isLaplandStorefrontSlug(trip.slug) ? <LaplandPublicCut /> : null}
           {isLaplandStorefrontSlug(trip.slug) ? <LaplandPlaceKnowledge /> : null}
           <div className="flex flex-wrap items-center gap-2">
             {[
