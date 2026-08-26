@@ -90,11 +90,14 @@ export const LAPLAND_GLANCE_LABELS = "Santa Claus Village (聖誕老人村) · H
 
 export const LAPLAND_PATH_HEADING = "拉普蘭，然後赫爾辛基 / Lapland, then Helsinki";
 
+export const LAPLAND_POSTER_WIDTH = 1200;
+export const LAPLAND_POSTER_HEIGHT = 1800;
+
 export const LAPLAND_GLANCE_HOTSPOTS = [
-  { href: "#arctic-circle", id: "tap-arctic", label: "Arctic Circle journal", x: 0.005238, y: 0.931987, w: 0.220952, h: 0.062626 },
-  { href: "#place-knowledge", id: "tap-nature", label: "Place knowledge / polar twilight", x: 0.23, y: 0.931987, w: 0.220952, h: 0.062626 },
-  { href: "#cabin-4", id: "tap-stay", label: "Red cabin no. 4", x: 0.454762, y: 0.931987, w: 0.220952, h: 0.062626 },
-  { href: "#christmas-window", id: "tap-winter", label: "聖誕季節窗口 / Christmas window", x: 0.679524, y: 0.931987, w: 0.220952, h: 0.062626 },
+  { href: "#arctic-circle", id: "tap-arctic", label: "Arctic Circle journal", x: 0.404297, y: 0.90625, w: 0.133789, h: 0.078125 },
+  { href: "#place-knowledge", id: "tap-nature", label: "Place knowledge / polar twilight", x: 0.538086, y: 0.90625, w: 0.129232, h: 0.078125 },
+  { href: "#cabin-4", id: "tap-stay", label: "Red cabin no. 4", x: 0.667318, y: 0.90625, w: 0.130859, h: 0.078125 },
+  { href: "#christmas-window", id: "tap-winter", label: "聖誕季節窗口 / Christmas window", x: 0.798177, y: 0.90625, w: 0.174479, h: 0.078125 },
 ] as const;
 
 export const LAPLAND_POSTER_MAP_RATIO = 0.7;

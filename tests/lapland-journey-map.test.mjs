@@ -11,9 +11,11 @@ import {
   LAPLAND_PATH_HEADING,
   LAPLAND_POSTER,
   LAPLAND_POSTER_GENERATOR_FILE,
+  LAPLAND_POSTER_HEIGHT,
   LAPLAND_POSTER_LEGEND_RATIO,
   LAPLAND_POSTER_NOTES,
   LAPLAND_POSTER_TITLE,
+  LAPLAND_POSTER_WIDTH,
   STREET_BASEMAP,
 } from "../lib/journey-map-model.ts";
 import { seedTripDetails } from "../lib/trips.ts";
@@ -244,16 +246,41 @@ test("Lapland itinerary is a Rovaniemi journey picture, not a Hong Kong-scale ov
   assert.deepEqual(
     LAPLAND_GLANCE_HOTSPOTS.map((spot) => [spot.id, spot.href, spot.x, spot.y, spot.w, spot.h]),
     [
-      ["tap-arctic", "#arctic-circle", 0.005238, 0.931987, 0.220952, 0.062626],
-      ["tap-nature", "#place-knowledge", 0.23, 0.931987, 0.220952, 0.062626],
-      ["tap-stay", "#cabin-4", 0.454762, 0.931987, 0.220952, 0.062626],
-      ["tap-winter", "#christmas-window", 0.679524, 0.931987, 0.220952, 0.062626],
+      ["tap-arctic", "#arctic-circle", 0.404297, 0.90625, 0.133789, 0.078125],
+      ["tap-nature", "#place-knowledge", 0.538086, 0.90625, 0.129232, 0.078125],
+      ["tap-stay", "#cabin-4", 0.667318, 0.90625, 0.130859, 0.078125],
+      ["tap-winter", "#christmas-window", 0.798177, 0.90625, 0.174479, 0.078125],
     ],
   );
+  assert.ok(LAPLAND_GLANCE_HOTSPOTS.every((spot) => spot.x >= 0.4), "icon row is the bottom-right band, not full width");
+  assert.ok(LAPLAND_GLANCE_HOTSPOTS.every((spot) => spot.y === 0.90625));
   assert.ok(!LAPLAND_GLANCE_HOTSPOTS.some((spot) => /europe|locator/i.test(spot.id)));
+  assert.equal(LAPLAND_POSTER_WIDTH, 1200);
+  assert.equal(LAPLAND_POSTER_HEIGHT, 1800);
 });
 
-test("public Journey picture JPEG is committed and is not the old portrait PNG", async () => {
+function jpegSize(buffer) {
+  let index = 2;
+  while (index < buffer.length - 8) {
+    if (buffer[index] !== 0xff) {
+      index += 1;
+      continue;
+    }
+    const marker = buffer[index + 1];
+    if (marker === 0xd8 || marker === 0xd9 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      index += 2;
+      continue;
+    }
+    const length = buffer.readUInt16BE(index + 2);
+    if (marker === 0xc0 || marker === 0xc1 || marker === 0xc2) {
+      return { height: buffer.readUInt16BE(index + 5), width: buffer.readUInt16BE(index + 7) };
+    }
+    index += 2 + length;
+  }
+  return null;
+}
+
+test("public Journey picture JPEG is a committed portrait plate, not landscape A3 or the GIS PNG", async () => {
   const jpeg = await readFile(resolve(root, LAPLAND_POSTER.relativeFile));
   const info = await stat(resolve(root, LAPLAND_POSTER.relativeFile));
   const composer = await readFile(resolve(root, "scripts/compose-lapland-helsinki-poster.mjs"), "utf8");
@@ -261,12 +288,22 @@ test("public Journey picture JPEG is committed and is not the old portrait PNG",
   const path = await readFile(resolve(root, "components/lapland-visual-path.tsx"), "utf8");
   const copy = await readFile(resolve(root, "lib/lapland-storefront-copy.ts"), "utf8");
   const knowledge = await readFile(resolve(root, "components/lapland-place-knowledge.tsx"), "utf8");
+  const size = jpegSize(jpeg);
 
   assert.equal(jpeg[0], 0xff);
   assert.equal(jpeg[1], 0xd8);
   assert.ok(info.size > 80_000, `journey picture too small (${info.size} bytes)`);
+  assert.ok(size, "JPEG SOF dimensions missing");
+  assert.equal(size.width, 1200);
+  assert.equal(size.height, 1800);
+  assert.ok(size.height > size.width, "Journey picture must be portrait");
   assert.match(composer, /Ninara · CC BY 2\.0/);
+  assert.match(composer, /1200/);
+  assert.match(composer, /1800/);
+  assert.match(composer, /bottom-right icon row/);
   assert.doesNotMatch(composer, /2019-12-11/);
+  assert.doesNotMatch(composer, /drawEuropeLocator|EUROPE 歐洲/);
+  assert.doesNotMatch(composer, /4200|A3 landscape|2100/);
   assert.doesNotMatch(map, /fillText\("N"/);
   assert.doesNotMatch(map, /compass|north arrow/i);
   assert.match(path, /id=\{beat\.sectionId\}/);
@@ -275,6 +312,7 @@ test("public Journey picture JPEG is committed and is not the old portrait PNG",
   assert.match(copy, /sectionId: "christmas-window"/);
   assert.match(knowledge, /id="place-knowledge"/);
   assert.doesNotMatch(map, /TravelpayoutsDrive|data-travelpayouts-drive/);
+  assert.match(map, /p-0/);
 });
 
 test("selecting stop N shows bilingual wording and the linked photo", () => {
