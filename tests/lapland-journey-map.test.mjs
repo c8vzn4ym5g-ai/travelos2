@@ -11,9 +11,11 @@ import {
   LAPLAND_PATH_HEADING,
   LAPLAND_POSTER,
   LAPLAND_POSTER_GENERATOR_FILE,
+  LAPLAND_POSTER_HEIGHT,
   LAPLAND_POSTER_LEGEND_RATIO,
   LAPLAND_POSTER_NOTES,
   LAPLAND_POSTER_TITLE,
+  LAPLAND_POSTER_WIDTH,
   STREET_BASEMAP,
 } from "../lib/journey-map-model.ts";
 import { seedTripDetails } from "../lib/trips.ts";
@@ -244,16 +246,41 @@ test("Lapland itinerary is a Rovaniemi journey picture, not a Hong Kong-scale ov
   assert.deepEqual(
     LAPLAND_GLANCE_HOTSPOTS.map((spot) => [spot.id, spot.href, spot.x, spot.y, spot.w, spot.h]),
     [
-      ["tap-arctic", "#arctic-circle", 0.005238, 0.931987, 0.220952, 0.062626],
-      ["tap-nature", "#place-knowledge", 0.23, 0.931987, 0.220952, 0.062626],
-      ["tap-stay", "#cabin-4", 0.454762, 0.931987, 0.220952, 0.062626],
-      ["tap-winter", "#christmas-window", 0.679524, 0.931987, 0.220952, 0.062626],
+      ["tap-arctic", "#arctic-circle", 0.378906, 0.873047, 0.114258, 0.10612],
+      ["tap-nature", "#place-knowledge", 0.493164, 0.873047, 0.115234, 0.10612],
+      ["tap-stay", "#cabin-4", 0.608398, 0.873047, 0.109375, 0.10612],
+      ["tap-winter", "#christmas-window", 0.717773, 0.873047, 0.099609, 0.10612],
     ],
   );
+  assert.ok(LAPLAND_GLANCE_HOTSPOTS.every((spot) => spot.x >= 0.37), "theme cards sit in the footer band, not full width");
+  assert.ok(LAPLAND_GLANCE_HOTSPOTS.every((spot) => spot.y === 0.873047));
   assert.ok(!LAPLAND_GLANCE_HOTSPOTS.some((spot) => /europe|locator/i.test(spot.id)));
+  assert.equal(LAPLAND_POSTER_WIDTH, 1200);
+  assert.equal(LAPLAND_POSTER_HEIGHT, 1800);
 });
 
-test("public Journey picture JPEG is committed and is not the old portrait PNG", async () => {
+function jpegSize(buffer) {
+  let index = 2;
+  while (index < buffer.length - 8) {
+    if (buffer[index] !== 0xff) {
+      index += 1;
+      continue;
+    }
+    const marker = buffer[index + 1];
+    if (marker === 0xd8 || marker === 0xd9 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      index += 2;
+      continue;
+    }
+    const length = buffer.readUInt16BE(index + 2);
+    if (marker === 0xc0 || marker === 0xc1 || marker === 0xc2) {
+      return { height: buffer.readUInt16BE(index + 5), width: buffer.readUInt16BE(index + 7) };
+    }
+    index += 2 + length;
+  }
+  return null;
+}
+
+test("public Journey picture JPEG is a committed portrait v5 plate, not landscape A3 or the GIS PNG", async () => {
   const jpeg = await readFile(resolve(root, LAPLAND_POSTER.relativeFile));
   const info = await stat(resolve(root, LAPLAND_POSTER.relativeFile));
   const composer = await readFile(resolve(root, "scripts/compose-lapland-helsinki-poster.mjs"), "utf8");
@@ -261,11 +288,21 @@ test("public Journey picture JPEG is committed and is not the old portrait PNG",
   const path = await readFile(resolve(root, "components/lapland-visual-path.tsx"), "utf8");
   const copy = await readFile(resolve(root, "lib/lapland-storefront-copy.ts"), "utf8");
   const knowledge = await readFile(resolve(root, "components/lapland-place-knowledge.tsx"), "utf8");
+  const size = jpegSize(jpeg);
 
   assert.equal(jpeg[0], 0xff);
   assert.equal(jpeg[1], 0xd8);
   assert.ok(info.size > 80_000, `journey picture too small (${info.size} bytes)`);
+  assert.ok(size, "JPEG must include a SOF size marker");
+  assert.equal(size.width, 1200);
+  assert.equal(size.height, 1800);
+  assert.ok(size.height > size.width, "Journey picture is portrait");
   assert.match(composer, /Ninara · CC BY 2\.0/);
+  assert.match(composer, /drawEuropeLocator/);
+  assert.match(composer, /blurbZh/);
+  assert.match(composer, /極夜與雪國的純淨體驗/);
+  assert.doesNotMatch(composer, /fillText\(["']Then South["']\)/);
+  assert.doesNotMatch(composer, /fillText\(["']向南前行["']\)/);
   assert.doesNotMatch(composer, /2019-12-11/);
   assert.doesNotMatch(map, /fillText\("N"/);
   assert.doesNotMatch(map, /compass|north arrow/i);
