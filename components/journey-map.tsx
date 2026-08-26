@@ -12,6 +12,8 @@ import {
   LAPLAND_GLANCE_HOTSPOTS,
   LAPLAND_PATH_HEADING,
   LAPLAND_POSTER,
+  LAPLAND_POSTER_HEIGHT,
+  LAPLAND_POSTER_WIDTH,
   STREET_BASEMAP,
   type PosterPin,
   type StopIcon,
@@ -141,42 +143,45 @@ function RegionalMap({
 
   return (
     <div
-      className={`relative overflow-hidden bg-[#e8f0e4] ${usePoster ? "" : "rounded-2xl"}`}
+      className={`relative ${usePoster ? "flex justify-center" : "overflow-hidden rounded-2xl bg-[#e8f0e4]"}`}
       data-map-frame="regional"
       data-map-poster={usePoster ? LAPLAND_POSTER.src : undefined}
     >
       {usePoster ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          alt={LAPLAND_POSTER.alt}
-          className="block h-auto w-full select-none"
-          data-map-poster-image
-          draggable={false}
-          src={LAPLAND_POSTER.src}
-        />
+        <div className="relative w-fit max-h-[90vh] max-w-full">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            alt={LAPLAND_POSTER.alt}
+            className="block h-auto max-h-[90vh] w-auto max-w-full object-contain select-none"
+            data-map-poster-image
+            draggable={false}
+            height={LAPLAND_POSTER_HEIGHT}
+            src={LAPLAND_POSTER.src}
+            width={LAPLAND_POSTER_WIDTH}
+          />
+          <nav aria-label="Journey picture glance links" className="absolute inset-0 z-20">
+            {LAPLAND_GLANCE_HOTSPOTS.map((spot) => (
+              <a
+                className="absolute bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800"
+                data-glance-hotspot={spot.id}
+                href={spot.href}
+                key={spot.id}
+                style={{
+                  height: `${spot.h * 100}%`,
+                  left: `${spot.x * 100}%`,
+                  top: `${spot.y * 100}%`,
+                  width: `${spot.w * 100}%`,
+                }}
+              >
+                <span className="sr-only">{spot.label}</span>
+              </a>
+            ))}
+          </nav>
+        </div>
       ) : (
         <div className="min-h-[22rem] bg-[#e8f0e4] sm:min-h-[26rem] lg:min-h-[32rem]" />
       )}
-      {usePoster ? (
-        <nav aria-label="Journey picture glance links" className="absolute inset-0 z-20">
-          {LAPLAND_GLANCE_HOTSPOTS.map((spot) => (
-            <a
-              className="absolute bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800"
-              data-glance-hotspot={spot.id}
-              href={spot.href}
-              key={spot.id}
-              style={{
-                height: `${spot.h * 100}%`,
-                left: `${spot.x * 100}%`,
-                top: `${spot.y * 100}%`,
-                width: `${spot.w * 100}%`,
-              }}
-            >
-              <span className="sr-only">{spot.label}</span>
-            </a>
-          ))}
-        </nav>
-      ) : (
+      {usePoster ? null : (
         pins.map((pin) => {
           const selected = selectedId === pin.id;
           return (

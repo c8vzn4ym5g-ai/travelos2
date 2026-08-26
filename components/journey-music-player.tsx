@@ -176,7 +176,7 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
   }
 
   return (
-    <div className="fixed right-4 top-4 z-40 flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-full border border-white/70 bg-white/90 p-2 text-sm text-zinc-800 shadow-[0_16px_45px_rgba(30,41,59,0.16)] backdrop-blur sm:right-6 sm:top-6">
+    <div className="fixed bottom-4 left-4 z-40 flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-full border border-white/70 bg-white/90 p-2 text-sm text-zinc-800 shadow-[0_16px_45px_rgba(30,41,59,0.16)] backdrop-blur sm:bottom-6 sm:left-6">
       <audio key={activeTrack.id} onEnded={handleTrackEnded} ref={audioRef} src={activeTrack.audioUrl} />
       <button
         aria-label={isOn ? "Turn journey music off" : "Turn journey music on"}

@@ -98,6 +98,13 @@ test("long-haul is a quiet label, not an equal-size second map", async () => {
   assert.match(regionalBlock, /data-map-frame="regional"/);
   assert.match(regionalBlock, /data-map-poster-image/);
   assert.match(regionalBlock, /LAPLAND_POSTER/);
+  assert.match(regionalBlock, /max-h-\[90vh\]/);
+  assert.match(regionalBlock, /w-auto/);
+  assert.match(regionalBlock, /object-contain/);
+  assert.match(regionalBlock, /width=\{LAPLAND_POSTER_WIDTH\}/);
+  assert.match(regionalBlock, /height=\{LAPLAND_POSTER_HEIGHT\}/);
+  assert.doesNotMatch(regionalBlock, /object-fill|object-cover/);
+  assert.doesNotMatch(regionalBlock, /className="block h-auto w-full select-none"/);
   assert.match(source, /Journey picture/);
   assert.match(source, /At a glance/);
 });
@@ -170,6 +177,8 @@ test("Lapland default music stays one quiet CC0 winter bed", async () => {
   assert.match(seed, /title: "Arctic Circle blue swing"[\s\S]*enabled: false/);
   assert.match(seed, /title: "Winter village brass parade"[\s\S]*enabled: false/);
   assert.match(player, /activeTrack\.credit/);
+  assert.match(player, /fixed bottom-4 left-4/);
+  assert.doesNotMatch(player, /fixed right-4 top-4/);
 });
 
 test("Lapland itinerary is a Rovaniemi journey picture, not a Hong Kong-scale overview", () => {
