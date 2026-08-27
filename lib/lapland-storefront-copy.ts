@@ -18,13 +18,17 @@ export const LAPLAND_HOOK_EN =
 export const LAPLAND_SEASON_LABEL = "十二月 · 深冬 / December · midwinter";
 
 export const LAPLAND_PUBLIC_CUT_FILENAME = "Lapland_那年冬天_Public_Cut.mp4";
-export const LAPLAND_PUBLIC_CUT_SRC = `/travelos/lapland/${LAPLAND_PUBLIC_CUT_FILENAME}`;
 export const LAPLAND_PUBLIC_CUT_BYTES = 8946351;
 export const LAPLAND_PUBLIC_CUT_SHA256 = "896c041b9442b593fded9d8c0c55eb97091439696d9c7bc8a89a2793064c156e";
 
 export const LAPLAND_WINTER_VOCAL_F_FILENAME = "Lapland_那年冬天_WinterVocal_F.mp4";
 export const LAPLAND_WINTER_VOCAL_F_BYTES = 8935024;
 export const LAPLAND_WINTER_VOCAL_F_SHA256 = "fbdf340292780f34e98d4f9d822605b4c4671bd2976353d56249116801dd3c14";
+
+export const LAPLAND_HERO_VIDEO_FILENAME = "Lapland_那年冬天_WinterWarm_Q.mp4";
+export const LAPLAND_HERO_VIDEO_SRC = `/travelos/lapland/${LAPLAND_HERO_VIDEO_FILENAME}`;
+export const LAPLAND_HERO_VIDEO_BYTES = 8940928;
+export const LAPLAND_HERO_VIDEO_SHA256 = "4c27e746a56e97100116541d14f082e1eb9d44b36cdc415e6b2e5ee8b060aa64";
 
 export const LAPLAND_STILLS_DIR = "/travelos/lapland/stills";
 
