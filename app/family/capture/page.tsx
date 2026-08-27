@@ -22,6 +22,7 @@ import {
   uploadOriginalPhotoInBackground,
 } from "@/lib/capture-upload";
 import { FAMILY_ADMIN_SESSION_KEY, resolveFamilySession } from "@/lib/family-session";
+import { preferredRecorderMime } from "@/lib/moment-audio";
 import { appendMomentPhotos, classifyCaptureNote } from "@/lib/moments";
 import type { GeoPoint, TravelJob } from "@/lib/types";
 
@@ -461,7 +462,10 @@ export default function CapturePage() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const recorderMime = preferredRecorderMime();
+      const recorder = recorderMime
+        ? new MediaRecorder(stream, { mimeType: recorderMime })
+        : new MediaRecorder(stream);
       chunksRef.current = [];
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {

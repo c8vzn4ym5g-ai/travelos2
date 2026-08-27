@@ -346,23 +346,32 @@ test("capture speed path does not touch public Lapland", async () => {
   assert.match(poster, /tile\.opentopomap\.org/);
 });
 
-test("capture and save paths are not blocked by indexing or geocoding", async () => {
-  const [capture, momentsApi, photosApi, store] = await Promise.all([
+test("capture and save paths are not blocked by indexing, geocoding, or transcripts", async () => {
+  const [capture, momentsApi, photosApi, audioApi, store] = await Promise.all([
     readSource("app/family/capture/page.tsx"),
     readSource("app/api/moments/route.ts"),
     readSource("app/api/moments/photos/route.ts"),
+    readSource("app/api/moments/audio/route.ts"),
     readSource("lib/moment-store.ts"),
   ]);
 
   assert.match(store, /export function scheduleMomentIndex\(momentId: string\)/);
   assert.match(store, /void indexSavedMoment\(momentId\)/);
   assert.doesNotMatch(store, /await indexSavedMoment/);
+  assert.match(store, /export function scheduleMomentTranscript\(momentId: string\)/);
+  assert.match(store, /void fillMomentTranscript\(momentId\)/);
+  assert.doesNotMatch(store, /await fillMomentTranscript/);
   assert.match(momentsApi, /scheduleMomentIndex\(saved\.moment\.id\)/);
   assert.doesNotMatch(momentsApi, /await scheduleMomentIndex/);
+  assert.match(momentsApi, /scheduleMissingMomentTranscripts\(content\.moments\)/);
+  assert.doesNotMatch(momentsApi, /await scheduleMissingMomentTranscripts/);
   assert.match(photosApi, /scheduleMomentIndex\(momentId\)/);
   assert.doesNotMatch(photosApi, /await scheduleMomentIndex/);
+  assert.match(audioApi, /scheduleMomentTranscript\(momentId\)/);
+  assert.doesNotMatch(audioApi, /await scheduleMomentTranscript/);
   assert.doesNotMatch(capture, /scheduleMomentIndex/);
   assert.doesNotMatch(capture, /indexTravelMoment/);
+  assert.doesNotMatch(capture, /transcribeAudioUrl/);
   assert.doesNotMatch(capture, /nominatim/i);
   assert.doesNotMatch(capture, /geocod/i);
   assert.doesNotMatch(capture, /\/api\/moments\/index/);

@@ -4,6 +4,7 @@ import {
   isAdminPinValid,
   momentApiErrorResponse,
   readMoments,
+  scheduleMissingMomentTranscripts,
   scheduleMomentIndex,
   updateJob,
   updateMoment,
@@ -12,6 +13,7 @@ import { createTravelJob, createTravelMoment, normalizeTravelJob, selectMomentId
 import type { GeoPoint, TravelJob, TravelMoment } from "@/lib/types";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 type CreateMomentBody = {
   command?: string | null;
@@ -33,6 +35,7 @@ export async function GET(request: Request) {
     }
 
     const { content, status } = await readMoments();
+    scheduleMissingMomentTranscripts(content.moments);
     return Response.json({ content, status });
   } catch (error) {
     return momentApiErrorResponse(error);

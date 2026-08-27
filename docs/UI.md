@@ -69,6 +69,9 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
 - `/family/bench` is the family workshop table (工作台 / Bench): the raw pile of
   Capture dumps, newest first. It is private family, not the public storefront
   (橱窗). Do not put Drive or booking widgets there.
+- Bench shows the workshop intro once. Native audio controls that error must
+  not appear; unplayable voice is a quiet line. Transcripts may appear later
+  without blocking the page.
 - Content cards and editing surfaces use light backgrounds with dark text.
   Dark color may be used as a small accent, not as a large content box that can
   make labels or entered content appear obscured.

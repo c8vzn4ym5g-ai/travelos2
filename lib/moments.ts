@@ -50,6 +50,10 @@ function momentReceivedStamp(moment: TravelMoment) {
   return Date.parse(moment.createdAt) || Date.parse(moment.time ?? "") || 0;
 }
 
+export function momentNeedsTranscript(moment: Pick<TravelMoment, "originalAudioUrl" | "transcript">) {
+  return Boolean(moment.originalAudioUrl?.trim()) && !moment.transcript?.trim();
+}
+
 export function sortMomentsNewestFirst(moments: TravelMoment[]) {
   return uniqueMomentsById(moments).sort((left, right) => {
     return momentReceivedStamp(right) - momentReceivedStamp(left);

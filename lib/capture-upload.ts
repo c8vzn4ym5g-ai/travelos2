@@ -1,5 +1,6 @@
 "use client";
 
+import { filenameForAudioMime, resolveAudioMime } from "./moment-audio.ts";
 import { isHeicPhoto } from "./moments.ts";
 import { createTinyPreviewUrl, prepareDisplayPhoto, shouldKeepOriginal } from "./prepare-photo.ts";
 import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "./types.ts";
@@ -412,9 +413,12 @@ export async function uploadMomentAudio(input: {
   signal?: AbortSignal;
 }) {
   const send = async (momentId: string) => {
+    const bytes = new Uint8Array(await input.blob.arrayBuffer());
+    const mime = resolveAudioMime(bytes, input.blob.type) ?? input.blob.type ?? "application/octet-stream";
+    const file = new File([bytes], filenameForAudioMime(mime), { type: mime });
     const audioData = new FormData();
     audioData.set("momentId", momentId);
-    audioData.set("file", input.blob, "moment-audio.webm");
+    audioData.set("file", file);
     return fetch("/api/moments/audio", {
       body: audioData,
       headers: pinHeaders(input.pin),

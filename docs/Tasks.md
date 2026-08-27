@@ -1,6 +1,28 @@
 # TravelOS Codex Tasks
 
-## TASK-024: Family workshop bench for raw Capture dumps
+## TASK-025: Bench audio that plays, transcript in background, no hang
+
+Status: done
+
+Goal: Live 工作台 showed the newest Aug 27 dump as a broken native
+audio bar (錯誤 / --:--) with 這筆還沒有照片, duplicated the
+intro sentence, and Capture → 工作台 could spin without finishing.
+
+Result:
+
+- `/family/bench` keeps a single intro sentence. Session and
+  GET `/api/moments` time out; already-loaded cards stay visible.
+- Unplayable audio is a quiet 這段聲音還不能播 line, never a native
+  錯誤 control. iPhone fmp4 labeled `.webm` is sniffed and played
+  via an object URL when the browser can play it.
+- Original audio stays on the moment. Voice-to-text fills the
+  existing `transcript` field in the background after dump (and
+  when Bench loads a dump that still needs it). Capture and Bench
+  do not wait on it.
+- No filing into Coffee/Travel, no public Lapland edits, 工作台
+  name unchanged.
+
+
 
 Status: done
 
