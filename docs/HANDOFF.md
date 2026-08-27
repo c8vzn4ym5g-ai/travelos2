@@ -1,5 +1,13 @@
 # TravelOS Handoff
 
+## 2026-08-27 Family home: 入口 → 工作台 → 編輯
+
+- `/family` is three zones. 入口 holds Capture (`/family/capture`) and
+  Write (`/trips/write`) together. 工作台 is one door to the raw pile
+  `/family/bench`. 編輯 is 旅行遊記 and 咖啡記憶.
+- 工作台 is not next to Capture. Capture success may still say
+  去工作台看看; that is on Capture, not a second home door.
+
 ## 2026-08-27 Family workshop bench / 工作台
 
 - Sana could Capture and Save as Moment, then open Coffee and see

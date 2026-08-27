@@ -221,11 +221,15 @@ test("family and capture clients discover the PIN gate and do not add a Capture 
   assert.match(session, /AbortSignal\.timeout\(FAMILY_GATE_TIMEOUT_MS\)/);
   assert.match(session, /export async function resolveFamilySession/);
   assert.match(unlock, /fetchFamilyGate/);
-  assert.match(unlock, /href="\/family\/capture"/);
-  assert.match(unlock, /href="\/family\/bench"/);
-  assert.match(unlock, /href="\/trips\/write"/);
   assert.match(unlock, /id="family-pin"/);
   assert.match(unlock, /type=\{showPin \? "text" : "password"\}/);
+  assert.match(unlock, /開啟家庭入口/);
+  assert.match(family, /href="\/family\/capture"/);
+  assert.match(family, /href="\/family\/bench"/);
+  assert.match(family, /href="\/trips\/write"/);
+  assert.doesNotMatch(unlock, /href="\/family\/capture"/);
+  assert.doesNotMatch(unlock, /href="\/family\/bench"/);
+  assert.doesNotMatch(unlock, /href="\/trips\/write"/);
   assert.match(capture, /resolveFamilySession/);
   assert.match(bench, /resolveFamilySession/);
   assert.match(write, /resolveFamilySession/);

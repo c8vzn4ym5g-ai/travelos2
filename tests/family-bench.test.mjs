@@ -55,20 +55,37 @@ test("family bench is a private workshop table for raw Capture dumps", async () 
   assert.match(audioPlayer, /onError=\{\(\) => setStatus\("unplayable"\)\}/);
   assert.doesNotMatch(audioPlayer, /src=\{src\}/);
 
-  assert.match(family, /工作台/);
+  assert.match(family, /入口/);
+  assert.match(family, />\s*Capture\s*</);
+  assert.match(family, />\s*Write\s*</);
+  assert.match(family, /href="\/family\/capture"/);
+  assert.match(family, /href="\/trips\/write"/);
+  assert.equal((family.match(/工作台/g) ?? []).length, 1);
+  assert.equal((family.match(/剛收下的，還沒整理。旅行和咖啡都還沒進。/g) ?? []).length, 1);
   assert.match(family, /href="\/family\/bench"/);
-  assert.match(family, /去工作台看看/);
-  assert.match(family, /剛收下的，還沒整理。旅行和咖啡都還沒進。/);
+  assert.match(family, /編輯/);
   assert.match(family, /旅行遊記/);
   assert.match(family, /咖啡記憶/);
+  assert.doesNotMatch(family, /去工作台看看/);
+  assert.doesNotMatch(family, /Sit and write/);
   assert.doesNotMatch(family, /橱窗/);
   assert.doesNotMatch(family, /JDB Capture/);
 
-  assert.match(unlock, /href="\/family\/bench"/);
-  assert.match(unlock, /unlock\("\/family\/bench"\)/);
-  assert.match(unlock, />\s*工作台\s*</);
-  assert.match(unlock, /href="\/family\/capture"/);
-  assert.match(unlock, />\s*Capture\s*</);
+  const entryIndex = family.indexOf(">入口<");
+  const benchDoorIndex = family.indexOf(">工作台<");
+  const editIndex = family.indexOf(">編輯<");
+  const captureIndex = family.indexOf('href="/family/capture"');
+  const writeIndex = family.indexOf('href="/trips/write"');
+  assert.ok(entryIndex !== -1 && benchDoorIndex !== -1 && editIndex !== -1);
+  assert.ok(entryIndex < benchDoorIndex && benchDoorIndex < editIndex);
+  assert.ok(captureIndex !== -1 && writeIndex !== -1);
+  assert.ok(captureIndex < benchDoorIndex && writeIndex < benchDoorIndex);
+
+  assert.doesNotMatch(unlock, />\s*工作台\s*</);
+  assert.doesNotMatch(unlock, /href="\/family\/bench"/);
+  assert.doesNotMatch(unlock, /href="\/family\/capture"/);
+  assert.match(unlock, /id="family-pin"/);
+  assert.match(unlock, /開啟家庭入口/);
 
   assert.match(capture, /去工作台看看/);
   assert.match(capture, /\/family\/bench\?moment=/);

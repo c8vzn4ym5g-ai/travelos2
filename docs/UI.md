@@ -66,6 +66,9 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
   control so phone users can confirm exactly what they typed before submitting.
 - A direct visit to a protected department without a family session returns the
   user to `/family`.
+- `/family` is three stacked zones: 入口 (Capture + Write), 工作台
+  (one door to `/family/bench`), then 編輯 (旅行遊記 and 咖啡記憶).
+  工作台 appears once on that page and is not stuffed next to Capture.
 - `/family/bench` is the family workshop table (工作台 / Bench): the raw pile of
   Capture dumps, newest first. It is private family, not the public storefront
   (橱窗). Do not put Drive or booking widgets there.

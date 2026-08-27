@@ -1,14 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FAMILY_ADMIN_SESSION_KEY, fetchFamilyGate } from "@/lib/family-session";
-
-type EditorPath = "/coffee/admin" | "/family/bench" | "/family/capture" | "/trips/admin";
-
-const doorLinkClass =
-  "flex min-h-12 items-center justify-center rounded-2xl border px-4 py-3 text-center font-semibold transition";
 
 export function FamilyUnlockPanel() {
   const router = useRouter();
@@ -17,6 +11,7 @@ export function FamilyUnlockPanel() {
   const [message, setMessage] = useState("輸入一次後，本次使用期間可直接切換旅行與咖啡編輯。");
   const [checking, setChecking] = useState(false);
   const [showPin, setShowPin] = useState(false);
+  const [opened, setOpened] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,7 +27,7 @@ export function FamilyUnlockPanel() {
     };
   }, []);
 
-  async function unlock(editorPath: EditorPath) {
+  async function unlock() {
     if (!pin.trim()) {
       setMessage("請先輸入家庭編輯密碼。");
       return;
@@ -54,7 +49,9 @@ export function FamilyUnlockPanel() {
       }
 
       window.sessionStorage.setItem(FAMILY_ADMIN_SESSION_KEY, pin);
-      router.push(editorPath);
+      setOpened(true);
+      setMessage("家庭入口已開啟。");
+      router.refresh();
     } catch {
       setMessage("目前無法連線確認，請檢查網路後再試。");
     } finally {
@@ -62,51 +59,8 @@ export function FamilyUnlockPanel() {
     }
   }
 
-  if (pinRequired === null) {
-    return (
-      <section aria-labelledby="family-unlock-title" className="mx-auto max-w-5xl px-6 pt-8 lg:px-10">
-        <div className="rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm sm:p-8">
-          <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">開始編輯</p>
-          <h2 className="travel-display mt-2 text-2xl font-semibold sm:text-3xl" id="family-unlock-title">
-            正在確認家庭入口…
-          </h2>
-          <p className="mt-3 text-sm leading-6 text-zinc-600">不必先輸入密碼，先確認這次是否開放家庭入口。</p>
-        </div>
-      </section>
-    );
-  }
-
-  if (!pinRequired) {
-    return (
-      <section aria-labelledby="family-unlock-title" className="mx-auto max-w-5xl px-6 pt-8 lg:px-10">
-        <div className="rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm sm:p-8">
-          <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">開始編輯</p>
-          <h2 className="travel-display mt-2 text-2xl font-semibold sm:text-3xl" id="family-unlock-title">
-            家庭入口已開啟
-          </h2>
-          <p className="mt-3 text-sm leading-6 text-zinc-600">開發期間不必輸入家庭密碼。Capture、工作台與 Write 可直接使用。</p>
-          <div className="mt-5 grid gap-3">
-            <Link className={`${doorLinkClass} border-emerald-300 bg-emerald-50 text-emerald-950 hover:bg-emerald-100`} href="/family/capture">
-              Capture
-            </Link>
-            <Link className={`${doorLinkClass} border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100`} href="/family/bench">
-              工作台
-            </Link>
-            <Link className={`${doorLinkClass} border-sky-300 bg-sky-50 text-sky-950 hover:bg-sky-100`} href="/trips/write">
-              Write
-            </Link>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Link className={`${doorLinkClass} border-sky-300 bg-sky-50 text-sky-950 hover:bg-sky-100`} href="/trips/admin">
-                前往旅行編輯
-              </Link>
-              <Link className={`${doorLinkClass} border-rose-300 bg-rose-50 text-rose-950 hover:bg-rose-100`} href="/coffee/admin">
-                前往咖啡編輯
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-    );
+  if (pinRequired !== true || opened) {
+    return null;
   }
 
   return (
@@ -144,42 +98,14 @@ export function FamilyUnlockPanel() {
         <p aria-live="polite" className="mt-3 text-sm leading-6 text-zinc-600">
           {message}
         </p>
-        <div className="mt-5 grid gap-3">
-          <button
-            className="min-h-12 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 font-semibold text-emerald-950 transition hover:bg-emerald-100 disabled:opacity-60"
-            disabled={checking}
-            onClick={() => unlock("/family/capture")}
-            type="button"
-          >
-            Capture
-          </button>
-          <button
-            className="min-h-12 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 font-semibold text-amber-950 transition hover:bg-amber-100 disabled:opacity-60"
-            disabled={checking}
-            onClick={() => unlock("/family/bench")}
-            type="button"
-          >
-            工作台
-          </button>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              className="min-h-12 rounded-2xl border border-sky-300 bg-sky-50 px-4 py-3 font-semibold text-sky-950 transition hover:bg-sky-100 disabled:opacity-60"
-              disabled={checking}
-              onClick={() => unlock("/trips/admin")}
-              type="button"
-            >
-              前往旅行編輯
-            </button>
-            <button
-              className="min-h-12 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 font-semibold text-rose-950 transition hover:bg-rose-100 disabled:opacity-60"
-              disabled={checking}
-              onClick={() => unlock("/coffee/admin")}
-              type="button"
-            >
-              前往咖啡編輯
-            </button>
-          </div>
-        </div>
+        <button
+          className="mt-5 min-h-12 w-full rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 font-semibold text-emerald-950 transition hover:bg-emerald-100 disabled:opacity-60"
+          disabled={checking}
+          onClick={() => void unlock()}
+          type="button"
+        >
+          開啟家庭入口
+        </button>
       </div>
     </section>
   );
