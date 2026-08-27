@@ -368,6 +368,8 @@ test("capture and save paths are not blocked by indexing, geocoding, or transcri
   assert.match(store, /export function scheduleMomentTranscript\(/);
   assert.match(store, /afterResponse/);
   assert.match(store, /await fillMomentTranscript\(momentId\)/);
+  assert.match(store, /transcriptInFlight.add\(momentId\)/);
+  assert.ok(store.indexOf("afterResponse(async () => {") < store.indexOf("transcriptInFlight.add(momentId)"));
   assert.doesNotMatch(store, /await scheduleMomentIndex/);
   assert.match(momentsApi, /scheduleMomentIndex\(saved\.moment\.id\)/);
   assert.doesNotMatch(momentsApi, /await scheduleMomentIndex/);

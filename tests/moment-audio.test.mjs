@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
+import { afterResponse } from "../lib/after-response.ts";
 import { appendSpokenText, spokenTextFromSpeechEvent } from "../lib/capture-speech.ts";
 import {
   encodeWavBytes,
@@ -119,6 +120,41 @@ test("gateway transcription reads text and never treats audio as the transcript"
   const body = JSON.parse(String(calls[0]?.init?.body));
   assert.equal(body.mediaType, "audio/mp4");
   assert.ok(typeof body.audio === "string" && body.audio.length > 0);
+});
+
+test("afterResponse uses waitUntil so transcript work survives the HTTP response", async () => {
+  const key = Symbol.for("@vercel/request-context");
+  const previous = globalThis[key];
+  const held = [];
+  Object.defineProperty(globalThis, key, {
+    configurable: true,
+    value: {
+      get() {
+        return {
+          waitUntil(promise) {
+            held.push(promise);
+          },
+        };
+      },
+    },
+  });
+
+  try {
+    let finished = false;
+    const pending = afterResponse(async () => {
+      finished = true;
+    });
+    assert.equal(held.length, 1);
+    assert.equal(held[0], pending);
+    await pending;
+    assert.equal(finished, true);
+  } finally {
+    if (previous === undefined) {
+      delete globalThis[key];
+    } else {
+      Object.defineProperty(globalThis, key, { configurable: true, value: previous });
+    }
+  }
 });
 
 test("transcription is a no-op without credentials", async () => {
