@@ -254,8 +254,8 @@ test("Lapland public short is the exact Codex cut under Journey, not a substitut
   assert.ok(page.indexOf("<LaplandPublicCut") < page.indexOf("<JourneyMap"), "public cut sits before the frozen poster");
   assert.match(cut, /data-lapland-public-cut=""/);
   assert.match(cut, /LAPLAND_PUBLIC_CUT_SRC/);
-  assert.match(cut, /autoPlay/);
-  assert.match(cut, /muted/);
+  assert.doesNotMatch(cut, /autoPlay/);
+  assert.doesNotMatch(cut, /\bmuted\b/);
   assert.match(cut, /playsInline/);
   assert.match(cut, /controls/);
   assert.match(cut, /LAPLAND_SEASON_LABEL/);
