@@ -1,19 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  UNPLAYABLE_MOMENT_AUDIO_COPY,
-  canPlayAudioMime,
-  resolveAudioMime,
-} from "@/lib/moment-audio";
+import { MomentAudioPlayer } from "@/app/family/moment-audio-player";
+import { FAMILY_ADMIN_SESSION_KEY, familyPinHeaders } from "@/lib/family-session";
+import { UNPLAYABLE_MOMENT_AUDIO_COPY, momentAudioPlayUrl, resolveAudioMime } from "@/lib/moment-audio";
+import { preparePlayableAudio } from "@/lib/moment-audio-playback";
 
-const AUDIO_FETCH_MS = 6000;
-const AUDIO_PROBE_MS = 3000;
+const AUDIO_FETCH_MS = 8000;
 
 type PlayerStatus = "loading" | "ready" | "unplayable";
 
-export function BenchAudio({ src }: { src: string }) {
+function sessionPin() {
+  return window.sessionStorage.getItem(FAMILY_ADMIN_SESSION_KEY) ?? "";
+}
+
+export function BenchAudio({ momentId }: { momentId: string }) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [bytes, setBytes] = useState<Uint8Array | null>(null);
+  const [durationSeconds, setDurationSeconds] = useState<number | null>(null);
   const [status, setStatus] = useState<PlayerStatus>("loading");
 
   useEffect(() => {
@@ -24,32 +28,29 @@ export function BenchAudio({ src }: { src: string }) {
 
     void (async () => {
       try {
-        const response = await fetch(src, {
+        const response = await fetch(momentAudioPlayUrl(momentId), {
           cache: "no-store",
-          credentials: "omit",
+          headers: familyPinHeaders(sessionPin()),
           signal: controller.signal,
         });
         if (!response.ok) {
           throw new Error("audio missing");
         }
 
-        const bytes = new Uint8Array(await response.arrayBuffer());
-        const mime = resolveAudioMime(bytes, response.headers.get("content-type"));
-        if (!canPlayAudioMime(mime)) {
-          if (!cancelled) {
-            setStatus("unplayable");
-          }
-          return;
-        }
-
-        const blob = new Blob([bytes], { type: mime ?? "application/octet-stream" });
-        created = URL.createObjectURL(blob);
+        const raw = new Uint8Array(await response.arrayBuffer());
+        const prepared = await preparePlayableAudio(
+          new Blob([raw], { type: resolveAudioMime(raw, response.headers.get("content-type")) ?? "audio/mp4" }),
+        );
+        created = URL.createObjectURL(prepared.file);
         if (cancelled) {
           URL.revokeObjectURL(created);
           return;
         }
 
+        setBytes(prepared.bytes);
+        setDurationSeconds(prepared.durationSeconds);
         setObjectUrl(created);
+        setStatus("ready");
       } catch {
         if (!cancelled) {
           setStatus("unplayable");
@@ -65,39 +66,15 @@ export function BenchAudio({ src }: { src: string }) {
         URL.revokeObjectURL(created);
       }
     };
-  }, [src]);
-
-  useEffect(() => {
-    if (!objectUrl || status !== "loading") {
-      return;
-    }
-
-    const probeTimer = window.setTimeout(() => {
-      setStatus("unplayable");
-    }, AUDIO_PROBE_MS);
-
-    return () => {
-      window.clearTimeout(probeTimer);
-    };
-  }, [objectUrl, status]);
+  }, [momentId]);
 
   if (status === "unplayable") {
     return <p className="mt-4 text-sm leading-6 text-stone-500">{UNPLAYABLE_MOMENT_AUDIO_COPY}</p>;
   }
 
-  return (
-    <>
-      {objectUrl ? (
-        <audio
-          className={status === "ready" ? "mt-4 w-full" : "hidden"}
-          controls
-          onCanPlay={() => setStatus("ready")}
-          onError={() => setStatus("unplayable")}
-          preload="metadata"
-          src={objectUrl}
-        />
-      ) : null}
-      {status === "loading" ? <p className="mt-4 text-sm leading-6 text-stone-500">聲音載入中…</p> : null}
-    </>
-  );
+  if (status === "loading" || !objectUrl) {
+    return <p className="mt-4 text-sm leading-6 text-stone-500">聲音載入中…</p>;
+  }
+
+  return <MomentAudioPlayer bytes={bytes} durationSeconds={durationSeconds} src={objectUrl} />;
 }

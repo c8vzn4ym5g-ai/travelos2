@@ -305,7 +305,7 @@ export default function FamilyBenchPage() {
                       </p>
                     ) : null}
 
-                    {hasAudio && moment.originalAudioUrl ? <BenchAudio src={moment.originalAudioUrl} /> : null}
+                    {hasAudio ? <BenchAudio momentId={moment.id} /> : null}
                   </article>
                 </li>
               );

@@ -3,7 +3,13 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
 import {
+  encodeWavBytes,
   filenameForAudioMime,
+  formatAudioDurationLabel,
+  isFragmentedMp4,
+  isTrustedMomentAudioUrl,
+  momentAudioPlayUrl,
+  readFtypBrands,
   resolveAudioMime,
   sniffAudioMime,
 } from "../lib/moment-audio.ts";
@@ -37,6 +43,27 @@ test("iPhone fmp4 audio labeled webm is sniffed as audio/mp4", () => {
   assert.equal(sniffAudioMime(bytes), "audio/mp4");
   assert.equal(resolveAudioMime(bytes, "video/webm"), "audio/mp4");
   assert.equal(filenameForAudioMime("audio/mp4"), "moment-audio.m4a");
+  assert.equal(readFtypBrands(bytes)[0], "iso5");
+  assert.equal(isFragmentedMp4(bytes), true);
+  assert.equal(isFragmentedMp4(webmHeader()), false);
+});
+
+test("wav encoder writes a playable audio/wav header", () => {
+  const wav = encodeWavBytes([new Float32Array([0, 0.5, -0.5, 0])], 8000);
+  assert.equal(sniffAudioMime(wav), "audio/wav");
+  assert.equal(filenameForAudioMime("audio/wav"), "moment-audio.wav");
+  assert.equal(formatAudioDurationLabel(8), "約 8 秒");
+  assert.equal(formatAudioDurationLabel(0), "這段聲音");
+});
+
+test("moment audio play URLs stay on the family origin and reject open fetch", () => {
+  assert.equal(momentAudioPlayUrl("moment_1"), "/api/moments/audio?momentId=moment_1");
+  assert.equal(
+    isTrustedMomentAudioUrl("https://abc.public.blob.vercel-storage.com/travelos/moments/audio/x.m4a"),
+    true,
+  );
+  assert.equal(isTrustedMomentAudioUrl("https://evil.example/audio.mp4"), false);
+  assert.equal(isTrustedMomentAudioUrl("data:audio/mp4;base64,AAAA"), true);
 });
 
 test("real WebM stays audio/webm", () => {
@@ -90,18 +117,39 @@ test("transcription is a no-op without credentials", async () => {
 });
 
 test("capture and audio upload sniff mime instead of forcing webm", async () => {
-  const [capture, upload, audioApi] = await Promise.all([
+  const [capture, upload, audioApi, player, playback] = await Promise.all([
     readSource("app/family/capture/page.tsx"),
     readSource("lib/capture-upload.ts"),
     readSource("app/api/moments/audio/route.ts"),
+    readSource("app/family/moment-audio-player.tsx"),
+    readSource("lib/moment-audio-playback.ts"),
   ]);
 
   assert.match(capture, /preferredRecorderMime/);
   assert.match(capture, /MediaRecorder\(stream, \{ mimeType: recorderMime \}\)/);
+  assert.match(capture, /preparePlayableAudio/);
+  assert.match(capture, /primePlaybackAudioContext/);
+  assert.match(capture, /MomentAudioPlayer/);
+  assert.match(capture, /durationSeconds/);
+  assert.doesNotMatch(capture, /<audio className="w-full" controls/);
   assert.match(upload, /filenameForAudioMime/);
   assert.match(upload, /resolveAudioMime/);
+  assert.match(upload, /input\.blob\.slice\(0\)/);
   assert.doesNotMatch(upload, /moment-audio\.webm"\)/);
   assert.match(audioApi, /filenameForAudioMime\(mime\)/);
   assert.match(audioApi, /scheduleMomentTranscript\(momentId\)/);
+  assert.match(audioApi, /export async function GET/);
+  assert.match(audioApi, /isTrustedMomentAudioUrl/);
+  assert.match(audioApi, /getMomentById/);
+  assert.match(audioApi, /Content-Type/);
   assert.doesNotMatch(audioApi, /await scheduleMomentTranscript/);
+  assert.match(player, /播放/);
+  assert.match(player, /UNPLAYABLE_MOMENT_AUDIO_COPY/);
+  assert.match(player, /video\/mp4/);
+  assert.doesNotMatch(player, /\scontrols\s/);
+  const toggle = player.slice(player.indexOf("async function togglePlayback"));
+  assert.doesNotMatch(toggle, /revokeObjectURL/);
+  assert.doesNotMatch(player, /setAudio\(null\)/);
+  assert.match(playback, /decodeToWavFile/);
+  assert.match(playback, /isFragmentedMp4/);
 });

@@ -146,6 +146,10 @@ function overlayJobs(indexJobs: TravelJob[], extraJobs: TravelJob[]) {
   return [...extra, ...indexJobs.map((job) => byId.get(job.id) ?? job)];
 }
 
+export async function getMomentById(momentId: string) {
+  return readMomentItem(momentId);
+}
+
 async function readMomentItem(momentId: string): Promise<TravelMoment | null> {
   const cached = getItemCache().get(momentId);
   if (cached) {
