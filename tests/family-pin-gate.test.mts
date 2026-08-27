@@ -111,6 +111,38 @@ test("moments APIs succeed without a PIN header when the family PIN flag is off"
   });
 });
 
+test("GET /api/moments can be listed newest first for the family bench", async () => {
+  await withPinEnv({ pin: "keep-this-pin", required: undefined }, async () => {
+    const [{ GET, POST }, { sortMomentsNewestFirst }] = await Promise.all([
+      import("../app/api/moments/route.ts"),
+      import("../lib/moments.ts"),
+    ]);
+
+    const created = await POST(
+      new Request("http://travelos.local/api/moments", {
+        body: JSON.stringify({ note: "bench dump", time: "2026-08-27T09:24:00.000Z" }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+    );
+    assert.equal(created.status, 200);
+    const body = (await created.json()) as { moment: { id: string } };
+
+    const listedResponse = await GET(new Request("http://travelos.local/api/moments"));
+    assert.equal(listedResponse.status, 200);
+    const listed = (await listedResponse.json()) as {
+      content: { moments: Parameters<typeof sortMomentsNewestFirst>[0] };
+    };
+    const sorted = sortMomentsNewestFirst([...listed.content.moments, ...listed.content.moments]);
+    const stamps = sorted.map((moment) => Date.parse(moment.createdAt) || Date.parse(moment.time ?? "") || 0);
+    for (let index = 1; index < stamps.length; index += 1) {
+      assert.ok(stamps[index - 1] >= stamps[index]);
+    }
+    assert.equal(new Set(sorted.map((moment) => moment.id)).size, sorted.length);
+    assert.ok(sorted.some((moment) => moment.id === body.moment.id));
+  });
+});
+
 test("moments APIs still return 401 for a missing or wrong PIN when the flag is on", async () => {
   await withPinEnv({ pin: "family-secret", required: "1" }, async () => {
     const [{ GET, POST }, photos, audio, gate] = await Promise.all([
@@ -169,12 +201,13 @@ test("moments APIs still return 401 for a missing or wrong PIN when the flag is 
 });
 
 test("family and capture clients discover the PIN gate and do not add a Capture PIN form", async () => {
-  const [gate, pin, session, unlock, capture, write, family, tripsAdmin, coffeeAdmin] = await Promise.all([
+  const [gate, pin, session, unlock, capture, bench, write, family, tripsAdmin, coffeeAdmin] = await Promise.all([
     readSource("app/api/family/gate/route.ts"),
     readSource("lib/family-pin.ts"),
     readSource("lib/family-session.ts"),
     readSource("app/family/family-unlock-panel.tsx"),
     readSource("app/family/capture/page.tsx"),
+    readSource("app/family/bench/page.tsx"),
     readSource("app/trips/write/page.tsx"),
     readSource("app/family/page.tsx"),
     readSource("app/trips/admin/page.tsx"),
@@ -188,22 +221,28 @@ test("family and capture clients discover the PIN gate and do not add a Capture 
   assert.match(session, /export async function resolveFamilySession/);
   assert.match(unlock, /fetchFamilyGate/);
   assert.match(unlock, /href="\/family\/capture"/);
+  assert.match(unlock, /href="\/family\/bench"/);
   assert.match(unlock, /href="\/trips\/write"/);
   assert.match(unlock, /id="family-pin"/);
   assert.match(unlock, /type=\{showPin \? "text" : "password"\}/);
   assert.match(capture, /resolveFamilySession/);
+  assert.match(bench, /resolveFamilySession/);
   assert.match(write, /resolveFamilySession/);
   assert.match(tripsAdmin, /resolveFamilySession/);
   assert.match(coffeeAdmin, /resolveFamilySession/);
   assert.match(capture, /router\.replace\("\/family"\)/);
+  assert.match(bench, /router\.replace\("\/family"\)/);
   assert.match(write, /router\.replace\("\/family"\)/);
   assert.doesNotMatch(capture, /type="password"/);
   assert.doesNotMatch(capture, /id="family-pin"/);
+  assert.doesNotMatch(bench, /type="password"/);
   assert.doesNotMatch(write, /type="password"/);
   assert.doesNotMatch(family, /travelpayouts/i);
   assert.doesNotMatch(family, /emrldtp/);
   assert.doesNotMatch(capture, /travelpayouts/i);
   assert.doesNotMatch(capture, /from "@\/lib\/trips"/);
+  assert.doesNotMatch(bench, /travelpayouts/i);
+  assert.doesNotMatch(bench, /from "@\/lib\/trips"/);
 });
 
 test("public Lapland stays independent of the family PIN gate", async () => {
@@ -223,6 +262,7 @@ test("public Lapland stays independent of the family PIN gate", async () => {
   assert.doesNotMatch(page, /isFamilyPinRequired/);
   assert.doesNotMatch(page, /TRAVELOS_REQUIRE_FAMILY_PIN/);
   assert.doesNotMatch(page, /family\/capture/);
+  assert.doesNotMatch(page, /family\/bench/);
   assert.doesNotMatch(page, /moment-store/);
   assert.doesNotMatch(gate, /trip_lapland_2020/);
   assert.doesNotMatch(seed, /TRAVELOS_REQUIRE_FAMILY_PIN/);

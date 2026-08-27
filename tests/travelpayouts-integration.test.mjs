@@ -29,6 +29,8 @@ const familySurfaces = [
   "/family/",
   "/family/capture",
   "/family/capture?from=home",
+  "/family/bench",
+  "/family/bench?moment=moment_1",
   "/trips/write",
   "/trips/admin",
   "/trips/new",
@@ -201,6 +203,7 @@ test("family and Capture sources never import the booking band or Drive script U
     "app/family/page.tsx",
     "app/family/family-unlock-panel.tsx",
     "app/family/capture/page.tsx",
+    "app/family/bench/page.tsx",
     "app/trips/write/page.tsx",
     "app/trips/admin/page.tsx",
     "app/trips/new/page.tsx",
@@ -245,6 +248,14 @@ test("served family HTML omits Drive; public Lapland and Drive keep Drive plus b
   assert.doesNotMatch(captureHtml, /id="travelpayouts-drive"/);
   assert.doesNotMatch(captureHtml, /data-booking-band/);
   assert.doesNotMatch(captureHtml, /aviasales\.com/);
+
+  const benchResponse = await fetch(`${base}/family/bench`);
+  assert.equal(benchResponse.ok, true);
+  const benchHtml = await benchResponse.text();
+  assert.doesNotMatch(benchHtml, /emrldtp\.cc/);
+  assert.doesNotMatch(benchHtml, /id="travelpayouts-drive"/);
+  assert.doesNotMatch(benchHtml, /data-booking-band/);
+  assert.doesNotMatch(benchHtml, /aviasales\.com/);
 
   const laplandResponse = await fetch(`${base}${LAPLAND_JOURNAL_PATH}`);
   assert.equal(laplandResponse.ok, true);

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FAMILY_ADMIN_SESSION_KEY, fetchFamilyGate } from "@/lib/family-session";
 
-type EditorPath = "/coffee/admin" | "/family/capture" | "/trips/admin";
+type EditorPath = "/coffee/admin" | "/family/bench" | "/family/capture" | "/trips/admin";
 
 const doorLinkClass =
   "flex min-h-12 items-center justify-center rounded-2xl border px-4 py-3 text-center font-semibold transition";
@@ -84,10 +84,13 @@ export function FamilyUnlockPanel() {
           <h2 className="travel-display mt-2 text-2xl font-semibold sm:text-3xl" id="family-unlock-title">
             家庭入口已開啟
           </h2>
-          <p className="mt-3 text-sm leading-6 text-zinc-600">開發期間不必輸入家庭密碼。Capture 與 Write 可直接使用。</p>
+          <p className="mt-3 text-sm leading-6 text-zinc-600">開發期間不必輸入家庭密碼。Capture、工作台與 Write 可直接使用。</p>
           <div className="mt-5 grid gap-3">
             <Link className={`${doorLinkClass} border-emerald-300 bg-emerald-50 text-emerald-950 hover:bg-emerald-100`} href="/family/capture">
               Capture
+            </Link>
+            <Link className={`${doorLinkClass} border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100`} href="/family/bench">
+              工作台
             </Link>
             <Link className={`${doorLinkClass} border-sky-300 bg-sky-50 text-sky-950 hover:bg-sky-100`} href="/trips/write">
               Write
@@ -149,6 +152,14 @@ export function FamilyUnlockPanel() {
             type="button"
           >
             Capture
+          </button>
+          <button
+            className="min-h-12 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 font-semibold text-amber-950 transition hover:bg-amber-100 disabled:opacity-60"
+            disabled={checking}
+            onClick={() => unlock("/family/bench")}
+            type="button"
+          >
+            工作台
           </button>
           <div className="grid gap-3 sm:grid-cols-2">
             <button

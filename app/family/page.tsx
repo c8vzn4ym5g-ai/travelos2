@@ -40,6 +40,20 @@ export default function FamilyWorkspacePage() {
 
       <FamilyUnlockPanel />
 
+      <section className="mx-auto max-w-5xl px-6 pt-8 lg:px-10">
+        <article className="rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+          <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-amber-800">剛收下的</p>
+          <h2 className="travel-display mt-2 text-3xl font-semibold">工作台</h2>
+          <p className="mt-3 text-sm leading-6 text-zinc-600">剛收下的，還沒整理。旅行和咖啡都還沒進。</p>
+          <Link
+            className="mt-6 flex min-h-12 items-center justify-center rounded-2xl border border-white bg-white px-4 py-3 text-center font-semibold text-amber-950 shadow-sm"
+            href="/family/bench"
+          >
+            去工作台看看
+          </Link>
+        </article>
+      </section>
+
       <section className="mx-auto grid max-w-5xl gap-5 px-6 py-8 lg:grid-cols-2 lg:px-10">
         {sections.map((section) => (
           <article className={`rounded-3xl border p-6 shadow-sm ${section.accent}`} key={section.title}>

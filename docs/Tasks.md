@@ -1,5 +1,24 @@
 # TravelOS Codex Tasks
 
+## TASK-024: Family workshop bench for raw Capture dumps
+
+Status: done
+
+Goal: Give Sana a family-private 工作台 / Bench so Capture dumps are
+visible after Save as Moment. Coffee is shops/map; Capture currently
+clears the form. The warehouse already exists.
+
+Result:
+
+- `/family/bench` lists GET `/api/moments` newest first, with photos,
+  optional one-liner, month/day, and original audio. Same family session
+  as Capture. Empty state links back to `/family/capture`.
+- Capture keeps its success copy and adds 去工作台看看 (highlights the
+  new moment when the id is known). Family home has 工作台 next to
+  Capture / 旅行 / 咖啡. No tagging, no filing to Coffee or Trips, no
+  Drive/booking on bench, Capture name unchanged, public Lapland
+  unchanged.
+
 ## TASK-023: Public Lapland page chrome — stops and booking dates
 
 Status: done
