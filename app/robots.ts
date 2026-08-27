@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         allow: ["/", "/trips", "/trips/", "/coffee", "/coffee/", "/drive"],
-        disallow: ["/admin", "/family/capture", "/trips/admin", "/trips/new", "/trips/write", "/coffee/admin", "/coffee/new", "/api/"],
+        disallow: ["/admin", "/family/capture", "/family/bench", "/trips/admin", "/trips/new", "/trips/write", "/coffee/admin", "/coffee/new", "/api/"],
         userAgent: "*",
       },
     ],

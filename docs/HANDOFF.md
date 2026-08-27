@@ -1,5 +1,20 @@
 # TravelOS Handoff
 
+## 2026-08-27 Family workshop bench / 工作台
+
+- Sana could Capture and Save as Moment, then open Coffee and see
+  nothing. Coffee is shops/map. There was no family-facing raw pile.
+- `/family/bench` is 工作台 / Bench: 剛收下的，還沒整理。旅行和咖啡都還沒進。
+  Same `FAMILY_ADMIN_SESSION_KEY` as Capture. Loads GET `/api/moments`,
+  newest first, actual stills, optional one-liner, month/day, original
+  audio. Empty: 還沒有收下的。去 Capture 拍一張.
+- Live warehouse already has dumps (including a two-photo moment from
+  2026-08-27) but the index repeats ids; bench dedupes by id and prefers
+  the copy with more photos. Not a second warehouse.
+- Capture success keeps the existing copy and adds 去工作台看看.
+- Do not call this 橱窗. Do not call it JDB Capture. Do not file into
+  Coffee or Trips in this ticket.
+
 ## 2026-08-25 Lapland poster: left notes, blurbs, colorful Finland
 
 - Owner rejected the beige Finland infographic (legend on the right, names

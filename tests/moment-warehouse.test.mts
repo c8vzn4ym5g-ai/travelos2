@@ -13,6 +13,8 @@ import {
   looksLikeSystemCommand,
   momentItemBlobPath,
   selectMomentIdsForCommand,
+  sortMomentsNewestFirst,
+  uniqueMomentsById,
 } from "../lib/moments.ts";
 import {
   filterMomentsByDayAndPlace,
@@ -74,6 +76,40 @@ test("warehouse photo appends can land in one write", () => {
     ["photo_one", "photo_two"],
   );
   assert.deepEqual(moment.photos, []);
+});
+
+test("bench listing dedupes warehouse ids and keeps the newest dump first", () => {
+  const older = createTravelMoment({ note: "old", createdAt: "2026-08-25T12:00:00.000Z", time: "2019-12-11T00:00:00.000Z" });
+  const newer = createTravelMoment({ note: "curry", createdAt: "2026-08-27T09:24:12.417Z", time: "2026-08-27T09:24:11.000Z" });
+  const duplicate = {
+    ...newer,
+    photos: [
+      {
+        coordinates: null,
+        createdAt: newer.createdAt,
+        id: "photo_one",
+        momentId: newer.id,
+        originalFilename: "curry.jpg",
+        originalStorageKey: null,
+        storageKey: "https://blob.example/curry.jpg",
+        takenAt: newer.time,
+      },
+    ],
+  };
+
+  const unique = uniqueMomentsById([newer, duplicate, newer, older]);
+  assert.deepEqual(
+    unique.map((moment) => moment.id),
+    [newer.id, older.id],
+  );
+  assert.equal(unique[0]?.photos.length, 1);
+
+  const sorted = sortMomentsNewestFirst([older, newer, duplicate]);
+  assert.deepEqual(
+    sorted.map((moment) => moment.id),
+    [newer.id, older.id],
+  );
+  assert.equal(sorted[0]?.photos[0]?.originalFilename, "curry.jpg");
 });
 
 test("a new moment is a warehouse asset and not a trip", () => {

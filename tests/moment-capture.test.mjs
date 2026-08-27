@@ -79,9 +79,13 @@ test("family home has one Capture door and no retired second-app cards", async (
   assert.match(family, /FamilyUnlockPanel/);
   assert.match(family, /旅行遊記/);
   assert.match(family, /咖啡記憶/);
+  assert.match(family, /工作台/);
+  assert.match(family, /href="\/family\/bench"/);
   assert.match(family, /安裝到 iPhone/);
   assert.match(unlock, /href="\/family\/capture"/);
   assert.match(unlock, />\s*Capture\s*</);
+  assert.match(unlock, /href="\/family\/bench"/);
+  assert.match(unlock, />\s*工作台\s*</);
   assert.match(unlock, /href="\/trips\/write"/);
   assert.match(unlock, />\s*Write\s*</);
   assert.match(unlock, /前往旅行編輯/);
@@ -95,16 +99,18 @@ test("family home has one Capture door and no retired second-app cards", async (
   assert.doesNotMatch(family, /chatgpt\.site/);
   assert.doesNotMatch(family, /jdb-family-entry/);
   assert.doesNotMatch(family, /href="\/family\/capture"/);
+  assert.doesNotMatch(family, /橱窗/);
   assert.doesNotMatch(capture, /JDB Capture/);
   assert.doesNotMatch(unlock, /JDB Capture/);
   assert.doesNotMatch(unlock, /chatgpt\.site/);
 });
 
 test("family session is required and capture does not add a PIN form", async () => {
-  const [family, unlock, capture, write, travelAdmin, coffeeAdmin] = await Promise.all([
+  const [family, unlock, capture, bench, write, travelAdmin, coffeeAdmin] = await Promise.all([
     readSource("app/family/page.tsx"),
     readSource("app/family/family-unlock-panel.tsx"),
     readSource("app/family/capture/page.tsx"),
+    readSource("app/family/bench/page.tsx"),
     readSource("app/trips/write/page.tsx"),
     readSource("app/trips/admin/page.tsx"),
     readSource("app/coffee/admin/page.tsx"),
@@ -113,18 +119,22 @@ test("family session is required and capture does not add a PIN form", async () 
   assert.match(unlock, /href="\/family\/capture"/);
   assert.match(unlock, /id="family-pin"/);
   assert.match(unlock, /unlock\("\/family\/capture"\)/);
+  assert.match(unlock, /unlock\("\/family\/bench"\)/);
   assert.match(unlock, />\s*Capture\s*</);
   assert.match(unlock, /fetchFamilyGate/);
   assert.match(capture, /FAMILY_ADMIN_SESSION_KEY/);
   assert.match(capture, /resolveFamilySession/);
   assert.match(capture, /router\.replace\("\/family"\)/);
+  assert.match(bench, /resolveFamilySession/);
+  assert.match(bench, /router\.replace\("\/family"\)/);
   assert.match(write, /resolveFamilySession/);
   assert.match(write, /router\.replace\("\/family"\)/);
   assert.doesNotMatch(capture, /type="password"/);
   assert.doesNotMatch(capture, /id="family-pin"/);
+  assert.doesNotMatch(bench, /type="password"/);
   assert.doesNotMatch(write, /type="password"/);
 
-  for (const editor of [travelAdmin, coffeeAdmin, capture, write]) {
+  for (const editor of [travelAdmin, coffeeAdmin, capture, bench, write]) {
     assert.match(editor, /router\.replace\("\/family"\)/);
     assert.match(editor, /resolveFamilySession/);
     assert.doesNotMatch(editor, /type="password"/);
@@ -329,6 +339,7 @@ test("capture speed path does not touch public Lapland", async () => {
   assert.doesNotMatch(photosApi, /trip_lapland_2020/);
   assert.doesNotMatch(laplandPage, /moment-store/);
   assert.doesNotMatch(laplandPage, /family\/capture/);
+  assert.doesNotMatch(laplandPage, /family\/bench/);
   assert.match(seed, /trip_lapland_2020/);
   assert.match(seed, /laplandTitle: "北極圈上的十二月"/);
   assert.match(seed, /finland-lapland-winter-journal"/);

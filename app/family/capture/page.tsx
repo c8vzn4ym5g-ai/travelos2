@@ -75,6 +75,7 @@ export default function CapturePage() {
   const [recording, setRecording] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedJobId, setSavedJobId] = useState<string | null>(null);
+  const [savedMomentId, setSavedMomentId] = useState<string | null>(null);
   const [message, setMessage] = useState("拍一張、選一張，或錄一小段。先看剛留下的，不好就重拍。");
 
   const hasCapture = note.trim().length > 0 || photos.length > 0 || Boolean(audio);
@@ -540,17 +541,18 @@ export default function CapturePage() {
       }
 
       let createdJob: TravelJob | null = null;
-      const savedMomentId = momentSession().momentId;
-      if (savedMomentId) {
+      let keptMomentId = momentSession().momentId;
+      if (keptMomentId) {
         const saved = await finalizeCaptureMoment({
           command: classified.command,
           coordinates: coordinatesRef.current,
-          momentId: savedMomentId,
+          momentId: keptMomentId,
           note: classified.note,
           pin: sessionPin(pinRef.current),
           time,
         });
         createdJob = saved.job;
+        keptMomentId = saved.moment?.id ?? keptMomentId;
       } else {
         const created = await createCaptureMoment({
           command: classified.command,
@@ -560,6 +562,7 @@ export default function CapturePage() {
           time,
         });
         createdJob = created.job;
+        keptMomentId = created.moment.id;
       }
 
       for (const photo of photosRef.current) {
@@ -574,6 +577,7 @@ export default function CapturePage() {
       setAudio(null);
       setNote("");
       setSavedJobId(createdJob?.id ?? null);
+      setSavedMomentId(keptMomentId);
       resetDraft();
       setMessage(
         createdJob
@@ -776,6 +780,15 @@ export default function CapturePage() {
               href={`/trips/write?job=${savedJobId}`}
             >
               Open job in Write
+            </Link>
+          ) : null}
+
+          {savedMomentId ? (
+            <Link
+              className="mt-3 flex min-h-12 items-center justify-center rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 font-semibold text-amber-950"
+              href={`/family/bench?moment=${encodeURIComponent(savedMomentId)}`}
+            >
+              去工作台看看
             </Link>
           ) : null}
 

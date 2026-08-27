@@ -369,6 +369,7 @@ test("public Lapland stays untouched by per-moment item files", async () => {
   assert.doesNotMatch(laplandPage, /moment-store/);
   assert.doesNotMatch(laplandPage, /moment-item/);
   assert.doesNotMatch(laplandPage, /family\/capture/);
+  assert.doesNotMatch(laplandPage, /family\/bench/);
   assert.match(seed, /trip_lapland_2020/);
   assert.match(seed, /laplandTitle: "北極圈上的十二月"/);
   assert.match(seed, /finland-lapland-winter-journal"/);

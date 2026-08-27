@@ -35,6 +35,27 @@ export function appendMomentPhotos<T>(current: T[], incoming: T[]) {
   return [...current, ...incoming];
 }
 
+export function uniqueMomentsById(moments: TravelMoment[]) {
+  const byId = new Map<string, TravelMoment>();
+  for (const moment of moments) {
+    const current = byId.get(moment.id);
+    if (!current || moment.photos.length > current.photos.length) {
+      byId.set(moment.id, moment);
+    }
+  }
+  return [...byId.values()];
+}
+
+function momentReceivedStamp(moment: TravelMoment) {
+  return Date.parse(moment.createdAt) || Date.parse(moment.time ?? "") || 0;
+}
+
+export function sortMomentsNewestFirst(moments: TravelMoment[]) {
+  return uniqueMomentsById(moments).sort((left, right) => {
+    return momentReceivedStamp(right) - momentReceivedStamp(left);
+  });
+}
+
 export function applyMomentPhotoAppends(
   moments: TravelMoment[],
   incoming: Array<{ momentId: string; photo: MomentPhoto }>,
