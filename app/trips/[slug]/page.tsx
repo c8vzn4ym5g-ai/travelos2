@@ -5,6 +5,8 @@ import { BookingBand } from "@/components/booking-band";
 import { JournalCostChip, JournalSpendPanel } from "@/components/journal-spend";
 import { JourneyMap } from "@/components/journey-map";
 import { JourneyMusicPlayer } from "@/components/journey-music-player";
+import { LaplandCutStill } from "@/components/lapland-cut-still";
+import { LaplandMoreCut } from "@/components/lapland-more-cut";
 import { LaplandPlaceKnowledge } from "@/components/lapland-place-knowledge";
 import { LaplandPublicCut } from "@/components/lapland-public-cut";
 import { LaplandStorefrontGlance } from "@/components/lapland-storefront-glance";
@@ -344,27 +346,56 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             )}
           </div>
           {isLapland ? <LaplandPublicCut /> : null}
+          {isLapland && coverPhoto ? <LaplandCutStill photo={coverPhoto} /> : null}
           {isLapland ? (
-            <div className="max-w-4xl">
-              <p className="travel-muted text-base leading-8 sm:text-lg">{heroSummary}</p>
-              <div className="mt-5">
-                <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
+            <LaplandMoreCut>
+              <div className="max-w-4xl">
+                <p className="travel-muted text-base leading-8 sm:text-lg">{heroSummary}</p>
+                <div className="mt-5">
+                  <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
+                </div>
               </div>
-            </div>
-          ) : null}
-          <JourneyMap
-            center={trip.coordinates}
-            city={trip.city}
-            country={trip.country}
-            journalEntries={trip.journalEntries}
-            photos={trip.photos}
-            places={trip.places}
-            route={trip.travelRoute ?? []}
-            title={trip.title}
-          />
-          {isLapland ? <LaplandStorefrontGlance /> : null}
-          {isLapland ? <LaplandVisualPath photos={trip.photos} /> : null}
-          {isLapland ? <LaplandPlaceKnowledge /> : null}
+              <JourneyMap
+                center={trip.coordinates}
+                city={trip.city}
+                country={trip.country}
+                journalEntries={trip.journalEntries}
+                photos={trip.photos}
+                places={trip.places}
+                route={trip.travelRoute ?? []}
+                title={trip.title}
+              />
+              <LaplandStorefrontGlance />
+              <LaplandVisualPath photos={trip.photos} />
+              <LaplandPlaceKnowledge />
+              <div className="flex flex-wrap items-center gap-2">
+                {[
+                  ["Season", seasonLabel, "border-sky-100 bg-sky-50 text-sky-950"],
+                  ["Mood", trip.journalEntries[0]?.mood ?? "Memory", "border-rose-100 bg-rose-50 text-rose-950"],
+                  ["Photos", `${trip.photos.length}`, "border-amber-100 bg-amber-50 text-amber-950"],
+                ].map(([label, value, tone]) => (
+                  <MemoryChip key={label} label={label} tone={tone} value={value} />
+                ))}
+                {trip.totalCost ? (
+                  <JournalCostChip amount={formatMoney(trip.totalCost)} slug={trip.slug} />
+                ) : (
+                  <MemoryChip label="Cost" tone="border-teal-100 bg-teal-50 text-teal-950" value="Not tracked" />
+                )}
+              </div>
+            </LaplandMoreCut>
+          ) : (
+            <JourneyMap
+              center={trip.coordinates}
+              city={trip.city}
+              country={trip.country}
+              journalEntries={trip.journalEntries}
+              photos={trip.photos}
+              places={trip.places}
+              route={trip.travelRoute ?? []}
+              title={trip.title}
+            />
+          )}
+          {isLapland ? null : (
           <div className="flex flex-wrap items-center gap-2">
             {[
               ["Season", seasonLabel, "border-sky-100 bg-sky-50 text-sky-950"],
@@ -379,6 +410,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               <MemoryChip label="Cost" tone="border-teal-100 bg-teal-50 text-teal-950" value="Not tracked" />
             )}
           </div>
+          )}
           {isLaplandStorefrontSlug(trip.slug) ? null : (
           <div className="grid gap-4 lg:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)] lg:items-start">
             {coverPhoto ? (

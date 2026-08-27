@@ -230,11 +230,13 @@ test("Lapland public short is the exact Codex cut under Journey, not a substitut
     LAPLAND_SEASON_LABEL,
   } = await import("../lib/lapland-storefront-copy.ts");
   const videoPath = resolve(root, "public/travelos/lapland", LAPLAND_PUBLIC_CUT_FILENAME);
-  const [video, info, page, cut, poster] = await Promise.all([
+  const [video, info, page, cut, still, more, poster] = await Promise.all([
     readFile(videoPath),
     stat(videoPath),
     readFile(resolve(root, "app/trips/[slug]/page.tsx"), "utf8"),
     readFile(resolve(root, "components/lapland-public-cut.tsx"), "utf8"),
+    readFile(resolve(root, "components/lapland-cut-still.tsx"), "utf8"),
+    readFile(resolve(root, "components/lapland-more-cut.tsx"), "utf8"),
     readFile(resolve(root, "public/travelos/maps/lapland-helsinki-poster.jpg")),
   ]);
 
@@ -244,7 +246,11 @@ test("Lapland public short is the exact Codex cut under Journey, not a substitut
   assert.equal(video.subarray(4, 8).toString("ascii"), "ftyp");
   assert.equal(LAPLAND_PUBLIC_CUT_SRC, `/travelos/lapland/${LAPLAND_PUBLIC_CUT_FILENAME}`);
   assert.match(page, /<LaplandPublicCut \/>/);
+  assert.match(page, /<LaplandCutStill/);
+  assert.match(page, /<LaplandMoreCut>/);
   assert.match(page, /<JourneyMap/);
+  assert.ok(page.indexOf("<LaplandPublicCut") < page.indexOf("<LaplandCutStill"), "one still follows the public cut");
+  assert.ok(page.indexOf("<LaplandCutStill") < page.indexOf("<LaplandMoreCut"), "extras sit behind the more tap");
   assert.ok(page.indexOf("<LaplandPublicCut") < page.indexOf("<JourneyMap"), "public cut sits before the frozen poster");
   assert.match(cut, /data-lapland-public-cut=""/);
   assert.match(cut, /LAPLAND_PUBLIC_CUT_SRC/);
@@ -255,6 +261,18 @@ test("Lapland public short is the exact Codex cut under Journey, not a substitut
   assert.match(cut, /LAPLAND_SEASON_LABEL/);
   assert.doesNotMatch(cut, /2019-12-1[0-5]|36s|60s/);
   assert.doesNotMatch(page, /2019-12-1[0-5]/);
+  assert.match(still, /data-lapland-cut-still=""/);
+  assert.match(still, /object-contain/);
+  assert.match(still, /photo\.storageKey/);
+  assert.match(more, /data-lapland-more=""/);
+  assert.match(more, /更多 \/ More/);
+  assert.match(more, /min-h-11/);
+  assert.doesNotMatch(more, /<details[^>]*\sopen/);
+  assert.match(page, /<LaplandStorefrontGlance \/>/);
+  assert.match(page, /<LaplandVisualPath photos=\{trip\.photos\} \/>/);
+  assert.ok(page.indexOf("<LaplandMoreCut>") < page.indexOf("<LaplandStorefrontGlance"), "why-go copy sits behind the tap");
+  assert.ok(page.indexOf("<LaplandMoreCut>") < page.indexOf("<LaplandVisualPath"), "path extras sit behind the tap");
+  assert.ok(page.indexOf("<LaplandMoreCut>") < page.indexOf("<JournalCostChip"), "season and cost chips sit behind the tap");
   assert.equal(LAPLAND_SEASON_LABEL, "十二月 · 深冬 / December · midwinter");
   assert.equal(
     createHash("sha256").update(poster).digest("hex"),

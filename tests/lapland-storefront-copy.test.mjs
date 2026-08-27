@@ -33,7 +33,7 @@ test("Lapland storefront glance is independent cash-path copy under the map, aft
   assert.equal(isLaplandStorefrontSlug(LAPLAND_TRIP_SLUG), true);
   assert.equal(isLaplandStorefrontSlug("bangkok-table-notes"), false);
   assert.match(page, /<JourneyMap/);
-  assert.match(page, /isLapland \? <LaplandStorefrontGlance/);
+  assert.match(page, /<LaplandStorefrontGlance/);
   assert.match(page, /data-storefront-glance|LaplandStorefrontGlance/);
   assert.match(glance, /data-storefront-glance=""/);
   assert.match(glance, /id="why-go"/);
@@ -45,7 +45,9 @@ test("Lapland storefront glance is independent cash-path copy under the map, aft
 
   const hero = page.slice(page.indexOf("travel-hero"), page.indexOf("Trip memory"));
   assert.ok(hero.indexOf("<h1") < hero.indexOf("LaplandPublicCut"), "title then public cut");
-  assert.ok(hero.indexOf("LaplandPublicCut") < hero.indexOf("<JourneyMap"), "video sits before the frozen poster");
+  assert.ok(hero.indexOf("LaplandPublicCut") < hero.indexOf("LaplandCutStill"), "one still follows the public cut");
+  assert.ok(hero.indexOf("LaplandCutStill") < hero.indexOf("LaplandMoreCut"), "extras sit behind the more tap");
+  assert.ok(hero.indexOf("LaplandMoreCut") < hero.indexOf("<JourneyMap"), "frozen poster sits behind the tap");
   assert.ok(hero.indexOf("LaplandPublicCut") < hero.indexOf("LaplandStorefrontGlance"), "video sits before the why-go essay");
   assert.ok(hero.indexOf("LaplandPublicCut") < hero.indexOf("LaplandVisualPath"), "video sits before the visual path");
   assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("LaplandStorefrontGlance"), "glance sits under the map");
@@ -56,8 +58,8 @@ test("Lapland storefront glance is independent cash-path copy under the map, aft
   assert.doesNotMatch(hero, /BookingBand/);
   assert.ok(page.indexOf("Trip memory") < page.indexOf("<BookingBand"), "booking stays with go-there");
 
-  assert.doesNotMatch(familyHome, /LaplandStorefrontGlance|lapland-storefront-copy|LaplandPublicCut/);
-  assert.doesNotMatch(capture, /LaplandStorefrontGlance|lapland-storefront-copy|data-storefront-glance|LaplandPublicCut/);
+  assert.doesNotMatch(familyHome, /LaplandStorefrontGlance|lapland-storefront-copy|LaplandPublicCut|LaplandCutStill|LaplandMoreCut/);
+  assert.doesNotMatch(capture, /LaplandStorefrontGlance|lapland-storefront-copy|data-storefront-glance|LaplandPublicCut|data-lapland-more|data-lapland-cut-still/);
   const copy = await readFile(resolve(root, "lib/lapland-storefront-copy.ts"), "utf8");
   assert.match(seed, /聖誕窗 \/ Christmas window/);
   assert.match(seed, /北極圈 \/ Arctic Circle/);
@@ -130,6 +132,10 @@ test("family workshop pages stay free of storefront glance and booking widgets",
     assert.doesNotMatch(html, /LaplandPlaceKnowledge/);
     assert.doesNotMatch(html, /LaplandPublicCut/);
     assert.doesNotMatch(html, /data-lapland-public-cut/);
+    assert.doesNotMatch(html, /LaplandCutStill/);
+    assert.doesNotMatch(html, /data-lapland-cut-still/);
+    assert.doesNotMatch(html, /LaplandMoreCut/);
+    assert.doesNotMatch(html, /data-lapland-more/);
     assert.doesNotMatch(html, /BookingBand/);
     assert.doesNotMatch(html, /emrldtp\.cc/);
   }
