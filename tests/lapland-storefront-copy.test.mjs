@@ -8,6 +8,8 @@ import {
   isLaplandPeerLandmarkName,
   isLaplandStorefrontSlug,
   laplandPublicStops,
+  LAPLAND_HOOK_EN,
+  LAPLAND_HOOK_ZH,
   LAPLAND_STOREFRONT_EN,
   LAPLAND_STOREFRONT_KICKER,
   LAPLAND_STOREFRONT_TITLE,
@@ -52,10 +54,11 @@ test("Lapland storefront glance is independent cash-path copy under the map", as
 
   assert.doesNotMatch(familyHome, /LaplandStorefrontGlance|lapland-storefront-copy|LaplandPublicCut/);
   assert.doesNotMatch(capture, /LaplandStorefrontGlance|lapland-storefront-copy|data-storefront-glance|LaplandPublicCut/);
+  const copy = await readFile(resolve(root, "lib/lapland-storefront-copy.ts"), "utf8");
   assert.match(seed, /聖誕窗 \/ Christmas window/);
   assert.match(seed, /北極圈 \/ Arctic Circle/);
   assert.match(seed, /人已經在雪裡/);
-  assert.match(seed, /Finnair，是離開，不是抵達/);
+  assert.match(copy, /Finnair，是離開，不是抵達/);
   assert.doesNotMatch(seed, /雪天使|snow-angel|離開羅瓦涅米 \/ Leaving Rovaniemi|Moomin/);
   assert.equal(LAPLAND_WINTER_VILLAGE_CAPTION, "記憶裡的聖誕卡 / A Christmas card from memory");
   assert.match(seed, /LAPLAND_WINTER_VILLAGE_CAPTION/);
@@ -70,18 +73,20 @@ test("storefront wording names place, season, and feel without invented proof", 
   assert.match(LAPLAND_STOREFRONT_ZH, /十二月/);
   assert.match(LAPLAND_STOREFRONT_ZH, /聖誕老人村|主郵局|聖誕箱/);
   assert.match(LAPLAND_STOREFRONT_ZH, /北極圈/);
-  assert.match(LAPLAND_STOREFRONT_ZH, /赫爾辛基/);
+  assert.match(LAPLAND_STOREFRONT_ZH, /往南，城市解凍/);
   assert.match(LAPLAND_STOREFRONT_EN, /You are not going for polar night/);
   assert.match(LAPLAND_STOREFRONT_EN, /December/);
   assert.match(LAPLAND_STOREFRONT_EN, /Santa Claus|Main Post Office|Christmas box/);
   assert.match(LAPLAND_STOREFRONT_EN, /Arctic Circle/);
-  assert.match(LAPLAND_STOREFRONT_EN, /Helsinki/);
+  assert.match(LAPLAND_STOREFRONT_EN, /the city thaws/);
   assert.match(LAPLAND_STOREFRONT_ZH, /白晝還在，只是只剩兩三小時|只剩兩三小時/);
   assert.match(LAPLAND_STOREFRONT_EN, /two or three hours/);
   assert.match(LAPLAND_STOREFRONT_ZH, /走過去，就是北極圈/);
-  assert.match(LAPLAND_STOREFRONT_EN, /walk across/);
+  assert.match(LAPLAND_STOREFRONT_EN, /Walk across/);
   assert.match(LAPLAND_STOREFRONT_ZH, /港口還在/);
   assert.match(LAPLAND_STOREFRONT_EN, /harbour still there/);
+  assert.match(LAPLAND_HOOK_ZH, /赫爾辛基/);
+  assert.match(LAPLAND_HOOK_EN, /Helsinki/);
   assert.doesNotMatch(LAPLAND_STOREFRONT_ZH, /一月/);
   assert.doesNotMatch(LAPLAND_STOREFRONT_EN, /January/);
 
