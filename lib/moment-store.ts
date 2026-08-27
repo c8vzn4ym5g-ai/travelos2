@@ -7,6 +7,7 @@ import {
   putMomentItemRecord,
 } from "@/lib/moment-item";
 import { indexTravelMoment } from "@/lib/moment-index";
+import { momentNeedsTranscript, transcribeAudioUrl } from "@/lib/moment-transcript";
 import {
   MOMENTS_BLOB_PATH,
   MOMENTS_SCHEMA_VERSION,
@@ -90,6 +91,7 @@ export function resetMomentStoreForTests() {
   warehouseWriteQueue = Promise.resolve();
   pendingPhotoAppends.length = 0;
   photoAppendFlush = null;
+  transcriptInFlight.clear();
 }
 
 let warehouseWriteQueue: Promise<void> = Promise.resolve();
@@ -247,6 +249,7 @@ export async function storeMomentBinary(pathname: string, file: Blob) {
   const blob = await put(pathname, file, {
     access: "public",
     addRandomSuffix: true,
+    ...(file.type ? { contentType: file.type } : {}),
   });
   return { url: blob.url };
 }
@@ -326,6 +329,7 @@ type PendingPhotoAppend = {
 
 const pendingPhotoAppends: PendingPhotoAppend[] = [];
 let photoAppendFlush: Promise<void> | null = null;
+const transcriptInFlight = new Set<string>();
 
 async function flushPhotoAppends() {
   await Promise.resolve();
@@ -406,6 +410,7 @@ export async function setMomentAudio(momentId: string, originalAudioUrl: string 
     const next = await writeMomentItem({
       ...current,
       originalAudioUrl,
+      transcript: originalAudioUrl === current.originalAudioUrl ? current.transcript : null,
     });
     const content = await syncIndexBestEffort([next]);
     return { content, moment: next };
@@ -457,6 +462,62 @@ export async function removePhotoFromMoment(momentId: string, photoId: string) {
 
 export function scheduleMomentIndex(momentId: string) {
   void indexSavedMoment(momentId);
+}
+
+export function scheduleMomentTranscript(momentId: string) {
+  if (transcriptInFlight.has(momentId)) {
+    return;
+  }
+
+  transcriptInFlight.add(momentId);
+  void fillMomentTranscript(momentId).finally(() => {
+    transcriptInFlight.delete(momentId);
+  });
+}
+
+export function scheduleMissingMomentTranscripts(moments: TravelMoment[], limit = 3) {
+  let queued = 0;
+  for (const moment of moments) {
+    if (queued >= limit) {
+      break;
+    }
+    if (!momentNeedsTranscript(moment)) {
+      continue;
+    }
+    scheduleMomentTranscript(moment.id);
+    queued += 1;
+  }
+}
+
+async function fillMomentTranscript(momentId: string) {
+  try {
+    const current = await readMomentItem(momentId);
+    if (!current || !momentNeedsTranscript(current) || !current.originalAudioUrl) {
+      return;
+    }
+
+    const audioUrl = current.originalAudioUrl;
+    const transcript = await transcribeAudioUrl(audioUrl);
+    if (!transcript) {
+      return;
+    }
+
+    await withWarehouseLock(async () => {
+      const latest = await readMomentItem(momentId);
+      if (!latest || latest.originalAudioUrl !== audioUrl || latest.transcript?.trim()) {
+        return;
+      }
+
+      const next = await writeMomentItem({
+        ...latest,
+        originalAudioUrl: latest.originalAudioUrl,
+        transcript,
+      });
+      await syncIndexBestEffort([next]);
+    });
+  } catch {
+    // Transcripts are best-effort and must never fail Capture or Bench.
+  }
 }
 
 async function indexSavedMoment(momentId: string) {

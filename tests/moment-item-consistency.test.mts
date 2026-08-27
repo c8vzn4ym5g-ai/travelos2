@@ -20,6 +20,7 @@ import {
   setMomentAudio,
   setMomentBlobAdapterForTests,
   setPhotoOriginal,
+  updateMoment,
 } from "../lib/moment-store.ts";
 import { MOMENTS_BLOB_PATH, createTravelMoment } from "../lib/moments.ts";
 import type { MomentBlobAdapter, MomentBlobPutOptions } from "../lib/moment-blob.ts";
@@ -179,6 +180,17 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
     assert.ok(withAudio);
     assert.equal(withAudio.moment.originalAudioUrl, "https://blob.local/audio.webm");
     assert.equal(withAudio.moment.photos[0]?.id, photo.id);
+
+    const labeled = await updateMoment({
+      id: created.moment.id,
+      transcript: "舊的聲音",
+    });
+    assert.equal(labeled?.moment.transcript, "舊的聲音");
+    assert.equal(labeled?.moment.originalAudioUrl, "https://blob.local/audio.webm");
+
+    const replaced = await setMomentAudio(created.moment.id, "https://blob.local/audio-2.webm");
+    assert.equal(replaced?.moment.originalAudioUrl, "https://blob.local/audio-2.webm");
+    assert.equal(replaced?.moment.transcript, null);
 
     const original = await setPhotoOriginal(created.moment.id, photo.id, "https://blob.local/original.heic");
     assert.equal(original?.photo.originalStorageKey, "https://blob.local/original.heic");

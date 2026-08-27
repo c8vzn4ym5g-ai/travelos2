@@ -25,6 +25,23 @@ export class MomentWarehouseUnavailableError extends Error {
 }
 
 export const WAREHOUSE_GET_OPTIONS = { access: "public", useCache: false } as const;
+export const WAREHOUSE_READ_TIMEOUT_MS = 8000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, onTimeout: () => Error) {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(onTimeout()), timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
 
 export type WarehouseGetResult = {
   statusCode: number;
@@ -59,7 +76,11 @@ export async function loadWarehouseFromBlobGet(getWarehouse: WarehouseGet): Prom
   createdEmpty: boolean;
 }> {
   const readOnce = async () => {
-    const result = await getWarehouse(MOMENTS_BLOB_PATH, WAREHOUSE_GET_OPTIONS);
+    const result = await withTimeout(
+      getWarehouse(MOMENTS_BLOB_PATH, WAREHOUSE_GET_OPTIONS),
+      WAREHOUSE_READ_TIMEOUT_MS,
+      () => new MomentWarehouseUnavailableError("timed out"),
+    );
     if (!result) {
       return { content: createEmptyWarehouse(), createdEmpty: true };
     }

@@ -218,6 +218,7 @@ test("family and capture clients discover the PIN gate and do not add a Capture 
   assert.match(pin, /if \(!isFamilyPinRequired\(\)\) \{\s*return true;/);
   assert.match(gate, /isFamilyPinRequired\(\)/);
   assert.match(session, /fetch\("\/api\/family\/gate"/);
+  assert.match(session, /AbortSignal\.timeout\(FAMILY_GATE_TIMEOUT_MS\)/);
   assert.match(session, /export async function resolveFamilySession/);
   assert.match(unlock, /fetchFamilyGate/);
   assert.match(unlock, /href="\/family\/capture"/);

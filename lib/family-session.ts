@@ -1,4 +1,5 @@
 export const FAMILY_ADMIN_SESSION_KEY = "travelos-admin-pin";
+export const FAMILY_GATE_TIMEOUT_MS = 4000;
 
 export type FamilyGate = {
   required: boolean;
@@ -14,7 +15,10 @@ export function readFamilySessionPin() {
 
 export async function fetchFamilyGate(): Promise<FamilyGate> {
   try {
-    const response = await fetch("/api/family/gate", { cache: "no-store" });
+    const response = await fetch("/api/family/gate", {
+      cache: "no-store",
+      signal: AbortSignal.timeout(FAMILY_GATE_TIMEOUT_MS),
+    });
     if (!response.ok) {
       return { required: true };
     }
