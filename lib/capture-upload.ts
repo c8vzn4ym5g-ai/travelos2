@@ -413,7 +413,7 @@ export async function uploadMomentAudio(input: {
   signal?: AbortSignal;
 }) {
   const send = async (momentId: string) => {
-    const bytes = new Uint8Array(await input.blob.arrayBuffer());
+    const bytes = new Uint8Array(await input.blob.slice(0).arrayBuffer());
     const mime = resolveAudioMime(bytes, input.blob.type) ?? input.blob.type ?? "application/octet-stream";
     const file = new File([bytes], filenameForAudioMime(mime), { type: mime });
     const audioData = new FormData();

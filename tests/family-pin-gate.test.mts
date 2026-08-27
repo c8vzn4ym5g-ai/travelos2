@@ -98,9 +98,11 @@ test("moments APIs succeed without a PIN header when the family PIN flag is off"
     );
     assert.equal(photoResponse.status, 200);
 
+    const fmp4 = new Uint8Array(24);
+    fmp4.set([0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x35], 4);
     const audioData = new FormData();
     audioData.set("momentId", created.moment.id);
-    audioData.set("file", new File([Uint8Array.from([5, 6, 7, 8])], "gate.webm", { type: "audio/webm" }));
+    audioData.set("file", new File([fmp4], "gate.webm", { type: "video/webm" }));
     const audioResponse = await audio.POST(
       new Request("http://travelos.local/api/moments/audio", {
         body: audioData,
@@ -108,6 +110,16 @@ test("moments APIs succeed without a PIN header when the family PIN flag is off"
       }),
     );
     assert.equal(audioResponse.status, 200);
+
+    const playResponse = await audio.GET(
+      new Request(`http://travelos.local/api/moments/audio?momentId=${created.moment.id}`),
+    );
+    assert.equal(playResponse.status, 200);
+    assert.equal(playResponse.headers.get("content-type"), "audio/mp4");
+    assert.match(playResponse.headers.get("content-disposition") ?? "", /moment-audio\.m4a/);
+    const played = new Uint8Array(await playResponse.arrayBuffer());
+    assert.equal(played[4], 0x66);
+    assert.equal(played[8], 0x69);
   });
 });
 
@@ -197,6 +209,11 @@ test("moments APIs still return 401 for a missing or wrong PIN when the flag is 
       }),
     );
     assert.equal(audioMissing.status, 401);
+
+    const audioGetMissing = await audio.GET(
+      new Request("http://travelos.local/api/moments/audio?momentId=moment_locked"),
+    );
+    assert.equal(audioGetMissing.status, 401);
   });
 });
 

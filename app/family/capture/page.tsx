@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { MomentAudioPlayer } from "@/app/family/moment-audio-player";
 import {
   CAPTURE_DUMP_LIMIT,
   captureDumpProgressMessage,
@@ -23,6 +24,7 @@ import {
 } from "@/lib/capture-upload";
 import { FAMILY_ADMIN_SESSION_KEY, resolveFamilySession } from "@/lib/family-session";
 import { preferredRecorderMime } from "@/lib/moment-audio";
+import { preparePlayableAudio, primePlaybackAudioContext } from "@/lib/moment-audio-playback";
 import { appendMomentPhotos, classifyCaptureNote } from "@/lib/moments";
 import type { GeoPoint, TravelJob } from "@/lib/types";
 
@@ -41,6 +43,8 @@ type StagedPhoto = {
 type StagedAudio = {
   abort: AbortController;
   blob: Blob;
+  bytes: Uint8Array;
+  durationSeconds: number;
   errorMessage: string | null;
   previewUrl: string;
   status: UploadStatus;
@@ -61,6 +65,8 @@ export default function CapturePage() {
   const audioRef = useRef<StagedAudio | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+  const recordStartedAtRef = useRef(0);
+  const audioGenerationRef = useRef(0);
   const pinRef = useRef("");
   const coordinatesRef = useRef<GeoPoint | null>(null);
   const momentSessionRef = useRef<ReturnType<typeof createMomentSession> | null>(null);
@@ -73,6 +79,7 @@ export default function CapturePage() {
   const [photos, setPhotos] = useState<StagedPhoto[]>([]);
   const [note, setNote] = useState("");
   const [audio, setAudio] = useState<StagedAudio | null>(null);
+  const [audioHold, setAudioHold] = useState<{ durationSeconds: number } | null>(null);
   const [recording, setRecording] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedJobId, setSavedJobId] = useState<string | null>(null);
@@ -440,6 +447,8 @@ export default function CapturePage() {
   }
 
   function clearAudio() {
+    audioGenerationRef.current += 1;
+    setAudioHold(null);
     if (!audio) {
       return;
     }
@@ -467,6 +476,7 @@ export default function CapturePage() {
         ? new MediaRecorder(stream, { mimeType: recorderMime })
         : new MediaRecorder(stream);
       chunksRef.current = [];
+      const generation = audioGenerationRef.current;
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
@@ -474,25 +484,38 @@ export default function CapturePage() {
       };
       recorder.onstop = () => {
         stream.getTracks().forEach((track) => track.stop());
-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
-        const previewUrl = URL.createObjectURL(blob);
-        if (audioRef.current) {
-          audioRef.current.abort.abort();
-          URL.revokeObjectURL(audioRef.current.previewUrl);
-        }
-        const staged: StagedAudio = {
-          abort: new AbortController(),
-          blob,
-          errorMessage: null,
-          previewUrl,
-          status: "uploading",
-        };
-        setAudio(staged);
-        setRecording(false);
-        setMessage("聽一下剛錄的。若是雜音就重錄。聲音已開始上傳。");
-        void startBackgroundAudioUpload(staged);
+        const durationSeconds = Math.max(1, Math.round((Date.now() - recordStartedAtRef.current) / 1000));
+        setAudioHold({ durationSeconds });
+        const raw = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        void (async () => {
+          const prepared = await preparePlayableAudio(raw);
+          const previewUrl = URL.createObjectURL(prepared.file);
+          if (generation !== audioGenerationRef.current) {
+            URL.revokeObjectURL(previewUrl);
+            return;
+          }
+          if (audioRef.current) {
+            audioRef.current.abort.abort();
+            URL.revokeObjectURL(audioRef.current.previewUrl);
+          }
+          const staged: StagedAudio = {
+            abort: new AbortController(),
+            blob: prepared.file,
+            bytes: prepared.bytes,
+            durationSeconds: prepared.durationSeconds ?? durationSeconds,
+            errorMessage: null,
+            previewUrl,
+            status: "uploading",
+          };
+          setAudio(staged);
+          setAudioHold(null);
+          setMessage("聽一下剛錄的。若是雜音就重錄。聲音已開始上傳。");
+          void startBackgroundAudioUpload(staged);
+        })();
       };
       recorderRef.current = recorder;
+      recordStartedAtRef.current = Date.now();
+      primePlaybackAudioContext();
       recorder.start();
       setRecording(true);
       setMessage("正在錄音…");
@@ -502,11 +525,20 @@ export default function CapturePage() {
   }
 
   function stopRecording() {
+    primePlaybackAudioContext();
+    const durationSeconds = Math.max(1, Math.round((Date.now() - recordStartedAtRef.current) / 1000));
+    setAudioHold({ durationSeconds });
     recorderRef.current?.stop();
     recorderRef.current = null;
+    setRecording(false);
   }
 
   function retakeAudio() {
+    if (recording) {
+      recorderRef.current?.stop();
+      recorderRef.current = null;
+      setRecording(false);
+    }
     clearAudio();
     void startRecording();
   }
@@ -747,7 +779,7 @@ export default function CapturePage() {
             </div>
             {audio ? (
               <div className="mt-3 grid gap-2">
-                <audio className="w-full" controls src={audio.previewUrl} />
+                <MomentAudioPlayer bytes={audio.bytes} durationSeconds={audio.durationSeconds} src={audio.previewUrl} />
                 <p className="text-xs font-semibold text-zinc-600">
                   {audio.status === "uploaded" ? "已上傳" : audio.status === "failed" ? "上傳失敗" : "上傳中"}
                 </p>
@@ -759,6 +791,11 @@ export default function CapturePage() {
                 >
                   Remove audio
                 </button>
+              </div>
+            ) : audioHold ? (
+              <div className="mt-3 rounded-2xl border border-stone-200 bg-white px-4 py-3">
+                <p className="text-sm font-semibold text-zinc-800">約 {audioHold.durationSeconds} 秒</p>
+                <p className="mt-2 text-sm leading-6 text-stone-500">準備播放…</p>
               </div>
             ) : null}
           </div>

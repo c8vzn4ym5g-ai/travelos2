@@ -33,7 +33,7 @@ test("family bench is a private workshop table for raw Capture dumps", async () 
   assert.match(bench, /originalAudioUrl/);
   assert.match(bench, /moment\.transcript/);
   assert.match(bench, /BenchAudio/);
-  assert.match(bench, /<BenchAudio src=\{moment\.originalAudioUrl\} \/>/);
+  assert.match(bench, /<BenchAudio momentId=\{moment\.id\} \/>/);
   assert.doesNotMatch(bench, /<audio/);
   assert.match(bench, /get\("moment"\)/);
   assert.match(bench, /resolveFamilySession/);
@@ -52,8 +52,10 @@ test("family bench is a private workshop table for raw Capture dumps", async () 
 
   assert.match(audioPlayer, /UNPLAYABLE_MOMENT_AUDIO_COPY/);
   assert.match(audioPlayer, /createObjectURL/);
-  assert.match(audioPlayer, /onError=\{\(\) => setStatus\("unplayable"\)\}/);
+  assert.match(audioPlayer, /momentAudioPlayUrl/);
+  assert.match(audioPlayer, /MomentAudioPlayer/);
   assert.doesNotMatch(audioPlayer, /src=\{src\}/);
+  assert.doesNotMatch(audioPlayer, /\scontrols\s/);
 
   assert.match(family, /入口/);
   assert.match(family, />\s*Capture\s*</);

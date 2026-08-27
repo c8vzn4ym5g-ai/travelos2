@@ -1,4 +1,5 @@
 export const UNPLAYABLE_MOMENT_AUDIO_COPY = "這段聲音還不能播。";
+export const MOMENT_AUDIO_PLAY_PATH = "/api/moments/audio";
 
 const recorderMimeCandidates = [
   "audio/mp4",
@@ -7,6 +8,8 @@ const recorderMimeCandidates = [
   "audio/webm;codecs=opus",
   "audio/webm",
 ];
+
+const fragmentedMp4Brands = new Set(["iso5", "iso6", "iso7", "iso8", "iso9", "hlsf", "cmfc", "dash", "msdh", "msix"]);
 
 export function sniffAudioMime(bytes: Uint8Array): string | null {
   if (bytes.length < 12) {
@@ -108,4 +111,134 @@ export function canPlayAudioMime(mime: string | null | undefined) {
   } catch {
     return false;
   }
+}
+
+function ascii(bytes: Uint8Array, offset: number, length: number) {
+  return String.fromCharCode(...bytes.subarray(offset, offset + length));
+}
+
+export function readFtypBrands(bytes: Uint8Array) {
+  if (bytes.length < 12 || bytes[4] !== 0x66 || bytes[5] !== 0x74 || bytes[6] !== 0x79 || bytes[7] !== 0x70) {
+    return [] as string[];
+  }
+
+  const brands = [ascii(bytes, 8, 4)];
+  const size = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
+  const end = size >= 16 ? Math.min(bytes.length, size) : Math.min(bytes.length, 32);
+  for (let offset = 16; offset + 4 <= end; offset += 4) {
+    brands.push(ascii(bytes, offset, 4));
+  }
+  return brands;
+}
+
+export function isFragmentedMp4(bytes: Uint8Array) {
+  if (sniffAudioMime(bytes) !== "audio/mp4") {
+    return false;
+  }
+
+  if (readFtypBrands(bytes).some((brand) => fragmentedMp4Brands.has(brand))) {
+    return true;
+  }
+
+  const limit = Math.min(bytes.length - 8, 65_536);
+  for (let offset = 0; offset <= limit; ) {
+    const size = ((bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3]) >>> 0;
+    if (ascii(bytes, offset + 4, 4) === "moof") {
+      return true;
+    }
+    const next = size >= 8 ? offset + size : offset + 8;
+    if (next <= offset) {
+      return false;
+    }
+    offset = next;
+  }
+
+  return false;
+}
+
+export function cloneAudioBytes(bytes: Uint8Array) {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
+}
+
+export function fileFromAudioBytes(bytes: Uint8Array, declared?: string | null) {
+  const mime = resolveAudioMime(bytes, declared) ?? declared ?? "application/octet-stream";
+  return new File([cloneAudioBytes(bytes)], filenameForAudioMime(mime), { type: mime });
+}
+
+export async function copyAudioBytes(blob: Blob) {
+  const independent = blob.slice(0);
+  return new Uint8Array(await independent.arrayBuffer());
+}
+
+export function encodeWavBytes(channelData: Float32Array[], sampleRate: number) {
+  const numChannels = Math.max(1, channelData.length);
+  const length = channelData[0]?.length ?? 0;
+  const bytesPerSample = 2;
+  const blockAlign = numChannels * bytesPerSample;
+  const dataSize = length * blockAlign;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+  const writeString = (offset: number, value: string) => {
+    for (let index = 0; index < value.length; index += 1) {
+      view.setUint8(offset + index, value.charCodeAt(index));
+    }
+  };
+
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);
+  writeString(36, "data");
+  view.setUint32(40, dataSize, true);
+
+  let offset = 44;
+  for (let index = 0; index < length; index += 1) {
+    for (let channel = 0; channel < numChannels; channel += 1) {
+      const sample = Math.max(-1, Math.min(1, channelData[channel]?.[index] ?? 0));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      offset += 2;
+    }
+  }
+
+  return new Uint8Array(buffer);
+}
+
+export function momentAudioPlayUrl(momentId: string) {
+  return `${MOMENT_AUDIO_PLAY_PATH}?momentId=${encodeURIComponent(momentId)}`;
+}
+
+export function isTrustedMomentAudioUrl(value: string) {
+  try {
+    const url = new URL(value);
+    if (url.protocol === "data:") {
+      return /^(audio|video|application)\//.test(url.pathname);
+    }
+    if (url.protocol !== "https:") {
+      return false;
+    }
+    return (
+      url.hostname === "blob.vercel-storage.com" ||
+      url.hostname.endsWith(".blob.vercel-storage.com") ||
+      url.hostname.endsWith(".public.blob.vercel-storage.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function formatAudioDurationLabel(durationSeconds: number | null | undefined) {
+  const seconds = Math.round(durationSeconds ?? 0);
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return "這段聲音";
+  }
+  return `約 ${seconds} 秒`;
 }

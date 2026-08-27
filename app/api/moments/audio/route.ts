@@ -1,6 +1,7 @@
 import { isUploadBlob, uploadFilename } from "@/lib/form-upload";
-import { filenameForAudioMime, resolveAudioMime } from "@/lib/moment-audio";
+import { filenameForAudioMime, isTrustedMomentAudioUrl, resolveAudioMime } from "@/lib/moment-audio";
 import {
+  getMomentById,
   isAdminPinValid,
   momentApiErrorResponse,
   momentExists,
@@ -16,10 +17,54 @@ function cleanFilename(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-");
 }
 
+function pinFrom(request: Request) {
+  return request.headers.get("x-travelos-admin-pin");
+}
+
+export async function GET(request: Request) {
+  try {
+    if (!isAdminPinValid(pinFrom(request))) {
+      return Response.json({ error: "Invalid admin PIN" }, { status: 401 });
+    }
+
+    const momentId = new URL(request.url).searchParams.get("momentId")?.trim() ?? "";
+    if (!momentId) {
+      return Response.json({ error: "Moment is required" }, { status: 400 });
+    }
+
+    const moment = await getMomentById(momentId);
+    const audioUrl = moment?.originalAudioUrl?.trim() ?? "";
+    if (!audioUrl || !isTrustedMomentAudioUrl(audioUrl)) {
+      return Response.json({ error: "找不到這段聲音。" }, { status: 404 });
+    }
+
+    const audioResponse = await fetch(audioUrl, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!audioResponse.ok) {
+      return Response.json({ error: "找不到這段聲音。" }, { status: 502 });
+    }
+
+    const bytes = new Uint8Array(await audioResponse.arrayBuffer());
+    const mime = resolveAudioMime(bytes, audioResponse.headers.get("content-type")) ?? "audio/mp4";
+    return new Response(Buffer.from(bytes), {
+      headers: {
+        "Accept-Ranges": "none",
+        "Cache-Control": "private, max-age=60",
+        "Content-Disposition": `inline; filename="${filenameForAudioMime(mime)}"`,
+        "Content-Type": mime,
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch (error) {
+    return momentApiErrorResponse(error);
+  }
+}
+
 export async function POST(request: Request) {
   try {
-    const pin = request.headers.get("x-travelos-admin-pin");
-    if (!isAdminPinValid(pin)) {
+    if (!isAdminPinValid(pinFrom(request))) {
       return Response.json({ error: "Invalid admin PIN" }, { status: 401 });
     }
 
@@ -58,8 +103,7 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const pin = request.headers.get("x-travelos-admin-pin");
-    if (!isAdminPinValid(pin)) {
+    if (!isAdminPinValid(pinFrom(request))) {
       return Response.json({ error: "Invalid admin PIN" }, { status: 401 });
     }
 
