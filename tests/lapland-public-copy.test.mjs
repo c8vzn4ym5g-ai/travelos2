@@ -272,6 +272,7 @@ test("Lapland public short is the exact Codex cut under Journey, not a substitut
   assert.match(page, /<LaplandVisualPath photos=\{trip\.photos\} \/>/);
   assert.ok(page.indexOf("<LaplandMoreCut>") < page.indexOf("<LaplandStorefrontGlance"), "why-go copy sits behind the tap");
   assert.ok(page.indexOf("<LaplandMoreCut>") < page.indexOf("<LaplandVisualPath"), "path extras sit behind the tap");
+  assert.ok(page.indexOf("<LaplandMoreCut>") < page.indexOf("<JournalCostChip"), "season and cost chips sit behind the tap");
   assert.equal(LAPLAND_SEASON_LABEL, "十二月 · 深冬 / December · midwinter");
   assert.equal(
     createHash("sha256").update(poster).digest("hex"),

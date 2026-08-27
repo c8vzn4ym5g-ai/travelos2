@@ -368,6 +368,20 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               <LaplandStorefrontGlance />
               <LaplandVisualPath photos={trip.photos} />
               <LaplandPlaceKnowledge />
+              <div className="flex flex-wrap items-center gap-2">
+                {[
+                  ["Season", seasonLabel, "border-sky-100 bg-sky-50 text-sky-950"],
+                  ["Mood", trip.journalEntries[0]?.mood ?? "Memory", "border-rose-100 bg-rose-50 text-rose-950"],
+                  ["Photos", `${trip.photos.length}`, "border-amber-100 bg-amber-50 text-amber-950"],
+                ].map(([label, value, tone]) => (
+                  <MemoryChip key={label} label={label} tone={tone} value={value} />
+                ))}
+                {trip.totalCost ? (
+                  <JournalCostChip amount={formatMoney(trip.totalCost)} slug={trip.slug} />
+                ) : (
+                  <MemoryChip label="Cost" tone="border-teal-100 bg-teal-50 text-teal-950" value="Not tracked" />
+                )}
+              </div>
             </LaplandMoreCut>
           ) : (
             <JourneyMap
@@ -381,6 +395,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               title={trip.title}
             />
           )}
+          {isLapland ? null : (
           <div className="flex flex-wrap items-center gap-2">
             {[
               ["Season", seasonLabel, "border-sky-100 bg-sky-50 text-sky-950"],
@@ -395,6 +410,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               <MemoryChip label="Cost" tone="border-teal-100 bg-teal-50 text-teal-950" value="Not tracked" />
             )}
           </div>
+          )}
           {isLaplandStorefrontSlug(trip.slug) ? null : (
           <div className="grid gap-4 lg:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)] lg:items-start">
             {coverPhoto ? (
