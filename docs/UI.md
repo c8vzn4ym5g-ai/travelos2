@@ -41,6 +41,8 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
   path copy sit behind a closed `更多 / More` tap. Do not delete locked
   copy. Do not swap the Public_Cut file. The frozen poster stays behind
   the tap, after the video, not above it.
+- The public cut is not autoplay-muted. Controls and `playsInline` stay;
+  the first tap plays with sound.
 
 ## Public Lapland journey picture
 
