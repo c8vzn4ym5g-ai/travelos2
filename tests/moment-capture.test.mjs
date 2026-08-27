@@ -77,20 +77,25 @@ test("family home has one Capture door and no retired second-app cards", async (
   ]);
 
   assert.match(family, /FamilyUnlockPanel/);
+  assert.match(family, />入口</);
+  assert.match(family, />工作台</);
+  assert.match(family, />編輯</);
   assert.match(family, /旅行遊記/);
   assert.match(family, /咖啡記憶/);
-  assert.match(family, /工作台/);
+  assert.match(family, /href="\/family\/capture"/);
+  assert.match(family, /href="\/trips\/write"/);
   assert.match(family, /href="\/family\/bench"/);
   assert.match(family, /安裝到 iPhone/);
-  assert.match(unlock, /href="\/family\/capture"/);
-  assert.match(unlock, />\s*Capture\s*</);
-  assert.match(unlock, /href="\/family\/bench"/);
-  assert.match(unlock, />\s*工作台\s*</);
-  assert.match(unlock, /href="\/trips\/write"/);
-  assert.match(unlock, />\s*Write\s*</);
-  assert.match(unlock, /前往旅行編輯/);
-  assert.match(unlock, /前往咖啡編輯/);
+  assert.equal((family.match(/工作台/g) ?? []).length, 1);
+  assert.doesNotMatch(family, /去工作台看看/);
+  assert.doesNotMatch(family, /Sit and write/);
+  assert.match(unlock, /id="family-pin"/);
+  assert.match(unlock, /開啟家庭入口/);
+  assert.doesNotMatch(unlock, /href="\/family\/capture"/);
+  assert.doesNotMatch(unlock, /href="\/family\/bench"/);
+  assert.doesNotMatch(unlock, />\s*工作台\s*</);
   assert.match(capture, /<h1 className="travel-display mt-2 text-4xl font-semibold">Capture<\/h1>/);
+  assert.match(capture, /去工作台看看/);
   assert.doesNotMatch(family, /JDB Capture/);
   assert.doesNotMatch(family, /打開 Capture/);
   assert.doesNotMatch(family, /Capture 門/);
@@ -98,7 +103,6 @@ test("family home has one Capture door and no retired second-app cards", async (
   assert.doesNotMatch(family, /開啟 JDB Sana/);
   assert.doesNotMatch(family, /chatgpt\.site/);
   assert.doesNotMatch(family, /jdb-family-entry/);
-  assert.doesNotMatch(family, /href="\/family\/capture"/);
   assert.doesNotMatch(family, /橱窗/);
   assert.doesNotMatch(capture, /JDB Capture/);
   assert.doesNotMatch(unlock, /JDB Capture/);
@@ -116,12 +120,15 @@ test("family session is required and capture does not add a PIN form", async () 
     readSource("app/coffee/admin/page.tsx"),
   ]);
 
-  assert.match(unlock, /href="\/family\/capture"/);
   assert.match(unlock, /id="family-pin"/);
-  assert.match(unlock, /unlock\("\/family\/capture"\)/);
-  assert.match(unlock, /unlock\("\/family\/bench"\)/);
-  assert.match(unlock, />\s*Capture\s*</);
+  assert.match(unlock, /開啟家庭入口/);
   assert.match(unlock, /fetchFamilyGate/);
+  assert.doesNotMatch(unlock, /href="\/family\/capture"/);
+  assert.doesNotMatch(unlock, /unlock\("\/family\/capture"\)/);
+  assert.doesNotMatch(unlock, /unlock\("\/family\/bench"\)/);
+  assert.match(family, /href="\/family\/capture"/);
+  assert.match(family, /href="\/trips\/write"/);
+  assert.match(family, /href="\/family\/bench"/);
   assert.match(capture, /FAMILY_ADMIN_SESSION_KEY/);
   assert.match(capture, /resolveFamilySession/);
   assert.match(capture, /router\.replace\("\/family"\)/);

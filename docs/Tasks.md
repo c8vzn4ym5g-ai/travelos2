@@ -1,5 +1,21 @@
 # TravelOS Codex Tasks
 
+## TASK-026: Family home is 入口 → 工作台 → 編輯
+
+Status: done
+
+Goal: Sana saw 工作台 twice on `/family` (stuffed next to Capture,
+and again as its own card). Owner locked a three-step family home.
+
+Result:
+
+- `/family` is 入口 (Capture + Write together), then one 工作台
+  door to `/family/bench`, then 編輯 (旅行遊記 and 咖啡記憶).
+- 工作台 appears once on family home. Capture after Save may still
+  say 去工作台看看. Bench still has a single intro sentence.
+- No Coffee/Travel filing, no public Lapland edits, 工作台 stays
+  the raw pile.
+
 ## TASK-025: Bench audio that plays, transcript in background, no hang
 
 Status: done

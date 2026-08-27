@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FamilyUnlockPanel } from "./family-unlock-panel";
 
-const sections = [
+const departments = [
   {
     accent: "border-sky-200 bg-sky-50",
     description: "查看 Bangkok、Lapland 和之後新增的旅行；進入編輯區可增減遊記、文字與照片。",
@@ -22,6 +22,9 @@ const sections = [
   },
 ];
 
+const doorClass =
+  "flex min-h-12 items-center justify-center rounded-2xl border px-4 py-3 text-center font-semibold shadow-sm";
+
 export default function FamilyWorkspacePage() {
   return (
     <main className="travel-body min-h-screen bg-[#f8f3ea] text-zinc-950">
@@ -41,42 +44,50 @@ export default function FamilyWorkspacePage() {
       <FamilyUnlockPanel />
 
       <section className="mx-auto max-w-5xl px-6 pt-8 lg:px-10">
+        <article className="rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm">
+          <h2 className="travel-display text-3xl font-semibold">入口</h2>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <Link className={`${doorClass} border-emerald-300 bg-emerald-50 text-emerald-950`} href="/family/capture">
+              Capture
+            </Link>
+            <Link className={`${doorClass} border-sky-300 bg-sky-50 text-sky-950`} href="/trips/write">
+              Write
+            </Link>
+          </div>
+        </article>
+      </section>
+
+      <section className="mx-auto max-w-5xl px-6 pt-5 lg:px-10">
         <article className="rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
-          <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-amber-800">剛收下的</p>
-          <h2 className="travel-display mt-2 text-3xl font-semibold">工作台</h2>
+          <h2 className="travel-display text-3xl font-semibold">工作台</h2>
           <p className="mt-3 text-sm leading-6 text-zinc-600">剛收下的，還沒整理。旅行和咖啡都還沒進。</p>
-          <Link
-            className="mt-6 flex min-h-12 items-center justify-center rounded-2xl border border-white bg-white px-4 py-3 text-center font-semibold text-amber-950 shadow-sm"
-            href="/family/bench"
-          >
-            去工作台看看
+          <Link className={`${doorClass} mt-6 border-white bg-white text-amber-950`} href="/family/bench">
+            打開
           </Link>
         </article>
       </section>
 
-      <section className="mx-auto grid max-w-5xl gap-5 px-6 py-8 lg:grid-cols-2 lg:px-10">
-        {sections.map((section) => (
-          <article className={`rounded-3xl border p-6 shadow-sm ${section.accent}`} key={section.title}>
-            <h2 className="travel-display text-3xl font-semibold">{section.title}</h2>
-            <p className="mt-3 min-h-20 text-sm leading-6 text-zinc-600">{section.description}</p>
-            <div className="mt-6 grid gap-3">
-              <Link className="rounded-2xl border border-white bg-white px-4 py-3 text-center font-semibold shadow-sm" href={section.viewHref}>
-                {section.viewLabel}
-              </Link>
-              <Link className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-center font-semibold text-emerald-950" href={section.editHref}>
-                {section.editLabel}
-              </Link>
-              {section.editHref === "/trips/admin" ? (
-                <Link className="rounded-2xl border border-sky-200 bg-white px-4 py-3 text-center font-semibold text-sky-950" href="/trips/write">
-                  Sit and write
+      <section className="mx-auto max-w-5xl px-6 pt-5 lg:px-10">
+        <h2 className="travel-display text-3xl font-semibold">編輯</h2>
+        <div className="mt-5 grid gap-5 lg:grid-cols-2">
+          {departments.map((department) => (
+            <article className={`rounded-3xl border p-6 shadow-sm ${department.accent}`} key={department.title}>
+              <h3 className="travel-display text-3xl font-semibold">{department.title}</h3>
+              <p className="mt-3 min-h-20 text-sm leading-6 text-zinc-600">{department.description}</p>
+              <div className="mt-6 grid gap-3">
+                <Link className={`${doorClass} border-white bg-white`} href={department.viewHref}>
+                  {department.viewLabel}
                 </Link>
-              ) : null}
-            </div>
-          </article>
-        ))}
+                <Link className={`${doorClass} border-emerald-300 bg-emerald-50 text-emerald-950`} href={department.editHref}>
+                  {department.editLabel}
+                </Link>
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
 
-      <section className="mx-auto max-w-5xl px-6 pb-10 lg:px-10">
+      <section className="mx-auto max-w-5xl px-6 py-8 lg:px-10">
         <article className="rounded-3xl border border-stone-200 bg-white p-6">
           <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">安裝到 iPhone</p>
           <h2 className="travel-display mt-2 text-2xl font-semibold">只需要設定一次</h2>
