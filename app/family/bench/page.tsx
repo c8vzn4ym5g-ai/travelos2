@@ -20,6 +20,8 @@ const SESSION_MS = 5000;
 const MOMENTS_MS = 8000;
 const TRANSCRIPT_POLL_MS = 4000;
 const TRANSCRIPT_POLL_FOR_MS = 40000;
+const TRANSCRIPT_FILL_MS = 55000;
+const TRANSCRIPT_FILL_LIMIT = 3;
 
 function sessionPin(fallback: string) {
   return window.sessionStorage.getItem(FAMILY_ADMIN_SESSION_KEY) ?? fallback;
@@ -71,6 +73,42 @@ export default function FamilyBenchPage() {
 
   const listed = useMemo(() => sortMomentsNewestFirst(moments), [moments]);
 
+  const fillSpokenText = useCallback(async (pinValue: string, current: TravelMoment[]) => {
+    const waiting = sortMomentsNewestFirst(current.filter((moment) => momentNeedsTranscript(moment))).slice(
+      0,
+      TRANSCRIPT_FILL_LIMIT,
+    );
+    if (waiting.length === 0) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/moments/transcript", {
+        body: JSON.stringify({ momentIds: waiting.map((moment) => moment.id) }),
+        cache: "no-store",
+        headers: {
+          "content-type": "application/json",
+          ...familyPinHeaders(sessionPin(pinValue)),
+        },
+        method: "POST",
+        signal: AbortSignal.timeout(TRANSCRIPT_FILL_MS),
+      });
+      if (!response.ok) {
+        return;
+      }
+
+      const data = (await response.json()) as { moment?: TravelMoment | null; moments?: TravelMoment[] };
+      const incoming = data.moments ?? (data.moment ? [data.moment] : []);
+      if (incoming.length === 0) {
+        return;
+      }
+
+      setMoments((listedMoments) => mergeTranscripts(listedMoments, incoming));
+    } catch {
+      // Background fill must never block or spin the bench.
+    }
+  }, []);
+
   const loadMoments = useCallback(async (pinValue: string, options: { quiet?: boolean } = {}) => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), MOMENTS_MS);
@@ -102,6 +140,9 @@ export default function FamilyBenchPage() {
       setMoments((current) => (options.quiet ? mergeTranscripts(current, next) : next));
       setLoadState("ready");
       setMessage(next.length > 0 ? "" : "還沒有收下的。");
+      if (!options.quiet) {
+        void fillSpokenText(pinValue, next);
+      }
     } catch {
       setLoadState((current) => {
         if (current === "ready") {
@@ -118,7 +159,7 @@ export default function FamilyBenchPage() {
     } finally {
       window.clearTimeout(timer);
     }
-  }, [router]);
+  }, [fillSpokenText, router]);
 
   useEffect(() => {
     let cancelled = false;

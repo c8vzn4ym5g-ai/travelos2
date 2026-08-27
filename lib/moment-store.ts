@@ -94,6 +94,7 @@ export function resetMomentStoreForTests() {
   pendingPhotoAppends.length = 0;
   photoAppendFlush = null;
   transcriptInFlight.clear();
+  transcriptJobs.clear();
 }
 
 let warehouseWriteQueue: Promise<void> = Promise.resolve();
@@ -337,6 +338,7 @@ type PendingPhotoAppend = {
 const pendingPhotoAppends: PendingPhotoAppend[] = [];
 let photoAppendFlush: Promise<void> | null = null;
 const transcriptInFlight = new Set<string>();
+const transcriptJobs = new Map<string, Promise<TravelMoment | null>>();
 
 async function flushPhotoAppends() {
   await Promise.resolve();
@@ -480,18 +482,7 @@ export function scheduleMomentIndex(momentId: string) {
 }
 
 export function scheduleMomentTranscript(momentId: string) {
-  afterResponse(async () => {
-    if (transcriptInFlight.has(momentId)) {
-      return;
-    }
-
-    transcriptInFlight.add(momentId);
-    try {
-      await fillMomentTranscript(momentId);
-    } finally {
-      transcriptInFlight.delete(momentId);
-    }
-  });
+  afterResponse(() => runMomentTranscript(momentId));
 }
 
 export function scheduleMissingMomentTranscripts(moments: TravelMoment[], limit = 5) {
@@ -501,23 +492,44 @@ export function scheduleMissingMomentTranscripts(moments: TravelMoment[], limit 
   }
 }
 
-async function fillMomentTranscript(momentId: string) {
+export function runMomentTranscript(momentId: string) {
+  const existing = transcriptJobs.get(momentId);
+  if (existing) {
+    return existing;
+  }
+
+  const job = fillMomentTranscript(momentId).finally(() => {
+    transcriptJobs.delete(momentId);
+    transcriptInFlight.delete(momentId);
+  });
+  transcriptJobs.set(momentId, job);
+  return job;
+}
+
+async function fillMomentTranscript(momentId: string): Promise<TravelMoment | null> {
   try {
     const current = await readMomentItem(momentId);
-    if (!current || !momentNeedsTranscript(current) || !current.originalAudioUrl) {
-      return;
+    if (!current) {
+      return null;
+    }
+    if (!momentNeedsTranscript(current) || !current.originalAudioUrl) {
+      return current;
     }
 
+    transcriptInFlight.add(momentId);
     const audioUrl = current.originalAudioUrl;
     const transcript = await transcribeAudioUrl(audioUrl);
     if (!transcript) {
-      return;
+      return current;
     }
 
-    await withWarehouseLock(async () => {
+    return withWarehouseLock(async () => {
       const latest = await readMomentItem(momentId);
-      if (!latest || latest.originalAudioUrl !== audioUrl || latest.transcript?.trim()) {
-        return;
+      if (!latest) {
+        return null;
+      }
+      if (latest.originalAudioUrl !== audioUrl || latest.transcript?.trim()) {
+        return latest;
       }
 
       const next = await writeMomentItem({
@@ -526,9 +538,11 @@ async function fillMomentTranscript(momentId: string) {
         transcript,
       });
       await syncIndexBestEffort([next]);
+      return next;
     });
   } catch {
     // Transcripts are best-effort and must never fail Capture or Bench.
+    return readMomentItem(momentId);
   }
 }
 

@@ -17,6 +17,7 @@ import {
   momentItemBlobPath as storeItemPath,
   readMoments,
   resetMomentStoreForTests,
+  runMomentTranscript,
   setMomentAudio,
   setMomentBlobAdapterForTests,
   setPhotoOriginal,
@@ -208,6 +209,53 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
     assert.equal(original?.photo.originalStorageKey, "https://blob.local/original.heic");
   });
 
+  test("existing audio with empty transcript is filled and persisted without a spinner", async () => {
+    const moment = createTravelMoment({ note: "", time: "2026-08-27T12:09:56.986Z" });
+    const created = await addMoment(moment);
+    assert.equal(created.conflict, false);
+    if (created.conflict) {
+      return;
+    }
+
+    await setMomentAudio(
+      created.moment.id,
+      "https://abc.public.blob.vercel-storage.com/travelos/moments/audio/x.m4a",
+    );
+
+    const originalFetch = globalThis.fetch;
+    const previousKey = process.env.AI_GATEWAY_API_KEY;
+    process.env.AI_GATEWAY_API_KEY = "test-key";
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0]) => {
+      const url = String(input);
+      if (url.includes("blob.vercel-storage.com")) {
+        const bytes = new Uint8Array(24);
+        bytes.set([0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x35], 4);
+        return new Response(bytes, { headers: { "content-type": "audio/mp4" } });
+      }
+      if (url.includes("transcription-model")) {
+        return Response.json({ text: "今天的咖哩很好吃" });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    }) as typeof fetch;
+
+    try {
+      const filled = await runMomentTranscript(created.moment.id);
+      assert.equal(filled?.transcript, "今天的咖哩很好吃");
+      const listed = await readMoments();
+      assert.equal(
+        listed.content.moments.find((item) => item.id === created.moment.id)?.transcript,
+        "今天的咖哩很好吃",
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (previousKey === undefined) {
+        delete process.env.AI_GATEWAY_API_KEY;
+      } else {
+        process.env.AI_GATEWAY_API_KEY = previousKey;
+      }
+    }
+  });
+
   test("stale index get still lets immediate photo and audio attach via the item file", async () => {
     const blob = createStaleIndexBlob();
     setMomentBlobAdapterForTests(blob.adapter);
@@ -300,6 +348,78 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
         new Request("http://travelos.local/api/moments/audio", { body: audioData, method: "POST" }),
       );
       assert.equal(audioResponse.status, 200);
+    });
+  });
+
+  test("POST /api/moments/transcript awaits fill and persists speech text", async () => {
+    await withPinEnv(undefined, async () => {
+      const [{ POST }, audio, transcript] = await Promise.all([
+        import("../app/api/moments/route.ts"),
+        import("../app/api/moments/audio/route.ts"),
+        import("../app/api/moments/transcript/route.ts"),
+      ]);
+
+      const originalFetch = globalThis.fetch;
+      const previousKey = process.env.AI_GATEWAY_API_KEY;
+      process.env.AI_GATEWAY_API_KEY = "test-key";
+      globalThis.fetch = (async (input: Parameters<typeof fetch>[0]) => {
+        const url = String(input);
+        if (url.startsWith("data:") || url.includes("blob.vercel-storage.com") || url.includes("blob.local")) {
+          const bytes = new Uint8Array(24);
+          bytes.set([0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x35], 4);
+          return new Response(bytes, { headers: { "content-type": "audio/mp4" } });
+        }
+        if (url.includes("transcription-model")) {
+          return Response.json({ text: "今天的咖哩很好吃" });
+        }
+        throw new Error(`unexpected fetch ${url}`);
+      }) as typeof fetch;
+
+      try {
+        const createdResponse = await POST(
+          new Request("http://travelos.local/api/moments", {
+            body: JSON.stringify({ note: "", time: "2026-08-27T12:09:56.986Z" }),
+            headers: { "content-type": "application/json" },
+            method: "POST",
+          }),
+        );
+        const created = (await createdResponse.json()) as { moment: { id: string } };
+
+        const audioData = new FormData();
+        audioData.set("momentId", created.moment.id);
+        audioData.set(
+          "file",
+          new File([Uint8Array.from([0, 0, 0, 32, 102, 116, 121, 112, 105, 115, 111, 53])], "moment-audio.m4a", {
+            type: "audio/mp4",
+          }),
+        );
+        assert.equal(
+          (
+            await audio.POST(
+              new Request("http://travelos.local/api/moments/audio", { body: audioData, method: "POST" }),
+            )
+          ).status,
+          200,
+        );
+
+        const filledResponse = await transcript.POST(
+          new Request("http://travelos.local/api/moments/transcript", {
+            body: JSON.stringify({ momentId: created.moment.id }),
+            headers: { "content-type": "application/json" },
+            method: "POST",
+          }),
+        );
+        assert.equal(filledResponse.status, 200);
+        const filled = (await filledResponse.json()) as { moment: { transcript: string | null } };
+        assert.equal(filled.moment.transcript, "今天的咖哩很好吃");
+      } finally {
+        globalThis.fetch = originalFetch;
+        if (previousKey === undefined) {
+          delete process.env.AI_GATEWAY_API_KEY;
+        } else {
+          process.env.AI_GATEWAY_API_KEY = previousKey;
+        }
+      }
     });
   });
 
