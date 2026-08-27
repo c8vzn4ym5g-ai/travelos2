@@ -39,8 +39,9 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
 - First glance is a film cut: title and kicker, the public cut video,
   then ONE still. Extra Santa Claus Village photos and the long why-go /
   path copy sit behind a closed `更多 / More` tap. Do not delete locked
-  copy. Do not swap the Public_Cut file. The frozen poster stays behind
-  the tap, after the video, not above it.
+  copy. Hero video is `Lapland_那年冬天_WinterVocal_F.mp4`. Keep
+  `Public_Cut.mp4` in the repo as archive; do not delete it. The frozen
+  poster stays behind the tap, after the video, not above it.
 
 ## Public Lapland journey picture
 
