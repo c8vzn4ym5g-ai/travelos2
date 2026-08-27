@@ -1,5 +1,5 @@
 import {
-  LAPLAND_HERO_VIDEO_SRC,
+  LAPLAND_PUBLIC_CUT_SRC,
   LAPLAND_SEASON_LABEL,
 } from "@/lib/lapland-storefront-copy";
 
@@ -15,7 +15,7 @@ export function LaplandPublicCut() {
           muted
           playsInline
           preload="metadata"
-          src={LAPLAND_HERO_VIDEO_SRC}
+          src={LAPLAND_PUBLIC_CUT_SRC}
         />
       </div>
     </section>

@@ -223,17 +223,17 @@ test("Lapland public short is the exact Codex cut under Journey, not a substitut
   const { createHash } = await import("node:crypto");
   const { stat } = await import("node:fs/promises");
   const {
-    LAPLAND_HERO_VIDEO_BYTES,
-    LAPLAND_HERO_VIDEO_FILENAME,
-    LAPLAND_HERO_VIDEO_SHA256,
-    LAPLAND_HERO_VIDEO_SRC,
     LAPLAND_PUBLIC_CUT_BYTES,
     LAPLAND_PUBLIC_CUT_FILENAME,
     LAPLAND_PUBLIC_CUT_SHA256,
+    LAPLAND_PUBLIC_CUT_SRC,
     LAPLAND_SEASON_LABEL,
+    LAPLAND_WINTER_VOCAL_F_BYTES,
+    LAPLAND_WINTER_VOCAL_F_FILENAME,
+    LAPLAND_WINTER_VOCAL_F_SHA256,
   } = await import("../lib/lapland-storefront-copy.ts");
-  const heroPath = resolve(root, "public/travelos/lapland", LAPLAND_HERO_VIDEO_FILENAME);
-  const archivePath = resolve(root, "public/travelos/lapland", LAPLAND_PUBLIC_CUT_FILENAME);
+  const heroPath = resolve(root, "public/travelos/lapland", LAPLAND_PUBLIC_CUT_FILENAME);
+  const archivePath = resolve(root, "public/travelos/lapland", LAPLAND_WINTER_VOCAL_F_FILENAME);
   const [hero, heroInfo, archive, archiveInfo, page, cut, still, more, poster] = await Promise.all([
     readFile(heroPath),
     stat(heroPath),
@@ -246,16 +246,17 @@ test("Lapland public short is the exact Codex cut under Journey, not a substitut
     readFile(resolve(root, "public/travelos/maps/lapland-helsinki-poster.jpg")),
   ]);
 
-  assert.equal(heroInfo.size, 8935024);
-  assert.equal(heroInfo.size, LAPLAND_HERO_VIDEO_BYTES);
-  assert.equal(createHash("sha256").update(hero).digest("hex"), LAPLAND_HERO_VIDEO_SHA256);
+  assert.equal(heroInfo.size, 8946351);
+  assert.equal(heroInfo.size, LAPLAND_PUBLIC_CUT_BYTES);
+  assert.equal(createHash("sha256").update(hero).digest("hex"), LAPLAND_PUBLIC_CUT_SHA256);
   assert.equal(hero.subarray(4, 8).toString("ascii"), "ftyp");
-  assert.equal(LAPLAND_HERO_VIDEO_SRC, `/travelos/lapland/${LAPLAND_HERO_VIDEO_FILENAME}`);
-  assert.equal(LAPLAND_HERO_VIDEO_FILENAME, "Lapland_那年冬天_WinterVocal_F.mp4");
-  assert.equal(archiveInfo.size, 8946351);
-  assert.equal(archiveInfo.size, LAPLAND_PUBLIC_CUT_BYTES);
-  assert.equal(createHash("sha256").update(archive).digest("hex"), LAPLAND_PUBLIC_CUT_SHA256);
+  assert.equal(LAPLAND_PUBLIC_CUT_SRC, `/travelos/lapland/${LAPLAND_PUBLIC_CUT_FILENAME}`);
   assert.equal(LAPLAND_PUBLIC_CUT_FILENAME, "Lapland_那年冬天_Public_Cut.mp4");
+  assert.equal(archiveInfo.size, 8935024);
+  assert.equal(archiveInfo.size, LAPLAND_WINTER_VOCAL_F_BYTES);
+  assert.equal(createHash("sha256").update(archive).digest("hex"), LAPLAND_WINTER_VOCAL_F_SHA256);
+  assert.equal(LAPLAND_WINTER_VOCAL_F_FILENAME, "Lapland_那年冬天_WinterVocal_F.mp4");
+  assert.notEqual(LAPLAND_PUBLIC_CUT_SHA256, LAPLAND_WINTER_VOCAL_F_SHA256);
   assert.match(page, /<LaplandPublicCut \/>/);
   assert.match(page, /<LaplandCutStill/);
   assert.match(page, /<LaplandMoreCut>/);
@@ -264,8 +265,8 @@ test("Lapland public short is the exact Codex cut under Journey, not a substitut
   assert.ok(page.indexOf("<LaplandCutStill") < page.indexOf("<LaplandMoreCut"), "extras sit behind the more tap");
   assert.ok(page.indexOf("<LaplandPublicCut") < page.indexOf("<JourneyMap"), "public cut sits before the frozen poster");
   assert.match(cut, /data-lapland-public-cut=""/);
-  assert.match(cut, /LAPLAND_HERO_VIDEO_SRC/);
-  assert.doesNotMatch(cut, /LAPLAND_PUBLIC_CUT_SRC/);
+  assert.match(cut, /LAPLAND_PUBLIC_CUT_SRC/);
+  assert.doesNotMatch(cut, /LAPLAND_HERO_VIDEO_SRC|WinterVocal_F/);
   assert.match(cut, /autoPlay/);
   assert.match(cut, /muted/);
   assert.match(cut, /playsInline/);
