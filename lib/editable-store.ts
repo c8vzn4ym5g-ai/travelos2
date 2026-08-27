@@ -4,7 +4,7 @@ import { LAPLAND_WINTER_VILLAGE_CAPTION, LAPLAND_WINTER_VILLAGE_PHOTO_ID, seedTr
 import type { MusicTrack, Photo, TripDetail } from "@/lib/types";
 
 const DATA_BLOB_PATH = "travelos/content.json";
-const CONTENT_SCHEMA_VERSION = 13;
+const CONTENT_SCHEMA_VERSION = 14;
 
 export type TravelOSContent = {
   trips: TripDetail[];
@@ -154,7 +154,7 @@ function mergeSeedTrips(content: TravelOSContent): TravelOSContent {
       return trip;
     }
 
-    const rebuildLaplandPublicStory = savedSchemaVersion < 12 && seedTrip.id === "trip_lapland_2020";
+    const rebuildLaplandPublicStory = savedSchemaVersion < 14 && seedTrip.id === "trip_lapland_2020";
     const repairTripText =
       recordLooksCorrupted(trip.title) ||
       recordLooksCorrupted(trip.summary) ||
@@ -346,6 +346,10 @@ function recordLooksCorrupted(record: unknown) {
 function shouldMigrateSeedTripCopy(trip: TripDetail, seedTrip: TripDetail, savedSchemaVersion: number) {
   if (savedSchemaVersion >= CONTENT_SCHEMA_VERSION || !seedContainsTraditionalChinese(seedTrip)) {
     return false;
+  }
+
+  if (savedSchemaVersion < 14 && trip.id === "trip_lapland_2020" && seedTrip.id === "trip_lapland_2020") {
+    return true;
   }
 
   if (savedSchemaVersion < 11 && trip.id === "trip_lapland_2020" && seedTrip.id === "trip_lapland_2020") {

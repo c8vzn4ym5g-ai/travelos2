@@ -1,11 +1,11 @@
-import { LAPLAND_PLACE_KNOWLEDGE } from "@/lib/lapland-storefront-copy";
+import { LAPLAND_PLACE_KNOWLEDGE, LAPLAND_PLACE_KNOWLEDGE_HEADING } from "@/lib/lapland-storefront-copy";
 
 export function LaplandPlaceKnowledge() {
   return (
     <section aria-label="Place knowledge" className="max-w-4xl scroll-mt-24" data-place-knowledge="" id="place-knowledge">
       <p className="travel-kicker text-xs">場所知識 / Place knowledge</p>
       <h2 className="travel-hand mt-2 text-2xl font-semibold leading-tight text-[color:var(--ink)] sm:text-3xl">
-        不是日記裡的多出來的一天 / Not an extra day in the journal
+        {LAPLAND_PLACE_KNOWLEDGE_HEADING}
       </h2>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         {LAPLAND_PLACE_KNOWLEDGE.map((fact) => (

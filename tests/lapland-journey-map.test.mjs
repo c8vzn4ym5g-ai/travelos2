@@ -217,7 +217,8 @@ test("Lapland itinerary is a Rovaniemi journey picture, not a Hong Kong-scale ov
   assert.equal(itinerary.regionalStops[0].dateLabel, null);
   assert.match(itinerary.regionalStops[1].listLabel, /Arctic Circle/);
   assert.equal(itinerary.regionalStops[1].dateLabel, null);
-  assert.match(itinerary.regionalStops[2].listLabel, /Cabin/);
+  assert.match(itinerary.regionalStops[2].listLabel, /Rovaniemi/);
+  assert.doesNotMatch(itinerary.regionalStops[2].listLabel, /Cabin|Red cabin/);
   assert.equal(itinerary.regionalStops[2].dateLabel, null);
   assert.match(itinerary.regionalStops[3].listLabel, /Helsinki Cathedral/);
   assert.match(itinerary.regionalStops[4].listLabel, /South Harbour/);
@@ -264,12 +265,12 @@ test("Lapland itinerary is a Rovaniemi journey picture, not a Hong Kong-scale ov
   assert.equal(LAPLAND_PATH_HEADING, "拉普蘭，然後赫爾辛基 / Lapland, then Helsinki");
   assert.equal(LAPLAND_GLANCE_HOTSPOTS.length, 4);
   assert.deepEqual(
-    LAPLAND_GLANCE_HOTSPOTS.map((spot) => [spot.id, spot.href, spot.x, spot.y, spot.w, spot.h]),
+    LAPLAND_GLANCE_HOTSPOTS.map((spot) => [spot.id, spot.href, spot.label, spot.x, spot.y, spot.w, spot.h]),
     [
-      ["tap-arctic", "#arctic-circle", 0.378906, 0.873047, 0.114258, 0.10612],
-      ["tap-nature", "#place-knowledge", 0.493164, 0.873047, 0.115234, 0.10612],
-      ["tap-stay", "#cabin-4", 0.608398, 0.873047, 0.109375, 0.10612],
-      ["tap-winter", "#christmas-window", 0.717773, 0.873047, 0.099609, 0.10612],
+      ["tap-arctic", "#arctic-circle", "極地之旅 / Arctic Journey", 0.378906, 0.873047, 0.114258, 0.10612],
+      ["tap-nature", "#place-knowledge", "自然風光 / Scenic Nature", 0.493164, 0.873047, 0.115234, 0.10612],
+      ["tap-stay", "#cabin-4", "在地體驗 / Local Experience", 0.608398, 0.873047, 0.109375, 0.10612],
+      ["tap-winter", "#christmas-window", "冬季限定 / Winter Exclusive", 0.717773, 0.873047, 0.099609, 0.10612],
     ],
   );
   assert.ok(LAPLAND_GLANCE_HOTSPOTS.every((spot) => spot.x >= 0.37), "theme cards sit in the footer band, not full width");
@@ -362,7 +363,7 @@ test("selecting stop N shows bilingual wording and the linked photo", () => {
   assert.ok(santaCard);
   assert.equal(santaCard.title, "聖誕老人村 / Santa Claus Village");
   assert.match(santaCard.wording, /北極圈上的聖誕老人村/);
-  assert.equal(santaCard.photo?.storageKey, "/travelos/lapland/dump-arctic-circle-pillars.jpeg");
+  assert.equal(santaCard.photo?.storageKey, "/travelos/lapland/stills/cover_IMG_3619.jpeg");
 
   const leavingCard = getStopCardContent({
     journalEntries: lapland.journalEntries,

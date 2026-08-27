@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: drivePageMetadata.description,
   openGraph: {
     description: drivePageMetadata.description,
-    images: [{ alt: "Santa Claus Village at night in Rovaniemi", url: LAPLAND_COVER_PHOTO }],
+    images: [{ alt: "北極圈紅柱與聖誕老人村尖頂。 / Arctic Circle pillars and Santa Claus Office.", url: LAPLAND_COVER_PHOTO }],
     title: drivePageMetadata.title,
     type: "website",
     url: "/drive",
@@ -63,10 +63,10 @@ export default function DrivePage() {
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Featured journal</p>
               <h2 className="mt-2 text-2xl font-semibold">芬蘭拉普蘭 / Finnish Lapland</h2>
               <p className="mt-3 text-sm leading-6 text-zinc-600">
-                十二月。聖誕老人村在北極圈上，然後往南到赫爾辛基。
+                十二月。深冬。白晝只剩兩三小時。廣場上有一條線，走過去就是北極圈。然後往南，赫爾辛基。
               </p>
               <p className="mt-2 text-sm leading-6 text-zinc-600">
-                December. Santa Claus Village on the Arctic Circle, then south to Helsinki.
+                December. Midwinter. Two or three hours of daylight. A line in the square you can walk across. Then south, to Helsinki.
               </p>
               <p className="mt-4 text-sm font-semibold text-teal-800">閱讀遊記 / Read the journal</p>
             </div>

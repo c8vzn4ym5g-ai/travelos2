@@ -8,6 +8,8 @@ import {
   isLaplandPeerLandmarkName,
   isLaplandStorefrontSlug,
   laplandPublicStops,
+  LAPLAND_HOOK_EN,
+  LAPLAND_HOOK_ZH,
   LAPLAND_STOREFRONT_EN,
   LAPLAND_STOREFRONT_KICKER,
   LAPLAND_STOREFRONT_TITLE,
@@ -34,6 +36,7 @@ test("Lapland storefront glance is independent cash-path copy under the map", as
   assert.match(page, /isLaplandStorefrontSlug\(trip\.slug\) \? <LaplandStorefrontGlance/);
   assert.match(page, /data-storefront-glance|LaplandStorefrontGlance/);
   assert.match(glance, /data-storefront-glance=""/);
+  assert.match(glance, /id="why-go"/);
   assert.match(glance, /LAPLAND_STOREFRONT_KICKER/);
   assert.match(glance, /LAPLAND_STOREFRONT_TITLE/);
   assert.match(glance, /LAPLAND_STOREFRONT_ZH/);
@@ -51,9 +54,12 @@ test("Lapland storefront glance is independent cash-path copy under the map", as
 
   assert.doesNotMatch(familyHome, /LaplandStorefrontGlance|lapland-storefront-copy|LaplandPublicCut/);
   assert.doesNotMatch(capture, /LaplandStorefrontGlance|lapland-storefront-copy|data-storefront-glance|LaplandPublicCut/);
+  const copy = await readFile(resolve(root, "lib/lapland-storefront-copy.ts"), "utf8");
+  assert.match(seed, /聖誕窗 \/ Christmas window/);
   assert.match(seed, /北極圈 \/ Arctic Circle/);
-  assert.match(seed, /已經在拉普蘭/);
-  assert.match(seed, /Finnair，是離開，不是抵達/);
+  assert.match(seed, /人已經在雪裡/);
+  assert.match(copy, /Finnair，是離開，不是抵達/);
+  assert.doesNotMatch(seed, /雪天使|snow-angel|離開羅瓦涅米 \/ Leaving Rovaniemi|Moomin/);
   assert.equal(LAPLAND_WINTER_VILLAGE_CAPTION, "記憶裡的聖誕卡 / A Christmas card from memory");
   assert.match(seed, /LAPLAND_WINTER_VILLAGE_CAPTION/);
   assert.doesNotMatch(seed, /北極圈上的冬日小鎮，然後是城市/);
@@ -62,25 +68,25 @@ test("Lapland storefront glance is independent cash-path copy under the map", as
 
 test("storefront wording names place, season, and feel without invented proof", () => {
   assert.equal(LAPLAND_STOREFRONT_KICKER, "為何去 / Why go");
-  assert.equal(LAPLAND_STOREFRONT_TITLE, "北極圈上的冬日小鎮，然後是城市 / A winter town on the Arctic Circle, then a city");
-  assert.match(LAPLAND_STOREFRONT_ZH, /芬蘭拉普蘭/);
+  assert.equal(LAPLAND_STOREFRONT_TITLE, "北極圈是一條可以走過去的線 / A line you can walk across");
+  assert.match(LAPLAND_STOREFRONT_ZH, /你要去的不是極夜/);
   assert.match(LAPLAND_STOREFRONT_ZH, /十二月/);
-  assert.match(LAPLAND_STOREFRONT_ZH, /聖誕老人村/);
+  assert.match(LAPLAND_STOREFRONT_ZH, /聖誕老人村|主郵局|聖誕箱/);
   assert.match(LAPLAND_STOREFRONT_ZH, /北極圈/);
-  assert.match(LAPLAND_STOREFRONT_ZH, /香港/);
-  assert.match(LAPLAND_STOREFRONT_ZH, /赫爾辛基/);
-  assert.match(LAPLAND_STOREFRONT_EN, /Finnish Lapland/);
+  assert.match(LAPLAND_STOREFRONT_ZH, /往南，城市解凍/);
+  assert.match(LAPLAND_STOREFRONT_EN, /You are not going for polar night/);
   assert.match(LAPLAND_STOREFRONT_EN, /December/);
-  assert.match(LAPLAND_STOREFRONT_EN, /Santa Claus Village/);
+  assert.match(LAPLAND_STOREFRONT_EN, /Santa Claus|Main Post Office|Christmas box/);
   assert.match(LAPLAND_STOREFRONT_EN, /Arctic Circle/);
-  assert.match(LAPLAND_STOREFRONT_EN, /Hong Kong/);
-  assert.match(LAPLAND_STOREFRONT_EN, /Helsinki/);
-  assert.match(LAPLAND_STOREFRONT_ZH, /白晝只剩兩三小時/);
-  assert.match(LAPLAND_STOREFRONT_EN, /two or three hours of daylight/);
-  assert.match(LAPLAND_STOREFRONT_ZH, /走過去就是北極圈/);
-  assert.match(LAPLAND_STOREFRONT_EN, /walk across/);
-  assert.match(LAPLAND_STOREFRONT_ZH, /港口與主教座堂/);
-  assert.match(LAPLAND_STOREFRONT_EN, /harbour and the cathedral/);
+  assert.match(LAPLAND_STOREFRONT_EN, /the city thaws/);
+  assert.match(LAPLAND_STOREFRONT_ZH, /白晝還在，只是只剩兩三小時|只剩兩三小時/);
+  assert.match(LAPLAND_STOREFRONT_EN, /two or three hours/);
+  assert.match(LAPLAND_STOREFRONT_ZH, /走過去，就是北極圈/);
+  assert.match(LAPLAND_STOREFRONT_EN, /Walk across/);
+  assert.match(LAPLAND_STOREFRONT_ZH, /港口還在/);
+  assert.match(LAPLAND_STOREFRONT_EN, /harbour still there/);
+  assert.match(LAPLAND_HOOK_ZH, /赫爾辛基/);
+  assert.match(LAPLAND_HOOK_EN, /Helsinki/);
   assert.doesNotMatch(LAPLAND_STOREFRONT_ZH, /一月/);
   assert.doesNotMatch(LAPLAND_STOREFRONT_EN, /January/);
 
@@ -148,9 +154,10 @@ test("public Lapland rail lists landmarks, not the village cabin as a peer stop"
     readFile(resolve(root, "lib/travelpayouts.ts"), "utf8"),
   ]);
 
-  assert.equal(stops.length, 4);
+  assert.equal(stops.length, 5);
   assert.match(names, /Santa Claus Village/);
   assert.match(names, /Arctic Circle/);
+  assert.match(names, /Main Post Office/);
   assert.match(names, /Helsinki Cathedral/);
   assert.match(names, /South Harbour/);
   assert.doesNotMatch(names, /Red cabin|4 號紅木屋|Sled route|Airport|Unrated/i);
@@ -160,8 +167,12 @@ test("public Lapland rail lists landmarks, not the village cabin as a peer stop"
   );
   assert.equal(isLaplandStayJournal({ id: "journal_lapland_cabin", title: "4 號紅木屋 / Red cabin no. 4" }), true);
   assert.equal(isLaplandStayJournal({ id: "journal_lapland_arctic", title: "北極圈 / Arctic Circle" }), false);
-  assert.ok(lapland.places.some((place) => place.id === "place_lapland_cabin"), "cabin remains in the story seed");
+  assert.ok(!lapland.places.some((place) => place.id === "place_lapland_cabin" || place.name === "Red cabin no. 4"));
+  assert.ok(!lapland.places.some((place) => place.name === "Sled route"));
+  assert.ok(lapland.places.some((place) => place.id === "place_lapland_rovaniemi"));
   assert.ok(lapland.journalEntries.some((entry) => entry.id === "journal_lapland_cabin"));
+  assert.ok(lapland.journalEntries.some((entry) => entry.id === "journal_lapland_christmas_window"));
+  assert.ok(!lapland.journalEntries.some((entry) => entry.id === "journal_lapland_leaving"));
 
   assert.match(page, /laplandPublicStops/);
   assert.match(page, /isLaplandStayJournal/);

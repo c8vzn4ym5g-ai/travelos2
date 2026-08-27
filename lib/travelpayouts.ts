@@ -7,7 +7,7 @@ export function isLaplandPublicSlug(slug: string): boolean {
   return slug === LAPLAND_TRIP_SLUG || slug === LAPLAND_TRIP_SLUG_LEGACY || slug === LAPLAND_TRIP_SLUG_LEGACY_2019;
 }
 
-export const LAPLAND_COVER_PHOTO = "/travelos/lapland/dump-arctic-circle-pillars.jpeg";
+export const LAPLAND_COVER_PHOTO = "/travelos/lapland/stills/cover_IMG_3619.jpeg";
 
 // Ordinary brand search URLs. Drive rewrites these on public pages.
 // Verified by HTTP GET before shipping (2026-08-24):

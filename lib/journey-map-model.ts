@@ -94,10 +94,10 @@ export const LAPLAND_POSTER_WIDTH = 1200;
 export const LAPLAND_POSTER_HEIGHT = 1800;
 
 export const LAPLAND_GLANCE_HOTSPOTS = [
-  { href: "#arctic-circle", id: "tap-arctic", label: "Arctic Circle journal", x: 0.378906, y: 0.873047, w: 0.114258, h: 0.10612 },
-  { href: "#place-knowledge", id: "tap-nature", label: "Place knowledge / polar twilight", x: 0.493164, y: 0.873047, w: 0.115234, h: 0.10612 },
-  { href: "#cabin-4", id: "tap-stay", label: "Red cabin no. 4", x: 0.608398, y: 0.873047, w: 0.109375, h: 0.10612 },
-  { href: "#christmas-window", id: "tap-winter", label: "聖誕季節窗口 / Christmas window", x: 0.717773, y: 0.873047, w: 0.099609, h: 0.10612 },
+  { href: "#arctic-circle", id: "tap-arctic", label: "極地之旅 / Arctic Journey", x: 0.378906, y: 0.873047, w: 0.114258, h: 0.10612 },
+  { href: "#place-knowledge", id: "tap-nature", label: "自然風光 / Scenic Nature", x: 0.493164, y: 0.873047, w: 0.115234, h: 0.10612 },
+  { href: "#cabin-4", id: "tap-stay", label: "在地體驗 / Local Experience", x: 0.608398, y: 0.873047, w: 0.109375, h: 0.10612 },
+  { href: "#christmas-window", id: "tap-winter", label: "冬季限定 / Winter Exclusive", x: 0.717773, y: 0.873047, w: 0.099609, h: 0.10612 },
 ] as const;
 
 export const LAPLAND_POSTER_MAP_RATIO = 0.7;
@@ -397,13 +397,13 @@ function buildLaplandItinerary({
 }): JourneyItinerary {
   const santa = findPlace(places, ["place_lapland_santa_village", "Santa Claus Village"]);
   const arctic = findPlace(places, ["place_lapland_arctic_circle", "Arctic Circle Line"]);
-  const cabin = findPlace(places, ["place_lapland_cabin", "place_lapland_snow_cabin", "Red cabin no. 4", "Snow cabin"]);
+  const cabin = findPlace(places, ["place_lapland_rovaniemi", "place_lapland_cabin", "Rovaniemi", "Red cabin no. 4"]);
   const helsinki = findPlace(places, ["place_lapland_helsinki", "Helsinki"]);
   const arcticJournal = findJournal(journalEntries, ["journal_lapland_arctic", "arctic circle", "北極圈"]);
   const cabinJournal = findJournal(journalEntries, ["journal_lapland_cabin", "red cabin", "4 號"]);
-  const arcticPhoto = findPhoto(photos, ["photo_lapland_dump_arctic_sign", "photo_lapland_arctic_circle"]);
-  const santaPhoto = findPhoto(photos, ["photo_lapland_dump_arctic_pillars", "photo_lapland_santa_night"]);
-  const cabinPhoto = findPhoto(photos, ["photo_lapland_dump_cabin4", "photo_lapland_snow_cabin"]);
+  const arcticPhoto = findPhoto(photos, ["photo_lapland_still_g", "photo_lapland_dump_arctic_sign", "photo_lapland_arctic_circle"]);
+  const santaPhoto = findPhoto(photos, ["photo_lapland_still_cover", "photo_lapland_still_h", "photo_lapland_dump_arctic_pillars"]);
+  const cabinPhoto = findPhoto(photos, ["photo_lapland_still_l", "photo_lapland_dump_cabin4", "photo_lapland_snow_cabin"]);
   const cathedralPhoto = findPhoto(photos, ["photo_lapland_garnish_cathedral"]);
   const harbourPhoto = findPhoto(photos, ["photo_lapland_garnish_harbour"]);
   const santaPoint = santa?.coordinates ?? { latitude: 66.5436, longitude: 25.8472 };
@@ -442,15 +442,15 @@ function buildLaplandItinerary({
     {
       dateLabel: null,
       icon: "cabin",
-      id: cabin?.id ?? "stop_lapland_cabin",
+      id: cabin?.id ?? "stop_lapland_rovaniemi",
       leg: "winter",
-      linkedJournalEntryId: cabinJournal?.id ?? "journal_lapland_cabin",
+      linkedJournalEntryId: null,
       linkedPhotoId: cabinPhoto?.id ?? cabinJournal?.storyPhotoId ?? null,
-      listLabel: "4 號紅木屋 / Cabin",
-      note: cabin?.notes ?? cabinJournal?.body ?? null,
+      listLabel: "羅瓦涅米 / Rovaniemi",
+      note: cabin?.notes ?? "村裡過夜的基地。 / The base for a night in the village.",
       number: 3,
-      point: cabinPoint,
-      title: cabinJournal?.title ?? "4 號紅木屋 / Red cabin no. 4",
+      point: cabin?.coordinates ?? LAPLAND_CITY,
+      title: "羅瓦涅米 / Rovaniemi",
     },
     {
       dateLabel: null,
