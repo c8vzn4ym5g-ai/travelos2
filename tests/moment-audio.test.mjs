@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
+import { afterResponse } from "../lib/after-response.ts";
+import { appendSpokenText, spokenTextFromSpeechEvent } from "../lib/capture-speech.ts";
 import {
   encodeWavBytes,
   filenameForAudioMime,
@@ -37,6 +39,22 @@ function mp4Header() {
 function webmHeader() {
   return new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 0, 0, 0, 0, 0, 0, 0, 0]);
 }
+
+test("spoken capture text accumulates without replacing the original audio", () => {
+  assert.equal(appendSpokenText("", "今天咖哩好吃"), "今天咖哩好吃");
+  assert.equal(appendSpokenText("今天咖哩好吃", "今天咖哩好吃"), "今天咖哩好吃");
+  assert.equal(appendSpokenText("今天", "咖哩好吃"), "今天 咖哩好吃");
+  assert.equal(
+    spokenTextFromSpeechEvent({
+      resultIndex: 0,
+      results: [
+        { isFinal: true, 0: { transcript: "今天" } },
+        { isFinal: false, 0: { transcript: "咖哩" } },
+      ],
+    }),
+    "今天 咖哩",
+  );
+});
 
 test("iPhone fmp4 audio labeled webm is sniffed as audio/mp4", () => {
   const bytes = mp4Header();
@@ -104,6 +122,41 @@ test("gateway transcription reads text and never treats audio as the transcript"
   assert.ok(typeof body.audio === "string" && body.audio.length > 0);
 });
 
+test("afterResponse uses waitUntil so transcript work survives the HTTP response", async () => {
+  const key = Symbol.for("@vercel/request-context");
+  const previous = globalThis[key];
+  const held = [];
+  Object.defineProperty(globalThis, key, {
+    configurable: true,
+    value: {
+      get() {
+        return {
+          waitUntil(promise) {
+            held.push(promise);
+          },
+        };
+      },
+    },
+  });
+
+  try {
+    let finished = false;
+    const pending = afterResponse(async () => {
+      finished = true;
+    });
+    assert.equal(held.length, 1);
+    assert.equal(held[0], pending);
+    await pending;
+    assert.equal(finished, true);
+  } finally {
+    if (previous === undefined) {
+      delete globalThis[key];
+    } else {
+      Object.defineProperty(globalThis, key, { configurable: true, value: previous });
+    }
+  }
+});
+
 test("transcription is a no-op without credentials", async () => {
   const calls = [];
   const request = async (input) => {
@@ -126,6 +179,9 @@ test("capture and audio upload sniff mime instead of forcing webm", async () => 
   ]);
 
   assert.match(capture, /preferredRecorderMime/);
+  assert.match(capture, /startCaptureSpeech/);
+  assert.match(capture, /transcript: spokenRef.current \|\| staged.transcript/);
+  assert.match(upload, /audioData.set\("transcript"/);
   assert.match(capture, /MediaRecorder\(stream, \{ mimeType: recorderMime \}\)/);
   assert.match(capture, /preparePlayableAudio/);
   assert.match(capture, /primePlaybackAudioContext/);
@@ -138,6 +194,7 @@ test("capture and audio upload sniff mime instead of forcing webm", async () => 
   assert.doesNotMatch(upload, /moment-audio\.webm"\)/);
   assert.match(audioApi, /filenameForAudioMime\(mime\)/);
   assert.match(audioApi, /scheduleMomentTranscript\(momentId\)/);
+  assert.match(audioApi, /formData.get\("transcript"\)/);
   assert.match(audioApi, /export async function GET/);
   assert.match(audioApi, /isTrustedMomentAudioUrl/);
   assert.match(audioApi, /getMomentById/);

@@ -89,7 +89,8 @@ export async function POST(request: Request) {
       stored,
     );
 
-    const saved = await setMomentAudio(momentId, blob.url);
+    const spoken = String(formData.get("transcript") ?? "").trim();
+    const saved = await setMomentAudio(momentId, blob.url, spoken ? { transcript: spoken } : undefined);
     if (!saved) {
       return Response.json({ error: "Moment not found" }, { status: 404 });
     }

@@ -188,6 +188,18 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
     assert.equal(labeled?.moment.transcript, "舊的聲音");
     assert.equal(labeled?.moment.originalAudioUrl, "https://blob.local/audio.webm");
 
+    const savedNote = await updateMoment({
+      id: created.moment.id,
+      note: "心情",
+    });
+    assert.equal(savedNote?.moment.note, "心情");
+    assert.equal(savedNote?.moment.transcript, "舊的聲音");
+
+    const spokenUpload = await setMomentAudio(created.moment.id, "https://blob.local/audio-spoken.webm", {
+      transcript: "今天的咖哩很好吃",
+    });
+    assert.equal(spokenUpload?.moment.transcript, "今天的咖哩很好吃");
+
     const replaced = await setMomentAudio(created.moment.id, "https://blob.local/audio-2.webm");
     assert.equal(replaced?.moment.originalAudioUrl, "https://blob.local/audio-2.webm");
     assert.equal(replaced?.moment.transcript, null);

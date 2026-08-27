@@ -1,3 +1,4 @@
+import { afterResponse } from "@/lib/after-response";
 import { put } from "@vercel/blob";
 import { getMomentJsonBlob, isMomentJsonBlobConfigured, putMomentItemJson, putMomentJsonBlob, setMomentBlobAdapterForTests } from "@/lib/moment-blob";
 import { isAdminPinValid, isBlobConfigured } from "@/lib/editable-store";
@@ -15,6 +16,7 @@ import {
   applyMomentPhotoAppends,
   normalizeTravelJob,
   normalizeTravelMoment,
+  sortMomentsNewestFirst,
 } from "@/lib/moments";
 import type { MomentPhoto, TravelJob, TravelMoment } from "@/lib/types";
 import {
@@ -290,6 +292,7 @@ export async function updateMoment(moment: Partial<TravelMoment> & { id: string 
         originalAudioUrl:
           moment.originalAudioUrl !== undefined ? moment.originalAudioUrl : current.originalAudioUrl,
         photos: moment.photos ?? current.photos,
+        transcript: moment.transcript !== undefined ? moment.transcript : current.transcript,
       }),
     );
     const content = await syncIndexBestEffort([next]);
@@ -404,17 +407,25 @@ export function addPhotoToMoment(momentId: string, photo: MomentPhoto) {
   });
 }
 
-export async function setMomentAudio(momentId: string, originalAudioUrl: string | null) {
+export async function setMomentAudio(
+  momentId: string,
+  originalAudioUrl: string | null,
+  options: { transcript?: string | null } = {},
+) {
   return withWarehouseLock(async () => {
     const current = await readMomentItem(momentId);
     if (!current) {
       return null;
     }
 
+    const spoken = options.transcript?.trim() || null;
     const next = await writeMomentItem({
       ...current,
       originalAudioUrl,
-      transcript: originalAudioUrl === current.originalAudioUrl ? current.transcript : null,
+      transcript:
+        originalAudioUrl === null
+          ? null
+          : spoken ?? (originalAudioUrl === current.originalAudioUrl ? current.transcript : null),
     });
     const content = await syncIndexBestEffort([next]);
     return { content, moment: next };
@@ -469,27 +480,24 @@ export function scheduleMomentIndex(momentId: string) {
 }
 
 export function scheduleMomentTranscript(momentId: string) {
-  if (transcriptInFlight.has(momentId)) {
-    return;
-  }
+  afterResponse(async () => {
+    if (transcriptInFlight.has(momentId)) {
+      return;
+    }
 
-  transcriptInFlight.add(momentId);
-  void fillMomentTranscript(momentId).finally(() => {
-    transcriptInFlight.delete(momentId);
+    transcriptInFlight.add(momentId);
+    try {
+      await fillMomentTranscript(momentId);
+    } finally {
+      transcriptInFlight.delete(momentId);
+    }
   });
 }
 
-export function scheduleMissingMomentTranscripts(moments: TravelMoment[], limit = 3) {
-  let queued = 0;
-  for (const moment of moments) {
-    if (queued >= limit) {
-      break;
-    }
-    if (!momentNeedsTranscript(moment)) {
-      continue;
-    }
+export function scheduleMissingMomentTranscripts(moments: TravelMoment[], limit = 5) {
+  const waiting = sortMomentsNewestFirst(moments.filter((moment) => momentNeedsTranscript(moment)));
+  for (const moment of waiting.slice(0, limit)) {
     scheduleMomentTranscript(moment.id);
-    queued += 1;
   }
 }
 

@@ -306,6 +306,7 @@ export async function finalizeCaptureMoment(input: {
   note: string;
   pin: string;
   time: string;
+  transcript?: string | null;
 }) {
   const response = await fetch("/api/moments", {
     body: JSON.stringify({
@@ -315,6 +316,7 @@ export async function finalizeCaptureMoment(input: {
         id: input.momentId,
         note: input.note,
         time: input.time,
+        ...(input.transcript?.trim() ? { transcript: input.transcript.trim() } : {}),
       },
     }),
     headers: {
@@ -411,6 +413,7 @@ export async function uploadMomentAudio(input: {
   pin: string;
   retryMoment?: (status: number) => Promise<string>;
   signal?: AbortSignal;
+  transcript?: string | null;
 }) {
   const send = async (momentId: string) => {
     const bytes = new Uint8Array(await input.blob.slice(0).arrayBuffer());
@@ -419,6 +422,9 @@ export async function uploadMomentAudio(input: {
     const audioData = new FormData();
     audioData.set("momentId", momentId);
     audioData.set("file", file);
+    if (input.transcript?.trim()) {
+      audioData.set("transcript", input.transcript.trim());
+    }
     return fetch("/api/moments/audio", {
       body: audioData,
       headers: pinHeaders(input.pin),

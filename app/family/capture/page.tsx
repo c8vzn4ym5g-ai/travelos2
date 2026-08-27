@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { MomentAudioPlayer } from "@/app/family/moment-audio-player";
+import { startCaptureSpeech } from "@/lib/capture-speech";
 import {
   CAPTURE_DUMP_LIMIT,
   captureDumpProgressMessage,
@@ -48,6 +49,7 @@ type StagedAudio = {
   errorMessage: string | null;
   previewUrl: string;
   status: UploadStatus;
+  transcript: string;
 };
 
 const controlClass =
@@ -67,6 +69,8 @@ export default function CapturePage() {
   const chunksRef = useRef<BlobPart[]>([]);
   const recordStartedAtRef = useRef(0);
   const audioGenerationRef = useRef(0);
+  const spokenRef = useRef("");
+  const stopSpeechRef = useRef<(() => void) | null>(null);
   const pinRef = useRef("");
   const coordinatesRef = useRef<GeoPoint | null>(null);
   const momentSessionRef = useRef<ReturnType<typeof createMomentSession> | null>(null);
@@ -80,6 +84,7 @@ export default function CapturePage() {
   const [note, setNote] = useState("");
   const [audio, setAudio] = useState<StagedAudio | null>(null);
   const [audioHold, setAudioHold] = useState<{ durationSeconds: number } | null>(null);
+  const [spoken, setSpoken] = useState("");
   const [recording, setRecording] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedJobId, setSavedJobId] = useState<string | null>(null);
@@ -313,6 +318,7 @@ export default function CapturePage() {
           pin: sessionPin(pinRef.current),
           retryMoment: (status) => retryMoment(recordedAt, status),
           signal: staged.abort.signal,
+          transcript: spokenRef.current || staged.transcript,
         });
 
         if (staged.abort.signal.aborted) {
@@ -448,6 +454,10 @@ export default function CapturePage() {
 
   function clearAudio() {
     audioGenerationRef.current += 1;
+    stopSpeechRef.current?.();
+    stopSpeechRef.current = null;
+    spokenRef.current = "";
+    setSpoken("");
     setAudioHold(null);
     if (!audio) {
       return;
@@ -506,6 +516,7 @@ export default function CapturePage() {
             errorMessage: null,
             previewUrl,
             status: "uploading",
+            transcript: spokenRef.current,
           };
           setAudio(staged);
           setAudioHold(null);
@@ -515,6 +526,13 @@ export default function CapturePage() {
       };
       recorderRef.current = recorder;
       recordStartedAtRef.current = Date.now();
+      spokenRef.current = "";
+      setSpoken("");
+      stopSpeechRef.current?.();
+      stopSpeechRef.current = startCaptureSpeech((text) => {
+        spokenRef.current = text;
+        setSpoken(text);
+      }).stop;
       primePlaybackAudioContext();
       recorder.start();
       setRecording(true);
@@ -526,6 +544,8 @@ export default function CapturePage() {
 
   function stopRecording() {
     primePlaybackAudioContext();
+    stopSpeechRef.current?.();
+    stopSpeechRef.current = null;
     const durationSeconds = Math.max(1, Math.round((Date.now() - recordStartedAtRef.current) / 1000));
     setAudioHold({ durationSeconds });
     recorderRef.current?.stop();
@@ -586,6 +606,7 @@ export default function CapturePage() {
           note: classified.note,
           pin: sessionPin(pinRef.current),
           time,
+          transcript: audioRef.current?.transcript || spokenRef.current || null,
         });
         createdJob = saved.job;
         keptMomentId = saved.moment?.id ?? keptMomentId;
@@ -612,6 +633,8 @@ export default function CapturePage() {
       setPhotos([]);
       setAudio(null);
       setNote("");
+      spokenRef.current = "";
+      setSpoken("");
       setSavedJobId(createdJob?.id ?? null);
       setSavedMomentId(keptMomentId);
       resetDraft();
@@ -780,6 +803,9 @@ export default function CapturePage() {
             {audio ? (
               <div className="mt-3 grid gap-2">
                 <MomentAudioPlayer bytes={audio.bytes} durationSeconds={audio.durationSeconds} src={audio.previewUrl} />
+                {spoken || audio.transcript ? (
+                  <p className="text-base leading-7 text-zinc-800">{spoken || audio.transcript}</p>
+                ) : null}
                 <p className="text-xs font-semibold text-zinc-600">
                   {audio.status === "uploaded" ? "已上傳" : audio.status === "failed" ? "上傳失敗" : "上傳中"}
                 </p>
@@ -795,8 +821,11 @@ export default function CapturePage() {
             ) : audioHold ? (
               <div className="mt-3 rounded-2xl border border-stone-200 bg-white px-4 py-3">
                 <p className="text-sm font-semibold text-zinc-800">約 {audioHold.durationSeconds} 秒</p>
+                {spoken ? <p className="mt-2 text-base leading-7 text-zinc-800">{spoken}</p> : null}
                 <p className="mt-2 text-sm leading-6 text-stone-500">準備播放…</p>
               </div>
+            ) : recording && spoken ? (
+              <p className="mt-3 text-base leading-7 text-zinc-800">{spoken}</p>
             ) : null}
           </div>
 
