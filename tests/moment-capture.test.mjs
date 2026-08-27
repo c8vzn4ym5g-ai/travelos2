@@ -365,9 +365,10 @@ test("capture and save paths are not blocked by indexing, geocoding, or transcri
   assert.match(store, /export function scheduleMomentIndex\(momentId: string\)/);
   assert.match(store, /void indexSavedMoment\(momentId\)/);
   assert.doesNotMatch(store, /await indexSavedMoment/);
-  assert.match(store, /export function scheduleMomentTranscript\(momentId: string\)/);
-  assert.match(store, /void fillMomentTranscript\(momentId\)/);
-  assert.doesNotMatch(store, /await fillMomentTranscript/);
+  assert.match(store, /export function scheduleMomentTranscript\(/);
+  assert.match(store, /afterResponse/);
+  assert.match(store, /await fillMomentTranscript\(momentId\)/);
+  assert.doesNotMatch(store, /await scheduleMomentIndex/);
   assert.match(momentsApi, /scheduleMomentIndex\(saved\.moment\.id\)/);
   assert.doesNotMatch(momentsApi, /await scheduleMomentIndex/);
   assert.match(momentsApi, /scheduleMissingMomentTranscripts\(content\.moments\)/);
@@ -376,6 +377,7 @@ test("capture and save paths are not blocked by indexing, geocoding, or transcri
   assert.doesNotMatch(photosApi, /await scheduleMomentIndex/);
   assert.match(audioApi, /scheduleMomentTranscript\(momentId\)/);
   assert.doesNotMatch(audioApi, /await scheduleMomentTranscript/);
+  assert.match(audioApi, /formData\.get\("transcript"\)/);
   assert.doesNotMatch(capture, /scheduleMomentIndex/);
   assert.doesNotMatch(capture, /indexTravelMoment/);
   assert.doesNotMatch(capture, /transcribeAudioUrl/);
