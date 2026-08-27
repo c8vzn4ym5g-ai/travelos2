@@ -1,17 +1,20 @@
+import { readRequestOidcToken } from "@/lib/after-response";
 import { filenameForAudioMime, resolveAudioMime } from "@/lib/moment-audio";
 
 export { momentNeedsTranscript } from "@/lib/moments";
 
 export const MOMENT_TRANSCRIPT_TIMEOUT_MS = 20_000;
 const GATEWAY_TRANSCRIBE_URL = "https://ai-gateway.vercel.sh/v4/ai/transcription-model";
+const GATEWAY_OPENAI_TRANSCRIBE_URL = "https://ai-gateway.vercel.sh/v1/audio/transcriptions";
 const OPENAI_TRANSCRIBE_URL = "https://api.openai.com/v1/audio/transcriptions";
+const GATEWAY_MODELS = ["openai/whisper-1", "openai/gpt-4o-mini-transcribe", "openai/gpt-4o-transcribe"];
 
 type TranscriptAuth =
   | { mode: "gateway"; token: string }
   | { mode: "openai"; token: string };
 
-export function readTranscriptAuth(env: NodeJS.ProcessEnv = process.env): TranscriptAuth | null {
-  const gateway = env.AI_GATEWAY_API_KEY?.trim() || env.VERCEL_OIDC_TOKEN?.trim();
+export async function readTranscriptAuth(env: NodeJS.ProcessEnv = process.env): Promise<TranscriptAuth | null> {
+  const gateway = env.AI_GATEWAY_API_KEY?.trim() || env.VERCEL_OIDC_TOKEN?.trim() || readRequestOidcToken();
   if (gateway) {
     return { mode: "gateway", token: gateway };
   }
@@ -34,7 +37,7 @@ export async function transcribeAudioBytes(
     return null;
   }
 
-  const auth = readTranscriptAuth(env);
+  const auth = await readTranscriptAuth(env);
   if (!auth) {
     return null;
   }
@@ -44,7 +47,7 @@ export async function transcribeAudioBytes(
     return transcribeViaGateway(bytes, mime, auth.token, request);
   }
 
-  return transcribeViaOpenAI(bytes, mime, auth.token, request);
+  return transcribeViaOpenAI(bytes, mime, auth.token, request, OPENAI_TRANSCRIBE_URL, "whisper-1");
 }
 
 export async function transcribeAudioUrl(
@@ -52,7 +55,7 @@ export async function transcribeAudioUrl(
   env: NodeJS.ProcessEnv = process.env,
   request = fetch,
 ): Promise<string | null> {
-  if (!readTranscriptAuth(env)) {
+  if (!(await readTranscriptAuth(env))) {
     return null;
   }
 
@@ -73,7 +76,8 @@ function readTranscriptText(payload: unknown) {
     return null;
   }
 
-  const text = (payload as { text?: unknown }).text;
+  const record = payload as { text?: unknown; transcript?: unknown };
+  const text = record.text ?? record.transcript;
   return typeof text === "string" && text.trim() ? text.trim() : null;
 }
 
@@ -83,6 +87,23 @@ async function transcribeViaGateway(
   token: string,
   request: typeof fetch,
 ) {
+  for (const model of GATEWAY_MODELS) {
+    const text = await transcribeViaGatewayModel(bytes, mime, token, request, model);
+    if (text) {
+      return text;
+    }
+  }
+
+  return transcribeViaOpenAI(bytes, mime, token, request, GATEWAY_OPENAI_TRANSCRIBE_URL, "whisper-1");
+}
+
+async function transcribeViaGatewayModel(
+  bytes: Uint8Array,
+  mime: string,
+  token: string,
+  request: typeof fetch,
+  model: string,
+) {
   const response = await request(GATEWAY_TRANSCRIBE_URL, {
     body: JSON.stringify({
       audio: Buffer.from(bytes).toString("base64"),
@@ -91,7 +112,7 @@ async function transcribeViaGateway(
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      "ai-model-id": "openai/whisper-1",
+      "ai-model-id": model,
     },
     method: "POST",
     signal: AbortSignal.timeout(MOMENT_TRANSCRIPT_TIMEOUT_MS),
@@ -108,12 +129,14 @@ async function transcribeViaOpenAI(
   mime: string,
   token: string,
   request: typeof fetch,
+  url: string,
+  model: string,
 ) {
   const form = new FormData();
   form.set("file", new Blob([Buffer.from(bytes)], { type: mime }), filenameForAudioMime(mime));
-  form.set("model", "whisper-1");
+  form.set("model", model);
 
-  const response = await request(OPENAI_TRANSCRIBE_URL, {
+  const response = await request(url, {
     body: form,
     headers: {
       Authorization: `Bearer ${token}`,
