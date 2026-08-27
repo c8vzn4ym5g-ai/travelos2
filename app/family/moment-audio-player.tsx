@@ -56,21 +56,22 @@ export function MomentAudioPlayer({ bytes, durationSeconds, src }: MomentAudioPl
     };
   }, []);
 
-  async function playableAudioSrc() {
+  async function wavPlaybackUrl() {
     if (wavUrlRef.current) {
       return wavUrlRef.current;
     }
-
-    if (bytes && isFragmentedMp4(bytes)) {
-      const wav = await transcodeBytesToWavFile(bytes);
-      if (wav) {
-        wavUrlRef.current = URL.createObjectURL(wav.file);
-        setHeardDuration((current) => (current && current > 0 ? current : wav.durationSeconds));
-        return wavUrlRef.current;
-      }
+    if (!bytes || !isFragmentedMp4(bytes)) {
+      return null;
     }
 
-    return src;
+    const wav = await transcodeBytesToWavFile(bytes);
+    if (!wav) {
+      return null;
+    }
+
+    wavUrlRef.current = URL.createObjectURL(wav.file);
+    setHeardDuration((current) => (current && current > 0 ? current : wav.durationSeconds));
+    return wavUrlRef.current;
   }
 
   async function playViaVideo() {
@@ -88,14 +89,25 @@ export function MomentAudioPlayer({ bytes, durationSeconds, src }: MomentAudioPl
     await node.play();
   }
 
-  function activeMedia() {
-    if (videoRef.current?.currentSrc && !videoRef.current.paused) {
-      return videoRef.current;
+  function isPlaying() {
+    return Boolean((audioRef.current && !audioRef.current.paused) || (videoRef.current && !videoRef.current.paused));
+  }
+
+  function markStopped() {
+    if (!isPlaying()) {
+      setPlaying(false);
     }
-    if (audioRef.current?.currentSrc && !audioRef.current.paused) {
-      return audioRef.current;
+  }
+
+  async function tryPlay(node: HTMLMediaElement, nextSrc: string) {
+    if (node.src !== nextSrc) {
+      node.src = nextSrc;
     }
-    return null;
+    await node.play();
+    await new Promise((resolve) => window.setTimeout(resolve, 80));
+    if (node.paused) {
+      throw new Error("media did not stay playing");
+    }
   }
 
   async function togglePlayback() {
@@ -104,38 +116,42 @@ export function MomentAudioPlayer({ bytes, durationSeconds, src }: MomentAudioPl
       return;
     }
 
-    const current = activeMedia();
-    if (current) {
-      current.pause();
+    if (isPlaying()) {
+      audio.pause();
+      videoRef.current?.pause();
       setPlaying(false);
       return;
     }
 
+    primePlaybackAudioContext();
+
     try {
-      primePlaybackAudioContext();
-      const nextSrc = await playableAudioSrc();
-      if (audio.src !== nextSrc) {
-        audio.src = nextSrc;
-      }
-      await audio.play();
+      const wavSrc = await wavPlaybackUrl();
+      await tryPlay(audio, wavSrc ?? src);
       setPlaying(true);
+      return;
     } catch {
-      try {
-        await playViaVideo();
-        setPlaying(true);
-      } catch {
-        setPlaying(false);
-        setUnplayable(true);
-      }
+      audio.pause();
     }
+
+    try {
+      await playViaVideo();
+      setPlaying(true);
+      return;
+    } catch {
+      videoRef.current?.pause();
+    }
+
+    setPlaying(false);
+    setUnplayable(true);
   }
 
   return (
     <div className="mt-3 rounded-2xl border border-stone-200 bg-white px-4 py-3">
       <audio
         className="hidden"
-        onEnded={() => setPlaying(false)}
-        onPause={() => setPlaying(false)}
+        onEnded={markStopped}
+        onPause={markStopped}
         onPlaying={() => setPlaying(true)}
         playsInline
         preload="auto"
@@ -143,8 +159,8 @@ export function MomentAudioPlayer({ bytes, durationSeconds, src }: MomentAudioPl
       />
       <video
         className="hidden"
-        onEnded={() => setPlaying(false)}
-        onPause={() => setPlaying(false)}
+        onEnded={markStopped}
+        onPause={markStopped}
         onPlaying={() => setPlaying(true)}
         playsInline
         preload="auto"
