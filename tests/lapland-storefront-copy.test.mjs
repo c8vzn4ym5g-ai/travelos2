@@ -21,7 +21,7 @@ import { LAPLAND_TRIP_SLUG } from "../lib/travelpayouts.ts";
 
 const root = resolve(import.meta.dirname, "..");
 
-test("Lapland storefront glance is independent cash-path copy under the map", async () => {
+test("Lapland storefront glance is independent cash-path copy under the map, after the public cut", async () => {
   const [page, glance, seed, familyHome, capture] = await Promise.all([
     readFile(resolve(root, "app/trips/[slug]/page.tsx"), "utf8"),
     readFile(resolve(root, "components/lapland-storefront-glance.tsx"), "utf8"),
@@ -33,7 +33,7 @@ test("Lapland storefront glance is independent cash-path copy under the map", as
   assert.equal(isLaplandStorefrontSlug(LAPLAND_TRIP_SLUG), true);
   assert.equal(isLaplandStorefrontSlug("bangkok-table-notes"), false);
   assert.match(page, /<JourneyMap/);
-  assert.match(page, /isLaplandStorefrontSlug\(trip\.slug\) \? <LaplandStorefrontGlance/);
+  assert.match(page, /isLapland \? <LaplandStorefrontGlance/);
   assert.match(page, /data-storefront-glance|LaplandStorefrontGlance/);
   assert.match(glance, /data-storefront-glance=""/);
   assert.match(glance, /id="why-go"/);
@@ -44,13 +44,17 @@ test("Lapland storefront glance is independent cash-path copy under the map", as
   assert.doesNotMatch(glance, /widgetId|emrldtp|BookingBand|Unlock editor|Edit trip/);
 
   const hero = page.slice(page.indexOf("travel-hero"), page.indexOf("Trip memory"));
+  assert.ok(hero.indexOf("<h1") < hero.indexOf("LaplandPublicCut"), "title then public cut");
+  assert.ok(hero.indexOf("LaplandPublicCut") < hero.indexOf("<JourneyMap"), "video sits before the frozen poster");
+  assert.ok(hero.indexOf("LaplandPublicCut") < hero.indexOf("LaplandStorefrontGlance"), "video sits before the why-go essay");
+  assert.ok(hero.indexOf("LaplandPublicCut") < hero.indexOf("LaplandVisualPath"), "video sits before the visual path");
   assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("LaplandStorefrontGlance"), "glance sits under the map");
   assert.ok(hero.indexOf("LaplandStorefrontGlance") < hero.indexOf("LaplandVisualPath"), "visual path sits under why-go");
-  assert.ok(hero.indexOf("LaplandVisualPath") < hero.indexOf("LaplandPublicCut"), "public cut sits under the visual story");
-  assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("LaplandPublicCut"), "public cut does not replace the poster");
   assert.ok(hero.indexOf("LaplandVisualPath") < hero.indexOf("JournalCostChip"), "visual path is before the cost chip");
   assert.ok(hero.indexOf("LaplandStorefrontGlance") < hero.indexOf("featurePhotos"), "glance is before the photo strip");
   assert.ok(hero.indexOf("<h1") < hero.indexOf("<JourneyMap"), "map still follows the title");
+  assert.doesNotMatch(hero, /BookingBand/);
+  assert.ok(page.indexOf("Trip memory") < page.indexOf("<BookingBand"), "booking stays with go-there");
 
   assert.doesNotMatch(familyHome, /LaplandStorefrontGlance|lapland-storefront-copy|LaplandPublicCut/);
   assert.doesNotMatch(capture, /LaplandStorefrontGlance|lapland-storefront-copy|data-storefront-glance|LaplandPublicCut/);

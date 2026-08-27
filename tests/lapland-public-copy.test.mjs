@@ -245,7 +245,7 @@ test("Lapland public short is the exact Codex cut under Journey, not a substitut
   assert.equal(LAPLAND_PUBLIC_CUT_SRC, `/travelos/lapland/${LAPLAND_PUBLIC_CUT_FILENAME}`);
   assert.match(page, /<LaplandPublicCut \/>/);
   assert.match(page, /<JourneyMap/);
-  assert.ok(page.indexOf("<JourneyMap") < page.indexOf("<LaplandPublicCut"));
+  assert.ok(page.indexOf("<LaplandPublicCut") < page.indexOf("<JourneyMap"), "public cut sits before the frozen poster");
   assert.match(cut, /data-lapland-public-cut=""/);
   assert.match(cut, /LAPLAND_PUBLIC_CUT_SRC/);
   assert.match(cut, /autoPlay/);

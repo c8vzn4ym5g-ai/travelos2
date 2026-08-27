@@ -6,12 +6,8 @@ import {
 export function LaplandPublicCut() {
   return (
     <section aria-label="那年冬天 / That winter" className="max-w-4xl" data-lapland-public-cut="">
-      <p className="travel-kicker text-xs">那年冬天 / That winter</p>
-      <h2 className="travel-hand mt-2 text-2xl font-semibold leading-tight text-[color:var(--ink)] sm:text-3xl">
-        短片 / Short film
-      </h2>
-      <p className="travel-muted mt-2 text-sm leading-6">{LAPLAND_SEASON_LABEL}</p>
-      <div className="mx-auto mt-4 max-w-[18rem]">
+      <p className="travel-kicker text-xs">那年冬天 / That winter · {LAPLAND_SEASON_LABEL}</p>
+      <div className="mx-auto mt-3 max-w-[22rem] sm:max-w-[24rem]">
         <video
           autoPlay
           className="aspect-[9/16] w-full rounded-[1.25rem] bg-[color:var(--paper-soft)] object-contain"

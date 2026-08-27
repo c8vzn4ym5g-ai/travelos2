@@ -334,11 +334,24 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               {isLaplandStorefrontSlug(trip.slug) ? "Finland / Rovaniemi · Helsinki" : `${trip.country} / ${trip.city}`}
             </p>
             <h1 className="travel-hand mt-3 text-4xl font-semibold leading-tight sm:text-6xl">{trip.title}</h1>
-            <p className="travel-muted mt-4 max-w-4xl text-base leading-8 sm:text-lg">{heroSummary}</p>
-            <div className="mt-5">
-              <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
-            </div>
+            {isLapland ? null : (
+              <>
+                <p className="travel-muted mt-4 max-w-4xl text-base leading-8 sm:text-lg">{heroSummary}</p>
+                <div className="mt-5">
+                  <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
+                </div>
+              </>
+            )}
           </div>
+          {isLapland ? <LaplandPublicCut /> : null}
+          {isLapland ? (
+            <div className="max-w-4xl">
+              <p className="travel-muted text-base leading-8 sm:text-lg">{heroSummary}</p>
+              <div className="mt-5">
+                <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
+              </div>
+            </div>
+          ) : null}
           <JourneyMap
             center={trip.coordinates}
             city={trip.city}
@@ -349,10 +362,9 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             route={trip.travelRoute ?? []}
             title={trip.title}
           />
-          {isLaplandStorefrontSlug(trip.slug) ? <LaplandStorefrontGlance /> : null}
-          {isLaplandStorefrontSlug(trip.slug) ? <LaplandVisualPath photos={trip.photos} /> : null}
-          {isLaplandStorefrontSlug(trip.slug) ? <LaplandPublicCut /> : null}
-          {isLaplandStorefrontSlug(trip.slug) ? <LaplandPlaceKnowledge /> : null}
+          {isLapland ? <LaplandStorefrontGlance /> : null}
+          {isLapland ? <LaplandVisualPath photos={trip.photos} /> : null}
+          {isLapland ? <LaplandPlaceKnowledge /> : null}
           <div className="flex flex-wrap items-center gap-2">
             {[
               ["Season", seasonLabel, "border-sky-100 bg-sky-50 text-sky-950"],
