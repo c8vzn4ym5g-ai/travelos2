@@ -35,11 +35,15 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
 - Do not rewrite family memory lines. Keep the winter-village title
   `記憶裡的聖誕卡 / A Christmas card from memory`.
 - No fake prices, reviews, or unsourced stats. Live quotes stay on
-  `BookingBand`. Map stays the first impression.
+  `BookingBand`, with 出发 / go-there, not in the first screen.
+- First screen a stranger sees: title and kicker, then the public cut
+  video. The frozen itinerary poster follows the video. Why-go / path
+  essay stays further down. Do not swap the Public_Cut file.
 
 ## Public Lapland journey picture
 
-- The first picture is a printed **portrait** itinerary plate, not a GIS
+- The first picture a stranger sees is the public cut. The frozen
+  printed **portrait** itinerary plate sits after it, not a GIS
   widget and not the landscape A3. Left column: numbered notes with dump
   thumbs. Stop 3 is 羅瓦涅米 / Rovaniemi; the cabin is only the thumb and
   stay line. Right: Finland, Lapland to Helsinki. Footer: map key, four
