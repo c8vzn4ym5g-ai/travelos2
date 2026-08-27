@@ -71,13 +71,15 @@ a {
 }
 
 .journal-cost-chip > summary,
-.journal-cost-notes > summary {
+.journal-cost-notes > summary,
+.lapland-more-cut > summary {
   cursor: pointer;
   list-style: none;
 }
 
 .journal-cost-chip > summary::-webkit-details-marker,
-.journal-cost-notes > summary::-webkit-details-marker {
+.journal-cost-notes > summary::-webkit-details-marker,
+.lapland-more-cut > summary::-webkit-details-marker {
   display: none;
 }
 

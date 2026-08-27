@@ -36,14 +36,17 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
   `記憶裡的聖誕卡 / A Christmas card from memory`.
 - No fake prices, reviews, or unsourced stats. Live quotes stay on
   `BookingBand`, with 出发 / go-there, not in the first screen.
-- First screen a stranger sees: title and kicker, then the public cut
-  video. The frozen itinerary poster follows the video. Why-go / path
-  essay stays further down. Do not swap the Public_Cut file.
+- First glance is a film cut: title and kicker, the public cut video,
+  then ONE still. Extra Santa Claus Village photos and the long why-go /
+  path copy sit behind a closed `更多 / More` tap. Do not delete locked
+  copy. Do not swap the Public_Cut file. The frozen poster stays behind
+  the tap, after the video, not above it.
 
 ## Public Lapland journey picture
 
-- The first picture a stranger sees is the public cut. The frozen
-  printed **portrait** itinerary plate sits after it, not a GIS
+- The first picture a stranger sees is the public cut, then one still.
+  Extra photos wait behind the More tap. The frozen printed **portrait**
+  itinerary plate sits in that More layer after the video, not a GIS
   widget and not the landscape A3. Left column: numbered notes with dump
   thumbs. Stop 3 is 羅瓦涅米 / Rovaniemi; the cabin is only the thumb and
   stay line. Right: Finland, Lapland to Helsinki. Footer: map key, four

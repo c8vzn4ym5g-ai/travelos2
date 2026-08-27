@@ -75,6 +75,7 @@ test("JourneyMap hero is the generated itinerary poster, not a live tile collage
   const hero = page.slice(page.indexOf("travel-hero"), page.indexOf("Trip memory"));
   assert.ok(hero.indexOf("<h1") < hero.indexOf("<JourneyMap"), "map must follow the title");
   assert.ok(hero.indexOf("LaplandPublicCut") < hero.indexOf("<JourneyMap"), "frozen poster sits after the public cut");
+  assert.ok(hero.indexOf("LaplandMoreCut") < hero.indexOf("<JourneyMap"), "frozen poster sits behind the more tap");
   assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("LaplandStorefrontGlance"), "storefront glance sits under the map");
   assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("featurePhotos"), "map must sit above the photo strip");
   assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("JournalCostChip"), "map sits above the cost footnote");
