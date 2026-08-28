@@ -671,6 +671,143 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
     });
   });
 
+  test("photo POST returns 200 after Drive binary even if index/item lock hangs", async () => {
+    await withPinEnv(undefined, async () => {
+      const files = new Map<string, { base64: string; mimeType: string; name: string }>();
+      const items = new Map<string, string>();
+      let indexText = JSON.stringify({
+        jobs: [],
+        moments: [],
+        schemaVersion: 1,
+        updatedAt: "2026-08-28T00:00:00.000Z",
+      });
+      let fileSeq = 0;
+      let itemWrites = 0;
+      let indexWrites = 0;
+      let binaryWrites = 0;
+      const releaseHang: Array<() => void> = [];
+
+      setDriveWarehouseFetchForTests((async (_input, init) => {
+        const method = (init?.method ?? "GET").toUpperCase();
+        if (method === "GET") {
+          const parsed = new URL(String(_input));
+          if (parsed.searchParams.get("op") === "index") {
+            return new Response(indexText, { headers: { "content-type": "application/json" } });
+          }
+          if (parsed.searchParams.get("op") === "list") {
+            return Response.json({
+              files: [...files.entries()].map(([id, file]) => ({
+                id,
+                mimeType: file.mimeType,
+                name: file.name,
+              })),
+            });
+          }
+          const id = parsed.searchParams.get("id") ?? "";
+          const file = files.get(id);
+          if (!file) {
+            return new Response("not found", { status: 404 });
+          }
+          return Response.json({ id, ...file });
+        }
+
+        const payload = JSON.parse(String(init?.body ?? "{}")) as {
+          base64?: string;
+          mimeType?: string;
+          name?: string;
+          op?: string;
+          text?: string;
+        };
+        if (payload.op === "index") {
+          indexWrites += 1;
+          if (indexWrites > 1) {
+            await new Promise<void>((resolve) => {
+              releaseHang.push(resolve);
+            });
+          }
+          indexText = payload.text ?? indexText;
+          return Response.json({ ok: true, name: "moments.json" });
+        }
+        if (payload.op === "item") {
+          itemWrites += 1;
+          if (itemWrites > 1) {
+            await new Promise<void>((resolve) => {
+              releaseHang.push(resolve);
+            });
+          }
+          items.set(payload.name ?? "", payload.text ?? "");
+          return Response.json({ ok: true, name: payload.name });
+        }
+        binaryWrites += 1;
+        fileSeq += 1;
+        const id = `drivefile_${fileSeq}`;
+        files.set(id, {
+          base64: payload.base64 ?? "",
+          mimeType: payload.mimeType ?? "application/octet-stream",
+          name: payload.name ?? "file.bin",
+        });
+        return Response.json({ id, name: payload.name });
+      }) as typeof fetch);
+
+      try {
+        const [{ POST }, photos] = await Promise.all([
+          import("../app/api/moments/route.ts"),
+          import("../app/api/moments/photos/route.ts"),
+        ]);
+
+        const createdResponse = await POST(
+          new Request("http://travelos.local/api/moments", {
+            body: JSON.stringify({ note: "lock-hang", time: "2026-08-28T15:45:00.000Z" }),
+            headers: { "content-type": "application/json" },
+            method: "POST",
+          }),
+        );
+        assert.equal(createdResponse.status, 200);
+        const created = (await createdResponse.json()) as { moment: { id: string } };
+
+        const jobs = Array.from({ length: 40 }, (_, index) => {
+          const photoData = new FormData();
+          photoData.set("momentId", created.moment.id);
+          photoData.set(
+            "file",
+            new File([Uint8Array.from([index, 8, 7, 6])], `IMG_${String(index).padStart(4, "0")}.jpg`, {
+              type: "image/jpeg",
+            }),
+          );
+          return photos.POST(new Request("http://travelos.local/api/moments/photos", { body: photoData, method: "POST" }));
+        });
+
+        const started = Date.now();
+        const responses = await Promise.all(jobs);
+        const elapsedMs = Date.now() - started;
+        assert.equal(
+          responses.every((response) => response.status === 200),
+          true,
+        );
+        assert.ok(elapsedMs < 2000, `40 parallel photo POSTs should not wait on the index lock (${elapsedMs}ms)`);
+        assert.equal(binaryWrites, 40);
+        const bodies = await Promise.all(
+          responses.map((response) => response.json() as Promise<{ photo: { id: string; storageKey: string } }>),
+        );
+        assert.equal(
+          bodies.every((body) => /^drive:drivefile_/.test(body.photo.storageKey)),
+          true,
+        );
+
+        const photoGet = await photos.GET(
+          new Request(
+            `http://travelos.local/api/moments/photos?momentId=${created.moment.id}&photoId=${bodies[0]!.photo.id}`,
+          ),
+        );
+        assert.equal(photoGet.status, 200);
+      } finally {
+        for (const resolve of releaseHang) {
+          resolve();
+        }
+      }
+    });
+  });
+
   test("photo GET hydrates Drive files so rebuilt photo ids are not 404", async () => {
     await withPinEnv(undefined, async () => {
       const momentId = "moment_1787928443329_3823s1";

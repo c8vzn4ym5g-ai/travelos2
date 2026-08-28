@@ -205,6 +205,30 @@ function rememberItem(moment: TravelMoment) {
   return next;
 }
 
+export function rememberUploadedDisplayPhoto(momentId: string, photo: MomentPhoto) {
+  const current = getItemCache().get(momentId);
+  if (!current) {
+    return;
+  }
+
+  rememberItem({
+    ...current,
+    photos: mergeMomentPhotos(current.photos, [photo]),
+  });
+}
+
+export function rememberUploadedOriginal(momentId: string, photoId: string, originalStorageKey: string) {
+  const current = getItemCache().get(momentId);
+  if (!current) {
+    return;
+  }
+
+  rememberItem({
+    ...current,
+    photos: current.photos.map((photo) => (photo.id === photoId ? { ...photo, originalStorageKey } : photo)),
+  });
+}
+
 async function loadListedMomentItems(): Promise<TravelMoment[]> {
   if (isMomentBlobAdapterActive() || shouldUseDriveWarehouse()) {
     return [];

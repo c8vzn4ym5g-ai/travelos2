@@ -30,6 +30,8 @@ test("capture does not create trips and photos append to a moment", async () => 
   assert.match(capture, /trips\/write\?job=/);
   assert.match(photosApi, /addPhotoToMoment\(momentId, photo\)/);
   assert.match(photosApi, /storeMomentBinary/);
+  assert.match(photosApi, /afterResponse\(async \(\) => \{/);
+  assert.doesNotMatch(photosApi, /createWorkQueue/);
   assert.match(helpers, /MOMENTS_BLOB_PATH = "travelos\/moments.json"/);
   assert.match(helpers, /travelos\/moments\/items/);
 });
@@ -231,7 +233,8 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   assert.match(upload, /createTinyPreviewUrl/);
   assert.match(upload, /prepareDisplayPhoto/);
   assert.match(upload, /uploadOriginalPhotoInBackground/);
-  assert.match(prepare, /isHeicPhoto\(file\) \|\| file\.type === "image\/jpeg"/);
+  assert.match(prepare, /skipCanvasMaxBytes = 400_000/);
+  assert.match(prepare, /file\.type === "image\/jpeg" && file\.size <= skipCanvasMaxBytes/);
   const displayUpload = upload.slice(
     upload.indexOf("export async function uploadDisplayPhoto"),
     upload.indexOf("export function uploadOriginalPhotoInBackground"),
@@ -306,6 +309,12 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(displayPost, /originalStorageKey: null/);
   assert.doesNotMatch(displayPost, /setPhotoOriginal/);
   assert.doesNotMatch(displayPost, /formData\.get\("original"\)/);
+  assert.match(displayPost, /afterResponse\(async \(\) => \{/);
+  assert.match(displayPost, /addPhotoToMoment\(momentId, photo\)/);
+  assert.doesNotMatch(displayPost, /if \(!content\) \{\s*return Response\.json\(\{ error: "Moment not found" \}/);
+  assert.match(displayPost, /return Response\.json\(\{ photo \}\)/);
+  assert.ok(displayPost.indexOf("storeMomentBinary") < displayPost.indexOf("return Response.json({ photo })"));
+  assert.ok(displayPost.indexOf("afterResponse") < displayPost.indexOf("return Response.json({ photo })"));
   assert.match(photosApi, /setPhotoOriginal/);
   assert.match(store, /withWarehouseLock/);
   assert.match(store, /flushPhotoAppends/);
@@ -381,6 +390,8 @@ test("capture and save paths are not blocked by indexing, geocoding, or transcri
   assert.match(transcriptApi, /maxDuration = 60/);
   assert.match(photosApi, /scheduleMomentIndex\(momentId\)/);
   assert.doesNotMatch(photosApi, /await scheduleMomentIndex/);
+  assert.match(photosApi, /afterResponse\(async \(\) => \{/);
+  assert.doesNotMatch(capture, /createWorkQueue/);
   assert.match(audioApi, /scheduleMomentTranscript\(momentId\)/);
   assert.doesNotMatch(audioApi, /await scheduleMomentTranscript/);
   assert.match(audioApi, /formData\.get\("transcript"\)/);

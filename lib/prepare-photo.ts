@@ -5,17 +5,18 @@ import { heicJpegFilename, isHeicPhoto } from "./moments.ts";
 export const maxUploadBytes = 4_500_000;
 export const displayMaxEdge = 1600;
 export const displayJpegQuality = 0.72;
+export const skipCanvasMaxBytes = 400_000;
 
 function waitWithTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
   return new Promise<T>((resolve, reject) => {
-    const timeout = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    const timeout = globalThis.setTimeout(() => reject(new Error(message)), timeoutMs);
     promise.then(
       (value) => {
-        window.clearTimeout(timeout);
+        globalThis.clearTimeout(timeout);
         resolve(value);
       },
       (error: unknown) => {
-        window.clearTimeout(timeout);
+        globalThis.clearTimeout(timeout);
         reject(error);
       },
     );
@@ -91,11 +92,18 @@ async function convertPhonePhotoToJpeg(file: File) {
   return renderFileAsJpeg(file, displayMaxEdge, displayJpegQuality);
 }
 
+function canSkipDisplayCanvas(file: File) {
+  if (isHeicPhoto(file)) {
+    return true;
+  }
+  return file.type === "image/jpeg" && file.size <= skipCanvasMaxBytes;
+}
+
 export async function prepareDisplayPhoto(file: File) {
-  if (isHeicPhoto(file) || file.type === "image/jpeg") {
-    // iPhone "Choose Photos" converts HEIC to JPEG in the picker. Skip canvas
-    // for both so dumps POST the original File immediately. Same path as the
-    // 41-photos-in-8s dump; the server already accepts JPEG and HEIC.
+  if (canSkipDisplayCanvas(file)) {
+    // Tiny JPEGs and raw HEIC skip canvas. Multi-megabyte iPhone JPEGs from
+    // Choose Photos must resize (displayMaxEdge / displayJpegQuality) so Drive
+    // Apps Script can ingest 40 parallel display POSTs before the phone times out.
     return file;
   }
 
@@ -103,6 +111,9 @@ export async function prepareDisplayPhoto(file: File) {
     let display = await convertPhonePhotoToJpeg(file);
     if (display.size > maxUploadBytes) {
       display = await renderFileAsJpeg(display, 1280, 0.65);
+    }
+    if (file.type === "image/jpeg" && display.size >= file.size) {
+      return file;
     }
     return display;
   } catch {

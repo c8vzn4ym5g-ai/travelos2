@@ -124,7 +124,7 @@ test("gateway transcription reads text and never treats audio as the transcript"
   assert.ok(typeof body.audio === "string" && body.audio.length > 0);
 });
 
-test("afterResponse uses Next and Vercel waitUntil so transcript work survives the HTTP response", async () => {
+test("afterResponse uses Next, Vercel, and Cloudflare waitUntil so transcript work survives the HTTP response", async () => {
   for (const key of [Symbol.for("@next/request-context"), Symbol.for("@vercel/request-context")]) {
     const previous = globalThis[key];
     const held = [];
@@ -156,6 +156,36 @@ test("afterResponse uses Next and Vercel waitUntil so transcript work survives t
       } else {
         Object.defineProperty(globalThis, key, { configurable: true, value: previous });
       }
+    }
+  }
+
+  const cloudflareKey = Symbol.for("__cloudflare-context__");
+  const previousCloudflare = globalThis[cloudflareKey];
+  const held = [];
+  Object.defineProperty(globalThis, cloudflareKey, {
+    configurable: true,
+    value: {
+      ctx: {
+        waitUntil(promise) {
+          held.push(promise);
+        },
+      },
+    },
+  });
+  try {
+    let finished = false;
+    const pending = afterResponse(async () => {
+      finished = true;
+    });
+    assert.equal(held.length, 1);
+    assert.equal(held[0], pending);
+    await pending;
+    assert.equal(finished, true);
+  } finally {
+    if (previousCloudflare === undefined) {
+      delete globalThis[cloudflareKey];
+    } else {
+      Object.defineProperty(globalThis, cloudflareKey, { configurable: true, value: previousCloudflare });
     }
   }
 });
