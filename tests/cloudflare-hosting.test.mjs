@@ -40,8 +40,15 @@ test("Cloudflare OpenNext path exists and does not replace Vercel next build", a
   assert.match(workflow, /CLOUDFLARE_API_TOKEN/);
   assert.match(workflow, /CLOUDFLARE_ACCOUNT_ID/);
   assert.match(workflow, /pnpm run cf:build/);
-  assert.match(workflow, /wrangler deploy/);
+  assert.match(workflow, /opennextjs-cloudflare deploy/);
+  assert.doesNotMatch(workflow, /pnpm exec wrangler deploy/);
+  assert.match(workflow, /scripts\/verify-cloudflare-creds\.mjs/);
   assert.match(workflow, /pnpm run build/);
+
+  const docs = await readSource("docs/cloudflare-hosting.md");
+  assert.match(docs, /32 hexadecimal/);
+  assert.match(docs, /31c5f4dccc8eabb03968996576e8e1c4/);
+  assert.doesNotMatch(docs, /31c5f4dccc8eabb039689996576e8e1c4/);
 });
 
 test("Drive warehouse credentials stay server-only for the Cloudflare path", async () => {

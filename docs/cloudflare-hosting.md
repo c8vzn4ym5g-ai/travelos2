@@ -9,20 +9,26 @@ This repo now has a second deploy path: `@opennextjs/cloudflare` → Cloudflare 
 - `pnpm run build` — normal `next build` (what Vercel uses). Do not replace this.
 - `pnpm run cf:build` — `next build` + OpenNext Worker bundle (`.open-next/`).
 - `pnpm run cf:preview` — OpenNext build, then local Workers runtime via Wrangler.
-- `pnpm run cf:deploy` — OpenNext build, then deploy with Wrangler.
+- `pnpm run cf:deploy` — OpenNext build, then `opennextjs-cloudflare deploy`.
 
 Local preview: copy `.dev.vars` (already has `NEXTJS_ENV=development`). Do not put warehouse tokens in `NEXT_PUBLIC_*`.
 
 ## GitHub secrets (required for the Cloudflare workflow)
 
-Set these on the GitHub repo (`Settings → Secrets and variables → Actions`). Do not put them in the Vercel dashboard.
+Set these on the GitHub repo (`Settings → Secrets and variables → Actions`). Do not put them in the Vercel dashboard. Do not put them in `wrangler.jsonc`.
 
 | Secret | Used for |
 | --- | --- |
-| `CLOUDFLARE_API_TOKEN` | Wrangler deploy. Create an API token with **Workers Scripts Edit** (Account). |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account id (Workers overview). |
+| `CLOUDFLARE_API_TOKEN` | Wrangler / OpenNext deploy. Create an API token with **Workers Scripts Edit** (Account). The Owner token name is `travelos2-deploy`. |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare **Account ID** from Workers overview. Must be **exactly 32 hexadecimal characters**. |
 
-The workflow is `.github/workflows/cloudflare-deploy.yml`. It runs on push to `main` and on `workflow_dispatch`. It always runs `next build` and `cf:build`. It deploys only when both secrets are present.
+Owner account id to confirm against (not a secret; still keep the GitHub secret as the runtime source): `31c5f4dccc8eabb03968996576e8e1c4`.
+
+A 33-character value is a copy/paste typo. That produced Cloudflare API **7003** (`Could not route to /accounts/***/workers/services/travelos2`) on the first deploy and looked like a missing worker. It was not a `WORKER_SELF_REFERENCE` chicken-egg.
+
+The workflow is `.github/workflows/cloudflare-deploy.yml`. It runs on push to `main` and on `workflow_dispatch`. After install it checks that both secrets are present. If they are, `node scripts/verify-cloudflare-creds.mjs` calls `/user/tokens/verify` and `/accounts/{id}/workers/scripts` and **fails fast** on a bad length/hex or API 7003 — before `next build` / `cf:build`. Those checks never print the token or account id. If secrets are missing, it still runs `next build` and `cf:build` and skips deploy. Deploy uses `opennextjs-cloudflare deploy` (not a second `cf:build`) only when both secrets are present and verified.
+
+After correcting `CLOUDFLARE_ACCOUNT_ID`, **re-run** the Cloudflare Workers workflow (`workflow_dispatch` or push to `main`). The first successful deploy creates worker `travelos2`; it does not exist until then.
 
 Do **not** set `BLOB_READ_WRITE_TOKEN` on the Cloudflare path. Capture already uses the Drive Apps Script warehouse, not Vercel Blob.
 

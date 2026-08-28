@@ -30,12 +30,6 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Prove Vercel next build still works
-        run: pnpm run build
-
-      - name: Build with OpenNext
-        run: pnpm run cf:build
-
       - name: Check Cloudflare credentials
         id: creds
         env:
@@ -44,14 +38,27 @@ jobs:
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Set GitHub secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, then re-run this workflow. OpenNext build succeeded; deploy is skipped."
+            echo "::warning::Set GitHub secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, then re-run this workflow. next build / cf:build still run; deploy is skipped."
           else
             echo "present=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Verify Cloudflare token and account id
+        if: steps.creds.outputs.present == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/verify-cloudflare-creds.mjs
+
+      - name: Prove Vercel next build still works
+        run: pnpm run build
+
+      - name: Build with OpenNext
+        run: pnpm run cf:build
+
       - name: Deploy to Cloudflare Workers
         if: steps.creds.outputs.present == 'true'
-        run: pnpm exec wrangler deploy
+        run: pnpm exec opennextjs-cloudflare deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
