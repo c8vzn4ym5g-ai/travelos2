@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { FamGlyph, FamIconWell } from "@/app/family/family-icons";
 import { MomentAudioPlayer } from "@/app/family/moment-audio-player";
 import { startCaptureSpeech } from "@/lib/capture-speech";
 import {
@@ -52,9 +53,18 @@ type StagedAudio = {
   transcript: string;
 };
 
-const controlClass =
-  "relative flex min-h-12 cursor-pointer items-center justify-center rounded-2xl border px-4 py-3 text-center text-sm font-semibold shadow-sm";
-const hiddenFileClass = "absolute inset-0 cursor-pointer opacity-0";
+function photoChip(status: UploadStatus) {
+  if (status === "uploaded") {
+    return { className: "fam-chip fam-chip-mint", label: "已上傳" };
+  }
+  if (status === "failed") {
+    return { className: "fam-chip fam-chip-blush", label: "上傳失敗" };
+  }
+  if (status === "queued") {
+    return { className: "fam-chip fam-chip-sky", label: "排隊中" };
+  }
+  return { className: "fam-chip fam-chip-honey", label: "上傳中" };
+}
 
 function sessionPin(fallback: string) {
   return window.sessionStorage.getItem(FAMILY_ADMIN_SESSION_KEY) ?? fallback;
@@ -653,224 +663,179 @@ export default function CapturePage() {
 
   if (!authenticated) {
     return (
-      <main className="travel-body min-h-screen bg-[#f8f3ea] text-zinc-950">
-        <section className="mx-auto max-w-md px-6 py-8 lg:px-10">
-          <div className="rounded-3xl border border-emerald-200 bg-white p-6 text-center shadow-sm">
-            <p className="travel-label text-sm font-semibold text-emerald-900">
-              {redirecting ? "正在返回家庭登入…" : "正在開啟 Capture…"}
-            </p>
-            <p className="mt-3 text-sm leading-6 text-zinc-600">
+      <main className="fam-page">
+        <div className="fam-splash">
+          <div className="fam-splash-card">
+            <p className="fam-label">{redirecting ? "正在返回家庭登入…" : "正在開啟 Capture…"}</p>
+            <p className="fam-muted mt-3">
               {redirecting ? "Capture 使用同一個家庭密碼，不會另外開密碼表單。" : "家庭入口開啟中，不必先輸入密碼。"}
             </p>
           </div>
-        </section>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="travel-body min-h-screen bg-[#f8f3ea] text-zinc-950">
-      <section className="border-b border-emerald-100 bg-[radial-gradient(circle_at_top_left,_#d1fae5_0,_transparent_34%),linear-gradient(180deg,_#fffdf7_0%,_#f8f3ea_100%)]">
-        <div className="mx-auto max-w-xl px-6 py-8 lg:px-10">
-          <Link className="travel-label inline-flex min-h-11 items-center text-sm font-semibold text-emerald-800" href="/family">
+    <main className="fam-page">
+      <header className="fam-hero">
+        <div className="fam-hero-inner">
+          <Link className="fam-back min-h-11" href="/family">
             ← 家庭入口
           </Link>
-          <p className="travel-script mt-8 text-2xl text-rose-700">one capture door</p>
-          <h1 className="travel-display mt-2 text-4xl font-semibold">Capture</h1>
-          <p className="mt-4 text-base leading-7 text-zinc-600">
+          <p className="fam-script">one capture door</p>
+          <h1 className="fam-title">Capture</h1>
+          <p className="fam-lede">
             打開就能拍或錄。先看剛留下的，不好就重拍或重錄，缺的再補一張。一次選很多張會立刻開始上傳，這一輪最多 40 張，其餘再選一次。再選一次相簿會清掉畫面上的上一輪，上一輪已在倉庫裡。存成 Moment，不是新的旅程。一句話可以是心情，也可以是交代給 TravelOS 的工作。
           </p>
         </div>
-      </section>
+      </header>
 
-      <section className="mx-auto max-w-xl px-6 py-8 lg:px-10">
-        <article className="rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm">
-          <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">拍照與相簿都留著</p>
-          <h2 className="travel-display mt-2 text-2xl font-semibold">Take Photo / Choose Photos</h2>
-          <p className="mt-3 text-sm leading-6 text-zinc-600">加入之後兩個按鈕都還在。拍照會接在這一輪後面。再選一次相簿會清掉畫面上的上一輪，上一輪已在倉庫裡。一次最多先傳 40 張，會立刻開始上傳。其餘請再選一次。</p>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <label className={`${controlClass} border-sky-300 bg-sky-50 text-sky-950`}>
-              拍照 / Take Photo
-              <input
-                accept="image/*"
-                capture="environment"
-                className={hiddenFileClass}
-                onChange={onTakePhoto}
-                ref={cameraInputRef}
-                type="file"
-              />
-            </label>
-            <label className={`${controlClass} border-amber-300 bg-amber-50 text-amber-950`}>
-              選照片 / Choose Photos
-              <input
-                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
-                className={hiddenFileClass}
-                multiple
-                onChange={onChoosePhotos}
-                type="file"
-              />
-            </label>
-          </div>
-
-          {photos.length > 0 ? (
-            <ul className="mt-5 grid grid-cols-2 gap-3">
-              {photos.map((photo) => (
-                <li className="overflow-hidden rounded-2xl bg-stone-100" key={photo.id}>
-                  {photo.previewUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img alt="" className="h-40 w-full object-cover" src={photo.previewUrl} />
-                  ) : (
-                    <div className="flex h-40 items-center justify-center bg-stone-200 px-3 text-center">
-                      <p className="line-clamp-3 text-xs font-medium text-zinc-600">{photo.file.name}</p>
-                    </div>
-                  )}
-                  <p className="px-2 pt-2 text-center text-xs font-semibold text-zinc-600">
-                    {photo.status === "uploaded"
-                      ? "已上傳"
-                      : photo.status === "failed"
-                        ? "上傳失敗"
-                        : photo.status === "queued"
-                          ? "排隊中"
-                          : "上傳中"}
-                  </p>
-                  {photo.errorMessage ? (
-                    <p className="px-2 pb-1 text-center text-[11px] leading-4 text-rose-800">{photo.errorMessage}</p>
-                  ) : null}
-                  <div className="grid grid-cols-2 gap-1 p-2">
-                    <button
-                      className="inline-flex min-h-11 items-center justify-center rounded-xl bg-white text-xs font-semibold text-zinc-800"
-                      onClick={() => retakePhoto(photo.id)}
-                      type="button"
-                    >
-                      Retake
-                    </button>
-                    <button
-                      className="inline-flex min-h-11 items-center justify-center rounded-xl bg-white text-xs font-semibold text-zinc-800"
-                      onClick={() => removePhoto(photo.id)}
-                      type="button"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-5 rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/60 px-4 py-6 text-center text-sm text-zinc-600">
-              還沒有照片。先拍照或從相簿選。一次選很多張也可以，會分批上傳。
-            </p>
-          )}
-
-          <div className="mt-6 rounded-2xl border border-stone-200 bg-stone-50 p-4">
-            <p className="travel-label text-sm font-semibold text-zinc-700">聲音 / Audio</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {recording ? (
-                <button
-                  className="min-h-12 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 font-semibold text-rose-950"
-                  onClick={stopRecording}
-                  type="button"
-                >
-                  Stop
-                </button>
-              ) : (
-                <button
-                  className="min-h-12 rounded-2xl border border-emerald-300 bg-white px-4 py-3 font-semibold text-emerald-950"
-                  onClick={() => void startRecording()}
-                  type="button"
-                >
-                  Record
-                </button>
-              )}
-              {audio ? (
-                <button
-                  className="min-h-12 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 font-semibold text-amber-950"
-                  onClick={() => void retakeAudio()}
-                  type="button"
-                >
-                  Retake audio
-                </button>
-              ) : (
-                <button
-                  className="min-h-12 rounded-2xl border border-stone-200 bg-white px-4 py-3 font-semibold text-zinc-500"
-                  disabled
-                  type="button"
-                >
-                  Remove audio
-                </button>
-              )}
-            </div>
-            {audio ? (
-              <div className="mt-3 grid gap-2">
-                <MomentAudioPlayer bytes={audio.bytes} durationSeconds={audio.durationSeconds} src={audio.previewUrl} />
-                {spoken || audio.transcript ? (
-                  <p className="text-base leading-7 text-zinc-800">{spoken || audio.transcript}</p>
-                ) : null}
-                <p className="text-xs font-semibold text-zinc-600">
-                  {audio.status === "uploaded" ? "已上傳" : audio.status === "failed" ? "上傳失敗" : "上傳中"}
-                </p>
-                {audio.errorMessage ? <p className="text-[11px] leading-4 text-rose-800">{audio.errorMessage}</p> : null}
-                <button
-                  className="min-h-11 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold text-zinc-800"
-                  onClick={clearAudio}
-                  type="button"
-                >
-                  Remove audio
-                </button>
-              </div>
-            ) : audioHold ? (
-              <div className="mt-3 rounded-2xl border border-stone-200 bg-white px-4 py-3">
-                <p className="text-sm font-semibold text-zinc-800">約 {audioHold.durationSeconds} 秒</p>
-                {spoken ? <p className="mt-2 text-base leading-7 text-zinc-800">{spoken}</p> : null}
-                <p className="mt-2 text-sm leading-6 text-stone-500">準備播放…</p>
-              </div>
-            ) : recording && spoken ? (
-              <p className="mt-3 text-base leading-7 text-zinc-800">{spoken}</p>
-            ) : null}
-          </div>
-
-          <label className="mt-6 block">
-            <span className="travel-label text-sm font-semibold text-zinc-700">心情或交代 / Mood or a job</span>
-            <textarea
-              className="mt-2 min-h-20 w-full rounded-2xl border border-emerald-300 bg-white px-4 py-3 text-base text-zinc-950 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-              onChange={(event) => setNote(event.target.value)}
-              placeholder="一句心情，或交代一件事。不確定就當心情。"
-              rows={3}
-              value={note}
+      <section className="fam-sheet">
+        <div className="grid grid-cols-2 gap-3">
+          <label className="fam-file fam-pill fam-pill-blush-outline">
+            <span>拍照</span>
+            <span className="fam-en">Take Photo</span>
+            <input accept="image/*" capture="environment" onChange={onTakePhoto} ref={cameraInputRef} type="file" />
+          </label>
+          <label className="fam-file fam-pill fam-pill-blush">
+            <span>選照片</span>
+            <span className="fam-en">Choose Photos</span>
+            <input
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+              multiple
+              onChange={onChoosePhotos}
+              type="file"
             />
           </label>
+        </div>
+        <p className="fam-muted mt-3">加入之後兩個按鈕都還在。拍照會接在這一輪後面。再選一次相簿會清掉畫面上的上一輪，上一輪已在倉庫裡。</p>
 
-          <p aria-live="polite" className="mt-3 text-sm leading-6 text-zinc-600">
-            {message}
-          </p>
+        {photos.length > 0 ? (
+          <>
+            <ul className="mt-5 grid grid-cols-2 gap-3">
+              {photos.map((photo) => {
+                const chip = photoChip(photo.status);
+                return (
+                  <li className="fam-thumb" key={photo.id}>
+                    {photo.previewUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img alt="" src={photo.previewUrl} />
+                    ) : (
+                      <div className="fam-thumb-fallback">
+                        <p className="line-clamp-3">{photo.file.name}</p>
+                      </div>
+                    )}
+                    <span className={chip.className}>{chip.label}</span>
+                    {photo.status === "queued" ? <span className="fam-sr">接著會傳</span> : null}
+                    {photo.errorMessage ? <p className="fam-ref">{photo.errorMessage}</p> : null}
+                    <div className="fam-thumb-actions">
+                      <button onClick={() => retakePhoto(photo.id)} type="button">
+                        Retake
+                      </button>
+                      <button onClick={() => removePhoto(photo.id)} type="button">
+                        Remove
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="fam-muted mt-3">一次選好，一起傳。不是 3 張一排隊。</p>
+          </>
+        ) : (
+          <div className="fam-empty mt-5">
+            <FamIconWell name="camera" well="paper" />
+            <p className="fam-muted mt-3">還沒有照片。先拍照或從相簿選。</p>
+            <p className="fam-muted">一次選很多張也可以，會分批上傳。</p>
+          </div>
+        )}
 
-          {savedJobId ? (
-            <Link
-              className="mt-3 flex min-h-12 items-center justify-center rounded-2xl border border-sky-300 bg-sky-50 px-4 py-3 font-semibold text-sky-950"
-              href={`/trips/write?job=${savedJobId}`}
-            >
-              Open job in Write
-            </Link>
-          ) : null}
-
-          {savedMomentId ? (
-            <Link
-              className="mt-3 flex min-h-12 items-center justify-center rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 font-semibold text-amber-950"
-              href={`/family/bench?moment=${encodeURIComponent(savedMomentId)}`}
-            >
-              去工作台看看
-            </Link>
-          ) : null}
-
-          <button
-            className="mt-5 min-h-12 w-full rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 font-semibold text-emerald-950 disabled:opacity-60"
-            disabled={!hasCapture}
-            onClick={() => void saveMoment()}
-            type="button"
-          >
-            {saving ? "儲存中…" : "Save as Moment"}
+        <div className="fam-audio mt-5">
+          <div>
+            <p className="fam-label">聲音 / Audio</p>
+            <p className="fam-muted mt-1">點圓鈕就可以錄一小段。</p>
+          </div>
+          {recording ? (
+            <button className="fam-mic fam-mic-live" onClick={stopRecording} type="button">
+              <FamGlyph name="mic" />
+              <span className="fam-sr">Stop</span>
+            </button>
+          ) : (
+            <button className="fam-mic" onClick={() => void startRecording()} type="button">
+              <FamGlyph name="mic" />
+              <span className="fam-sr">Record</span>
+            </button>
+          )}
+        </div>
+        {audio ? (
+          <div className="mt-3">
+            <MomentAudioPlayer bytes={audio.bytes} durationSeconds={audio.durationSeconds} src={audio.previewUrl} />
+            {spoken || audio.transcript ? <p className="fam-voice">{spoken || audio.transcript}</p> : null}
+            <p className="fam-muted mt-2">
+              {audio.status === "uploaded" ? "已上傳" : audio.status === "failed" ? "上傳失敗" : "上傳中"}
+            </p>
+            {audio.errorMessage ? <p className="fam-ref">{audio.errorMessage}</p> : null}
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button className="fam-pill fam-pill-quiet min-h-11" onClick={() => void retakeAudio()} type="button">
+                Retake audio
+              </button>
+              <button className="fam-pill fam-pill-quiet min-h-11" onClick={clearAudio} type="button">
+                Remove audio
+              </button>
+            </div>
+          </div>
+        ) : audioHold ? (
+          <div className="fam-card mt-3 p-4">
+            <p className="fam-label">約 {audioHold.durationSeconds} 秒</p>
+            {spoken ? <p className="fam-voice">{spoken}</p> : null}
+            <p className="fam-muted mt-2">準備播放…</p>
+          </div>
+        ) : recording && spoken ? (
+          <p className="fam-voice mt-3">{spoken}</p>
+        ) : (
+          <button className="fam-pill fam-pill-quiet mt-3 min-h-11 w-full" disabled type="button">
+            Remove audio
           </button>
-        </article>
+        )}
+
+        <label className="fam-field mt-5 block">
+          <span className="fam-label">心情或交代 / Mood or a job</span>
+          <textarea
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="一句心情，或交代一件事。不確定就當心情。"
+            rows={3}
+            value={note}
+          />
+        </label>
+
+        <p aria-live="polite" className="fam-muted mt-3">
+          {message}
+        </p>
+
+        {savedJobId ? (
+          <Link className="fam-pill fam-pill-quiet mt-3 w-full" href={`/trips/write?job=${savedJobId}`}>
+            Open job in Write
+          </Link>
+        ) : null}
+
+        <Link
+          className="fam-pill fam-pill-honey mt-4 w-full"
+          href={
+            savedMomentId ? `/family/bench?moment=${encodeURIComponent(savedMomentId)}` : "/family/bench"
+          }
+        >
+          去工作台看看
+        </Link>
+
+        <button
+          className="fam-pill fam-pill-quiet mt-3 w-full"
+          disabled={!hasCapture}
+          onClick={() => void saveMoment()}
+          type="button"
+        >
+          {saving ? "儲存中…" : "Save as Moment"}
+        </button>
       </section>
     </main>
   );

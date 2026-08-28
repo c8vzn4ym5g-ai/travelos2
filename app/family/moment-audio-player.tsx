@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { FamGlyph } from "@/app/family/family-icons";
 import {
   UNPLAYABLE_MOMENT_AUDIO_COPY,
   cloneAudioBytes,
@@ -147,7 +148,7 @@ export function MomentAudioPlayer({ bytes, durationSeconds, src }: MomentAudioPl
   }
 
   return (
-    <div className="mt-3 rounded-2xl border border-stone-200 bg-white px-4 py-3">
+    <div className="fam-audio-player">
       <audio
         className="hidden"
         onEnded={markStopped}
@@ -166,16 +167,15 @@ export function MomentAudioPlayer({ bytes, durationSeconds, src }: MomentAudioPl
         preload="auto"
         ref={videoRef}
       />
-      <p className="text-sm font-semibold text-zinc-800">{formatAudioDurationLabel(heardDuration)}</p>
+      <p className="fam-muted" style={{ margin: 0 }}>
+        {formatAudioDurationLabel(heardDuration)}
+      </p>
       {unplayable ? (
-        <p className="mt-2 text-sm leading-6 text-stone-500">{UNPLAYABLE_MOMENT_AUDIO_COPY}</p>
+        <p className="fam-muted">{UNPLAYABLE_MOMENT_AUDIO_COPY}</p>
       ) : (
-        <button
-          className="mt-3 flex min-h-12 w-full items-center justify-center rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-950"
-          onClick={() => void togglePlayback()}
-          type="button"
-        >
-          {playing ? "暫停" : "播放"}
+        <button className="fam-play min-h-11" onClick={() => void togglePlayback()} type="button">
+          <FamGlyph name={playing ? "pause" : "play"} size={18} />
+          <span className="fam-sr">{playing ? "暫停" : "播放"}</span>
         </button>
       )}
     </div>

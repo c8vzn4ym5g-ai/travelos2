@@ -85,6 +85,12 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
 - `/family/bench` is the family workshop table (工作台 / Bench): the raw pile of
   Capture dumps, newest first. It is private family, not the public storefront
   (橱窗). Do not put Drive or booking widgets there.
+- `/family/trip` is a family-only trip companion in the same 家庭本子 visual
+  (`data-surface="family"`). Fill only from confirmed mail. Unknown fields stay
+  blank. Do not invent stays, times, or “GM 填”. Public `/trips` is untouched.
+- Family workshop pages use peach paper, rounded 本子 type, and family tokens.
+  Do not use public magazine Georgia / teal kickers or theme-color `#0f766e`
+  on `/family`, `/family/capture`, `/family/bench`, or `/family/trip`.
 - Bench shows the workshop intro once. Native audio controls that error must
   not appear; unplayable voice is a quiet line. Transcripts may appear later
   without blocking the page.

@@ -1,5 +1,15 @@
 # TravelOS Codex Tasks
 
+## TASK-030: Family 本子 visual + trip companion
+
+Status: in_progress
+
+Goal: Wrap `/family`, `/family/capture`, and `/family/bench` in a family-only
+`data-surface="family"` 本子 visual (peach paper, rounded type, blush/honey
+wash). Add `/family/trip` companion for the 8-day 2026-08-30 Taipei window,
+filled only from confirmed emails. Do not restyle public `/trips` or change
+Capture dump (40 parallel POSTs, no `createWorkQueue`).
+
 ## TASK-029: Family 工作台 Drive photo thumbs
 
 Status: done

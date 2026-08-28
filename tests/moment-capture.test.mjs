@@ -58,7 +58,7 @@ test("capture keeps camera and library, with retake and remove", async () => {
 test("capture has no tag form and is named Capture", async () => {
   const capture = await readSource("app/family/capture/page.tsx");
 
-  assert.match(capture, /<h1 className="travel-display mt-2 text-4xl font-semibold">Capture<\/h1>/);
+  assert.match(capture, /<h1 className="fam-title">Capture<\/h1>/);
   assert.match(capture, /心情或交代 \/ Mood or a job/);
   assert.doesNotMatch(capture, />People</);
   assert.doesNotMatch(capture, />Place</);
@@ -96,7 +96,7 @@ test("family home has one Capture door and no retired second-app cards", async (
   assert.doesNotMatch(unlock, /href="\/family\/capture"/);
   assert.doesNotMatch(unlock, /href="\/family\/bench"/);
   assert.doesNotMatch(unlock, />\s*工作台\s*</);
-  assert.match(capture, /<h1 className="travel-display mt-2 text-4xl font-semibold">Capture<\/h1>/);
+  assert.match(capture, /<h1 className="fam-title">Capture<\/h1>/);
   assert.match(capture, /去工作台看看/);
   assert.doesNotMatch(family, /JDB Capture/);
   assert.doesNotMatch(family, /打開 Capture/);

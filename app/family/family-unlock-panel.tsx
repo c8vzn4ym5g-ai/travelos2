@@ -64,20 +64,21 @@ export function FamilyUnlockPanel() {
   }
 
   return (
-    <section aria-labelledby="family-unlock-title" className="mx-auto max-w-5xl px-6 pt-8 lg:px-10">
-      <div className="rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm sm:p-8">
-        <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">開始編輯</p>
-        <h2 className="travel-display mt-2 text-2xl font-semibold sm:text-3xl" id="family-unlock-title">
+    <section aria-labelledby="family-unlock-title" className="fam-sheet">
+      <div className="fam-unlock">
+        <p className="fam-script" style={{ marginTop: 0 }}>
+          family workshop
+        </p>
+        <h2 className="fam-title" id="family-unlock-title" style={{ fontSize: 28 }}>
           輸入家庭編輯密碼
         </h2>
         <div className="mt-5">
-          <label className="travel-label text-sm font-semibold text-zinc-700" htmlFor="family-pin">
+          <label className="fam-label" htmlFor="family-pin">
             家庭密碼
           </label>
-          <div className="mt-2 flex gap-2">
+          <div className="fam-unlock-row">
             <input
               autoComplete="current-password"
-              className="min-h-12 min-w-0 flex-1 rounded-2xl border border-emerald-300 bg-white px-4 py-3 text-base text-zinc-950 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
               disabled={checking}
               id="family-pin"
               onChange={(event) => setPin(event.target.value)}
@@ -87,7 +88,7 @@ export function FamilyUnlockPanel() {
             />
             <button
               aria-pressed={showPin}
-              className="min-h-12 min-w-20 rounded-2xl border border-emerald-300 bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-950"
+              className="fam-pill fam-pill-blush-outline min-w-20 text-sm"
               onClick={() => setShowPin((current) => !current)}
               type="button"
             >
@@ -95,11 +96,11 @@ export function FamilyUnlockPanel() {
             </button>
           </div>
         </div>
-        <p aria-live="polite" className="mt-3 text-sm leading-6 text-zinc-600">
+        <p aria-live="polite" className="fam-muted mt-3">
           {message}
         </p>
         <button
-          className="mt-5 min-h-12 w-full rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 font-semibold text-emerald-950 transition hover:bg-emerald-100 disabled:opacity-60"
+          className="fam-pill fam-pill-blush mt-5 w-full"
           disabled={checking}
           onClick={() => void unlock()}
           type="button"

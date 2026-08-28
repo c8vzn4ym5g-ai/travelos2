@@ -1,0 +1,50 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import test from "node:test";
+
+const root = resolve(import.meta.dirname, "..");
+
+async function readSource(path) {
+  return readFile(resolve(root, path), "utf8");
+}
+
+test("family workshop wraps a family surface and does not restyle public Lapland", async () => {
+  const [layout, familyCss, rootLayout, manifest, familyHome, capture, bench, trip, lapland, home, globals] = await Promise.all([
+    readSource("app/family/layout.tsx"),
+    readSource("app/family/family.css"),
+    readSource("app/layout.tsx"),
+    readSource("app/manifest.ts"),
+    readSource("app/family/page.tsx"),
+    readSource("app/family/capture/page.tsx"),
+    readSource("app/family/bench/page.tsx"),
+    readSource("app/family/trip/page.tsx"),
+    readSource("app/trips/[slug]/page.tsx"),
+    readSource("app/page.tsx"),
+    readSource("app/globals.css"),
+  ]);
+
+  assert.match(layout, /data-surface="family"/);
+  assert.match(layout, /family-workshop/);
+  assert.match(layout, /M_PLUS_Rounded_1c/);
+  assert.match(layout, /Nunito/);
+  assert.match(layout, /Caveat/);
+  assert.match(layout, /themeColor: "#FFF4EC"/);
+  assert.match(familyCss, /--fam-paper: #fff4ec/);
+  assert.match(familyCss, /--fam-blush: #f57c93/);
+  assert.match(familyCss, /--fam-honey: #f0b429/);
+  assert.match(rootLayout, /themeColor: "#0f766e"/);
+  assert.match(manifest, /theme_color: "#0f766e"/);
+  assert.doesNotMatch(familyHome, /travel-display/);
+  assert.doesNotMatch(capture, /travel-display/);
+  assert.doesNotMatch(bench, /travel-display/);
+  assert.doesNotMatch(trip, /travel-display/);
+  assert.match(home, /travel-display/);
+  assert.match(globals, /\.travel-display \{/);
+  assert.match(globals, /font-family: Georgia/);
+  assert.doesNotMatch(lapland, /data-surface="family"/);
+  assert.doesNotMatch(lapland, /family-workshop/);
+  assert.doesNotMatch(familyHome, /bg-emerald-800/);
+  assert.match(capture, /void startBackgroundPhotoUpload\(photo\)/);
+  assert.doesNotMatch(capture, /createWorkQueue/);
+});

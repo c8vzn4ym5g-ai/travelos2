@@ -1,5 +1,15 @@
 # TravelOS Handoff
 
+## 2026-08-28 Family 本子 visual and trip companion
+
+- Family workshop routes (`/family`, `/family/capture`, `/family/bench`) sit
+  inside `data-surface="family"` with 家庭本子 tokens. Public Lapland / `/trips`
+  keep magazine Georgia and teal theme-color `#0f766e`. Family theme-color is
+  `#FFF4EC`.
+- `/family/trip` is a private companion: sticky days 1–8 from 2026-08-30
+  Taipei, confirmed STARLUX JX316 / Nissan 26082202410 / 界 由布院 / Solaria
+  T032CA29B451B only. Blanks stay blank. Capture dump is unchanged.
+
 ## 2026-08-28 Family 工作台 Drive photo thumbs 404
 
 - GET `/api/moments` hydrates `photos[]` from Drive files (`moment_photo_drive_*`
