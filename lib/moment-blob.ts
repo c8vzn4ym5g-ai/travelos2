@@ -116,6 +116,8 @@ function shouldTryNextPutAccess(error: unknown) {
   return /access|forbidden|private|public|Access denied|Failed to fetch blob/i.test(error.message);
 }
 
+export const MOMENT_BLOB_PRIVATE_GET_OPTIONS = { access: "private", useCache: false } as const;
+
 function contentTypeFromGet(result: LiveMomentBlobGetResult) {
   return result.contentType ?? result.blob?.contentType ?? null;
 }
@@ -125,7 +127,10 @@ async function getWithAccess(
   access: BlobStoreAccess,
   getBlob: LiveMomentBlobGet,
 ): Promise<(WarehouseGetResult & { contentType?: string | null }) | null> {
-  const result = await getBlob(urlOrPathname, { access, useCache: false });
+  const result = await getBlob(
+    urlOrPathname,
+    access === "private" ? MOMENT_BLOB_PRIVATE_GET_OPTIONS : { access, useCache: false },
+  );
   if (result?.statusCode === 200 && result.stream) {
     rememberedAccess = access;
     return { statusCode: 200, stream: result.stream, contentType: contentTypeFromGet(result) };
