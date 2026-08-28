@@ -777,6 +777,14 @@
   letter-spacing: 0;
 }
 
+[data-surface="family"] .fam-carry {
+  margin-top: 16px;
+  border-radius: 22px;
+  background: var(--fam-white);
+  box-shadow: var(--fam-shadow);
+  padding: 14px 16px;
+}
+
 [data-surface="family"] .today-card {
   border-radius: 28px;
   background: var(--fam-honey-soft);

@@ -7,8 +7,9 @@
   keep magazine Georgia and teal theme-color `#0f766e`. Family theme-color is
   `#FFF4EC`.
 - `/family/trip` is a private companion: sticky days 1–8 from 2026-08-30
-  Taipei, confirmed STARLUX JX316 / Nissan 26082202410 / 界 由布院 / Solaria
-  T032CA29B451B only. Blanks stay blank. Capture dump is unchanged.
+  Taipei. Confirmed STARLUX JX316/JX317, Nissan 26082202410 / SERENA,
+  界 由布院, うめひびき (one room), フリューゲル久住, and Solaria
+  T032CA29B451B. Day 1 and Day 7 tonight stay blank. Capture dump is unchanged.
 
 ## 2026-08-28 Family 工作台 Drive photo thumbs 404
 

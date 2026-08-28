@@ -8,13 +8,16 @@ import { resolveFamilySession } from "@/lib/family-session";
 import {
   defaultTripDay,
   FAMILY_TRIP_TITLE,
+  familyTripCarry,
   familyTripDays,
   formatTripMd,
   taipeiCalendarDate,
   tripDayFromCalendarDate,
   type Breakfast,
   type FamilyTripDay,
+  type HotelLeg,
   type TripLeg,
+  type TripRef,
 } from "@/lib/family-trip";
 
 function BreakfastChips({ value }: { value: Breakfast }) {
@@ -26,18 +29,63 @@ function BreakfastChips({ value }: { value: Breakfast }) {
   );
 }
 
-function Refs({ refs }: { refs: TripLeg["refs"] }) {
+function Refs({ label, refs }: { label?: string; refs: TripRef[] }) {
   if (refs.length === 0) {
     return null;
   }
   return (
     <div>
+      {label ? <span className="fam-ref">{label}</span> : null}
       {refs.map((ref) => (
         <span className="fam-ref" key={`${ref.label}-${ref.value}`}>
           {ref.label} {ref.value}
         </span>
       ))}
     </div>
+  );
+}
+
+function HotelFields({ leg }: { leg: HotelLeg }) {
+  if (leg.compact) {
+    return (
+      <dl>
+        <div className="fam-kv">
+          <dt>退房</dt>
+          <dd>{leg.checkOut}</dd>
+        </div>
+        <div className="fam-kv">
+          <dt>早餐</dt>
+          <dd>
+            <BreakfastChips value={leg.breakfast} />
+          </dd>
+        </div>
+      </dl>
+    );
+  }
+
+  return (
+    <dl>
+      <div className="fam-kv">
+        <dt>入住</dt>
+        <dd>{leg.checkIn}</dd>
+      </div>
+      <div className="fam-kv">
+        <dt>退房</dt>
+        <dd>{leg.checkOut}</dd>
+      </div>
+      <div className="fam-kv">
+        <dt>早餐</dt>
+        <dd>
+          <BreakfastChips value={leg.breakfast} />
+        </dd>
+      </div>
+      <div className="fam-kv">
+        <dt>晚餐</dt>
+        <dd>
+          <BreakfastChips value={leg.dinner} />
+        </dd>
+      </div>
+    </dl>
   );
 }
 
@@ -49,14 +97,16 @@ function LegCard({ leg }: { leg: TripLeg }) {
           <FamIconWell name="plane" well="sky" />
           <div>
             <p className="fam-label">{leg.sticker}</p>
-            <p className="fam-en" style={{ marginTop: 0 }}>
-              {leg.english}
-            </p>
+            {leg.english ? (
+              <p className="fam-en" style={{ marginTop: 0 }}>
+                {leg.english}
+              </p>
+            ) : null}
           </div>
         </div>
         <dl>
           <div className="fam-kv">
-            <dt>去程</dt>
+            <dt>{leg.routeLabel}</dt>
             <dd>{leg.route}</dd>
           </div>
           <div className="fam-kv">
@@ -80,16 +130,20 @@ function LegCard({ leg }: { leg: TripLeg }) {
           <FamIconWell name="car" well="mint" />
           <div>
             <p className="fam-label">{leg.sticker}</p>
-            <p className="fam-en" style={{ marginTop: 0 }}>
-              {leg.english}
-            </p>
+            {leg.english ? (
+              <p className="fam-en" style={{ marginTop: 0 }}>
+                {leg.english}
+              </p>
+            ) : null}
           </div>
         </div>
         <dl>
-          <div className="fam-kv">
-            <dt>取車</dt>
-            <dd>{leg.pickup}</dd>
-          </div>
+          {leg.pickup ? (
+            <div className="fam-kv">
+              <dt>取車</dt>
+              <dd>{leg.pickup}</dd>
+            </div>
+          ) : null}
           <div className="fam-kv">
             <dt>還車</dt>
             <dd>{leg.dropoff}</dd>
@@ -113,23 +167,10 @@ function LegCard({ leg }: { leg: TripLeg }) {
           <p className="mt-1 text-base font-bold">{leg.name}</p>
         </div>
       </div>
-      <dl>
-        <div className="fam-kv">
-          <dt>入住</dt>
-          <dd>{leg.checkIn}</dd>
-        </div>
-        <div className="fam-kv">
-          <dt>退房</dt>
-          <dd>{leg.checkOut}</dd>
-        </div>
-        <div className="fam-kv">
-          <dt>早餐</dt>
-          <dd>
-            <BreakfastChips value={leg.breakfast} />
-          </dd>
-        </div>
-      </dl>
+      <HotelFields leg={leg} />
+      {leg.note ? <p className="fam-empty-line">{leg.note}</p> : null}
       <Refs refs={leg.refs} />
+      <Refs label="官網聯絡" refs={leg.official} />
     </article>
   );
 }
@@ -157,6 +198,24 @@ function TodayCard({ day, isCalendarToday }: { day: FamilyTripDay; isCalendarTod
           <dd>{day.next}</dd>
         </div>
       </dl>
+    </article>
+  );
+}
+
+function CarryPocket() {
+  return (
+    <article className="fam-carry">
+      <p className="fam-label">{familyTripCarry.title}</p>
+      {familyTripCarry.flights.map((line) => (
+        <span className="fam-ref" key={line}>
+          {line}
+        </span>
+      ))}
+      {familyTripCarry.car.map((line) => (
+        <span className="fam-ref" key={line}>
+          {line}
+        </span>
+      ))}
     </article>
   );
 }
@@ -220,6 +279,7 @@ export default function FamilyTripPage() {
             <span aria-hidden className="fam-doll" />
           </div>
           <p className="fam-lede">早上打開這頁。下一步會在最上面。</p>
+          <CarryPocket />
         </div>
       </header>
 
@@ -269,7 +329,7 @@ export default function FamilyTripPage() {
                   onClick={() => setSelected(item.day)}
                   type="button"
                 >
-                  <span className={`fam-day-dot${isActive ? " " : ""}`} style={isActive ? { background: "var(--fam-blush)", color: "#fffbfa" } : undefined}>
+                  <span className="fam-day-dot" style={isActive ? { background: "var(--fam-blush)", color: "#fffbfa" } : undefined}>
                     {item.day}
                   </span>
                   <span>
