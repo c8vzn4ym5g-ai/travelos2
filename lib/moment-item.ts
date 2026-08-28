@@ -1,6 +1,6 @@
-import { momentItemBlobPath, normalizeTravelMoment } from "./moments.ts";
+import { MOMENT_ITEM_PREFIX, momentItemBlobPath, normalizeTravelMoment } from "./moments.ts";
 import type { TravelMoment } from "./types.ts";
-import { MomentWarehouseUnavailableError, type WarehouseGet } from "./warehouse-read.ts";
+import { MomentWarehouseUnavailableError, type WarehouseGet, type WarehouseGetResult } from "./warehouse-read.ts";
 
 export { momentItemBlobPath } from "./moments.ts";
 
@@ -34,6 +34,73 @@ export function createMomentItemRecord(moment: TravelMoment, updatedAt = new Dat
     moment: normalizeTravelMoment(moment),
     updatedAt,
   };
+}
+
+export function momentIdFromItemBlobPath(pathname: string): string | null {
+  const prefix = `${MOMENT_ITEM_PREFIX}/`;
+  if (!pathname.startsWith(prefix) || !pathname.endsWith(".json")) {
+    return null;
+  }
+
+  const id = pathname.slice(prefix.length, -".json".length);
+  return id || null;
+}
+
+export function skeletonMomentFromItemPath(pathname: string): TravelMoment | null {
+  const id = momentIdFromItemBlobPath(pathname);
+  if (!id) {
+    return null;
+  }
+
+  const createdAt = new Date(0).toISOString();
+  return normalizeTravelMoment({
+    command: null,
+    coordinates: null,
+    createdAt,
+    draft: "",
+    food: [],
+    id,
+    note: "",
+    originalAudioUrl: null,
+    people: [],
+    photos: [],
+    place: [],
+    scenery: [],
+    time: createdAt,
+    topics: [],
+    transcript: null,
+    tripId: null,
+  });
+}
+
+export async function momentsFromListedItemBlobs(
+  listed: Array<{ pathname: string; url: string }>,
+  readUrl: (url: string) => Promise<WarehouseGetResult | null>,
+): Promise<TravelMoment[]> {
+  const loaded = await Promise.all(
+    listed.map(async (entry) => {
+      if (!entry.pathname.endsWith(".json")) {
+        return null;
+      }
+
+      try {
+        const result = await readUrl(entry.url);
+        if (result?.statusCode === 200 && result.stream) {
+          const raw = await new Response(result.stream).json();
+          const parsed = parseMomentItemRecord(raw);
+          if (parsed) {
+            return parsed;
+          }
+        }
+      } catch {
+        // Item bodies can 403 on the public CDN. The pathname id is still enough for GET.
+      }
+
+      return skeletonMomentFromItemPath(entry.pathname);
+    }),
+  );
+
+  return loaded.filter((item): item is TravelMoment => item != null);
 }
 
 export function parseMomentItemRecord(raw: unknown): TravelMoment | null {
@@ -75,7 +142,7 @@ export async function loadMomentItemFromBlobGet(
     return null;
   }
   if (result.statusCode !== 200) {
-    throw new MomentWarehouseUnavailableError(`HTTP ${result.statusCode}`);
+    return null;
   }
 
   try {

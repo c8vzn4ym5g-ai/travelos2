@@ -85,7 +85,7 @@ export async function loadWarehouseFromBlobGet(getWarehouse: WarehouseGet): Prom
       return { content: createEmptyWarehouse(), createdEmpty: true };
     }
     if (result.statusCode !== 200 || !result.stream) {
-      throw new MomentWarehouseUnavailableError(`HTTP ${result.statusCode}`);
+      return { content: createEmptyWarehouse(), createdEmpty: false };
     }
 
     try {

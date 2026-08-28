@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
 import {
+  listAndFetchMomentBlob,
   privateBlobUrlFrom,
   publicBlobUrl,
   putWithStoreAccess,
@@ -12,7 +13,7 @@ import {
   shouldFallBackToPublicBlob,
 } from "../lib/moment-blob.ts";
 import { momentApiErrorResponse } from "../lib/moment-store.ts";
-import { WAREHOUSE_GET_OPTIONS } from "../lib/warehouse-read.ts";
+import { loadWarehouseFromBlobGet, WAREHOUSE_GET_OPTIONS } from "../lib/warehouse-read.ts";
 import { MOMENT_ITEM_GET_OPTIONS, MOMENT_ITEM_PUT_OPTIONS } from "../lib/moment-item.ts";
 import { momentPhotoPlayUrl } from "../lib/moments.ts";
 
@@ -188,7 +189,29 @@ test("blob 403 from POST/GET moment APIs is a 503 with a body", async () => {
   assert.match(accessBody.error, /Access denied/);
 });
 
-test("live warehouse reader keeps parallel Capture POSTs and family photo proxy", async () => {
+test("list+fetch 403 is an empty warehouse, not a 503", async () => {
+  const listed = await listAndFetchMomentBlob("travelos/moments.json", {
+    async listBlobs(query) {
+      assert.equal(query.prefix, "travelos/moments.json");
+      return {
+        blobs: [{ pathname: "travelos/moments.json", url: "https://cdn.example/travelos/moments.json" }],
+      };
+    },
+    fetchBlob: (async (input) => {
+      assert.equal(String(input), "https://cdn.example/travelos/moments.json");
+      return new Response("blocked", { status: 403, statusText: "Forbidden" });
+    }) as typeof fetch,
+  });
+  assert.equal(listed?.statusCode, 403);
+  assert.equal(listed?.stream, null);
+
+  const loaded = await loadWarehouseFromBlobGet(async () => listed);
+  assert.equal(loaded.createdEmpty, false);
+  assert.deepEqual(loaded.content.moments, []);
+  assert.deepEqual(loaded.content.jobs, []);
+});
+
+test("live warehouse reader lists then fetches, keeps parallel Capture POSTs, and family photo proxy", async () => {
   const [blob, store, capture, upload, photosApi, bench, write, transcript] = await Promise.all([
     readSource("lib/moment-blob.ts"),
     readSource("lib/moment-store.ts"),
@@ -200,11 +223,19 @@ test("live warehouse reader keeps parallel Capture POSTs and family photo proxy"
     readSource("lib/moment-transcript.ts"),
   ]);
 
+  assert.match(blob, /listAndFetchMomentBlob/);
+  assert.match(blob, /list\(\{/);
+  assert.match(blob, /return await listAndFetchMomentBlob\(pathname\)/);
   assert.match(blob, /access: "private", useCache: false/);
   assert.match(blob, /\.private\.blob\.vercel-storage\.com/);
   assert.match(blob, /putWithStoreAccess/);
+  assert.doesNotMatch(blob, /authorization:/);
+  assert.match(store, /listMomentBlobs/);
+  assert.match(store, /momentsFromListedItemBlobs/);
   assert.match(store, /putWithStoreAccess/);
   assert.match(store, /access: "private"/);
+  assert.doesNotMatch(store, /import \{[^}]*\blist\b/);
+  assert.doesNotMatch(store, /list\(/);
   assert.match(photosApi, /export async function GET/);
   assert.match(photosApi, /readMomentBlobBytes/);
   assert.match(bench, /momentPhotoPlayUrl/);

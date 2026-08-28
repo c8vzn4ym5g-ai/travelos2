@@ -1,4 +1,4 @@
-import { BlobAccessError, BlobNotFoundError, get, head, put } from "@vercel/blob";
+import { BlobAccessError, BlobNotFoundError, get, head, list, put } from "@vercel/blob";
 import { isBlobConfigured } from "@/lib/editable-store";
 import type { MomentItemPut } from "@/lib/moment-item";
 import type { WarehouseGet, WarehouseGetResult } from "@/lib/warehouse-read";
@@ -51,6 +51,10 @@ let rememberedAccess: BlobStoreAccess | null = null;
 export function setMomentBlobAdapterForTests(adapter: MomentBlobAdapter | null) {
   testAdapter = adapter;
   rememberedAccess = null;
+}
+
+export function isMomentBlobAdapterActive() {
+  return testAdapter != null;
 }
 
 export function resetBlobStoreAccessForTests() {
@@ -247,6 +251,88 @@ export async function readMomentBlobBytes(urlOrPathname: string): Promise<{
   return { bytes, contentType: result.contentType ?? null };
 }
 
+export type ListedMomentBlob = {
+  pathname: string;
+  url: string;
+};
+
+export type MomentBlobList = (query: {
+  cursor?: string;
+  limit?: number;
+  prefix: string;
+}) => Promise<{ blobs: ListedMomentBlob[]; cursor?: string; hasMore?: boolean }>;
+
+function listMomentBlobPage(query: { cursor?: string; limit?: number; prefix: string }) {
+  return list({
+    cursor: query.cursor,
+    limit: query.limit,
+    prefix: query.prefix,
+  });
+}
+
+export async function listMomentBlobs(
+  prefix: string,
+  listBlobs: MomentBlobList = listMomentBlobPage,
+): Promise<ListedMomentBlob[]> {
+  if (testAdapter && listBlobs === listMomentBlobPage) {
+    return [];
+  }
+
+  const blobs: ListedMomentBlob[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const page = await listBlobs({ prefix, limit: 100, ...(cursor ? { cursor } : {}) });
+    blobs.push(...page.blobs);
+    cursor = page.hasMore ? page.cursor : undefined;
+  } while (cursor);
+
+  return blobs;
+}
+
+export async function fetchListedBlob(
+  url: string,
+  fetchBlob: typeof fetch = fetch,
+): Promise<(WarehouseGetResult & { contentType?: string | null }) | null> {
+  const response = await fetchBlob(url, { cache: "no-store" });
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    return { statusCode: response.status, stream: null, contentType: null };
+  }
+  if (!response.body) {
+    return null;
+  }
+  return {
+    contentType: response.headers.get("content-type"),
+    statusCode: 200,
+    stream: response.body,
+  };
+}
+
+export async function listAndFetchMomentBlob(
+  pathname: string,
+  deps: { fetchBlob?: typeof fetch; listBlobs?: MomentBlobList } = {},
+): Promise<WarehouseGetResult | null> {
+  const listBlobs = deps.listBlobs ?? listMomentBlobPage;
+  const fetchBlob = deps.fetchBlob ?? fetch;
+
+  try {
+    const listed = await listBlobs({ limit: 20, prefix: pathname });
+    const hit = listed.blobs.find((blob) => blob.pathname === pathname);
+    if (!hit) {
+      return null;
+    }
+    return await fetchListedBlob(hit.url, fetchBlob);
+  } catch (error) {
+    if (error instanceof BlobNotFoundError || shouldFallBackToPublicBlob(error)) {
+      return { statusCode: 403, stream: null };
+    }
+    throw error;
+  }
+}
+
 export async function getMomentJsonBlob(
   pathname: string,
   options: { access: BlobStoreAccess; useCache?: boolean },
@@ -256,10 +342,10 @@ export async function getMomentJsonBlob(
   }
 
   try {
-    return await readLiveMomentBlob(pathname);
+    return await listAndFetchMomentBlob(pathname);
   } catch (error) {
-    if (error instanceof BlobNotFoundError) {
-      return null;
+    if (error instanceof BlobNotFoundError || shouldFallBackToPublicBlob(error)) {
+      return { statusCode: 403, stream: null };
     }
     throw error;
   }

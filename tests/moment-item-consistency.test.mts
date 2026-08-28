@@ -7,6 +7,7 @@ import {
   MOMENT_ITEM_PUT_OPTIONS,
   loadMomentItemFromBlobGet,
   momentItemBlobPath,
+  momentsFromListedItemBlobs,
   overlayMoments,
   putMomentItemRecord,
 } from "../lib/moment-item.ts";
@@ -483,6 +484,37 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
       assert.equal(response.status, 200);
     });
   });
+
+  test("index 403 still returns GET 200 and POST still writes the item file", async () => {
+    await withPinEnv(undefined, async () => {
+      const puts: string[] = [];
+      setMomentBlobAdapterForTests({
+        get: async () => ({ statusCode: 403, stream: null }),
+        async put(pathname) {
+          puts.push(pathname);
+          return { pathname, url: `https://blob.local/${pathname}` };
+        },
+      });
+
+      const { GET, POST } = await import("../app/api/moments/route.ts");
+      const listed = await GET(new Request("http://travelos.local/api/moments"));
+      assert.equal(listed.status, 200);
+      const listedBody = (await listed.json()) as { content: { moments: unknown[] } };
+      assert.deepEqual(listedBody.content.moments, []);
+      assert.equal(puts.length, 0);
+
+      const createdResponse = await POST(
+        new Request("http://travelos.local/api/moments", {
+          body: JSON.stringify({ note: "cdn-403", time: "2026-08-28T07:00:00.000Z" }),
+          headers: { "content-type": "application/json" },
+          method: "POST",
+        }),
+      );
+      assert.equal(createdResponse.status, 200);
+      const created = (await createdResponse.json()) as { moment: { id: string } };
+      assert.ok(puts.some((pathname) => pathname === `travelos/moments/items/${created.moment.id}.json`));
+    });
+  });
 });
 
 test("overlay prefers item-file photos when the index is missing the moment", () => {
@@ -491,6 +523,28 @@ test("overlay prefers item-file photos when the index is missing the moment", ()
   const merged = overlayMoments([], [item]);
   assert.equal(merged[0]?.id, item.id);
   assert.equal(merged[0]?.photos[0]?.id, "moment_photo_park");
+});
+
+test("listed item files hydrate GET when the index body 403s", async () => {
+  const moment = createTravelMoment({ note: "from-item", time: "2026-08-28T07:00:00.000Z" });
+  const record = { moment, updatedAt: moment.createdAt };
+  const loaded = await momentsFromListedItemBlobs(
+    [
+      { pathname: momentItemBlobPath(moment.id), url: "https://cdn.example/item.json" },
+      { pathname: "travelos/moments/items/moment_blocked.json", url: "https://cdn.example/blocked.json" },
+    ],
+    async (url) => {
+      if (url.endsWith("blocked.json")) {
+        return { statusCode: 403, stream: null };
+      }
+      return { statusCode: 200, stream: new Blob([JSON.stringify(record)]).stream() };
+    },
+  );
+
+  assert.equal(loaded[0]?.id, moment.id);
+  assert.equal(loaded[0]?.note, "from-item");
+  assert.equal(loaded[1]?.id, "moment_blocked");
+  assert.equal(loaded[1]?.note, "");
 });
 
 test("public Lapland stays untouched by per-moment item files", async () => {
