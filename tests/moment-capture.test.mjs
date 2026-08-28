@@ -281,9 +281,8 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(capture, /void startBackgroundAudioUpload\(staged\)/);
   assert.match(capture, /ensureMoment/);
   assert.match(capture, /createMomentSession/);
-  assert.match(capture, /createWorkQueue\(CAPTURE_UPLOAD_CONCURRENCY\)/);
-  assert.match(capture, /photoQueueRef/);
-  assert.match(capture, /photoQueueRef\.current\.enqueue/);
+  assert.doesNotMatch(capture, /createWorkQueue/);
+  assert.doesNotMatch(capture, /photoQueue/);
   assert.match(capture, /retryMoment/);
   assert.match(capture, /captureErrorMessage/);
   assert.match(capture, /captureDumpProgressMessage/);
