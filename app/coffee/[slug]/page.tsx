@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ShareActions } from "@/components/share-actions";
 import { getCoffeeShopBySlug, getCoffeeShopDetailsByVisitDate } from "@/lib/coffee";
 import { readCoffeeContent } from "@/lib/coffee-store";
+import { publicSiteUrl } from "@/lib/site-url";
 import type { CoffeePhoto } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +55,9 @@ export async function generateMetadata({ params }: CoffeeDetailPageProps): Promi
   const description = (shop.lifeNote || shop.comments || `${shop.name} coffee note in ${shop.city}, ${shop.country}`).slice(0, 155);
 
   return {
+    alternates: {
+      canonical: `/coffee/${shop.slug}`,
+    },
     description,
     openGraph: {
       description,
@@ -84,7 +88,7 @@ export default async function CoffeeDetailPage({ params }: CoffeeDetailPageProps
     image: coverPhoto ? [coverPhoto.storageKey] : undefined,
     name: shop.name,
     sameAs: [shop.websiteUrl, shop.mapUrl].filter(Boolean),
-    url: `https://travelos2-63r3.vercel.app/coffee/${shop.slug}`,
+    url: publicSiteUrl(`/coffee/${shop.slug}`),
   };
 
   return (

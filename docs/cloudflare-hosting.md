@@ -71,4 +71,8 @@ Trip/coffee **admin photo upload** routes still import `@vercel/blob`. Without `
 
 ## Cutover
 
-Vercel production stays live. Cloudflare is additive. After a successful Workers deploy (and Owner check of `/family/capture`, `/family/bench`, and the Lapland trip), DNS can move. Do not delete Vercel config in this change.
+Primary public origin is `https://travelos2.chao-jason.workers.dev` (`wrangler.jsonc` `workers_dev: true`). Storefront `metadataBase`, sitemap, robots, JSON-LD, and share links use that origin from `lib/site-url.ts`.
+
+Vercel `https://travelos2-63r3.vercel.app` stays a cold spare. `pnpm run build` and the GitHub → Vercel integration are unchanged. Do not delete Vercel config. Do not set a Vercel dashboard env for the public origin.
+
+No custom domain is configured in this repo (`wrangler.jsonc` has no `routes`). Cutting storefront primary does **not** require DNS. Attach a custom hostname later only if Owner wants an apex/subdomain in front of Workers.

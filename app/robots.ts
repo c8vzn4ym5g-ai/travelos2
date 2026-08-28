@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
+import { PUBLIC_SITE_ORIGIN } from "@/lib/site-url";
 
-const siteUrl = "https://travelos2-63r3.vercel.app";
+const siteUrl = PUBLIC_SITE_ORIGIN;
 
 export default function robots(): MetadataRoute.Robots {
   return {

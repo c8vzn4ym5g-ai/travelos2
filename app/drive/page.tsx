@@ -4,6 +4,9 @@ import { BookingBand } from "@/components/booking-band";
 import { drivePageMetadata, getLaplandBooking, LAPLAND_COVER_PHOTO, LAPLAND_JOURNAL_PATH } from "@/lib/travelpayouts";
 
 export const metadata: Metadata = {
+  alternates: {
+    canonical: "/drive",
+  },
   description: drivePageMetadata.description,
   openGraph: {
     description: drivePageMetadata.description,
