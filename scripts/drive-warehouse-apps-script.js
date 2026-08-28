@@ -1,6 +1,7 @@
 const FOLDER_ID = "1Sk2TqgpF6NxoNYdUKO4h8t84UA7KxChN";
 const TOKEN = "cCpNneNyv0_MTyPjAZMkJ3g69t0DfDE-GP84y26YGhU";
 // Capture display/original binaries use travelos__moments__photos__{momentId}__* names.
+// LockService is for op=index / op=item merge-on-write only. Binary POSTs stay parallel.
 
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
@@ -150,6 +151,47 @@ function withLock_(work) {
   }
 }
 
+function writeIndex_(body) {
+  var incoming = JSON.parse(body.text || "{}");
+  var existing = readIndexObject_();
+  var merged = {
+    jobs: incoming.jobs || existing.jobs || [],
+    moments: mergeMomentLists_(existing.moments, incoming.moments),
+    schemaVersion: incoming.schemaVersion || existing.schemaVersion || 2,
+    updatedAt: new Date().toISOString(),
+  };
+  upsertNamed_("moments.json", JSON.stringify(merged, null, 2), "application/json");
+  return json_({ ok: true, name: "moments.json" });
+}
+
+function writeItem_(body) {
+  var name = String(body.name || "item.json");
+  var incomingItem = JSON.parse(body.text || "{}");
+  var existingItem = {};
+  var itemFiles = folder_().getFilesByName(name);
+  if (itemFiles.hasNext()) {
+    try {
+      existingItem = JSON.parse(itemFiles.next().getBlob().getDataAsString());
+    } catch (err) {
+      existingItem = {};
+    }
+  }
+  var existingMoment = existingItem.moment || existingItem;
+  var incomingMoment = incomingItem.moment || incomingItem;
+  var mergedMoment = mergeMoment_(existingMoment, incomingMoment);
+  var record = { moment: mergedMoment, updatedAt: new Date().toISOString() };
+  upsertNamed_(name, JSON.stringify(record, null, 2), "application/json");
+  return json_({ ok: true, name: name });
+}
+
+function createBinaryFile_(body) {
+  var filename = String(body.name || "file-" + Date.now());
+  var mime = String(body.mimeType || "application/octet-stream");
+  var bytes = Utilities.base64Decode(body.base64);
+  var file = folder_().createFile(Utilities.newBlob(bytes, mime, filename));
+  return json_({ id: file.getId(), name: file.getName() });
+}
+
 function doGet(e) {
   if (!tokenOk_(e)) {
     return json_({ error: "unauthorized" });
@@ -180,45 +222,21 @@ function doPost(e) {
     return json_({ error: "unauthorized" });
   }
   var body = JSON.parse(e.postData.contents);
-  return withLock_(function () {
-    if (body.op === "list") {
-      return json_({ files: listFiles_() });
-    }
-    if (body.op === "index") {
-      var incoming = JSON.parse(body.text || "{}");
-      var existing = readIndexObject_();
-      var merged = {
-        jobs: incoming.jobs || existing.jobs || [],
-        moments: mergeMomentLists_(existing.moments, incoming.moments),
-        schemaVersion: incoming.schemaVersion || existing.schemaVersion || 2,
-        updatedAt: new Date().toISOString(),
-      };
-      upsertNamed_("moments.json", JSON.stringify(merged, null, 2), "application/json");
-      return json_({ ok: true, name: "moments.json" });
-    }
-    if (body.op === "item") {
-      var name = String(body.name || "item.json");
-      var incomingItem = JSON.parse(body.text || "{}");
-      var existingItem = {};
-      var itemFiles = folder_().getFilesByName(name);
-      if (itemFiles.hasNext()) {
-        try {
-          existingItem = JSON.parse(itemFiles.next().getBlob().getDataAsString());
-        } catch (err) {
-          existingItem = {};
-        }
-      }
-      var existingMoment = existingItem.moment || existingItem;
-      var incomingMoment = incomingItem.moment || incomingItem;
-      var mergedMoment = mergeMoment_(existingMoment, incomingMoment);
-      var record = { moment: mergedMoment, updatedAt: new Date().toISOString() };
-      upsertNamed_(name, JSON.stringify(record, null, 2), "application/json");
-      return json_({ ok: true, name: name });
-    }
-    var filename = String(body.name || "file-" + Date.now());
-    var mime = String(body.mimeType || "application/octet-stream");
-    var bytes = Utilities.base64Decode(body.base64);
-    var file = folder_().createFile(Utilities.newBlob(bytes, mime, filename));
-    return json_({ id: file.getId(), name: file.getName() });
-  });
+  if (body.op === "list") {
+    return json_({ files: listFiles_() });
+  }
+  // moments.json / item JSON merge-on-write needs the script lock.
+  // Photo/binary createFile POSTs (no op, or a base64 body) must stay unlocked
+  // so Capture can dump 40 files in parallel without waitLock(30000) throws.
+  if (body.op === "index") {
+    return withLock_(function () {
+      return writeIndex_(body);
+    });
+  }
+  if (body.op === "item") {
+    return withLock_(function () {
+      return writeItem_(body);
+    });
+  }
+  return createBinaryFile_(body);
 }
