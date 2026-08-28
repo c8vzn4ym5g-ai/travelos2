@@ -39,15 +39,21 @@ export function LaplandPublicCut() {
     }
   }, []);
 
-  function handleTapForSound() {
+  function handleTapForSound(event: { preventDefault: () => void; stopPropagation: () => void }) {
+    event.preventDefault();
+    event.stopPropagation();
     const video = videoRef.current;
     if (!video) {
       return;
     }
 
-    void unmuteLaplandHero(video).then(() => {
-      setNeedsTapForSound(false);
-    });
+    void unmuteLaplandHero(video)
+      .then(() => {
+        window.requestAnimationFrame(() => setNeedsTapForSound(false));
+      })
+      .catch(() => {
+        // Keep the cue if the tap did not actually unmute.
+      });
   }
 
   return (

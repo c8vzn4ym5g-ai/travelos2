@@ -33,5 +33,9 @@ export async function startLaplandHeroPlayback(video: HeroVideo): Promise<Laplan
 
 export function unmuteLaplandHero(video: HeroVideo): Promise<void> {
   video.muted = false;
-  return video.play().then(() => undefined);
+  return video.play().then(() => {
+    if (video.muted) {
+      throw new Error("Lapland hero stayed muted");
+    }
+  });
 }

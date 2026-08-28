@@ -57,3 +57,14 @@ test("tap-to-unmute turns sound on during the same gesture", async () => {
   assert.equal(video.muted, false);
   assert.equal(plays, 1);
 });
+
+test("tap-to-unmute fails closed if play() leaves the video muted", async () => {
+  const video = {
+    muted: true,
+    play: async () => {
+      video.muted = true;
+    },
+  };
+
+  await assert.rejects(() => unmuteLaplandHero(video), /stayed muted/);
+});
