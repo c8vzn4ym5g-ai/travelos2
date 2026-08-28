@@ -41,7 +41,11 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
   path copy sit behind a closed `更多 / More` tap. Do not delete locked
   copy. Hero video is `Lapland_那年冬天_WinterWarm_Q.mp4`. Keep
   `Public_Cut.mp4` and `WinterVocal_F.mp4` in the repo as archive; do not
-  delete them. Do not point the hero at F. The frozen
+  delete them. Do not point the hero at F. Default WITH sound: try
+  unmuted `play()` first; on `NotAllowedError` keep the picture moving
+  muted and put `輕點開聲音 / Tap for sound` on the frame itself. After
+  that tap, the cue goes away and sound stays on. Native controls stay so
+  someone who wants silence can mute. The frozen
   poster stays behind the tap, after the video, not above it.
 
 ## Public Lapland journey picture

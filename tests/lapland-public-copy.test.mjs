@@ -238,7 +238,7 @@ test("Lapland public short is the exact Codex cut under Journey, not a substitut
   const heroPath = resolve(root, "public/travelos/lapland", LAPLAND_HERO_VIDEO_FILENAME);
   const publicCutPath = resolve(root, "public/travelos/lapland", LAPLAND_PUBLIC_CUT_FILENAME);
   const vocalArchivePath = resolve(root, "public/travelos/lapland", LAPLAND_WINTER_VOCAL_F_FILENAME);
-  const [hero, heroInfo, publicCut, publicCutInfo, vocalArchive, vocalArchiveInfo, page, cut, still, more, poster] = await Promise.all([
+  const [hero, heroInfo, publicCut, publicCutInfo, vocalArchive, vocalArchiveInfo, page, cut, playback, still, more, poster] = await Promise.all([
     readFile(heroPath),
     stat(heroPath),
     readFile(publicCutPath),
@@ -247,6 +247,7 @@ test("Lapland public short is the exact Codex cut under Journey, not a substitut
     stat(vocalArchivePath),
     readFile(resolve(root, "app/trips/[slug]/page.tsx"), "utf8"),
     readFile(resolve(root, "components/lapland-public-cut.tsx"), "utf8"),
+    readFile(resolve(root, "lib/lapland-hero-playback.ts"), "utf8"),
     readFile(resolve(root, "components/lapland-cut-still.tsx"), "utf8"),
     readFile(resolve(root, "components/lapland-more-cut.tsx"), "utf8"),
     readFile(resolve(root, "public/travelos/maps/lapland-helsinki-poster.jpg")),
@@ -279,10 +280,19 @@ test("Lapland public short is the exact Codex cut under Journey, not a substitut
   assert.match(cut, /LAPLAND_HERO_VIDEO_SRC/);
   assert.doesNotMatch(cut, /LAPLAND_PUBLIC_CUT_SRC|WinterVocal_F|Public_Cut/);
   assert.doesNotMatch(cut, /Pixabay|Last Call For Us|kaazoom|credit/i);
+  assert.match(cut, /["']use client["']/);
   assert.match(cut, /autoPlay/);
-  assert.match(cut, /muted/);
   assert.match(cut, /playsInline/);
   assert.match(cut, /controls/);
+  assert.doesNotMatch(cut, /^\s*muted\s*$/m);
+  assert.match(cut, /startLaplandHeroPlayback/);
+  assert.match(cut, /unmuteLaplandHero/);
+  assert.match(cut, /data-lapland-tap-for-sound=""/);
+  assert.match(cut, /輕點開聲音 \/ Tap for sound/);
+  assert.match(cut, /absolute inset-0/);
+  assert.match(playback, /NotAllowedError/);
+  assert.match(playback, /video\.muted = false/);
+  assert.match(playback, /video\.muted = true/);
   assert.match(cut, /LAPLAND_SEASON_LABEL/);
   assert.doesNotMatch(cut, /2019-12-1[0-5]|36s|60s/);
   assert.doesNotMatch(page, /2019-12-1[0-5]/);
