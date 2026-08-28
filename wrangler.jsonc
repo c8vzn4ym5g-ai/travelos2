@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": ".open-next/worker.js",
+  "name": "travelos2",
+  // 2025-04-01+ is required so wrangler vars/secrets appear on process.env.
+  "compatibility_date": "2026-08-28",
+  "compatibility_flags": [
+    // Node Buffer, process.env, and other Node APIs used by Drive + API routes.
+    "nodejs_compat",
+    // Allow server fetch() to public URLs (Drive Apps Script warehouse).
+    "global_fetch_strictly_public",
+  ],
+  "workers_dev": true,
+  "preview_urls": true,
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "travelos2",
+    },
+  ],
+}

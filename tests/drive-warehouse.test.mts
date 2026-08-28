@@ -8,6 +8,8 @@ import {
   driveObjectName,
   driveStorageKey,
   getBinary,
+  getDriveWarehouseToken,
+  getDriveWarehouseUrl,
   getIndex,
   parseDriveFileId,
   putBinary,
@@ -177,6 +179,42 @@ test("POST JSON to /exec survives a Google 302 by sending the body before follow
 
 test("Drive warehouse live fetch is not used from unit tests", async () => {
   await assert.rejects(() => getIndex(), /disabled in unit tests/);
+});
+
+test("Drive warehouse URL and token can be overridden with server env", async () => {
+  const previousUrl = process.env.TRAVELOS_DRIVE_WAREHOUSE_URL;
+  const previousToken = process.env.TRAVELOS_DRIVE_WAREHOUSE_TOKEN;
+  process.env.TRAVELOS_DRIVE_WAREHOUSE_URL = "https://script.google.com/macros/s/cf-override/exec";
+  process.env.TRAVELOS_DRIVE_WAREHOUSE_TOKEN = "cf-override-token";
+  try {
+    assert.equal(getDriveWarehouseUrl(), "https://script.google.com/macros/s/cf-override/exec");
+    assert.equal(getDriveWarehouseToken(), "cf-override-token");
+    const calls: string[] = [];
+    const fakeFetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      const url = String(input);
+      calls.push(url);
+      assert.equal((init?.method ?? "GET").toUpperCase(), "GET");
+      const parsed = new URL(url);
+      assert.equal(parsed.origin + parsed.pathname, "https://script.google.com/macros/s/cf-override/exec");
+      assert.equal(parsed.searchParams.get("token"), "cf-override-token");
+      return jsonResponse({ jobs: [], moments: [], schemaVersion: 1, updatedAt: "2026-08-28T00:00:00.000Z" });
+    }) as typeof fetch;
+    await getIndex(fakeFetch);
+    assert.equal(calls.length, 1);
+  } finally {
+    if (previousUrl === undefined) {
+      delete process.env.TRAVELOS_DRIVE_WAREHOUSE_URL;
+    } else {
+      process.env.TRAVELOS_DRIVE_WAREHOUSE_URL = previousUrl;
+    }
+    if (previousToken === undefined) {
+      delete process.env.TRAVELOS_DRIVE_WAREHOUSE_TOKEN;
+    } else {
+      process.env.TRAVELOS_DRIVE_WAREHOUSE_TOKEN = previousToken;
+    }
+    assert.equal(getDriveWarehouseUrl(), TRAVELOS_DRIVE_WAREHOUSE_URL);
+    assert.equal(getDriveWarehouseToken(), TRAVELOS_DRIVE_WAREHOUSE_TOKEN);
+  }
 });
 
 test("Drive adapter is server-only and Capture still dumps photos in parallel", async () => {
