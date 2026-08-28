@@ -73,6 +73,8 @@ Trip/coffee **admin photo upload** routes still import `@vercel/blob`. Without `
 
 Primary public origin is `https://travelos2.chao-jason.workers.dev` (`wrangler.jsonc` `workers_dev: true`). Storefront `metadataBase`, sitemap, robots, JSON-LD, and share links use that origin from `lib/site-url.ts`.
 
+Travelpayouts Drive is per-host. Cloudflare / workers.dev loads `https://emrldtp.cc/NTY3NzUw.js?t=567750`. Vercel spare (`*.vercel.app` or `VERCEL=1`) keeps `https://emrldtp.cc/NTUwMzEz.js?t=550313`. Override with server env `TRAVELOS_TRAVELPAYOUTS_DRIVE_SRC` (`567750` or `550313`). Not `NEXT_PUBLIC_*`. No Vercel dashboard change is required.
+
 Vercel `https://travelos2-63r3.vercel.app` stays a cold spare. `pnpm run build` and the GitHub → Vercel integration are unchanged. Do not delete Vercel config. Do not set a Vercel dashboard env for the public origin.
 
 No custom domain is configured in this repo (`wrangler.jsonc` has no `routes`). Cutting storefront primary does **not** require DNS. Attach a custom hostname later only if Owner wants an apex/subdomain in front of Workers.

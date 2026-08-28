@@ -85,6 +85,8 @@ test("storefront canonical origin is Cloudflare workers.dev; Vercel remains a co
   const docs = await readSource("docs/cloudflare-hosting.md");
   assert.match(docs, /travelos2\.chao-jason\.workers\.dev/);
   assert.match(docs, /cold spare/);
+  assert.match(docs, /NTY3NzUw\.js\?t=567750/);
+  assert.match(docs, /NTUwMzEz\.js\?t=550313/);
 });
 
 test("Drive warehouse credentials stay server-only for the Cloudflare path", async () => {
