@@ -50,6 +50,11 @@ pnpm exec wrangler secret put TRAVELOS_DRIVE_WAREHOUSE_URL
 pnpm exec wrangler secret put TRAVELOS_DRIVE_WAREHOUSE_TOKEN
 ```
 
+The receiver source of truth in-repo is `scripts/drive-warehouse-apps-script.js`.
+It must list folder files (`op=list`), merge `photos[]` under LockService on
+index/item writes, and keep binaries named `travelos__moments__photos__*`.
+Deploy a new version of the existing web app (do not change the `/exec` URL).
+
 Wrangler vars/secrets show up on `process.env` because `wrangler.jsonc` uses `compatibility_date` ≥ `2025-04-01` and `nodejs_compat`.
 
 Family PIN stays off unless `TRAVELOS_REQUIRE_FAMILY_PIN=1` is set. Do not set that on Cloudflare until Owner asks.

@@ -1,6 +1,10 @@
 import { BlobAccessError } from "@vercel/blob";
 import { afterResponse } from "@/lib/after-response";
 import {
+  countUniqueDisplayJpegs,
+  rebuildMomentsFromDriveFiles,
+} from "@/lib/drive-photo-index";
+import {
   DriveWarehouseError,
   driveObjectName,
   driveStorageKey,
@@ -10,6 +14,7 @@ import {
   putIndex,
   putItem,
   resetDriveWarehouseForTests,
+  scanWarehouseFiles,
 } from "@/lib/drive-warehouse";
 import { isAdminPinValid } from "@/lib/editable-store";
 import {
@@ -35,12 +40,13 @@ import {
   MOMENT_ITEM_PREFIX,
   MOMENTS_BLOB_PATH,
   MOMENTS_SCHEMA_VERSION,
-  appendMomentPhotos,
   applyMomentPhotoAppends,
+  mergeMomentPhotos,
   momentItemBlobPath,
   normalizeTravelJob,
   normalizeTravelMoment,
   sortMomentsNewestFirst,
+  uniqueMomentsById,
 } from "@/lib/moments";
 import type { MomentPhoto, TravelJob, TravelMoment } from "@/lib/types";
 import {
@@ -61,6 +67,7 @@ export {
 export { momentItemBlobPath } from "@/lib/moments";
 export { setMomentBlobAdapterForTests };
 export { setDriveWarehouseFetchForTests } from "@/lib/drive-warehouse";
+export { rebuildMomentsFromDriveFiles } from "@/lib/drive-photo-index";
 
 export type MomentStoreStatus = {
   configured: boolean;
@@ -197,6 +204,63 @@ async function loadDriveIndex(): Promise<MomentContent> {
   }
 }
 
+async function listedDriveFiles() {
+  try {
+    return await scanWarehouseFiles();
+  } catch {
+    return [];
+  }
+}
+
+function withUniqueMoments(content: MomentContent): MomentContent {
+  return {
+    ...content,
+    moments: uniqueMomentsById(content.moments),
+  };
+}
+
+async function hydrateDriveMoments(moments: TravelMoment[]) {
+  const files = await listedDriveFiles();
+  if (files.length === 0) {
+    return { changed: false, files, moments: uniqueMomentsById(moments) };
+  }
+
+  const rebuilt = rebuildMomentsFromDriveFiles(files, moments);
+  const before = countUniqueDisplayJpegs(uniqueMomentsById(moments));
+  const after = countUniqueDisplayJpegs(rebuilt);
+  const changed =
+    after > before ||
+    rebuilt.length !== uniqueMomentsById(moments).length ||
+    rebuilt.some((moment) => {
+      const current = uniqueMomentsById(moments).find((item) => item.id === moment.id);
+      return (current?.photos.length ?? 0) !== moment.photos.length;
+    });
+  return { changed, files, moments: rebuilt };
+}
+
+async function persistHydratedMoments(moments: TravelMoment[], jobs: TravelJob[]) {
+  const unique = uniqueMomentsById(moments);
+  for (const moment of unique) {
+    await writeMomentItem(moment);
+  }
+  return writeWarehouse(unique, jobs);
+}
+
+export async function rebuildDriveMomentIndex() {
+  return withWarehouseLock(async () => {
+    const { content } = await readMoments({ hydrate: false });
+    const hydrated = await hydrateDriveMoments(content.moments);
+    const saved = await persistHydratedMoments(hydrated.moments, content.jobs);
+    return {
+      content: saved,
+      displayJpegCount: countUniqueDisplayJpegs(saved.moments),
+      fileCount: hydrated.files.length,
+      momentCount: saved.moments.length,
+      rebuilt: hydrated.changed || hydrated.files.length > 0,
+    };
+  });
+}
+
 async function readIndexRaw(): Promise<MomentContent> {
   if (!isMomentWarehouseConfigured()) {
     return withNormalizedContent(getMemoryContent());
@@ -210,11 +274,11 @@ async function readIndexRaw(): Promise<MomentContent> {
       ...getItemCache().values(),
     ]);
     const mergedJobs = lastWrite ? overlayJobs(loaded.jobs, lastWrite.jobs) : loaded.jobs;
-    return {
+    return withUniqueMoments({
       ...loaded,
       jobs: mergedJobs,
       moments: mergedMoments,
-    };
+    });
   }
 
   const loaded = await loadWarehouseFromBlobGet(getMomentJsonBlob);
@@ -243,11 +307,11 @@ async function readIndexRaw(): Promise<MomentContent> {
     }
   }
 
-  return {
+  return withUniqueMoments({
     ...loaded.content,
     jobs: mergedJobs,
     moments: mergedMoments,
-  };
+  });
 }
 
 function overlayJobs(indexJobs: TravelJob[], extraJobs: TravelJob[]) {
@@ -345,12 +409,23 @@ async function syncIndexBestEffort(
   }
 }
 
-export async function readMoments(): Promise<{ content: MomentContent; status: MomentStoreStatus }> {
+export async function readMoments(options: { hydrate?: boolean } = {}): Promise<{ content: MomentContent; status: MomentStoreStatus }> {
   const content = await readIndexRaw();
+  let moments = uniqueMomentsById(overlayMoments(content.moments, [...getItemCache().values()]));
+  const hydrate = options.hydrate !== false && shouldUseDriveWarehouse();
+
+  if (hydrate) {
+    const hydrated = await hydrateDriveMoments(moments);
+    moments = hydrated.moments;
+    if (hydrated.changed) {
+      afterResponse(() => persistHydratedMoments(hydrated.moments, content.jobs));
+    }
+  }
+
   return {
     content: {
       ...content,
-      moments: overlayMoments(content.moments, [...getItemCache().values()]),
+      moments,
     },
     status: {
       configured: isMomentWarehouseConfigured(),
@@ -375,6 +450,12 @@ export async function writeWarehouse(moments: TravelMoment[], jobs: TravelJob[])
   }
 
   if (shouldUseDriveWarehouse()) {
+    try {
+      const latest = await loadDriveIndex();
+      content.moments = uniqueMomentsById(overlayMoments(latest.moments, content.moments));
+    } catch {
+      content.moments = uniqueMomentsById(content.moments);
+    }
     await putIndex(JSON.stringify(content, null, 2));
     return content;
   }
@@ -448,7 +529,7 @@ export async function updateMoment(moment: Partial<TravelMoment> & { id: string 
 
 export async function addJob(job: TravelJob) {
   return withWarehouseLock(async () => {
-    const { content } = await readMoments();
+    const { content } = await readMoments({ hydrate: false });
     if (content.jobs.some((item) => item.id === job.id)) {
       return { conflict: true as const, content };
     }
@@ -461,7 +542,7 @@ export async function addJob(job: TravelJob) {
 
 export async function updateJob(job: TravelJob) {
   return withWarehouseLock(async () => {
-    const { content } = await readMoments();
+    const { content } = await readMoments({ hydrate: false });
     if (!content.jobs.some((item) => item.id === job.id)) {
       return null;
     }
@@ -515,7 +596,7 @@ async function flushPhotoAppends() {
 
         const next = await writeMomentItem({
           ...current,
-          photos: appendMomentPhotos(
+          photos: mergeMomentPhotos(
             current.photos,
             items.map((item) => item.photo),
           ),
@@ -524,13 +605,20 @@ async function flushPhotoAppends() {
         accepted.push(...items);
       }
 
-      const saved =
+      let saved =
         acceptedItems.length > 0
           ? await syncIndexBestEffort(
               acceptedItems,
               accepted.map((item) => ({ momentId: item.momentId, photo: item.photo })),
             )
-          : (await readMoments()).content;
+          : (await readMoments({ hydrate: false })).content;
+
+      if (shouldUseDriveWarehouse() && acceptedItems.length > 0) {
+        const hydrated = await hydrateDriveMoments(saved.moments);
+        if (hydrated.changed) {
+          saved = await persistHydratedMoments(hydrated.moments, saved.jobs);
+        }
+      }
 
       for (const item of accepted) {
         item.resolve(saved);

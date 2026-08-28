@@ -1,4 +1,4 @@
-import { MOMENT_ITEM_PREFIX, momentItemBlobPath, normalizeTravelMoment } from "./moments.ts";
+import { MOMENT_ITEM_PREFIX, mergeTravelMoment, momentItemBlobPath, normalizeTravelMoment } from "./moments.ts";
 import type { TravelMoment } from "./types.ts";
 import { MomentWarehouseUnavailableError, type WarehouseGet, type WarehouseGetResult } from "./warehouse-read.ts";
 
@@ -121,13 +121,37 @@ export function parseMomentItemRecord(raw: unknown): TravelMoment | null {
 }
 
 export function overlayMoments(indexMoments: TravelMoment[], items: TravelMoment[]) {
-  const byId = new Map(indexMoments.map((moment) => [moment.id, normalizeTravelMoment(moment)]));
+  const byId = new Map<string, TravelMoment>();
+  for (const moment of indexMoments) {
+    const current = byId.get(moment.id);
+    byId.set(moment.id, current ? mergeTravelMoment(current, moment) : normalizeTravelMoment(moment));
+  }
   for (const item of items) {
-    byId.set(item.id, normalizeTravelMoment(item));
+    const current = byId.get(item.id);
+    byId.set(item.id, current ? mergeTravelMoment(current, item) : normalizeTravelMoment(item));
   }
 
-  const extra = items.filter((item) => !indexMoments.some((moment) => moment.id === item.id));
-  return [...extra.map((item) => byId.get(item.id) ?? item), ...indexMoments.map((moment) => byId.get(moment.id) ?? moment)];
+  const indexIds = new Set<string>();
+  const indexOrder: TravelMoment[] = [];
+  for (const moment of indexMoments) {
+    if (indexIds.has(moment.id)) {
+      continue;
+    }
+    indexIds.add(moment.id);
+    indexOrder.push(byId.get(moment.id) ?? normalizeTravelMoment(moment));
+  }
+
+  const extra: TravelMoment[] = [];
+  const extraIds = new Set<string>();
+  for (const item of items) {
+    if (indexIds.has(item.id) || extraIds.has(item.id)) {
+      continue;
+    }
+    extraIds.add(item.id);
+    extra.push(byId.get(item.id) ?? normalizeTravelMoment(item));
+  }
+
+  return [...extra, ...indexOrder];
 }
 
 export async function loadMomentItemFromBlobGet(

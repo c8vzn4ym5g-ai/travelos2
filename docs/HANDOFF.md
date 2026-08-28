@@ -1,5 +1,21 @@
 # TravelOS Handoff
 
+## 2026-08-28 Capture Drive photos under-counted in /api/moments
+
+- Root cause: parallel Capture photo POSTs each rewrote `moments.json`
+  / item JSON as a full `photos[]` snapshot. Cloudflare isolates do not
+  share the in-process lock, so last-write-wins dropped siblings. Drive
+  binaries (`travelos__moments__photos__*`) were already there.
+- Fix: union photos when merging moment records. Rebuild the index from
+  Drive photo files (display JPEGs; `original-*` stays original). GET
+  `/api/moments` hydrates from `op=list` when the receiver supports it.
+  One-shot: `POST /api/moments/rebuild` or `pnpm run rebuild:moments-drive`.
+- Paste `scripts/drive-warehouse-apps-script.js` into the existing
+  TravelOS Capture warehouse Apps Script and deploy a new web-app
+  version (same `/exec` URL). That adds `op=list`, LockService, and
+  merge-on-write. Do not put Drive on `/family` public. PIN stays off.
+  Do not unsuspend Blob. Owner does not re-dump.
+
 ## 2026-08-28 Public origin is Cloudflare workers.dev; Vercel is cold spare
 
 - Storefront canonicals (`metadataBase`, sitemap, robots, JSON-LD, share
