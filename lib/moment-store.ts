@@ -44,9 +44,23 @@ export type MomentStoreStatus = {
 
 export { isAdminPinValid };
 
+function isBlobWarehouseReadError(error: unknown) {
+  return (
+    error instanceof Error &&
+    /Vercel Blob:|Failed to fetch blob|403 Forbidden|BlobAccessError/i.test(error.message)
+  );
+}
+
 export function momentApiErrorResponse(error: unknown) {
   if (error instanceof MomentWarehouseUnavailableError) {
     return Response.json({ error: error.message }, { status: 503 });
+  }
+  if (isBlobWarehouseReadError(error)) {
+    const detail = error instanceof Error ? error.message : "blob get failed";
+    return Response.json(
+      { error: detail.startsWith("Could not read") ? detail : `Could not read the moment warehouse. ${detail}` },
+      { status: 503 },
+    );
   }
   throw error;
 }

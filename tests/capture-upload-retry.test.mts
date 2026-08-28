@@ -110,7 +110,7 @@ test("write then immediate uncached blob get sees the new moment", async () => {
   const getWarehouse: WarehouseGet = async (pathname, options) => {
     calls.push({ access: options.access, pathname, useCache: options.useCache });
     assert.equal(pathname, MOMENTS_BLOB_PATH);
-    assert.equal(options.access, "public");
+    assert.equal(options.access, "private");
     assert.equal(options.useCache, false);
     const body = origin.get(pathname);
     if (!body) {
@@ -142,7 +142,7 @@ test("write then immediate uncached blob get sees the new moment", async () => {
   assert.notEqual(staleCdn.get(MOMENTS_BLOB_PATH), origin.get(MOMENTS_BLOB_PATH));
   assert.equal(calls.length > 0, true);
   assert.equal(
-    calls.every((call) => call.useCache === false && call.access === "public"),
+    calls.every((call) => call.useCache === false && call.access === "private"),
     true,
   );
 
@@ -162,7 +162,10 @@ test("write then immediate uncached blob get sees the new moment", async () => {
   const store = await readSource("lib/moment-store.ts");
   const blob = await readSource("lib/moment-blob.ts");
   const readFn = store.slice(store.indexOf("export async function readMoments"), store.indexOf("export async function writeWarehouse"));
-  assert.match(blob, /get\(pathname, options\)/);
+  assert.match(blob, /access: "private", useCache: false/);
+  assert.match(blob, /public\.blob\.vercel-storage\.com/);
+  assert.match(blob, /cache: "no-store"/);
+  assert.doesNotMatch(blob, /authorization:/);
   assert.match(store, /cacheControlMaxAge: 60/);
   assert.match(store, /momentItemBlobPath|writeMomentItem|readMomentItem/);
   assert.match(readFn, /loadWarehouseFromBlobGet|readIndexRaw/);
