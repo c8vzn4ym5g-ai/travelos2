@@ -161,6 +161,10 @@ test("warehouse receiver and Capture store rebuild from Drive photo files, not B
   assert.match(script, /op === "list"/);
   assert.match(script, /mergeMomentLists_/);
   assert.match(script, /travelos__moments__photos__/);
+  assert.match(script, /if \(body\.op === "index"\) \{\s*return withLock_/);
+  assert.match(script, /if \(body\.op === "item"\) \{\s*return withLock_/);
+  assert.match(script, /return createBinaryFile_\(body\)/);
+  assert.doesNotMatch(script, /var body = JSON\.parse\(e\.postData\.contents\);\s*return withLock_/);
   assert.doesNotMatch(bench, /drive-warehouse/);
   assert.doesNotMatch(bench, /scanWarehouseFiles/);
   assert.doesNotMatch(family, /drive-warehouse/);

@@ -230,6 +230,200 @@ test("Drive warehouse URL and token can be overridden with server env", async ()
   }
 });
 
+function extractNamedFunction(source: string, name: string) {
+  const marker = `function ${name}(`;
+  const start = source.indexOf(marker);
+  assert.ok(start >= 0, `missing ${name}`);
+  const brace = source.indexOf("{", start);
+  let depth = 0;
+  for (let i = brace; i < source.length; i += 1) {
+    const ch = source[i];
+    if (ch === "{") {
+      depth += 1;
+    } else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return source.slice(start, i + 1);
+      }
+    }
+  }
+  throw new Error(`unclosed ${name}`);
+}
+
+function stripWithLockCalls(source: string) {
+  const marker = "withLock_(";
+  let out = source;
+  let idx = out.indexOf(marker);
+  while (idx >= 0) {
+    let depth = 1;
+    let end = idx + marker.length;
+    for (let i = end; i < out.length; i += 1) {
+      if (out[i] === "(") {
+        depth += 1;
+      } else if (out[i] === ")") {
+        depth -= 1;
+        if (depth === 0) {
+          end = i + 1;
+          break;
+        }
+      }
+    }
+    if (out[end] === ";") {
+      end += 1;
+    }
+    out = `${out.slice(0, idx)}/*locked*/${out.slice(end)}`;
+    idx = out.indexOf(marker);
+  }
+  return out;
+}
+
+test("Apps Script locks only index/item writes so photo binaries stay parallel", async () => {
+  const script = await readSource("scripts/drive-warehouse-apps-script.js");
+  const doPost = extractNamedFunction(script, "doPost");
+  const withLock = extractNamedFunction(script, "withLock_");
+  const createBinary = extractNamedFunction(script, "createBinaryFile_");
+  const writeIndex = extractNamedFunction(script, "writeIndex_");
+  const writeItem = extractNamedFunction(script, "writeItem_");
+
+  assert.match(withLock, /LockService\.getScriptLock/);
+  assert.match(withLock, /waitLock\(30000\)/);
+  assert.match(writeIndex, /mergeMomentLists_/);
+  assert.match(writeItem, /mergeMoment_/);
+  assert.match(createBinary, /base64Decode\(body\.base64\)/);
+  assert.match(createBinary, /folder_\(\)\.createFile/);
+  assert.doesNotMatch(createBinary, /LockService|waitLock|withLock_/);
+
+  assert.match(doPost, /if \(body\.op === "index"\) \{\s*return withLock_/);
+  assert.match(doPost, /if \(body\.op === "item"\) \{\s*return withLock_/);
+  assert.equal((doPost.match(/withLock_\(/g) ?? []).length, 2);
+  assert.match(doPost, /return createBinaryFile_\(body\)/);
+  assert.doesNotMatch(doPost, /var body = JSON\.parse\(e\.postData\.contents\);\s*return withLock_/);
+
+  const unlocked = stripWithLockCalls(doPost);
+  assert.match(unlocked, /createBinaryFile_\(body\)/);
+  assert.doesNotMatch(unlocked, /writeIndex_|writeItem_/);
+  assert.doesNotMatch(unlocked, /LockService/);
+
+  const lockWaits: number[] = [];
+  const created: string[] = [];
+  let lockHeld = false;
+  const emptyIter = () => ({ hasNext: () => false, next: () => null });
+  const apps = {
+    ContentService: {
+      MimeType: { JSON: "application/json" },
+      createTextOutput(text: string) {
+        return { setMimeType() { return text; } };
+      },
+    },
+    DriveApp: {
+      getFolderById() {
+        return {
+          getFiles: emptyIter,
+          getFilesByName: emptyIter,
+          createFile(blob: { name: string }) {
+            created.push(blob.name);
+            return { getId: () => `file_${created.length}`, getName: () => blob.name };
+          },
+        };
+      },
+    },
+    LockService: {
+      getScriptLock() {
+        return {
+          waitLock(ms: number) {
+            lockWaits.push(ms);
+            if (lockHeld) {
+              throw new Error(`Could not obtain lock after ${ms}ms.`);
+            }
+            lockHeld = true;
+          },
+          releaseLock() {
+            lockHeld = false;
+          },
+        };
+      },
+    },
+    Utilities: {
+      base64Decode() {
+        return [1, 2, 3];
+      },
+      newBlob(_contents: unknown, _mimeType: string, name: string) {
+        return { name };
+      },
+    },
+  };
+  const loaded = new Function(
+    "ContentService",
+    "DriveApp",
+    "LockService",
+    "Utilities",
+    `${script}\nreturn { doPost, TOKEN };`,
+  )(apps.ContentService, apps.DriveApp, apps.LockService, apps.Utilities) as {
+    TOKEN: string;
+    doPost: (e: { parameter: { token: string }; postData: { contents: string } }) => string;
+  };
+
+  lockHeld = true;
+  for (let i = 0; i < 40; i += 1) {
+    const result = JSON.parse(
+      loaded.doPost({
+        parameter: { token: loaded.TOKEN },
+        postData: {
+          contents: JSON.stringify({
+            base64: "AQID",
+            mimeType: "image/jpeg",
+            name: `travelos__moments__photos__moment_dump__${i}.jpg`,
+          }),
+        },
+      }),
+    ) as { id?: string; name?: string };
+    assert.equal(result.name, `travelos__moments__photos__moment_dump__${i}.jpg`);
+    assert.ok(result.id);
+  }
+  assert.equal(created.length, 40);
+  assert.equal(lockWaits.length, 0);
+
+  lockHeld = false;
+  const indexResult = JSON.parse(
+    loaded.doPost({
+      parameter: { token: loaded.TOKEN },
+      postData: {
+        contents: JSON.stringify({ op: "index", text: JSON.stringify({ jobs: [], moments: [] }) }),
+      },
+    }),
+  ) as { name?: string; ok?: boolean };
+  assert.equal(indexResult.ok, true);
+  assert.equal(indexResult.name, "moments.json");
+  assert.equal(lockWaits.length, 1);
+
+  const itemResult = JSON.parse(
+    loaded.doPost({
+      parameter: { token: loaded.TOKEN },
+      postData: {
+        contents: JSON.stringify({
+          name: "travelos__moments__items__moment_dump.json",
+          op: "item",
+          text: JSON.stringify({ moment: { id: "moment_dump", photos: [] } }),
+        }),
+      },
+    }),
+  ) as { name?: string; ok?: boolean };
+  assert.equal(itemResult.ok, true);
+  assert.equal(lockWaits.length, 2);
+
+  lockHeld = true;
+  assert.throws(
+    () =>
+      loaded.doPost({
+        parameter: { token: loaded.TOKEN },
+        postData: {
+          contents: JSON.stringify({ op: "index", text: JSON.stringify({ jobs: [], moments: [] }) }),
+        },
+      }),
+    /Could not obtain lock after 30000ms/,
+  );
+});
+
 test("Drive adapter is server-only and Capture still dumps photos in parallel", async () => {
   const [store, blob, photosApi, audioApi, capture, upload, drive, write, tripsContent] = await Promise.all([
     readSource("lib/moment-store.ts"),
@@ -266,7 +460,7 @@ test("Drive adapter is server-only and Capture still dumps photos in parallel", 
   assert.match(audioApi, /storeMomentBinary/);
   assert.match(audioApi, /isTrustedMomentAudioUrl/);
   assert.match(upload, /CAPTURE_DUMP_LIMIT = 40/);
-  assert.doesNotMatch(capture, /createWorkQueue/);
+  assert.match(capture, /createWorkQueue\(CAPTURE_UPLOAD_CONCURRENCY\)/);
   assert.match(write, /"blob" \| "drive" \| "memory"/);
   assert.match(tripsContent, /readContent/);
   assert.doesNotMatch(tripsContent, /drive-warehouse/);
