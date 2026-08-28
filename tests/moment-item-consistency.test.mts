@@ -94,6 +94,36 @@ function testPhoto(momentId: string, id = "moment_photo_park"): MomentPhoto {
   };
 }
 
+function jpegWithExifThumbnail(thumb: Uint8Array) {
+  const jpegAt = 44;
+  const tiff = Buffer.alloc(jpegAt + thumb.length);
+  tiff[0] = 0x4d;
+  tiff[1] = 0x4d;
+  tiff.writeUInt16BE(42, 2);
+  tiff.writeUInt32BE(8, 4);
+  tiff.writeUInt16BE(0, 8);
+  tiff.writeUInt32BE(14, 10);
+  tiff.writeUInt16BE(2, 14);
+  tiff.writeUInt16BE(0x0201, 16);
+  tiff.writeUInt16BE(4, 18);
+  tiff.writeUInt32BE(1, 20);
+  tiff.writeUInt32BE(jpegAt, 24);
+  tiff.writeUInt16BE(0x0202, 28);
+  tiff.writeUInt16BE(4, 30);
+  tiff.writeUInt32BE(1, 32);
+  tiff.writeUInt32BE(thumb.length, 36);
+  tiff.writeUInt32BE(0, 40);
+  Buffer.from(thumb).copy(tiff, jpegAt);
+
+  const app1Payload = Buffer.concat([Buffer.from("Exif\0\0"), tiff]);
+  const app1Length = app1Payload.length + 2;
+  return Buffer.concat([
+    Buffer.from([0xff, 0xd8, 0xff, 0xe1, (app1Length >> 8) & 0xff, app1Length & 0xff]),
+    app1Payload,
+    Buffer.from([0xff, 0xd9]),
+  ]);
+}
+
 function withPinEnv(required: string | undefined, run: () => Promise<void>) {
   const previous = process.env.TRAVELOS_REQUIRE_FAMILY_PIN;
   if (required === undefined) {
@@ -638,6 +668,274 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
       );
       assert.equal(audioGet.status, 200);
       assert.equal(urls.some((url) => url.includes("blob.vercel-storage.com")), false);
+    });
+  });
+
+  test("photo GET hydrates Drive files so rebuilt photo ids are not 404", async () => {
+    await withPinEnv(undefined, async () => {
+      const momentId = "moment_1787928443329_3823s1";
+      const fileId = "1dQ9zJGeuGtkMSDsnTPcvQrL4ac4IJhk6";
+      const rebuiltId = `moment_photo_drive_${fileId.replace(/[^A-Za-z0-9]/g, "").slice(0, 24)}`;
+      const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9, 0x11, 0x22, 0x33, 0x44]);
+      const nestedThumb = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9, 0xde, 0xad]);
+      const files = new Map<string, { base64: string; mimeType: string; name: string }>([
+        [
+          fileId,
+          {
+            base64: Buffer.from(jpeg).toString("base64"),
+            mimeType: "image/jpeg",
+            name: `travelos__moments__photos__${momentId}__1787928457686-IMG_0871.jpeg`,
+          },
+        ],
+      ]);
+      const thumbs = new Map<string, Uint8Array>([[fileId, nestedThumb]]);
+
+      const staleMoment = createTravelMoment({
+        note: "edinburgh trip, write a travel blog",
+        time: "2026-08-28T14:47:23.328Z",
+      });
+      staleMoment.id = momentId;
+      staleMoment.photos = [
+        {
+          coordinates: null,
+          createdAt: staleMoment.createdAt,
+          id: "moment_photo_old_upload",
+          momentId,
+          originalFilename: "IMG_0871.jpeg",
+          originalStorageKey: null,
+          storageKey: "drive:stale-old-id",
+          takenAt: staleMoment.createdAt,
+        },
+      ];
+      const indexText = JSON.stringify({
+        jobs: [],
+        moments: [staleMoment],
+        schemaVersion: 2,
+        updatedAt: "2026-08-28T14:47:23.328Z",
+      });
+
+      setDriveWarehouseFetchForTests((async (input, init) => {
+        const url = String(input);
+        const method = (init?.method ?? "GET").toUpperCase();
+        if (method === "GET") {
+          const parsed = new URL(url);
+          if (parsed.searchParams.get("op") === "index") {
+            return new Response(indexText, { headers: { "content-type": "application/json" } });
+          }
+          if (parsed.searchParams.get("op") === "list") {
+            return Response.json({
+              files: [...files.entries()].map(([id, file]) => ({
+                id,
+                mimeType: file.mimeType,
+                name: file.name,
+              })),
+            });
+          }
+          const id = parsed.searchParams.get("id") ?? "";
+          if (parsed.searchParams.get("op") === "thumb") {
+            const thumb = thumbs.get(id);
+            if (!thumb) {
+              return Response.json({ error: "no thumbnail", id });
+            }
+            return Response.json({
+              id,
+              mimeType: "image/jpeg",
+              name: files.get(id)?.name ?? id,
+              base64: Buffer.from(thumb).toString("base64"),
+            });
+          }
+          const file = files.get(id);
+          if (!file) {
+            return new Response("not found", { status: 404 });
+          }
+          return Response.json({ id, ...file });
+        }
+        return Response.json({ ok: true, name: "ignored" });
+      }) as typeof fetch);
+
+      const photos = await import("../app/api/moments/photos/route.ts");
+      const missing = await photos.GET(
+        new Request(`http://travelos.local/api/moments/photos?momentId=${momentId}&photoId=moment_photo_missing`),
+      );
+      assert.equal(missing.status, 404);
+      assert.deepEqual(await missing.json(), { error: "Photo not found", reason: "missing-photo" });
+
+      const photoGet = await photos.GET(
+        new Request(`http://travelos.local/api/moments/photos?momentId=${momentId}&photoId=${rebuiltId}`),
+      );
+      assert.equal(photoGet.status, 200);
+      assert.equal(photoGet.headers.get("content-type"), "image/jpeg");
+      assert.deepEqual([...new Uint8Array(await photoGet.arrayBuffer())], [...jpeg]);
+
+      const thumbGet = await photos.GET(
+        new Request(
+          `http://travelos.local/api/moments/photos?momentId=${momentId}&photoId=${rebuiltId}&variant=thumb`,
+        ),
+      );
+      assert.equal(thumbGet.status, 200);
+      assert.equal(thumbGet.headers.get("content-type"), "image/jpeg");
+      const thumbBytes = new Uint8Array(await thumbGet.arrayBuffer());
+      assert.deepEqual([...thumbBytes], [...nestedThumb]);
+      assert.ok(thumbBytes.length < jpeg.length);
+    });
+  });
+
+  test("photo GET uses listing file id when index and Drive list are stale, and splits missing-photo from binary-miss", async () => {
+    await withPinEnv(undefined, async () => {
+      const momentId = "moment_1787928443329_3823s1";
+      const fileId = "1dQ9zJGeuGtkMSDsnTPcvQrL4ac4IJhk6";
+      const rebuiltId = `moment_photo_drive_${fileId.replace(/[^A-Za-z0-9]/g, "").slice(0, 24)}`;
+      const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9, 0x11, 0x22, 0x33, 0x44]);
+      const files = new Map<string, { base64: string; mimeType: string; name: string }>([
+        [
+          fileId,
+          {
+            base64: Buffer.from(jpeg).toString("base64"),
+            mimeType: "image/jpeg",
+            name: `travelos__moments__photos__${momentId}__1787928457686-IMG_0871.jpeg`,
+          },
+        ],
+      ]);
+
+      const staleMoment = createTravelMoment({
+        note: "edinburgh trip, write a travel blog",
+        time: "2026-08-28T14:47:23.328Z",
+      });
+      staleMoment.id = momentId;
+      staleMoment.photos = [
+        {
+          coordinates: null,
+          createdAt: staleMoment.createdAt,
+          id: "moment_photo_old_upload",
+          momentId,
+          originalFilename: "IMG_0871.jpeg",
+          originalStorageKey: null,
+          storageKey: "drive:stale-old-id",
+          takenAt: staleMoment.createdAt,
+        },
+      ];
+      const indexText = JSON.stringify({
+        jobs: [],
+        moments: [staleMoment],
+        schemaVersion: 2,
+        updatedAt: "2026-08-28T15:02:28.959Z",
+      });
+
+      setDriveWarehouseFetchForTests((async (input, init) => {
+        const url = String(input);
+        const method = (init?.method ?? "GET").toUpperCase();
+        if (method === "GET") {
+          const parsed = new URL(url);
+          if (parsed.searchParams.get("op") === "index") {
+            return new Response(indexText, { headers: { "content-type": "application/json" } });
+          }
+          if (parsed.searchParams.get("op") === "list") {
+            return Response.json({ files: [] });
+          }
+          const id = parsed.searchParams.get("id") ?? "";
+          const file = files.get(id);
+          if (!file) {
+            return new Response("not found", { status: 404 });
+          }
+          return Response.json({ id, ...file });
+        }
+        return Response.json({ ok: true, name: "ignored" });
+      }) as typeof fetch);
+
+      const photos = await import("../app/api/moments/photos/route.ts");
+      const withoutFile = await photos.GET(
+        new Request(`http://travelos.local/api/moments/photos?momentId=${momentId}&photoId=${rebuiltId}`),
+      );
+      assert.equal(withoutFile.status, 404);
+      assert.deepEqual(await withoutFile.json(), { error: "Photo not found", reason: "missing-photo" });
+
+      const mismatchedFile = await photos.GET(
+        new Request(
+          `http://travelos.local/api/moments/photos?momentId=${momentId}&photoId=${rebuiltId}&file=other-file-id`,
+        ),
+      );
+      assert.equal(mismatchedFile.status, 404);
+      assert.deepEqual(await mismatchedFile.json(), { error: "Photo not found", reason: "missing-photo" });
+
+      const withFile = await photos.GET(
+        new Request(
+          `http://travelos.local/api/moments/photos?momentId=${momentId}&photoId=${rebuiltId}&file=${fileId}`,
+        ),
+      );
+      assert.equal(withFile.status, 200);
+      assert.equal(withFile.headers.get("content-type"), "image/jpeg");
+      assert.deepEqual([...new Uint8Array(await withFile.arrayBuffer())], [...jpeg]);
+
+      files.delete(fileId);
+      const binaryMiss = await photos.GET(
+        new Request(
+          `http://travelos.local/api/moments/photos?momentId=${momentId}&photoId=${rebuiltId}&file=${fileId}`,
+        ),
+      );
+      assert.equal(binaryMiss.status, 503);
+      assert.deepEqual(await binaryMiss.json(), { error: "Could not read photo bytes", reason: "binary-miss" });
+    });
+  });
+
+  test("thumb GET reuses a full Drive JPEG when op=thumb is ignored and returns the EXIF nested JPEG", async () => {
+    await withPinEnv(undefined, async () => {
+      const momentId = "moment_1787928443329_3823s1";
+      const fileId = "1dQ9zJGeuGtkMSDsnTPcvQrL4ac4IJhk6";
+      const rebuiltId = `moment_photo_drive_${fileId.replace(/[^A-Za-z0-9]/g, "").slice(0, 24)}`;
+      const nestedThumb = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9, 0xde, 0xad]);
+      const jpeg = jpegWithExifThumbnail(nestedThumb);
+      let binaryGets = 0;
+
+      const staleMoment = createTravelMoment({
+        note: "edinburgh trip, write a travel blog",
+        time: "2026-08-28T14:47:23.328Z",
+      });
+      staleMoment.id = momentId;
+      const indexText = JSON.stringify({
+        jobs: [],
+        moments: [staleMoment],
+        schemaVersion: 2,
+        updatedAt: "2026-08-28T15:02:28.959Z",
+      });
+
+      setDriveWarehouseFetchForTests((async (input, init) => {
+        const url = String(input);
+        const method = (init?.method ?? "GET").toUpperCase();
+        if (method === "GET") {
+          const parsed = new URL(url);
+          if (parsed.searchParams.get("op") === "index") {
+            return new Response(indexText, { headers: { "content-type": "application/json" } });
+          }
+          if (parsed.searchParams.get("op") === "list") {
+            return Response.json({ files: [] });
+          }
+          const id = parsed.searchParams.get("id") ?? "";
+          if (id !== fileId) {
+            return new Response("not found", { status: 404 });
+          }
+          binaryGets += 1;
+          return Response.json({
+            id,
+            mimeType: "image/jpeg",
+            name: `travelos__moments__photos__${momentId}__1787928457686-IMG_0871.jpeg`,
+            base64: Buffer.from(jpeg).toString("base64"),
+          });
+        }
+        return Response.json({ ok: true, name: "ignored" });
+      }) as typeof fetch);
+
+      const photos = await import("../app/api/moments/photos/route.ts");
+      const thumbGet = await photos.GET(
+        new Request(
+          `http://travelos.local/api/moments/photos?momentId=${momentId}&photoId=${rebuiltId}&variant=thumb&file=${fileId}`,
+        ),
+      );
+      assert.equal(thumbGet.status, 200);
+      assert.equal(thumbGet.headers.get("content-type"), "image/jpeg");
+      const thumbBytes = new Uint8Array(await thumbGet.arrayBuffer());
+      assert.deepEqual([...thumbBytes], [...nestedThumb]);
+      assert.ok(thumbBytes.length < jpeg.length);
+      assert.equal(binaryGets, 1);
     });
   });
 });

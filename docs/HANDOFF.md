@@ -1,5 +1,20 @@
 # TravelOS Handoff
 
+## 2026-08-28 Family 工作台 Drive photo thumbs 404
+
+- GET `/api/moments` hydrates `photos[]` from Drive files (`moment_photo_drive_*`
+  ids). Photo GET used `getMomentById` on the raw index / first duplicate,
+  whose `photos[]` still had Capture upload ids, so bench `img` src 404'd
+  `Photo not found` while filenames listed fine.
+- Fix: photo GET hydrates the same Drive file list, matches rebuilt Drive
+  ids (and storageKey), and `/family/bench` loads `variant=thumb`. Thumbs
+  prefer Apps Script `op=thumb` (Drive `getThumbnail`) or the JPEG's EXIF
+  thumbnail so a card with 18 photos does not fetch 18 full 2–4MB files.
+  Missing bytes are 503, not the same 404.
+- Same warehouse folder. Drive stays off `/family` public. PIN stays off.
+  Owner does not re-dump. Optional: paste `scripts/drive-warehouse-apps-script.js`
+  again for `op=thumb`; Worker still returns a JPEG without that paste.
+
 ## 2026-08-28 Capture Drive photos under-counted in /api/moments
 
 - Root cause: parallel Capture photo POSTs each rewrote `moments.json`

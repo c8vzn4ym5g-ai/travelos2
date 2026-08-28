@@ -207,6 +207,22 @@ function doGet(e) {
   if (!id) {
     return json_({ error: "missing id" });
   }
+  if (op === "thumb") {
+    var thumbFile = DriveApp.getFileById(id);
+    var thumbBlob = null;
+    try {
+      thumbBlob = thumbFile.getThumbnail();
+    } catch (err) {}
+    if (!thumbBlob) {
+      return json_({ error: "no thumbnail", id: id });
+    }
+    return json_({
+      id: id,
+      name: thumbFile.getName(),
+      mimeType: thumbBlob.getContentType() || "image/jpeg",
+      base64: Utilities.base64Encode(thumbBlob.getBytes()),
+    });
+  }
   var file = DriveApp.getFileById(id);
   var blob = file.getBlob();
   return json_({

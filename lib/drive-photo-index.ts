@@ -1,4 +1,4 @@
-import { driveStorageKey } from "@/lib/drive-warehouse";
+import { driveStorageKey, parseDriveFileId } from "@/lib/drive-warehouse";
 import {
   displayPhotoStem,
   mergeMomentPhotos,
@@ -87,12 +87,55 @@ export function isDriveDisplayJpeg(file: ParsedDrivePhotoFile) {
   return /\.jpe?g$/i.test(file.filename);
 }
 
+export function drivePhotoRecordId(fileId: string) {
+  return `moment_photo_drive_${fileId.replace(/[^A-Za-z0-9]/g, "").slice(0, 24)}`;
+}
+
+export function photoFromDriveFileId(momentId: string, photoId: string, fileId: string): MomentPhoto | null {
+  const id = fileId.trim();
+  if (!id || !momentId.trim() || !photoId.trim()) {
+    return null;
+  }
+  if (drivePhotoRecordId(id) !== photoId) {
+    return null;
+  }
+
+  return {
+    coordinates: null,
+    createdAt: "1970-01-01T00:00:00.000Z",
+    id: photoId,
+    momentId,
+    originalFilename: "photo.jpg",
+    originalStorageKey: null,
+    storageKey: driveStorageKey(id),
+    takenAt: "1970-01-01T00:00:00.000Z",
+  };
+}
+
+export function findMomentPhoto(moment: TravelMoment | null | undefined, photoId: string): MomentPhoto | null {
+  if (!moment || !photoId) {
+    return null;
+  }
+
+  const exact = moment.photos.find((item) => item.id === photoId);
+  if (exact) {
+    return exact;
+  }
+
+  return (
+    moment.photos.find((item) => {
+      const fileId = parseDriveFileId(item.storageKey ?? "");
+      return Boolean(fileId && drivePhotoRecordId(fileId) === photoId);
+    }) ?? null
+  );
+}
+
 function photoFromDriveFile(file: ParsedDrivePhotoFile, createdAt: string): MomentPhoto {
   const storageKey = driveStorageKey(file.id);
   return {
     coordinates: null,
     createdAt,
-    id: `moment_photo_drive_${file.id.replace(/[^A-Za-z0-9]/g, "").slice(0, 24)}`,
+    id: drivePhotoRecordId(file.id),
     momentId: file.momentId,
     originalFilename: file.filename,
     originalStorageKey: null,

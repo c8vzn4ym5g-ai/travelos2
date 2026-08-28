@@ -16,6 +16,7 @@ import {
   putIndex,
   putItem,
   scanWarehouseFiles,
+  setDriveWarehouseFetchForTests,
 } from "../lib/drive-warehouse.ts";
 import { createTravelMoment } from "../lib/moments.ts";
 
@@ -157,6 +158,31 @@ test("getIndex, putIndex, putItem, putBinary, and getBinary use a fake fetch", a
     calls.some((call) => call.url.startsWith("https://script.google.com/") && call.method === "POST"),
     true,
   );
+});
+
+test("getBinary runs at most two Drive file GETs at a time", async () => {
+  let started = 0;
+  let maxStarted = 0;
+  setDriveWarehouseFetchForTests((async (input) => {
+    const parsed = new URL(String(input));
+    started += 1;
+    maxStarted = Math.max(maxStarted, started);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    started -= 1;
+    return Response.json({
+      id: parsed.searchParams.get("id") ?? "file",
+      mimeType: "image/jpeg",
+      name: "photo.jpg",
+      base64: Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString("base64"),
+    });
+  }) as typeof fetch);
+
+  try {
+    await Promise.all([getBinary("a"), getBinary("b"), getBinary("c"), getBinary("d")]);
+    assert.ok(maxStarted <= 2);
+  } finally {
+    setDriveWarehouseFetchForTests(null);
+  }
 });
 
 test("POST JSON to /exec survives a Google 302 by sending the body before following", async () => {
@@ -443,6 +469,9 @@ test("Drive adapter is server-only and Capture still dumps photos in parallel", 
   assert.match(drive, /export async function putItem/);
   assert.match(drive, /export async function putBinary/);
   assert.match(drive, /export async function getBinary/);
+  assert.match(drive, /options.op/);
+  assert.match(drive, /DRIVE_BINARY_CONCURRENCY = 2/);
+  assert.match(drive, /withDriveBinarySlot/);
   assert.match(drive, /export async function scanWarehouseFiles/);
   assert.match(drive, /redirect: "manual"/);
   assert.doesNotMatch(drive, /NEXT_PUBLIC/);
@@ -450,13 +479,17 @@ test("Drive adapter is server-only and Capture still dumps photos in parallel", 
   assert.match(store, /putItem\(/);
   assert.match(store, /putIndex\(/);
   assert.match(store, /putBinary\(/);
+  assert.match(store, /resolveMomentPhoto/);
   assert.match(store, /driveStorageKey/);
   assert.doesNotMatch(store, /putWithStoreAccess/);
   assert.doesNotMatch(store, /isBlobConfigured\(\)/);
   assert.match(blob, /parseDriveFileId/);
   assert.match(blob, /getBinary/);
+  assert.match(blob, /readMomentThumbBytes/);
+  assert.match(blob, /op: "thumb"/);
   assert.match(photosApi, /storeMomentBinary/);
   assert.match(photosApi, /readMomentBlobBytes/);
+  assert.match(photosApi, /readMomentThumbBytes/);
   assert.match(audioApi, /storeMomentBinary/);
   assert.match(audioApi, /isTrustedMomentAudioUrl/);
   assert.match(upload, /CAPTURE_DUMP_LIMIT = 40/);

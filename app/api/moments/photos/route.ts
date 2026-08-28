@@ -1,11 +1,12 @@
+import { photoFromDriveFileId } from "@/lib/drive-photo-index";
 import { isUploadBlob, uploadFilename } from "@/lib/form-upload";
-import { readMomentBlobBytes } from "@/lib/moment-blob";
+import { readMomentBlobBytes, readMomentThumbBytes } from "@/lib/moment-blob";
 import {
   addPhotoToMoment,
-  getMomentById,
   isAdminPinValid,
   momentApiErrorResponse,
   removePhotoFromMoment,
+  resolveMomentPhoto,
   scheduleMomentIndex,
   setPhotoOriginal,
   storeMomentBinary,
@@ -14,6 +15,7 @@ import { makeMomentId } from "@/lib/moments";
 import type { GeoPoint, MomentPhoto } from "@/lib/types";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 function cleanFilename(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-");
@@ -44,28 +46,36 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const momentId = url.searchParams.get("momentId")?.trim() ?? "";
     const photoId = url.searchParams.get("photoId")?.trim() ?? "";
+    const fileId = url.searchParams.get("file")?.trim() ?? "";
+    const variant = url.searchParams.get("variant")?.trim() === "thumb" ? "thumb" : "display";
     if (!momentId || !photoId) {
       return Response.json({ error: "Moment and photo are required" }, { status: 400 });
     }
 
-    const moment = await getMomentById(momentId);
-    const photo = moment?.photos.find((item) => item.id === photoId);
+    const fromListing = fileId ? photoFromDriveFileId(momentId, photoId, fileId) : null;
+    const resolved = await resolveMomentPhoto(momentId, photoId);
+    const photo = resolved
+      ? fromListing
+        ? { ...resolved, storageKey: fromListing.storageKey }
+        : resolved
+      : fromListing;
     const storageKey = photo?.storageKey?.trim() ?? "";
-    if (!storageKey) {
-      return Response.json({ error: "Photo not found" }, { status: 404 });
+    if (!photo || !storageKey) {
+      return Response.json({ error: "Photo not found", reason: "missing-photo" }, { status: 404 });
     }
 
-    const loaded = await readMomentBlobBytes(storageKey);
+    const loaded =
+      variant === "thumb" ? await readMomentThumbBytes(storageKey) : await readMomentBlobBytes(storageKey);
     if (!loaded) {
-      return Response.json({ error: "Photo not found" }, { status: 404 });
+      return Response.json({ error: "Could not read photo bytes", reason: "binary-miss" }, { status: 503 });
     }
 
-    const filename = photo?.originalFilename || "photo.jpg";
+    const filename = photo?.originalFilename || (variant === "thumb" ? "thumb.jpg" : "photo.jpg");
     const contentType =
       loaded.contentType || (filename.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg");
     return new Response(Buffer.from(loaded.bytes), {
       headers: {
-        "Cache-Control": "private, max-age=60",
+        "Cache-Control": variant === "thumb" ? "private, max-age=86400" : "private, max-age=60",
         "Content-Disposition": `inline; filename="${filename.replace(/"/g, "")}"`,
         "Content-Type": contentType,
         "X-Content-Type-Options": "nosniff",

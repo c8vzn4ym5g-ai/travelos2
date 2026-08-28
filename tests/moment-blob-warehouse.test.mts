@@ -41,6 +41,14 @@ test("warehouse JSON reads and writes prefer the private store", () => {
   assert.equal(shouldFallBackToPublicBlob(new Error("Vercel Blob: Failed to fetch blob: 403 Forbidden")), true);
   assert.equal(shouldFallBackToPublicBlob(new Error("origin down")), false);
   assert.equal(momentPhotoPlayUrl("moment_1", "photo_2"), "/api/moments/photos?momentId=moment_1&photoId=photo_2");
+  assert.equal(
+    momentPhotoPlayUrl("moment_1", "photo_2", { variant: "thumb" }),
+    "/api/moments/photos?momentId=moment_1&photoId=photo_2&variant=thumb",
+  );
+  assert.equal(
+    momentPhotoPlayUrl("moment_1", "photo_2", { fileId: "1abc", variant: "thumb" }),
+    "/api/moments/photos?momentId=moment_1&photoId=photo_2&variant=thumb&file=1abc",
+  );
 });
 
 test("private get 403 rewrites a public head URL onto the private origin", async () => {
@@ -212,13 +220,14 @@ test("list+fetch 403 is an empty warehouse, not a 503", async () => {
 });
 
 test("live warehouse reader lists then fetches, keeps parallel Capture POSTs, and family photo proxy", async () => {
-  const [blob, store, capture, upload, photosApi, bench, write, transcript] = await Promise.all([
+  const [blob, store, capture, upload, photosApi, bench, benchPhoto, write, transcript] = await Promise.all([
     readSource("lib/moment-blob.ts"),
     readSource("lib/moment-store.ts"),
     readSource("app/family/capture/page.tsx"),
     readSource("lib/capture-upload.ts"),
     readSource("app/api/moments/photos/route.ts"),
     readSource("app/family/bench/page.tsx"),
+    readSource("app/family/bench/bench-photo.tsx"),
     readSource("app/trips/write/page.tsx"),
     readSource("lib/moment-transcript.ts"),
   ]);
@@ -238,7 +247,14 @@ test("live warehouse reader lists then fetches, keeps parallel Capture POSTs, an
   assert.doesNotMatch(store, /list\(/);
   assert.match(photosApi, /export async function GET/);
   assert.match(photosApi, /readMomentBlobBytes/);
-  assert.match(bench, /momentPhotoPlayUrl/);
+  assert.match(photosApi, /readMomentThumbBytes/);
+  assert.match(photosApi, /resolveMomentPhoto/);
+  assert.match(photosApi, /photoFromDriveFileId/);
+  assert.match(photosApi, /reason: "missing-photo"/);
+  assert.match(photosApi, /reason: "binary-miss"/);
+  assert.match(bench, /BenchPhotoThumb/);
+  assert.match(benchPhoto, /variant: "thumb"/);
+  assert.match(benchPhoto, /fileId/);
   assert.match(write, /momentPhotoPlayUrl/);
   assert.match(transcript, /readMomentBlobBytes/);
   assert.match(capture, /void startBackgroundPhotoUpload\(photo\)/);

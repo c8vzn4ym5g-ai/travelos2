@@ -5,7 +5,10 @@ import test from "node:test";
 import {
   countUniqueDisplayJpegs,
   countUniqueDriveDisplayJpegs,
+  drivePhotoRecordId,
+  findMomentPhoto,
   isDriveDisplayJpeg,
+  photoFromDriveFileId,
   parseDriveAudioObjectName,
   parseDriveItemObjectName,
   parseDrivePhotoObjectName,
@@ -139,13 +142,32 @@ test("duplicate filename photos collapse to one display jpeg", () => {
   assert.equal(merged[0]?.originalFilename, "IMG_1359.jpeg");
 });
 
+test("bench photo ids resolve by rebuilt Drive file id, not only the index photos[] id", () => {
+  const fileId = "1dQ9zJGeuGtkMSDsnTPcvQrL4ac4IJhk6";
+  const rebuiltId = drivePhotoRecordId(fileId);
+  assert.equal(rebuiltId, "moment_photo_drive_1dQ9zJGeuGtkMSDsnTPcvQrL");
+
+  const momentId = "moment_1787928443329_3823s1";
+  const stale = createTravelMoment({ note: "edinburgh trip, write a travel blog", time: "2026-08-28T14:47:23.328Z" });
+  stale.id = momentId;
+  stale.photos = [photo(momentId, "moment_photo_old_upload", "IMG_0871.jpeg", `drive:${fileId}`)];
+
+  assert.equal(findMomentPhoto(stale, "moment_photo_old_upload")?.storageKey, `drive:${fileId}`);
+  assert.equal(findMomentPhoto(stale, rebuiltId)?.originalFilename, "IMG_0871.jpeg");
+  assert.equal(findMomentPhoto(stale, "moment_photo_missing"), null);
+  assert.equal(photoFromDriveFileId(momentId, rebuiltId, fileId)?.storageKey, `drive:${fileId}`);
+  assert.equal(photoFromDriveFileId(momentId, rebuiltId, "other-file-id"), null);
+  assert.equal(photoFromDriveFileId(momentId, "moment_photo_old_upload", fileId), null);
+});
+
 test("warehouse receiver and Capture store rebuild from Drive photo files, not Blob", async () => {
-  const [store, drive, script, rebuildRoute, bench, family, photosApi] = await Promise.all([
+  const [store, drive, script, rebuildRoute, bench, benchPhoto, family, photosApi] = await Promise.all([
     readSource("lib/moment-store.ts"),
     readSource("lib/drive-warehouse.ts"),
     readSource("scripts/drive-warehouse-apps-script.js"),
     readSource("app/api/moments/rebuild/route.ts"),
     readSource("app/family/bench/page.tsx"),
+    readSource("app/family/bench/bench-photo.tsx"),
     readSource("app/family/page.tsx"),
     readSource("app/api/moments/photos/route.ts"),
   ]);
@@ -154,11 +176,15 @@ test("warehouse receiver and Capture store rebuild from Drive photo files, not B
   assert.match(drive, /op: "list"/);
   assert.match(store, /rebuildMomentsFromDriveFiles/);
   assert.match(store, /hydrateDriveMoments/);
+  assert.match(store, /resolveMomentPhoto/);
+  assert.match(store, /findMomentPhoto/);
   assert.match(store, /mergeMomentPhotos/);
   assert.match(store, /uniqueMomentsById/);
   assert.match(rebuildRoute, /rebuildDriveMomentIndex/);
   assert.match(script, /LockService\.getScriptLock/);
   assert.match(script, /op === "list"/);
+  assert.match(script, /op === "thumb"/);
+  assert.match(script, /getThumbnail/);
   assert.match(script, /mergeMomentLists_/);
   assert.match(script, /travelos__moments__photos__/);
   assert.match(script, /if \(body\.op === "index"\) \{\s*return withLock_/);
@@ -167,7 +193,18 @@ test("warehouse receiver and Capture store rebuild from Drive photo files, not B
   assert.doesNotMatch(script, /var body = JSON\.parse\(e\.postData\.contents\);\s*return withLock_/);
   assert.doesNotMatch(bench, /drive-warehouse/);
   assert.doesNotMatch(bench, /scanWarehouseFiles/);
+  assert.doesNotMatch(benchPhoto, /drive-warehouse/);
+  assert.match(bench, /BenchPhotoThumb/);
+  assert.match(benchPhoto, /variant: "thumb"/);
+  assert.match(benchPhoto, /fileId/);
+  assert.match(benchPhoto, /THUMB_CONCURRENCY = 2/);
   assert.doesNotMatch(family, /drive-warehouse/);
+  assert.match(photosApi, /resolveMomentPhoto/);
+  assert.match(photosApi, /photoFromDriveFileId/);
+  assert.match(photosApi, /readMomentThumbBytes/);
+  assert.match(photosApi, /variant === "thumb"/);
+  assert.match(photosApi, /reason: "missing-photo"/);
+  assert.match(photosApi, /reason: "binary-miss"/);
   assert.doesNotMatch(photosApi, /@vercel\/blob/);
   assert.doesNotMatch(store, /putWithStoreAccess/);
   assert.doesNotMatch(store, /isBlobConfigured\(\)/);

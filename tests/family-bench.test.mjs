@@ -10,8 +10,9 @@ async function readSource(path) {
 }
 
 test("family bench is a private workshop table for raw Capture dumps", async () => {
-  const [bench, audioPlayer, family, unlock, capture, robots] = await Promise.all([
+  const [bench, benchPhoto, audioPlayer, family, unlock, capture, robots] = await Promise.all([
     readSource("app/family/bench/page.tsx"),
+    readSource("app/family/bench/bench-photo.tsx"),
     readSource("app/family/bench/bench-audio.tsx"),
     readSource("app/family/page.tsx"),
     readSource("app/family/family-unlock-panel.tsx"),
@@ -26,10 +27,17 @@ test("family bench is a private workshop table for raw Capture dumps", async () 
   assert.match(bench, /href="\/family\/capture"/);
   assert.match(bench, /去 Capture 拍一張/);
   assert.match(bench, /fetch\("\/api\/moments"/);
-  assert.match(bench, /MOMENTS_MS = 8000/);
+  assert.match(bench, /MOMENTS_MS = 30000/);
   assert.match(bench, /SESSION_MS = 5000/);
   assert.match(bench, /sortMomentsNewestFirst/);
-  assert.match(bench, /momentPhotoPlayUrl/);
+  assert.match(bench, /BenchPhotoThumb/);
+  assert.doesNotMatch(bench, /drive-warehouse/);
+  assert.match(benchPhoto, /momentPhotoPlayUrl/);
+  assert.match(benchPhoto, /variant: "thumb"/);
+  assert.match(benchPhoto, /fileId/);
+  assert.match(benchPhoto, /THUMB_CONCURRENCY = 2/);
+  assert.match(benchPhoto, /createObjectURL/);
+  assert.doesNotMatch(benchPhoto, /drive-warehouse/);
   assert.match(bench, /originalAudioUrl/);
   assert.match(bench, /moment\.transcript/);
   assert.match(bench, /spoken \? <p className="mt-3 text-base leading-7 text-zinc-700">\{spoken\}<\/p>/);
@@ -106,8 +114,9 @@ test("family bench is a private workshop table for raw Capture dumps", async () 
 });
 
 test("family bench does not file dumps into coffee or public Lapland", async () => {
-  const [bench, audioPlayer, audioLib, coffeePage, coffeeApi, laplandPage] = await Promise.all([
+  const [bench, benchPhoto, audioPlayer, audioLib, coffeePage, coffeeApi, laplandPage] = await Promise.all([
     readSource("app/family/bench/page.tsx"),
+    readSource("app/family/bench/bench-photo.tsx"),
     readSource("app/family/bench/bench-audio.tsx"),
     readSource("lib/moment-audio.ts"),
     readSource("app/coffee/page.tsx"),
@@ -117,6 +126,8 @@ test("family bench does not file dumps into coffee or public Lapland", async () 
 
   assert.doesNotMatch(bench, /readCoffeeContent/);
   assert.doesNotMatch(bench, /writeCoffeeContent/);
+  assert.doesNotMatch(benchPhoto, /readCoffeeContent/);
+  assert.doesNotMatch(benchPhoto, /trip_lapland_2020/);
   assert.match(audioLib, /這段聲音還不能播/);
   assert.match(audioPlayer, /UNPLAYABLE_MOMENT_AUDIO_COPY/);
   assert.doesNotMatch(coffeePage, /\/api\/moments/);

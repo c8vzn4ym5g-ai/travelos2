@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BenchAudio } from "@/app/family/bench/bench-audio";
+import { BenchPhotoThumb } from "@/app/family/bench/bench-photo";
 import { FAMILY_ADMIN_SESSION_KEY, familyPinHeaders, resolveFamilySession } from "@/lib/family-session";
 import type { MomentContent } from "@/lib/moment-store";
-import { momentNeedsTranscript, momentPhotoPlayUrl, sortMomentsNewestFirst } from "@/lib/moments";
+import { momentNeedsTranscript, sortMomentsNewestFirst } from "@/lib/moments";
 import type { TravelMoment } from "@/lib/types";
 
 type MomentsResponse = {
@@ -17,7 +18,7 @@ type LoadState = "session" | "loading" | "ready" | "error";
 
 const BENCH_INTRO = "剛收下的，還沒整理。旅行和咖啡都還沒進。";
 const SESSION_MS = 5000;
-const MOMENTS_MS = 8000;
+const MOMENTS_MS = 30000;
 const TRANSCRIPT_POLL_MS = 4000;
 const TRANSCRIPT_POLL_FOR_MS = 40000;
 const TRANSCRIPT_FILL_MS = 55000;
@@ -328,14 +329,7 @@ export default function FamilyBenchPage() {
                     {hasPhotos ? (
                       <ul className="mt-4 grid grid-cols-2 gap-3">
                         {moment.photos.map((photo) => (
-                          <li className="overflow-hidden rounded-2xl bg-stone-100" key={photo.id}>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              alt={photo.originalFilename || ""}
-                              className="h-40 w-full object-cover"
-                              src={momentPhotoPlayUrl(moment.id, photo.id)}
-                            />
-                          </li>
+                          <BenchPhotoThumb key={photo.id} momentId={moment.id} photo={photo} />
                         ))}
                       </ul>
                     ) : null}

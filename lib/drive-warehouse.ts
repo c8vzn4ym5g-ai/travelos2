@@ -338,9 +338,47 @@ export async function scanWarehouseFiles(request?: DriveFetch): Promise<DriveWar
   return parseFileList(raw);
 }
 
+export const DRIVE_BINARY_CONCURRENCY = 2;
+
+type BinaryWaiter = () => void;
+
+const binaryGate = {
+  inflight: 0,
+  waiters: [] as BinaryWaiter[],
+};
+
+function acquireDriveBinarySlot() {
+  if (binaryGate.inflight < DRIVE_BINARY_CONCURRENCY) {
+    binaryGate.inflight += 1;
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve) => {
+    binaryGate.waiters.push(resolve);
+  });
+}
+
+function releaseDriveBinarySlot() {
+  const next = binaryGate.waiters.shift();
+  if (next) {
+    next();
+    return;
+  }
+  binaryGate.inflight = Math.max(0, binaryGate.inflight - 1);
+}
+
+async function withDriveBinarySlot<T>(work: () => Promise<T>): Promise<T> {
+  await acquireDriveBinarySlot();
+  try {
+    return await work();
+  } finally {
+    releaseDriveBinarySlot();
+  }
+}
+
 export async function getBinary(
   fileId: string,
   request?: DriveFetch,
+  options: { op?: string } = {},
 ): Promise<{
   base64: string;
   bytes: Uint8Array;
@@ -348,24 +386,25 @@ export async function getBinary(
   mimeType: string | null;
   name: string;
 } | null> {
-  const raw = await getJson(
-    { id: fileId, token: getDriveWarehouseToken() },
-    "Drive warehouse binary GET",
-    request,
-    { allowNotFound: true },
-  );
-  if (raw == null) {
-    return null;
-  }
-  const record = raw as { base64?: unknown; id?: unknown; mimeType?: unknown; name?: unknown };
-  if (typeof record.base64 !== "string") {
-    return null;
-  }
-  return {
-    base64: record.base64,
-    bytes: new Uint8Array(Buffer.from(record.base64, "base64")),
-    id: typeof record.id === "string" ? record.id : fileId,
-    mimeType: typeof record.mimeType === "string" ? record.mimeType : null,
-    name: typeof record.name === "string" ? record.name : fileId,
-  };
+  return withDriveBinarySlot(async () => {
+    const params: Record<string, string> = { id: fileId, token: getDriveWarehouseToken() };
+    if (options.op) {
+      params.op = options.op;
+    }
+    const raw = await getJson(params, "Drive warehouse binary GET", request, { allowNotFound: true });
+    if (raw == null) {
+      return null;
+    }
+    const record = raw as { base64?: unknown; error?: unknown; id?: unknown; mimeType?: unknown; name?: unknown };
+    if (typeof record.error === "string" || typeof record.base64 !== "string") {
+      return null;
+    }
+    return {
+      base64: record.base64,
+      bytes: new Uint8Array(Buffer.from(record.base64, "base64")),
+      id: typeof record.id === "string" ? record.id : fileId,
+      mimeType: typeof record.mimeType === "string" ? record.mimeType : null,
+      name: typeof record.name === "string" ? record.name : fileId,
+    };
+  });
 }

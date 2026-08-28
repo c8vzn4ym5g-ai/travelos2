@@ -1,6 +1,7 @@
 import { BlobAccessError, BlobNotFoundError, get, head, list, put } from "@vercel/blob";
 import { getBinary, parseDriveFileId } from "@/lib/drive-warehouse";
 import { isBlobConfigured } from "@/lib/editable-store";
+import { extractExifJpegThumbnail, isJpegBytes } from "@/lib/jpeg-exif-thumb";
 import type { MomentItemPut } from "@/lib/moment-item";
 import type { WarehouseGet, WarehouseGetResult } from "@/lib/warehouse-read";
 
@@ -245,11 +246,15 @@ export async function readMomentBlobBytes(urlOrPathname: string): Promise<{
 
   const driveId = parseDriveFileId(urlOrPathname);
   if (driveId) {
-    const file = await getBinary(driveId);
-    if (!file) {
+    try {
+      const file = await getBinary(driveId);
+      if (!file) {
+        return null;
+      }
+      return { bytes: file.bytes, contentType: file.mimeType };
+    } catch {
       return null;
     }
-    return { bytes: file.bytes, contentType: file.mimeType };
   }
 
   try {
@@ -264,6 +269,79 @@ export async function readMomentBlobBytes(urlOrPathname: string): Promise<{
     // Suspended or dead Blob must not 503 Capture photo/audio GET.
     return null;
   }
+}
+
+const MAX_INLINE_THUMB_BYTES = 180_000;
+const thumbCacheKey = "__travelosMomentThumbCache";
+
+type GlobalThumbCache = typeof globalThis & {
+  [thumbCacheKey]?: Map<string, Uint8Array>;
+};
+
+function getThumbCache() {
+  const globalStore = globalThis as GlobalThumbCache;
+  globalStore[thumbCacheKey] ??= new Map<string, Uint8Array>();
+  return globalStore[thumbCacheKey];
+}
+
+export function resetMomentThumbCacheForTests() {
+  getThumbCache().clear();
+}
+
+function rememberThumb(fileId: string, bytes: Uint8Array) {
+  getThumbCache().set(fileId, bytes);
+  return bytes;
+}
+
+export async function readMomentThumbBytes(urlOrPathname: string): Promise<{
+  bytes: Uint8Array;
+  contentType: string | null;
+} | null> {
+  const driveId = parseDriveFileId(urlOrPathname);
+  if (driveId) {
+    const cached = getThumbCache().get(driveId);
+    if (cached) {
+      return { bytes: cached, contentType: "image/jpeg" };
+    }
+
+    let fetched: Awaited<ReturnType<typeof getBinary>> = null;
+    try {
+      fetched = await getBinary(driveId, undefined, { op: "thumb" });
+    } catch {
+      fetched = null;
+    }
+
+    if (fetched?.bytes.length) {
+      const exif = extractExifJpegThumbnail(fetched.bytes);
+      if (exif) {
+        return { bytes: rememberThumb(driveId, exif), contentType: "image/jpeg" };
+      }
+      if (fetched.bytes.length <= MAX_INLINE_THUMB_BYTES && isJpegBytes(fetched.bytes)) {
+        return { bytes: rememberThumb(driveId, fetched.bytes), contentType: fetched.mimeType || "image/jpeg" };
+      }
+      return { bytes: fetched.bytes, contentType: fetched.mimeType };
+    }
+
+    const full = await getBinary(driveId).catch(() => null);
+    if (!full) {
+      return null;
+    }
+    const exif = extractExifJpegThumbnail(full.bytes);
+    if (exif) {
+      return { bytes: rememberThumb(driveId, exif), contentType: "image/jpeg" };
+    }
+    return { bytes: full.bytes, contentType: full.mimeType };
+  }
+
+  const loaded = await readMomentBlobBytes(urlOrPathname);
+  if (!loaded) {
+    return null;
+  }
+  const exif = extractExifJpegThumbnail(loaded.bytes);
+  if (exif) {
+    return { bytes: exif, contentType: "image/jpeg" };
+  }
+  return loaded;
 }
 
 export type ListedMomentBlob = {
