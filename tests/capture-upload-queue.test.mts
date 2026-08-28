@@ -122,6 +122,27 @@ test("queued aborted work is skipped without blocking later photos", async () =>
   assert.deepEqual(ran, ["later"]);
 });
 
+test("createWorkQueue(3) keeps at most 3 dump uploads in flight", async () => {
+  const queue = createWorkQueue(CAPTURE_UPLOAD_CONCURRENCY);
+  let inFlight = 0;
+  let maxInFlight = 0;
+  const jobs = Array.from({ length: CAPTURE_DUMP_LIMIT }, (_, index) =>
+    queue.enqueue(async () => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await Promise.resolve();
+      inFlight -= 1;
+      return index;
+    }),
+  );
+
+  const results = await Promise.all(jobs);
+  assert.equal(CAPTURE_UPLOAD_CONCURRENCY, 3);
+  assert.equal(CAPTURE_DUMP_LIMIT, 40);
+  assert.equal(results.length, 40);
+  assert.equal(maxInFlight, 3);
+});
+
 test("staging a dump does not create object URLs", async () => {
   const original = URL.createObjectURL;
   let created = 0;
@@ -729,7 +750,7 @@ test("JPEG prepare returns the original file without canvas convert", async () =
   assert.match(prepare, /isHeicPhoto\(file\) \|\| file\.type === "image\/jpeg"/);
 });
 
-test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
+test("capture page caps a dump at 40 and queues POSTs at CAPTURE_UPLOAD_CONCURRENCY", async () => {
   const [capture, upload, prepare] = await Promise.all([
     readSource("app/family/capture/page.tsx"),
     readSource("lib/capture-upload.ts"),
@@ -758,9 +779,9 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
   assert.match(upload, /copyCaptureFile/);
   assert.match(upload, /captureDumpCapMessage/);
   assert.doesNotMatch(upload, /capturePrepareConcurrency/);
-  assert.doesNotMatch(capture, /createWorkQueue/);
-  assert.doesNotMatch(capture, /photoQueue/);
-  assert.doesNotMatch(uploadFn, /\.enqueue\(/);
+  assert.match(capture, /createWorkQueue\(CAPTURE_UPLOAD_CONCURRENCY\)/);
+  assert.match(capture, /photoQueueRef/);
+  assert.match(uploadFn, /photoQueueRef\.current\.enqueue/);
   assert.doesNotMatch(ingestFn, /yieldToBrowser/);
   assert.doesNotMatch(ingestFn, /yieldTurn/);
   assert.doesNotMatch(ingestFn, /requestAnimationFrame/);

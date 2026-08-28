@@ -7,6 +7,7 @@ import { MomentAudioPlayer } from "@/app/family/moment-audio-player";
 import { startCaptureSpeech } from "@/lib/capture-speech";
 import {
   CAPTURE_DUMP_LIMIT,
+  CAPTURE_UPLOAD_CONCURRENCY,
   captureDumpProgressMessage,
   captureErrorMessage,
   clearMomentAudioInBackground,
@@ -14,6 +15,7 @@ import {
   createMomentSession,
   createStagedCapturePhotos,
   createTinyPreviewUrl,
+  createWorkQueue,
   detachStagedCapturePhotos,
   finalizeCaptureMoment,
   ingestCaptureFileList,
@@ -75,6 +77,7 @@ export default function CapturePage() {
   const coordinatesRef = useRef<GeoPoint | null>(null);
   const momentSessionRef = useRef<ReturnType<typeof createMomentSession> | null>(null);
   const photoUploadsRef = useRef(new Map<string, Promise<void>>());
+  const photoQueueRef = useRef(createWorkQueue(CAPTURE_UPLOAD_CONCURRENCY));
   const audioUploadRef = useRef<Promise<void> | null>(null);
   const savingRef = useRef(false);
   const [pin, setPin] = useState("");
@@ -234,7 +237,7 @@ export default function CapturePage() {
 
   async function startBackgroundPhotoUpload(photo: StagedPhoto) {
     const session = momentSession();
-    const run = (async () => {
+    const run = photoQueueRef.current.enqueue(async () => {
       if (photo.abort.signal.aborted) {
         return;
       }
@@ -297,7 +300,7 @@ export default function CapturePage() {
         setMessage(detail);
         throw error;
       }
-    })();
+    });
 
     photoUploadsRef.current.set(photo.id, run.then(() => undefined, () => undefined));
     return run;
