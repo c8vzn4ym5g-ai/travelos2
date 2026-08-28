@@ -18,7 +18,7 @@ type LoadState = "session" | "loading" | "ready" | "error";
 
 const BENCH_INTRO = "剛收下的，還沒整理。旅行和咖啡都還沒進。";
 const SESSION_MS = 5000;
-const MOMENTS_MS = 8000;
+const MOMENTS_MS = 30000;
 const TRANSCRIPT_POLL_MS = 4000;
 const TRANSCRIPT_POLL_FOR_MS = 40000;
 const TRANSCRIPT_FILL_MS = 55000;
