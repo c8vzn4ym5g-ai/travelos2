@@ -157,11 +157,12 @@ test("GET /api/moments can be listed newest first for the family bench", async (
 
 test("moments APIs still return 401 for a missing or wrong PIN when the flag is on", async () => {
   await withPinEnv({ pin: "family-secret", required: "1" }, async () => {
-    const [{ GET, POST }, photos, audio, gate] = await Promise.all([
+    const [{ GET, POST }, photos, audio, gate, health] = await Promise.all([
       import("../app/api/moments/route.ts"),
       import("../app/api/moments/photos/route.ts"),
       import("../app/api/moments/audio/route.ts"),
       import("../app/api/family/gate/route.ts"),
+      import("../app/api/family/blob-health/route.ts"),
     ]);
 
     const gateResponse = await gate.GET();
@@ -214,6 +215,9 @@ test("moments APIs still return 401 for a missing or wrong PIN when the flag is 
       new Request("http://travelos.local/api/moments/audio?momentId=moment_locked"),
     );
     assert.equal(audioGetMissing.status, 401);
+
+    const healthMissing = await health.GET(new Request("http://travelos.local/api/family/blob-health"));
+    assert.equal(healthMissing.status, 401);
   });
 });
 

@@ -2,6 +2,7 @@ import { BlobAccessError } from "@vercel/blob";
 import { afterResponse } from "@/lib/after-response";
 import {
   getMomentJsonBlob,
+  inspectBlobStore,
   isMomentJsonBlobConfigured,
   putMomentItemJson,
   putMomentJsonBlob,
@@ -74,6 +75,21 @@ export function momentApiErrorResponse(error: unknown) {
     );
   }
   throw error;
+}
+
+export async function momentWarehouseErrorResponse(error: unknown) {
+  const response = momentApiErrorResponse(error);
+  if (response.status !== 503) {
+    return response;
+  }
+
+  try {
+    const blob = await inspectBlobStore({ includePut: false });
+    const body = (await response.json()) as { error: string };
+    return Response.json({ ...body, blob }, { status: 503 });
+  } catch {
+    return response;
+  }
 }
 
 const memoryKey = "__travelosMomentWarehouse";
