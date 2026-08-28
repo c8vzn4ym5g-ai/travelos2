@@ -1,3 +1,4 @@
+import { afterResponse } from "@/lib/after-response";
 import { photoFromDriveFileId } from "@/lib/drive-photo-index";
 import { isUploadBlob, uploadFilename } from "@/lib/form-upload";
 import { readMomentBlobBytes, readMomentThumbBytes } from "@/lib/moment-blob";
@@ -5,6 +6,8 @@ import {
   addPhotoToMoment,
   isAdminPinValid,
   momentApiErrorResponse,
+  rememberUploadedDisplayPhoto,
+  rememberUploadedOriginal,
   removePhotoFromMoment,
   resolveMomentPhoto,
   scheduleMomentIndex,
@@ -110,12 +113,21 @@ export async function POST(request: Request) {
         `travelos/moments/photos/${momentId}/original-${Date.now()}-${cleanFilename(originalName)}`,
         original,
       );
-      const saved = await setPhotoOriginal(momentId, photoId, originalBlob.url);
-      if (!saved) {
-        return Response.json({ error: "Moment not found" }, { status: 404 });
-      }
-
-      return Response.json({ photo: saved.photo });
+      rememberUploadedOriginal(momentId, photoId, originalBlob.url);
+      afterResponse(async () => {
+        try {
+          await setPhotoOriginal(momentId, photoId, originalBlob.url);
+        } catch {
+          // LockService index/item writes are best-effort after the binary POST.
+        }
+      });
+      return Response.json({
+        photo: {
+          id: photoId,
+          momentId,
+          originalStorageKey: originalBlob.url,
+        },
+      });
     }
 
     if (!isUploadBlob(file)) {
@@ -140,12 +152,17 @@ export async function POST(request: Request) {
       takenAt: takenAt ? new Date(takenAt).toISOString() : now,
     };
 
-    const content = await addPhotoToMoment(momentId, photo);
-    if (!content) {
-      return Response.json({ error: "Moment not found" }, { status: 404 });
-    }
-
-    scheduleMomentIndex(momentId);
+    rememberUploadedDisplayPhoto(momentId, photo);
+    afterResponse(async () => {
+      try {
+        const content = await addPhotoToMoment(momentId, photo);
+        if (content) {
+          scheduleMomentIndex(momentId);
+        }
+      } catch {
+        // LockService index/item writes are best-effort after the binary POST.
+      }
+    });
 
     return Response.json({ photo });
   } catch (error) {
