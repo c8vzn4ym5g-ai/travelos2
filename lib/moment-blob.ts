@@ -300,12 +300,25 @@ export async function readMomentThumbBytes(urlOrPathname: string): Promise<{
       return { bytes: cached, contentType: "image/jpeg" };
     }
 
-    const thumb = await getBinary(driveId, undefined, { op: "thumb" });
-    if (thumb?.bytes.length && thumb.bytes.length <= MAX_INLINE_THUMB_BYTES && isJpegBytes(thumb.bytes)) {
-      return { bytes: rememberThumb(driveId, thumb.bytes), contentType: thumb.mimeType || "image/jpeg" };
+    let fetched: Awaited<ReturnType<typeof getBinary>> = null;
+    try {
+      fetched = await getBinary(driveId, undefined, { op: "thumb" });
+    } catch {
+      fetched = null;
     }
 
-    const full = thumb && thumb.bytes.length > MAX_INLINE_THUMB_BYTES ? thumb : await getBinary(driveId);
+    if (fetched?.bytes.length) {
+      const exif = extractExifJpegThumbnail(fetched.bytes);
+      if (exif) {
+        return { bytes: rememberThumb(driveId, exif), contentType: "image/jpeg" };
+      }
+      if (fetched.bytes.length <= MAX_INLINE_THUMB_BYTES && isJpegBytes(fetched.bytes)) {
+        return { bytes: rememberThumb(driveId, fetched.bytes), contentType: fetched.mimeType || "image/jpeg" };
+      }
+      return { bytes: fetched.bytes, contentType: fetched.mimeType };
+    }
+
+    const full = await getBinary(driveId);
     if (!full) {
       return null;
     }

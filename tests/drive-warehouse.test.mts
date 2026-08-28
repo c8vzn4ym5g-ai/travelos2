@@ -16,6 +16,7 @@ import {
   putIndex,
   putItem,
   scanWarehouseFiles,
+  setDriveWarehouseFetchForTests,
 } from "../lib/drive-warehouse.ts";
 import { createTravelMoment } from "../lib/moments.ts";
 
@@ -159,6 +160,31 @@ test("getIndex, putIndex, putItem, putBinary, and getBinary use a fake fetch", a
   );
 });
 
+test("getBinary runs at most two Drive file GETs at a time", async () => {
+  let started = 0;
+  let maxStarted = 0;
+  setDriveWarehouseFetchForTests((async (input) => {
+    const parsed = new URL(String(input));
+    started += 1;
+    maxStarted = Math.max(maxStarted, started);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    started -= 1;
+    return Response.json({
+      id: parsed.searchParams.get("id") ?? "file",
+      mimeType: "image/jpeg",
+      name: "photo.jpg",
+      base64: Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString("base64"),
+    });
+  }) as typeof fetch);
+
+  try {
+    await Promise.all([getBinary("a"), getBinary("b"), getBinary("c"), getBinary("d")]);
+    assert.ok(maxStarted <= 2);
+  } finally {
+    setDriveWarehouseFetchForTests(null);
+  }
+});
+
 test("POST JSON to /exec survives a Google 302 by sending the body before following", async () => {
   let postedBody: string | null = null;
   const fakeFetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
@@ -250,6 +276,8 @@ test("Drive adapter is server-only and Capture still dumps photos in parallel", 
   assert.match(drive, /export async function putBinary/);
   assert.match(drive, /export async function getBinary/);
   assert.match(drive, /options.op/);
+  assert.match(drive, /DRIVE_BINARY_CONCURRENCY = 2/);
+  assert.match(drive, /withDriveBinarySlot/);
   assert.match(drive, /export async function scanWarehouseFiles/);
   assert.match(drive, /redirect: "manual"/);
   assert.doesNotMatch(drive, /NEXT_PUBLIC/);

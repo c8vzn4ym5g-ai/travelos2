@@ -3,18 +3,32 @@ import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "@/lib/types
 
 export const MOMENTS_BLOB_PATH = "travelos/moments.json";
 export const MOMENT_PHOTO_PLAY_PATH = "/api/moments/photos";
+export const DRIVE_STORAGE_PREFIX = "drive:";
+
+export function driveFileIdFromStorageKey(storageKey: string | null | undefined): string | null {
+  const key = storageKey?.trim() ?? "";
+  if (!key.startsWith(DRIVE_STORAGE_PREFIX)) {
+    return null;
+  }
+  const id = key.slice(DRIVE_STORAGE_PREFIX.length).trim();
+  return id || null;
+}
 
 export function momentPhotoPlayUrl(
   momentId: string,
   photoId: string,
-  options: { variant?: "display" | "thumb" } = {},
+  options: { fileId?: string | null; variant?: "display" | "thumb" } = {},
 ) {
   const params = new URLSearchParams({ momentId, photoId });
   if (options.variant === "thumb") {
     params.set("variant", "thumb");
   }
+  if (options.fileId) {
+    params.set("file", options.fileId);
+  }
   return `${MOMENT_PHOTO_PLAY_PATH}?${params.toString()}`;
 }
+
 export const MOMENT_ITEM_PREFIX = "travelos/moments/items";
 export const MOMENTS_SCHEMA_VERSION = 2;
 

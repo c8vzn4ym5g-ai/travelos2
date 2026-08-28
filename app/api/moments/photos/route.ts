@@ -1,3 +1,4 @@
+import { photoFromDriveFileId } from "@/lib/drive-photo-index";
 import { isUploadBlob, uploadFilename } from "@/lib/form-upload";
 import { readMomentBlobBytes, readMomentThumbBytes } from "@/lib/moment-blob";
 import {
@@ -45,21 +46,28 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const momentId = url.searchParams.get("momentId")?.trim() ?? "";
     const photoId = url.searchParams.get("photoId")?.trim() ?? "";
+    const fileId = url.searchParams.get("file")?.trim() ?? "";
     const variant = url.searchParams.get("variant")?.trim() === "thumb" ? "thumb" : "display";
     if (!momentId || !photoId) {
       return Response.json({ error: "Moment and photo are required" }, { status: 400 });
     }
 
-    const photo = await resolveMomentPhoto(momentId, photoId);
+    const fromListing = fileId ? photoFromDriveFileId(momentId, photoId, fileId) : null;
+    const resolved = await resolveMomentPhoto(momentId, photoId);
+    const photo = resolved
+      ? fromListing
+        ? { ...resolved, storageKey: fromListing.storageKey }
+        : resolved
+      : fromListing;
     const storageKey = photo?.storageKey?.trim() ?? "";
-    if (!storageKey) {
-      return Response.json({ error: "Photo not found" }, { status: 404 });
+    if (!photo || !storageKey) {
+      return Response.json({ error: "Photo not found", reason: "missing-photo" }, { status: 404 });
     }
 
     const loaded =
       variant === "thumb" ? await readMomentThumbBytes(storageKey) : await readMomentBlobBytes(storageKey);
     if (!loaded) {
-      return Response.json({ error: "Could not read photo bytes" }, { status: 503 });
+      return Response.json({ error: "Could not read photo bytes", reason: "binary-miss" }, { status: 503 });
     }
 
     const filename = photo?.originalFilename || (variant === "thumb" ? "thumb.jpg" : "photo.jpg");

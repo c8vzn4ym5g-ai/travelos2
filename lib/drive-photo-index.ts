@@ -91,6 +91,27 @@ export function drivePhotoRecordId(fileId: string) {
   return `moment_photo_drive_${fileId.replace(/[^A-Za-z0-9]/g, "").slice(0, 24)}`;
 }
 
+export function photoFromDriveFileId(momentId: string, photoId: string, fileId: string): MomentPhoto | null {
+  const id = fileId.trim();
+  if (!id || !momentId.trim() || !photoId.trim()) {
+    return null;
+  }
+  if (drivePhotoRecordId(id) !== photoId) {
+    return null;
+  }
+
+  return {
+    coordinates: null,
+    createdAt: "1970-01-01T00:00:00.000Z",
+    id: photoId,
+    momentId,
+    originalFilename: "photo.jpg",
+    originalStorageKey: null,
+    storageKey: driveStorageKey(id),
+    takenAt: "1970-01-01T00:00:00.000Z",
+  };
+}
+
 export function findMomentPhoto(moment: TravelMoment | null | undefined, photoId: string): MomentPhoto | null {
   if (!moment || !photoId) {
     return null;

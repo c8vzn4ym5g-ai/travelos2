@@ -8,6 +8,7 @@ import {
   drivePhotoRecordId,
   findMomentPhoto,
   isDriveDisplayJpeg,
+  photoFromDriveFileId,
   parseDriveAudioObjectName,
   parseDriveItemObjectName,
   parseDrivePhotoObjectName,
@@ -154,15 +155,19 @@ test("bench photo ids resolve by rebuilt Drive file id, not only the index photo
   assert.equal(findMomentPhoto(stale, "moment_photo_old_upload")?.storageKey, `drive:${fileId}`);
   assert.equal(findMomentPhoto(stale, rebuiltId)?.originalFilename, "IMG_0871.jpeg");
   assert.equal(findMomentPhoto(stale, "moment_photo_missing"), null);
+  assert.equal(photoFromDriveFileId(momentId, rebuiltId, fileId)?.storageKey, `drive:${fileId}`);
+  assert.equal(photoFromDriveFileId(momentId, rebuiltId, "other-file-id"), null);
+  assert.equal(photoFromDriveFileId(momentId, "moment_photo_old_upload", fileId), null);
 });
 
 test("warehouse receiver and Capture store rebuild from Drive photo files, not Blob", async () => {
-  const [store, drive, script, rebuildRoute, bench, family, photosApi] = await Promise.all([
+  const [store, drive, script, rebuildRoute, bench, benchPhoto, family, photosApi] = await Promise.all([
     readSource("lib/moment-store.ts"),
     readSource("lib/drive-warehouse.ts"),
     readSource("scripts/drive-warehouse-apps-script.js"),
     readSource("app/api/moments/rebuild/route.ts"),
     readSource("app/family/bench/page.tsx"),
+    readSource("app/family/bench/bench-photo.tsx"),
     readSource("app/family/page.tsx"),
     readSource("app/api/moments/photos/route.ts"),
   ]);
@@ -184,11 +189,18 @@ test("warehouse receiver and Capture store rebuild from Drive photo files, not B
   assert.match(script, /travelos__moments__photos__/);
   assert.doesNotMatch(bench, /drive-warehouse/);
   assert.doesNotMatch(bench, /scanWarehouseFiles/);
-  assert.match(bench, /variant: "thumb"/);
+  assert.doesNotMatch(benchPhoto, /drive-warehouse/);
+  assert.match(bench, /BenchPhotoThumb/);
+  assert.match(benchPhoto, /variant: "thumb"/);
+  assert.match(benchPhoto, /fileId/);
+  assert.match(benchPhoto, /THUMB_CONCURRENCY = 2/);
   assert.doesNotMatch(family, /drive-warehouse/);
   assert.match(photosApi, /resolveMomentPhoto/);
+  assert.match(photosApi, /photoFromDriveFileId/);
   assert.match(photosApi, /readMomentThumbBytes/);
   assert.match(photosApi, /variant === "thumb"/);
+  assert.match(photosApi, /reason: "missing-photo"/);
+  assert.match(photosApi, /reason: "binary-miss"/);
   assert.doesNotMatch(photosApi, /@vercel\/blob/);
   assert.doesNotMatch(store, /putWithStoreAccess/);
   assert.doesNotMatch(store, /isBlobConfigured\(\)/);
