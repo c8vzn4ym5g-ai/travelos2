@@ -24,7 +24,7 @@ type MomentsResponse = {
   content: MomentContent;
   status: {
     configured: boolean;
-    source: "blob" | "memory";
+    source: "blob" | "drive" | "memory";
   };
 };
 

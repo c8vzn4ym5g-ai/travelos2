@@ -1,4 +1,5 @@
 import { BlobAccessError, BlobNotFoundError, get, head, list, put } from "@vercel/blob";
+import { getBinary, parseDriveFileId } from "@/lib/drive-warehouse";
 import { isBlobConfigured } from "@/lib/editable-store";
 import type { MomentItemPut } from "@/lib/moment-item";
 import type { WarehouseGet, WarehouseGetResult } from "@/lib/warehouse-read";
@@ -242,13 +243,27 @@ export async function readMomentBlobBytes(urlOrPathname: string): Promise<{
     return { bytes: new Uint8Array(bytes), contentType };
   }
 
-  const result = await readLiveMomentBlob(urlOrPathname);
-  if (!result?.stream) {
-    return null;
+  const driveId = parseDriveFileId(urlOrPathname);
+  if (driveId) {
+    const file = await getBinary(driveId);
+    if (!file) {
+      return null;
+    }
+    return { bytes: file.bytes, contentType: file.mimeType };
   }
 
-  const bytes = new Uint8Array(await new Response(result.stream).arrayBuffer());
-  return { bytes, contentType: result.contentType ?? null };
+  try {
+    const result = await readLiveMomentBlob(urlOrPathname);
+    if (!result?.stream) {
+      return null;
+    }
+
+    const bytes = new Uint8Array(await new Response(result.stream).arrayBuffer());
+    return { bytes, contentType: result.contentType ?? null };
+  } catch {
+    // Suspended or dead Blob must not 503 Capture photo/audio GET.
+    return null;
+  }
 }
 
 export type ListedMomentBlob = {

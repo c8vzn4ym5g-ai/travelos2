@@ -24,6 +24,7 @@ import {
   setPhotoOriginal,
   updateMoment,
 } from "../lib/moment-store.ts";
+import { setDriveWarehouseFetchForTests } from "../lib/drive-warehouse.ts";
 import { MOMENTS_BLOB_PATH, createTravelMoment } from "../lib/moments.ts";
 import type { MomentBlobAdapter, MomentBlobPutOptions } from "../lib/moment-blob.ts";
 import type { MomentPhoto } from "../lib/types.ts";
@@ -515,6 +516,121 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
       assert.ok(puts.some((pathname) => pathname === `travelos/moments/items/${created.moment.id}.json`));
     });
   });
+
+  test("Drive warehouse POST creates a moment and stores photo/audio as drive: keys", async () => {
+    await withPinEnv(undefined, async () => {
+      const files = new Map<string, { base64: string; mimeType: string; name: string }>();
+      const items = new Map<string, string>();
+      let indexText = JSON.stringify({
+        jobs: [],
+        moments: [],
+        schemaVersion: 1,
+        updatedAt: "2026-08-28T00:00:00.000Z",
+      });
+      let fileSeq = 0;
+      const urls: string[] = [];
+
+      setDriveWarehouseFetchForTests((async (input, init) => {
+        const url = String(input);
+        urls.push(url);
+        assert.doesNotMatch(url, /blob\.vercel-storage\.com/);
+        const method = (init?.method ?? "GET").toUpperCase();
+        if (method === "GET") {
+          const parsed = new URL(url);
+          if (parsed.searchParams.get("op") === "index") {
+            return new Response(indexText, { headers: { "content-type": "application/json" } });
+          }
+          const id = parsed.searchParams.get("id") ?? "";
+          const file = files.get(id);
+          if (!file) {
+            return new Response("not found", { status: 404 });
+          }
+          return Response.json({ id, ...file });
+        }
+
+        const payload = JSON.parse(String(init?.body ?? "{}")) as {
+          base64?: string;
+          mimeType?: string;
+          name?: string;
+          op?: string;
+          text?: string;
+        };
+        if (payload.op === "index") {
+          indexText = payload.text ?? indexText;
+          return Response.json({ ok: true, name: "moments.json" });
+        }
+        if (payload.op === "item") {
+          items.set(payload.name ?? "", payload.text ?? "");
+          return Response.json({ ok: true, name: payload.name });
+        }
+        fileSeq += 1;
+        const id = `drivefile_${fileSeq}`;
+        files.set(id, {
+          base64: payload.base64 ?? "",
+          mimeType: payload.mimeType ?? "application/octet-stream",
+          name: payload.name ?? "file.bin",
+        });
+        return Response.json({ id, name: payload.name });
+      }) as typeof fetch);
+
+      const [{ GET, POST }, photos, audio] = await Promise.all([
+        import("../app/api/moments/route.ts"),
+        import("../app/api/moments/photos/route.ts"),
+        import("../app/api/moments/audio/route.ts"),
+      ]);
+
+      const listed = await GET(new Request("http://travelos.local/api/moments"));
+      assert.equal(listed.status, 200);
+      const listedBody = (await listed.json()) as { status: { configured: boolean; source: string } };
+      assert.equal(listedBody.status.source, "drive");
+      assert.equal(listedBody.status.configured, true);
+
+      const createdResponse = await POST(
+        new Request("http://travelos.local/api/moments", {
+          body: JSON.stringify({ note: "drive-dump", time: "2026-08-28T09:00:00.000Z" }),
+          headers: { "content-type": "application/json" },
+          method: "POST",
+        }),
+      );
+      assert.equal(createdResponse.status, 200);
+      const created = (await createdResponse.json()) as { moment: { id: string } };
+      assert.ok([...items.keys()].some((name) => name.includes(created.moment.id)));
+
+      const photoData = new FormData();
+      photoData.set("momentId", created.moment.id);
+      photoData.set("file", new File([Uint8Array.from([9, 8, 7, 6])], "lake.jpg", { type: "image/jpeg" }));
+      const photoResponse = await photos.POST(
+        new Request("http://travelos.local/api/moments/photos", { body: photoData, method: "POST" }),
+      );
+      assert.equal(photoResponse.status, 200);
+      const photoJson = (await photoResponse.json()) as { photo: { id: string; storageKey: string } };
+      assert.match(photoJson.photo.storageKey, /^drive:/);
+
+      const photoGet = await photos.GET(
+        new Request(
+          `http://travelos.local/api/moments/photos?momentId=${created.moment.id}&photoId=${photoJson.photo.id}`,
+        ),
+      );
+      assert.equal(photoGet.status, 200);
+      assert.deepEqual([...new Uint8Array(await photoGet.arrayBuffer())], [9, 8, 7, 6]);
+
+      const audioData = new FormData();
+      audioData.set("momentId", created.moment.id);
+      audioData.set("file", new File([Uint8Array.from([2, 2, 2, 2])], "lake.webm", { type: "audio/webm" }));
+      const audioResponse = await audio.POST(
+        new Request("http://travelos.local/api/moments/audio", { body: audioData, method: "POST" }),
+      );
+      assert.equal(audioResponse.status, 200);
+      const audioJson = (await audioResponse.json()) as { moment: { originalAudioUrl: string } };
+      assert.match(audioJson.moment.originalAudioUrl, /^drive:/);
+
+      const audioGet = await audio.GET(
+        new Request(`http://travelos.local/api/moments/audio?momentId=${created.moment.id}`),
+      );
+      assert.equal(audioGet.status, 200);
+      assert.equal(urls.some((url) => url.includes("blob.vercel-storage.com")), false);
+    });
+  });
 });
 
 test("overlay prefers item-file photos when the index is missing the moment", () => {
@@ -548,7 +664,7 @@ test("listed item files hydrate GET when the index body 403s", async () => {
 });
 
 test("public Lapland stays untouched by per-moment item files", async () => {
-  const [item, blob, store, capture, laplandPage, seed, poster] = await Promise.all([
+  const [item, blob, store, capture, laplandPage, seed, poster, drive] = await Promise.all([
     readSource("lib/moment-item.ts"),
     readSource("lib/moment-blob.ts"),
     readSource("lib/moment-store.ts"),
@@ -556,9 +672,10 @@ test("public Lapland stays untouched by per-moment item files", async () => {
     readSource("app/trips/[slug]/page.tsx"),
     readSource("lib/trips.ts"),
     readSource("scripts/generate-lapland-poster.mjs"),
+    readSource("lib/drive-warehouse.ts"),
   ]);
 
-  for (const source of [item, blob, store, capture]) {
+  for (const source of [item, blob, store, capture, drive]) {
     assert.doesNotMatch(source, /trip_lapland_2020/);
     assert.doesNotMatch(source, /generate-lapland-poster/);
     assert.doesNotMatch(source, /travelpayouts/i);

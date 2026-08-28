@@ -217,6 +217,10 @@ export function momentAudioPlayUrl(momentId: string) {
 }
 
 export function isTrustedMomentAudioUrl(value: string) {
+  if (value.startsWith("drive:") && value.slice("drive:".length).trim()) {
+    return true;
+  }
+
   try {
     const url = new URL(value);
     if (url.protocol === "data:") {
