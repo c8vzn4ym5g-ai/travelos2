@@ -2,7 +2,7 @@ import {
   addJob,
   addMoment,
   isAdminPinValid,
-  momentApiErrorResponse,
+  momentWarehouseErrorResponse,
   readMoments,
   scheduleMissingMomentTranscripts,
   scheduleMomentIndex,
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     scheduleMissingMomentTranscripts(content.moments);
     return Response.json({ content, status });
   } catch (error) {
-    return momentApiErrorResponse(error);
+    return momentWarehouseErrorResponse(error);
   }
 }
 
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     scheduleMomentIndex(saved.moment.id);
     return Response.json({ content: withJob.content, job: withJob.job, moment: saved.moment });
   } catch (error) {
-    return momentApiErrorResponse(error);
+    return momentWarehouseErrorResponse(error);
   }
 }
 
@@ -140,6 +140,6 @@ export async function PUT(request: Request) {
 
     return Response.json({ content: withJob.content, job: withJob.job, moment: saved.moment });
   } catch (error) {
-    return momentApiErrorResponse(error);
+    return momentWarehouseErrorResponse(error);
   }
 }

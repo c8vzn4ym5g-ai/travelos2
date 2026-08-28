@@ -1,4 +1,4 @@
-import { BlobAccessError, BlobNotFoundError, get, head, put } from "@vercel/blob";
+import { BlobAccessError, BlobNotFoundError, del, get, head, list, put } from "@vercel/blob";
 import { isBlobConfigured } from "@/lib/editable-store";
 import type { MomentItemPut } from "@/lib/moment-item";
 import type { WarehouseGet, WarehouseGetResult } from "@/lib/warehouse-read";
@@ -302,3 +302,140 @@ export async function putMomentJsonBlob(pathname: string, body: string, options:
 export const putMomentItemJson: MomentItemPut = (pathname, body, options) => {
   return putMomentJsonBlob(pathname, body, options);
 };
+
+const WAREHOUSE_PATH = "travelos/moments.json";
+const BLOB_HEALTH_PATH = "travelos/moments/_health.json";
+
+export type BlobProbe = {
+  error: string | null;
+  host: string | null;
+  ok: boolean;
+  storeAccess: BlobStoreAccess | null;
+};
+
+export type BlobStoreInspect = {
+  configured: boolean;
+  getPrivate: BlobProbe;
+  getPublic: BlobProbe;
+  hasOidc: boolean;
+  hasReadWriteToken: boolean;
+  hasStoreId: boolean;
+  head: BlobProbe;
+  list: { count: number; error: string | null; hosts: string[]; ok: boolean };
+  putPrivate: BlobProbe | null;
+  putPublic: BlobProbe | null;
+  storeId: string | null;
+};
+
+function errorText(error: unknown) {
+  return error instanceof Error ? error.message.slice(0, 180) : "unknown";
+}
+
+export function storeAccessFromUrl(url: string | null | undefined): BlobStoreAccess | null {
+  if (!url) {
+    return null;
+  }
+  try {
+    const host = new URL(url).hostname;
+    if (host.includes(".private.blob.")) {
+      return "private";
+    }
+    if (host.includes(".public.blob.")) {
+      return "public";
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function hostFromUrl(url: string | null | undefined) {
+  try {
+    return url ? new URL(url).hostname : null;
+  } catch {
+    return null;
+  }
+}
+
+function probeFromUrl(url: string | null | undefined, error: string | null = null): BlobProbe {
+  return {
+    error,
+    host: hostFromUrl(url),
+    ok: Boolean(url) && !error,
+    storeAccess: storeAccessFromUrl(url),
+  };
+}
+
+async function probeGet(access: BlobStoreAccess): Promise<BlobProbe> {
+  try {
+    const result = await get(WAREHOUSE_PATH, { access, useCache: false });
+    if (result?.statusCode === 200 && result.stream) {
+      return { error: null, host: null, ok: true, storeAccess: access };
+    }
+    return { error: result ? `HTTP ${result.statusCode}` : "missing", host: null, ok: false, storeAccess: access };
+  } catch (error) {
+    return { error: errorText(error), host: null, ok: false, storeAccess: access };
+  }
+}
+
+async function probePut(access: BlobStoreAccess): Promise<BlobProbe> {
+  try {
+    const blob = await put(BLOB_HEALTH_PATH, `{"ok":true,"access":"${access}"}`, {
+      access,
+      allowOverwrite: true,
+      addRandomSuffix: false,
+      contentType: "application/json",
+    });
+    return probeFromUrl(blob.url);
+  } catch (error) {
+    return { error: errorText(error), host: null, ok: false, storeAccess: access };
+  }
+}
+
+export async function inspectBlobStore(options: { includePut?: boolean } = {}): Promise<BlobStoreInspect> {
+  const inspect: BlobStoreInspect = {
+    configured: isMomentJsonBlobConfigured(),
+    getPrivate: { error: null, host: null, ok: false, storeAccess: "private" },
+    getPublic: { error: null, host: null, ok: false, storeAccess: "public" },
+    hasOidc: Boolean(process.env.VERCEL_OIDC_TOKEN?.trim()),
+    hasReadWriteToken: Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim()),
+    hasStoreId: Boolean(process.env.BLOB_STORE_ID?.trim()),
+    head: { error: null, host: null, ok: false, storeAccess: null },
+    list: { count: 0, error: null, hosts: [], ok: false },
+    putPrivate: null,
+    putPublic: null,
+    storeId: resolveBlobStoreId() || null,
+  };
+
+  try {
+    const listed = await list({ limit: 8, prefix: "travelos/moments" });
+    const hosts = [
+      ...new Set(listed.blobs.map((blob) => hostFromUrl(blob.url)).filter((host): host is string => Boolean(host))),
+    ];
+    inspect.list = { count: listed.blobs.length, error: null, hosts, ok: true };
+  } catch (error) {
+    inspect.list = { count: 0, error: errorText(error), hosts: [], ok: false };
+  }
+
+  try {
+    const meta = await head(WAREHOUSE_PATH);
+    inspect.head = probeFromUrl(meta.url);
+  } catch (error) {
+    inspect.head = { error: errorText(error), host: null, ok: false, storeAccess: null };
+  }
+
+  inspect.getPrivate = await probeGet("private");
+  inspect.getPublic = await probeGet("public");
+
+  if (options.includePut) {
+    inspect.putPrivate = await probePut("private");
+    inspect.putPublic = await probePut("public");
+    try {
+      await del(BLOB_HEALTH_PATH);
+    } catch {
+      // Health put is a probe only. Leaving the tiny file is fine.
+    }
+  }
+
+  return inspect;
+}

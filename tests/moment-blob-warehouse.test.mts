@@ -9,6 +9,7 @@ import {
   readLiveMomentBlob,
   resetBlobStoreAccessForTests,
   resolveBlobStoreId,
+  storeAccessFromUrl,
   shouldFallBackToPublicBlob,
 } from "../lib/moment-blob.ts";
 import { momentApiErrorResponse } from "../lib/moment-store.ts";
@@ -39,6 +40,8 @@ test("warehouse JSON reads and writes prefer the private store", () => {
   );
   assert.equal(shouldFallBackToPublicBlob(new Error("Vercel Blob: Failed to fetch blob: 403 Forbidden")), true);
   assert.equal(shouldFallBackToPublicBlob(new Error("origin down")), false);
+  assert.equal(storeAccessFromUrl("https://xyz789.public.blob.vercel-storage.com/travelos/moments.json"), "public");
+  assert.equal(storeAccessFromUrl("https://xyz789.private.blob.vercel-storage.com/travelos/moments.json"), "private");
   assert.equal(momentPhotoPlayUrl("moment_1", "photo_2"), "/api/moments/photos?momentId=moment_1&photoId=photo_2");
 });
 
@@ -189,7 +192,7 @@ test("blob 403 from POST/GET moment APIs is a 503 with a body", async () => {
 });
 
 test("live warehouse reader keeps parallel Capture POSTs and family photo proxy", async () => {
-  const [blob, store, capture, upload, photosApi, bench, write, transcript] = await Promise.all([
+  const [blob, store, capture, upload, photosApi, bench, write, transcript, health] = await Promise.all([
     readSource("lib/moment-blob.ts"),
     readSource("lib/moment-store.ts"),
     readSource("app/family/capture/page.tsx"),
@@ -198,6 +201,7 @@ test("live warehouse reader keeps parallel Capture POSTs and family photo proxy"
     readSource("app/family/bench/page.tsx"),
     readSource("app/trips/write/page.tsx"),
     readSource("lib/moment-transcript.ts"),
+    readSource("app/api/family/blob-health/route.ts"),
   ]);
 
   assert.match(blob, /access: "private", useCache: false/);
@@ -216,4 +220,9 @@ test("live warehouse reader keeps parallel Capture POSTs and family photo proxy"
   assert.match(upload, /fetch\("\/api\/moments\/photos"/);
   assert.doesNotMatch(capture, /trip_lapland_2020/);
   assert.doesNotMatch(blob, /trip_lapland_2020/);
+  assert.match(blob, /inspectBlobStore/);
+  assert.match(store, /momentWarehouseErrorResponse/);
+  assert.match(health, /inspectBlobStore/);
+  assert.match(health, /includePut: true/);
+  assert.doesNotMatch(health, /trip_lapland_2020/);
 });
