@@ -24,7 +24,7 @@ export class MomentWarehouseUnavailableError extends Error {
   }
 }
 
-export const WAREHOUSE_GET_OPTIONS = { access: "public", useCache: false } as const;
+export const WAREHOUSE_GET_OPTIONS = { access: "private", useCache: false } as const;
 export const WAREHOUSE_READ_TIMEOUT_MS = 8000;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, onTimeout: () => Error) {

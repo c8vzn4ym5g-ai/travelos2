@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { BenchAudio } from "@/app/family/bench/bench-audio";
 import { FAMILY_ADMIN_SESSION_KEY, familyPinHeaders, resolveFamilySession } from "@/lib/family-session";
 import type { MomentContent } from "@/lib/moment-store";
-import { momentNeedsTranscript, sortMomentsNewestFirst } from "@/lib/moments";
+import { momentNeedsTranscript, momentPhotoPlayUrl, sortMomentsNewestFirst } from "@/lib/moments";
 import type { TravelMoment } from "@/lib/types";
 
 type MomentsResponse = {
@@ -333,7 +333,7 @@ export default function FamilyBenchPage() {
                             <img
                               alt={photo.originalFilename || ""}
                               className="h-40 w-full object-cover"
-                              src={photo.storageKey}
+                              src={momentPhotoPlayUrl(moment.id, photo.id)}
                             />
                           </li>
                         ))}

@@ -4,10 +4,10 @@ import { MomentWarehouseUnavailableError, type WarehouseGet } from "./warehouse-
 
 export { momentItemBlobPath } from "./moments.ts";
 
-export const MOMENT_ITEM_GET_OPTIONS = { access: "public", useCache: false } as const;
+export const MOMENT_ITEM_GET_OPTIONS = { access: "private", useCache: false } as const;
 
 export const MOMENT_ITEM_PUT_OPTIONS = {
-  access: "public" as const,
+  access: "private" as const,
   addRandomSuffix: false,
   allowOverwrite: true,
   contentType: "application/json",
@@ -22,7 +22,7 @@ export type MomentItemPut = (
   pathname: string,
   body: string,
   options: {
-    access: "public";
+    access: "private" | "public";
     addRandomSuffix: boolean;
     allowOverwrite: boolean;
     contentType: string;

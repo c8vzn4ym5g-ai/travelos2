@@ -45,7 +45,7 @@ function createStaleIndexBlob() {
 
   const get: WarehouseGet = async (pathname, options) => {
     if (pathname === MOMENTS_BLOB_PATH) {
-      assert.equal(options.access, "public");
+      assert.equal(options.access, "private");
       const stale = indexCdn.get(pathname) ?? origin.get(pathname);
       if (!stale) {
         return null;
@@ -114,7 +114,8 @@ test("unique moment item path is the id and does not add a random suffix", () =>
   assert.equal(MOMENTS_BLOB_PATH, "travelos/moments.json");
   assert.equal(MOMENT_ITEM_PUT_OPTIONS.addRandomSuffix, false);
   assert.equal(MOMENT_ITEM_PUT_OPTIONS.allowOverwrite, true);
-  assert.equal(MOMENT_ITEM_GET_OPTIONS.access, "public");
+  assert.equal(MOMENT_ITEM_PUT_OPTIONS.access, "private");
+  assert.equal(MOMENT_ITEM_GET_OPTIONS.access, "private");
 });
 
 test("unique-path get/put is readable immediately while index overwrite stays stale", async () => {
