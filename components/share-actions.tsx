@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PUBLIC_SITE_ORIGIN } from "@/lib/site-url";
 
 type ShareActionsProps = {
   description: string;
@@ -8,7 +9,7 @@ type ShareActionsProps = {
   title: string;
 };
 
-const siteUrl = "https://travelos2-63r3.vercel.app";
+const siteUrl = PUBLIC_SITE_ORIGIN;
 
 export function ShareActions({ description, path, title }: ShareActionsProps) {
   const [message, setMessage] = useState("Share");

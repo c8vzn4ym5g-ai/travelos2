@@ -9,7 +9,7 @@
 - ORM target: Prisma
 - Media storage target: Cloudflare R2 or S3-compatible storage
 - AI target: OpenAI API
-- Hosting target: Vercel (live) plus a parallel Cloudflare Workers / OpenNext path. See `docs/cloudflare-hosting.md`.
+- Hosting target: Cloudflare Workers (`travelos2.chao-jason.workers.dev`) as the public storefront origin; Vercel (`travelos2-63r3`) remains a cold spare. See `docs/cloudflare-hosting.md`.
 
 ## Boundaries
 

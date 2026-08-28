@@ -1,5 +1,15 @@
 # TravelOS Handoff
 
+## 2026-08-28 Public origin is Cloudflare workers.dev; Vercel is cold spare
+
+- Storefront canonicals (`metadataBase`, sitemap, robots, JSON-LD, share
+  links) use `https://travelos2.chao-jason.workers.dev` from `lib/site-url.ts`.
+- Vercel `https://travelos2-63r3.vercel.app` remains deployed as cold spare.
+  Do not delete the Vercel GitHub integration or `pnpm run build`.
+- No custom domain / DNS change is required for this cut. `workers_dev` is
+  the public hostname. Travelpayouts Drive stays `emrldtp.cc`; Drive warehouse
+  stays Apps Script.
+
 ## 2026-08-27 Family home: 入口 → 工作台 → 編輯
 
 - `/family` is three zones. 入口 holds Capture (`/family/capture`) and

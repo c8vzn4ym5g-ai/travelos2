@@ -2,6 +2,9 @@
 
 TravelOS is a personal travel journal and memory system built with Next.js, TypeScript, and Tailwind CSS.
 
+Public storefront origin: `https://travelos2.chao-jason.workers.dev`  
+Vercel cold spare: `https://travelos2-63r3.vercel.app`
+
 This repository starts with the product documents and a lightweight application shell so Codex can continue from `docs/Tasks.md`, beginning with `TASK-001`.
 
 ## Current Status

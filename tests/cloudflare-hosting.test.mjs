@@ -51,6 +51,42 @@ test("Cloudflare OpenNext path exists and does not replace Vercel next build", a
   assert.doesNotMatch(docs, /31c5f4dccc8eabb039689996576e8e1c4/);
 });
 
+test("storefront canonical origin is Cloudflare workers.dev; Vercel remains a cold spare", async () => {
+  const site = await readSource("lib/site-url.ts");
+  assert.match(site, /export const PUBLIC_SITE_ORIGIN = "https:\/\/travelos2\.chao-jason\.workers\.dev"/);
+  assert.match(site, /export const VERCEL_SPARE_ORIGIN = "https:\/\/travelos2-63r3\.vercel\.app"/);
+
+  const storefrontFiles = [
+    "app/layout.tsx",
+    "app/sitemap.ts",
+    "app/robots.ts",
+    "app/trips/[slug]/page.tsx",
+    "app/coffee/[slug]/page.tsx",
+    "components/share-actions.tsx",
+  ];
+
+  for (const path of storefrontFiles) {
+    const source = await readSource(path);
+    assert.match(source, /PUBLIC_SITE_ORIGIN|publicSiteUrl/);
+    assert.doesNotMatch(source, /travelos2-63r3\.vercel\.app/);
+  }
+
+  const pkg = JSON.parse(await readSource("package.json"));
+  assert.equal(pkg.scripts.build, "next build");
+
+  const wrangler = await readSource("wrangler.jsonc");
+  assert.match(wrangler, /"workers_dev": true/);
+  assert.doesNotMatch(wrangler, /"routes"/);
+
+  const nextConfig = await readSource("next.config.ts");
+  assert.match(nextConfig, /process\.env\.VERCEL/);
+  assert.doesNotMatch(nextConfig, /output:\s*['"]export['"]/);
+
+  const docs = await readSource("docs/cloudflare-hosting.md");
+  assert.match(docs, /travelos2\.chao-jason\.workers\.dev/);
+  assert.match(docs, /cold spare/);
+});
+
 test("Drive warehouse credentials stay server-only for the Cloudflare path", async () => {
   const drive = await readSource("lib/drive-warehouse.ts");
   assert.match(drive, /TRAVELOS_DRIVE_WAREHOUSE_URL/);

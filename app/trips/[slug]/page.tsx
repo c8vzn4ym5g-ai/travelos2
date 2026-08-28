@@ -13,6 +13,7 @@ import { LaplandStorefrontGlance } from "@/components/lapland-storefront-glance"
 import { LaplandVisualPath } from "@/components/lapland-visual-path";
 import { ShareActions } from "@/components/share-actions";
 import { readContent } from "@/lib/editable-store";
+import { publicSiteUrl } from "@/lib/site-url";
 import {
   forLaplandPublicPage,
   garnishCaptionCredit,
@@ -257,6 +258,9 @@ export async function generateMetadata({ params }: TripDetailPageProps): Promise
   const description = trip.summary.slice(0, 155);
 
   return {
+    alternates: {
+      canonical: `/trips/${trip.slug}`,
+    },
     description,
     openGraph: {
       description,
@@ -310,7 +314,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
       address: `${trip.city}, ${trip.country}`,
       name: `${trip.city}, ${trip.country}`,
     },
-    mainEntityOfPage: `https://travelos2-63r3.vercel.app/trips/${trip.slug}`,
+    mainEntityOfPage: publicSiteUrl(`/trips/${trip.slug}`),
     ...(isLapland
       ? {}
       : {
