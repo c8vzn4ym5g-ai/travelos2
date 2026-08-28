@@ -9,7 +9,7 @@
 - ORM target: Prisma
 - Media storage target: Cloudflare R2 or S3-compatible storage
 - AI target: OpenAI API
-- Hosting target: Vercel
+- Hosting target: Vercel (live) plus a parallel Cloudflare Workers / OpenNext path. See `docs/cloudflare-hosting.md`.
 
 ## Boundaries
 

@@ -4,9 +4,24 @@ import {
   type MomentContent,
 } from "@/lib/warehouse-read";
 
-export const TRAVELOS_DRIVE_WAREHOUSE_URL =
+const DEFAULT_DRIVE_WAREHOUSE_URL =
   "https://script.google.com/macros/s/AKfycbyE4a9bahFmASEh6Dda_8udSlLLhnIIr70NggG5cSSAa8EB3pxxt4SoFZ96TgJLeozY/exec";
-export const TRAVELOS_DRIVE_WAREHOUSE_TOKEN = "cCpNneNyv0_MTyPjAZMkJ3g69t0DfDE-GP84y26YGhU";
+const DEFAULT_DRIVE_WAREHOUSE_TOKEN = "cCpNneNyv0_MTyPjAZMkJ3g69t0DfDE-GP84y26YGhU";
+
+function serverEnv(name: string) {
+  return (process.env[name] ?? "").trim();
+}
+
+export function getDriveWarehouseUrl() {
+  return serverEnv("TRAVELOS_DRIVE_WAREHOUSE_URL") || DEFAULT_DRIVE_WAREHOUSE_URL;
+}
+
+export function getDriveWarehouseToken() {
+  return serverEnv("TRAVELOS_DRIVE_WAREHOUSE_TOKEN") || DEFAULT_DRIVE_WAREHOUSE_TOKEN;
+}
+
+export const TRAVELOS_DRIVE_WAREHOUSE_URL = DEFAULT_DRIVE_WAREHOUSE_URL;
+export const TRAVELOS_DRIVE_WAREHOUSE_TOKEN = DEFAULT_DRIVE_WAREHOUSE_TOKEN;
 
 export const DRIVE_STORAGE_PREFIX = "drive:";
 export const DRIVE_INDEX_NAME = "moments.json";
@@ -38,7 +53,7 @@ export function resetDriveWarehouseForTests() {
 }
 
 export function isDriveWarehouseConfigured() {
-  return Boolean(TRAVELOS_DRIVE_WAREHOUSE_URL && TRAVELOS_DRIVE_WAREHOUSE_TOKEN);
+  return Boolean(getDriveWarehouseUrl() && getDriveWarehouseToken());
 }
 
 export function driveStorageKey(fileId: string) {
@@ -72,7 +87,7 @@ function resolveFetch(request?: DriveFetch): DriveFetch {
 }
 
 function warehouseUrl(params: Record<string, string>) {
-  const url = new URL(TRAVELOS_DRIVE_WAREHOUSE_URL);
+  const url = new URL(getDriveWarehouseUrl());
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }
@@ -160,13 +175,14 @@ async function postJson(
   const request = resolveFetch(requestImpl);
   const body = JSON.stringify(payload);
   const headers = { "Content-Type": "application/json" };
-  const first = await request(TRAVELOS_DRIVE_WAREHOUSE_URL, {
+  const endpoint = getDriveWarehouseUrl();
+  const first = await request(endpoint, {
     body,
     headers,
     method: "POST",
     redirect: "manual",
   });
-  const response = await followRedirects(request, first, TRAVELOS_DRIVE_WAREHOUSE_URL, {
+  const response = await followRedirects(request, first, endpoint, {
     body,
     headers,
     method: "POST",
@@ -213,7 +229,7 @@ function parseWarehouse(raw: unknown): MomentContent {
 
 export async function getIndex(request?: DriveFetch): Promise<MomentContent> {
   const raw = await getJson(
-    { op: "index", token: TRAVELOS_DRIVE_WAREHOUSE_TOKEN },
+    { op: "index", token: getDriveWarehouseToken() },
     "Drive warehouse index GET",
     request,
   );
@@ -222,7 +238,7 @@ export async function getIndex(request?: DriveFetch): Promise<MomentContent> {
 
 export async function putIndex(text: string, request?: DriveFetch): Promise<{ ok: true; name: string }> {
   const raw = await postJson(
-    { op: "index", text, token: TRAVELOS_DRIVE_WAREHOUSE_TOKEN },
+    { op: "index", text, token: getDriveWarehouseToken() },
     "Drive warehouse index POST",
     request,
   );
@@ -235,7 +251,7 @@ export async function putIndex(text: string, request?: DriveFetch): Promise<{ ok
 
 export async function putItem(name: string, text: string, request?: DriveFetch): Promise<{ ok: true; name: string }> {
   const raw = await postJson(
-    { name, op: "item", text, token: TRAVELOS_DRIVE_WAREHOUSE_TOKEN },
+    { name, op: "item", text, token: getDriveWarehouseToken() },
     "Drive warehouse item POST",
     request,
   );
@@ -259,7 +275,7 @@ export async function putBinary(
       base64: Buffer.from(input.bytes).toString("base64"),
       mimeType: input.mimeType,
       name: input.name,
-      token: TRAVELOS_DRIVE_WAREHOUSE_TOKEN,
+      token: getDriveWarehouseToken(),
     },
     "Drive warehouse binary POST",
     request,
@@ -285,7 +301,7 @@ export async function getBinary(
   name: string;
 } | null> {
   const raw = await getJson(
-    { id: fileId, token: TRAVELOS_DRIVE_WAREHOUSE_TOKEN },
+    { id: fileId, token: getDriveWarehouseToken() },
     "Drive warehouse binary GET",
     request,
     { allowNotFound: true },

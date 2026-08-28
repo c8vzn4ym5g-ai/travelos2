@@ -9,12 +9,17 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --import ./tests/register-at.mjs --test tests/*.test.mjs tests/*.test.mts",
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf:typegen": "wrangler types --env-interface CloudflareEnv --include-runtime false cloudflare-env.d.ts",
     "generate:lapland-poster": "node --experimental-strip-types scripts/generate-lapland-poster.mjs",
     "compose:lapland-helsinki-poster": "node --experimental-strip-types scripts/compose-lapland-helsinki-poster.mjs"
   },
   "dependencies": {
+    "@opennextjs/cloudflare": "^1.20.4",
     "@vercel/blob": "^2.6.1",
-    "next": "^15.4.0",
+    "next": "^15.5.24",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
@@ -26,8 +31,9 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "eslint": "^9.20.0",
-    "eslint-config-next": "^15.4.0",
+    "eslint-config-next": "^15.5.24",
     "tailwindcss": "^4.1.0",
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "wrangler": "^4.127.0"
   }
 }
