@@ -246,11 +246,15 @@ export async function readMomentBlobBytes(urlOrPathname: string): Promise<{
 
   const driveId = parseDriveFileId(urlOrPathname);
   if (driveId) {
-    const file = await getBinary(driveId);
-    if (!file) {
+    try {
+      const file = await getBinary(driveId);
+      if (!file) {
+        return null;
+      }
+      return { bytes: file.bytes, contentType: file.mimeType };
+    } catch {
       return null;
     }
-    return { bytes: file.bytes, contentType: file.mimeType };
   }
 
   try {
@@ -318,7 +322,7 @@ export async function readMomentThumbBytes(urlOrPathname: string): Promise<{
       return { bytes: fetched.bytes, contentType: fetched.mimeType };
     }
 
-    const full = await getBinary(driveId);
+    const full = await getBinary(driveId).catch(() => null);
     if (!full) {
       return null;
     }
