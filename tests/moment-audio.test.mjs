@@ -80,6 +80,8 @@ test("moment audio play URLs stay on the family origin and reject open fetch", (
     isTrustedMomentAudioUrl("https://abc.public.blob.vercel-storage.com/travelos/moments/audio/x.m4a"),
     true,
   );
+  assert.equal(isTrustedMomentAudioUrl("drive:1abcFileId"), true);
+  assert.equal(isTrustedMomentAudioUrl("drive:"), false);
   assert.equal(isTrustedMomentAudioUrl("https://evil.example/audio.mp4"), false);
   assert.equal(isTrustedMomentAudioUrl("data:audio/mp4;base64,AAAA"), true);
 });

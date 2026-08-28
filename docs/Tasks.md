@@ -1,5 +1,25 @@
 # TravelOS Codex Tasks
 
+## TASK-027: Capture dumps use the Drive warehouse receiver
+
+Status: done
+
+Goal: Live Capture `POST /api/moments` 503'd because the Vercel Blob
+store is suspended. Family moments must read and write through the
+Drive warehouse receiver. Do not unsuspend Blob. Public Lapland stays
+on Blob list+seed. Family PIN stays off.
+
+Result:
+
+- Server-only `lib/drive-warehouse.ts` talks to the Drive warehouse
+  receiver (`getIndex`, `putIndex`, `putItem`, `putBinary`, `getBinary`).
+- Capture photo/audio binaries use `drive:<fileId>` keys. Item files
+  plus the Drive index are the source of truth. Dead Blob no longer
+  503s Capture. Parallel photo POST (cap 40) is unchanged.
+- New family moments are not written to Blob even if a Blob token is
+  still configured.
+
+
 ## TASK-026: Family home is 入口 → 工作台 → 編輯
 
 Status: done

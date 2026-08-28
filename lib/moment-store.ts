@@ -1,19 +1,29 @@
 import { BlobAccessError } from "@vercel/blob";
 import { afterResponse } from "@/lib/after-response";
 import {
+  DriveWarehouseError,
+  driveObjectName,
+  driveStorageKey,
+  getIndex,
+  isDriveWarehouseFetchOverridden,
+  putBinary,
+  putIndex,
+  putItem,
+  resetDriveWarehouseForTests,
+} from "@/lib/drive-warehouse";
+import { isAdminPinValid } from "@/lib/editable-store";
+import {
   fetchListedBlob,
   getMomentJsonBlob,
   isMomentBlobAdapterActive,
-  isMomentJsonBlobConfigured,
   listMomentBlobs,
   putMomentItemJson,
   putMomentJsonBlob,
-  putWithStoreAccess,
   resetBlobStoreAccessForTests,
   setMomentBlobAdapterForTests,
 } from "@/lib/moment-blob";
-import { isAdminPinValid, isBlobConfigured } from "@/lib/editable-store";
 import {
+  createMomentItemRecord,
   loadMomentItemFromBlobGet,
   momentsFromListedItemBlobs,
   overlayMoments,
@@ -27,6 +37,7 @@ import {
   MOMENTS_SCHEMA_VERSION,
   appendMomentPhotos,
   applyMomentPhotoAppends,
+  momentItemBlobPath,
   normalizeTravelJob,
   normalizeTravelMoment,
   sortMomentsNewestFirst,
@@ -49,13 +60,31 @@ export {
 } from "@/lib/warehouse-read";
 export { momentItemBlobPath } from "@/lib/moments";
 export { setMomentBlobAdapterForTests };
+export { setDriveWarehouseFetchForTests } from "@/lib/drive-warehouse";
 
 export type MomentStoreStatus = {
   configured: boolean;
-  source: "blob" | "memory";
+  source: "blob" | "drive" | "memory";
 };
 
 export { isAdminPinValid };
+
+function shouldUseDriveWarehouse() {
+  if (isMomentBlobAdapterActive()) {
+    return false;
+  }
+  if (isDriveWarehouseFetchOverridden()) {
+    return true;
+  }
+  if (process.env.NODE_TEST_CONTEXT) {
+    return false;
+  }
+  return true;
+}
+
+function isMomentWarehouseConfigured() {
+  return isMomentBlobAdapterActive() || shouldUseDriveWarehouse();
+}
 
 function isBlobWarehouseReadError(error: unknown) {
   if (error instanceof BlobAccessError) {
@@ -68,7 +97,7 @@ function isBlobWarehouseReadError(error: unknown) {
 }
 
 export function momentApiErrorResponse(error: unknown) {
-  if (error instanceof MomentWarehouseUnavailableError) {
+  if (error instanceof MomentWarehouseUnavailableError || error instanceof DriveWarehouseError) {
     return Response.json({ error: error.message }, { status: 503 });
   }
   if (isBlobWarehouseReadError(error)) {
@@ -118,6 +147,7 @@ function setLastIndexWrite(content: MomentContent | null) {
 export function resetMomentStoreForTests() {
   setMomentBlobAdapterForTests(null);
   resetBlobStoreAccessForTests();
+  resetDriveWarehouseForTests();
   setMemoryContent(createEmptyWarehouse());
   getItemCache().clear();
   setLastIndexWrite(null);
@@ -146,7 +176,7 @@ function rememberItem(moment: TravelMoment) {
 }
 
 async function loadListedMomentItems(): Promise<TravelMoment[]> {
-  if (isMomentBlobAdapterActive()) {
+  if (isMomentBlobAdapterActive() || shouldUseDriveWarehouse()) {
     return [];
   }
 
@@ -158,9 +188,33 @@ async function loadListedMomentItems(): Promise<TravelMoment[]> {
   }
 }
 
+async function loadDriveIndex(): Promise<MomentContent> {
+  try {
+    return await getIndex();
+  } catch {
+    // Dead or empty Drive index must not 503 Capture. Item files + last write stay the source of truth.
+    return getLastIndexWrite() ?? createEmptyWarehouse();
+  }
+}
+
 async function readIndexRaw(): Promise<MomentContent> {
-  if (!isMomentJsonBlobConfigured()) {
+  if (!isMomentWarehouseConfigured()) {
     return withNormalizedContent(getMemoryContent());
+  }
+
+  if (shouldUseDriveWarehouse()) {
+    const loaded = await loadDriveIndex();
+    const lastWrite = getLastIndexWrite();
+    const mergedMoments = overlayMoments(loaded.moments, [
+      ...(lastWrite?.moments ?? []),
+      ...getItemCache().values(),
+    ]);
+    const mergedJobs = lastWrite ? overlayJobs(loaded.jobs, lastWrite.jobs) : loaded.jobs;
+    return {
+      ...loaded,
+      jobs: mergedJobs,
+      moments: mergedMoments,
+    };
   }
 
   const loaded = await loadWarehouseFromBlobGet(getMomentJsonBlob);
@@ -215,10 +269,18 @@ async function readMomentItem(momentId: string): Promise<TravelMoment | null> {
     return cached;
   }
 
-  if (isMomentJsonBlobConfigured()) {
-    const fromBlob = await loadMomentItemFromBlobGet(getMomentJsonBlob, momentId);
-    if (fromBlob) {
-      return rememberItem(fromBlob);
+  if (isMomentWarehouseConfigured()) {
+    if (shouldUseDriveWarehouse()) {
+      const index = await loadDriveIndex();
+      const fromIndex = index.moments.find((moment) => moment.id === momentId) ?? null;
+      if (fromIndex) {
+        return rememberItem(fromIndex);
+      }
+    } else {
+      const fromBlob = await loadMomentItemFromBlobGet(getMomentJsonBlob, momentId);
+      if (fromBlob) {
+        return rememberItem(fromBlob);
+      }
     }
   }
 
@@ -233,7 +295,13 @@ async function readMomentItem(momentId: string): Promise<TravelMoment | null> {
 
 async function writeMomentItem(moment: TravelMoment) {
   const saved = rememberItem(moment);
-  if (!isMomentJsonBlobConfigured()) {
+  if (!isMomentWarehouseConfigured()) {
+    return saved;
+  }
+
+  if (shouldUseDriveWarehouse()) {
+    const record = createMomentItemRecord(saved);
+    await putItem(driveObjectName(momentItemBlobPath(saved.id)), JSON.stringify(record, null, 2));
     return saved;
   }
 
@@ -285,8 +353,8 @@ export async function readMoments(): Promise<{ content: MomentContent; status: M
       moments: overlayMoments(content.moments, [...getItemCache().values()]),
     },
     status: {
-      configured: isMomentJsonBlobConfigured(),
-      source: isMomentJsonBlobConfigured() ? "blob" : "memory",
+      configured: isMomentWarehouseConfigured(),
+      source: isMomentBlobAdapterActive() ? "blob" : shouldUseDriveWarehouse() ? "drive" : "memory",
     },
   };
 }
@@ -301,8 +369,13 @@ export async function writeWarehouse(moments: TravelMoment[], jobs: TravelJob[])
 
   setLastIndexWrite(content);
 
-  if (!isMomentJsonBlobConfigured()) {
+  if (!isMomentWarehouseConfigured()) {
     setMemoryContent(content);
+    return content;
+  }
+
+  if (shouldUseDriveWarehouse()) {
+    await putIndex(JSON.stringify(content, null, 2));
     return content;
   }
 
@@ -317,17 +390,20 @@ export async function writeWarehouse(moments: TravelMoment[], jobs: TravelJob[])
 }
 
 export async function storeMomentBinary(pathname: string, file: Blob) {
-  if (!isBlobConfigured()) {
-    const bytes = Buffer.from(await file.arrayBuffer());
+  if (shouldUseDriveWarehouse()) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
     const mime = file.type || "application/octet-stream";
-    return { url: `data:${mime};base64,${bytes.toString("base64")}` };
+    const stored = await putBinary({
+      bytes,
+      mimeType: mime,
+      name: driveObjectName(pathname),
+    });
+    return { url: driveStorageKey(stored.id) };
   }
 
-  const blob = await putWithStoreAccess(pathname, file, {
-    addRandomSuffix: true,
-    ...(file.type ? { contentType: file.type } : {}),
-  });
-  return { url: blob.url };
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const mime = file.type || "application/octet-stream";
+  return { url: `data:${mime};base64,${bytes.toString("base64")}` };
 }
 
 export async function momentExists(momentId: string) {

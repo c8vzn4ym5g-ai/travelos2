@@ -232,7 +232,7 @@ test("live warehouse reader lists then fetches, keeps parallel Capture POSTs, an
   assert.doesNotMatch(blob, /authorization:/);
   assert.match(store, /listMomentBlobs/);
   assert.match(store, /momentsFromListedItemBlobs/);
-  assert.match(store, /putWithStoreAccess/);
+  assert.match(store, /putBinary/);
   assert.match(store, /access: "private"/);
   assert.doesNotMatch(store, /import \{[^}]*\blist\b/);
   assert.doesNotMatch(store, /list\(/);
@@ -247,4 +247,8 @@ test("live warehouse reader lists then fetches, keeps parallel Capture POSTs, an
   assert.match(upload, /fetch\("\/api\/moments\/photos"/);
   assert.doesNotMatch(capture, /trip_lapland_2020/);
   assert.doesNotMatch(blob, /trip_lapland_2020/);
+  assert.match(store, /putBinary/);
+  assert.match(store, /driveStorageKey/);
+  assert.doesNotMatch(store, /putWithStoreAccess/);
+  assert.doesNotMatch(store, /isBlobConfigured\(\)/);
 });
