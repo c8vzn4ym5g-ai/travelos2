@@ -38,7 +38,7 @@ export const seedTripDetails: TripDetail[] = [
         tripId: "trip_lapland_2020",
         title: "聖誕窗 / Christmas window",
         body:
-          "十二月。人已經在雪裡。冰霜結滿。主郵局的聖誕箱會把一封信留到下一個十二月。村裡的燭台在窗台上，外面是藍調。\n\nDecember. Already in the snow. Ice on the glass. The Christmas box at the Main Post Office will keep a letter until the next December. A candelabra on the sill, blue hour outside.",
+          "十二月。人已經在雪裡。冰霜結滿。主郵局的聖誕箱會把一封信留到下一個十二月。村裡的燭台在窗台上，外面是藍時。\n\nDecember. Already in the snow. Ice on the glass. The Christmas box at the Main Post Office will keep a letter until the next December. A candelabra on the sill, blue hour outside.",
         entryDate: "2019-12-11",
         storyPhotoId: "photo_lapland_still_c",
         mood: "安靜",
@@ -52,7 +52,7 @@ export const seedTripDetails: TripDetail[] = [
         tripId: "trip_lapland_2020",
         title: "北極圈 / Arctic Circle",
         body:
-          "廣場上可以走過那條線。標牌寫 66° 32′ 35″。溫度計寫過 −16。紅柱排到聖誕老人公會堂的尖頂底下。\n\nYou can walk across the line in the square. The sign reads 66° 32′ 35″. The thermometer has read −16. Red pillars run to the conical roof of Santa Claus Office.",
+          "廣場上可以走過那條線。標牌寫 66° 32′ 35″。溫度計寫過 −16。紅柱排到聖誕老人辦公室的尖頂底下。\n\nYou can walk across the line in the square. The sign reads 66° 32′ 35″. The thermometer has read −16. Red pillars run to the conical roof of Santa Claus Office.",
         entryDate: "2019-12-11",
         storyPhotoId: "photo_lapland_still_g",
         mood: "安靜",
@@ -66,7 +66,7 @@ export const seedTripDetails: TripDetail[] = [
         tripId: "trip_lapland_2020",
         title: "4 號紅木屋 / Red cabin no. 4",
         body:
-          "村裡過夜。4 號紅木屋、雪人、門廊上的雪橇。排子裡的窗是亮的。\n\nA night in the village. Red cabin no. 4, a snowman, a sled on the porch. Windows still lit down the row.",
+          "村裡過夜。4 號紅木屋、雪人、門廊上的雪橇。巷子裡的窗是亮的。\n\nA night in the village. Red cabin no. 4, a snowman, a sled on the porch. Windows still lit down the row.",
         entryDate: "2019-12-12",
         storyPhotoId: "photo_lapland_still_l",
         mood: "溫亮",
@@ -80,7 +80,7 @@ export const seedTripDetails: TripDetail[] = [
         tripId: "trip_lapland_2020",
         title: "赫爾辛基解凍 / Helsinki thaw",
         body:
-          "Finnair 在積雪停機坪上，是離開。然後是城市：大樓梯，Toffle 的杯托，大廳的棋。主教座堂與南港在最後。\n\nFinnair on snow, leaving. Then the city: a grand staircase, a Toffle mug, chess in the lobby. Cathedral and South Harbour at the end.",
+          "Finnair 在積雪停機坪上，是離開。然後是城市：大樓梯，Toffle 的杯子，大廳的棋。主教座堂與南港在最後。\n\nFinnair on snow, leaving. Then the city: a grand staircase, a Toffle mug, chess in the lobby. Cathedral and South Harbour at the end.",
         entryDate: "2019-12-14",
         storyPhotoId: "photo_lapland_still_n",
         mood: "城市",
@@ -192,7 +192,7 @@ export const seedTripDetails: TripDetail[] = [
         tripId: "trip_lapland_2020",
         storageKey: "/travelos/lapland/stills/H_IMG_3616.jpeg",
         originalFilename: "H_IMG_3616.jpeg",
-        caption: "北極圈紅柱與聖誕老人公會堂。 / Arctic Circle pillars and Santa Claus Office.",
+        caption: "北極圈紅柱與聖誕老人辦公室。 / Arctic Circle pillars and Santa Claus Office.",
         takenAt: "2019-12-11T10:44:00.000Z",
         coordinates: { latitude: 66.5436, longitude: 25.8472 },
         cameraMake: null,

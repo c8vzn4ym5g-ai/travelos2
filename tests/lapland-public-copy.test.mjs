@@ -207,10 +207,11 @@ test("Lapland winter-village photo uses Sana's Christmas-card caption", async ()
   assert.doesNotMatch(seed, /id: LAPLAND_WINTER_VILLAGE_PHOTO_ID/);
   assert.doesNotMatch(seed, /屋頂與雪徑/);
   assert.doesNotMatch(seed, /Roofs and snow paths/);
-  assert.match(store, /CONTENT_SCHEMA_VERSION = 14/);
+  assert.match(store, /CONTENT_SCHEMA_VERSION = 15/);
   assert.match(store, /rebuildLaplandPublicStory/);
   assert.match(store, /photo_lapland_garnish_/);
   assert.match(store, /savedSchemaVersion < 14 && seedTrip.id === "trip_lapland_2020"/);
+  assert.match(store, /savedSchemaVersion < 15 && trip.id === "trip_lapland_2020"/);
   assert.match(page, /forLaplandPublicPage/);
   assert.match(page, /hideExactDate=\{isLaplandStorefrontSlug\(trip\.slug\)\}/);
   assert.match(page, /alt=\{coverPhoto\.caption \?\? trip\.title\}/);

@@ -70,12 +70,12 @@ export type LaplandVisualBeat = {
 export const LAPLAND_VISUAL_PATH: LaplandVisualBeat[] = [
   {
     credit: null,
-    en: "Red Arctic Circle pillars and the conical roof of Santa Claus Office. A person is already in the frame.",
+    en: "Red Arctic Circle pillars and the conical roof of Santa Claus Office.",
     kind: "family",
     kicker: "深冬 / Midwinter",
     photoId: "photo_lapland_still_cover",
     title: "北極圈紅柱 / Arctic Circle pillars",
-    zh: "紅柱 ARCTIC CIRCLE，後是尖頂 Santa Claus Office 與暮光聖誕燈。人已入鏡。",
+    zh: "紅柱 ARCTIC CIRCLE，後是尖頂 Santa Claus Office 與暮光聖誕燈。",
   },
   {
     credit: null,
@@ -103,7 +103,7 @@ export const LAPLAND_VISUAL_PATH: LaplandVisualBeat[] = [
     kicker: "聖誕窗 / Christmas window",
     photoId: "photo_lapland_still_c",
     title: "窗台上的燭光 / Candlelight on the windowsill",
-    zh: "七枝燭台在窗台上。外面是藍調，樹上有燈。聖誕窗就是這件事：裡暖，外冷，中間一塊玻璃。",
+    zh: "七枝燭台在窗台上。外面是藍時，樹上有燈。聖誕窗就是這件事：裡暖，外冷，中間一塊玻璃。",
   },
   {
     credit: null,
@@ -149,7 +149,7 @@ export const LAPLAND_VISUAL_PATH: LaplandVisualBeat[] = [
     kicker: "北極圈 / Arctic Circle",
     photoId: "photo_lapland_still_h",
     title: "北極圈紅柱 / Arctic Circle pillars",
-    zh: "紅柱排成一行，穿過廣場。後面是聖誕老人公會堂的尖頂。",
+    zh: "紅柱排成一行，穿過廣場。後面是聖誕老人辦公室的尖頂。",
   },
   {
     credit: null,
@@ -314,6 +314,16 @@ export function garnishCaptionCredit(photoId: string) {
 
 export function isLaplandStorefrontSlug(slug: string): boolean {
   return isLaplandPublicSlug(slug);
+}
+
+/** Meta / OG / Twitter. Keep the bilingual hook intact so EN still reaches Helsinki. */
+export function storefrontMetaDescription(summary: string, slug: string) {
+  const text = summary.trim();
+  if (isLaplandStorefrontSlug(slug)) {
+    return text;
+  }
+
+  return text.slice(0, 155);
 }
 
 export const LAPLAND_STAY_JOURNAL_ID = "journal_lapland_cabin";
