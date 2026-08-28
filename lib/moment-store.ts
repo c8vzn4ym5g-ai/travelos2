@@ -1,8 +1,11 @@
 import { BlobAccessError } from "@vercel/blob";
 import { afterResponse } from "@/lib/after-response";
 import {
+  fetchListedBlob,
   getMomentJsonBlob,
+  isMomentBlobAdapterActive,
   isMomentJsonBlobConfigured,
+  listMomentBlobs,
   putMomentItemJson,
   putMomentJsonBlob,
   putWithStoreAccess,
@@ -12,12 +15,14 @@ import {
 import { isAdminPinValid, isBlobConfigured } from "@/lib/editable-store";
 import {
   loadMomentItemFromBlobGet,
+  momentsFromListedItemBlobs,
   overlayMoments,
   putMomentItemRecord,
 } from "@/lib/moment-item";
 import { indexTravelMoment } from "@/lib/moment-index";
 import { momentNeedsTranscript, transcribeAudioUrl } from "@/lib/moment-transcript";
 import {
+  MOMENT_ITEM_PREFIX,
   MOMENTS_BLOB_PATH,
   MOMENTS_SCHEMA_VERSION,
   appendMomentPhotos,
@@ -140,23 +145,48 @@ function rememberItem(moment: TravelMoment) {
   return next;
 }
 
+async function loadListedMomentItems(): Promise<TravelMoment[]> {
+  if (isMomentBlobAdapterActive()) {
+    return [];
+  }
+
+  try {
+    const listed = await listMomentBlobs(`${MOMENT_ITEM_PREFIX}/`);
+    return await momentsFromListedItemBlobs(listed, fetchListedBlob);
+  } catch {
+    return [];
+  }
+}
+
 async function readIndexRaw(): Promise<MomentContent> {
   if (!isMomentJsonBlobConfigured()) {
     return withNormalizedContent(getMemoryContent());
   }
 
   const loaded = await loadWarehouseFromBlobGet(getMomentJsonBlob);
+  const listedItems = await loadListedMomentItems();
   const lastWrite = getLastIndexWrite();
   const mergedMoments = overlayMoments(loaded.content.moments, [
     ...(lastWrite?.moments ?? []),
+    ...listedItems,
     ...getItemCache().values(),
   ]);
   const mergedJobs = lastWrite
     ? overlayJobs(loaded.content.jobs, lastWrite.jobs)
     : loaded.content.jobs;
 
-  if (loaded.createdEmpty && getItemCache().size === 0 && !lastWrite) {
-    await writeWarehouse(mergedMoments, mergedJobs);
+  // Missing index can be created once. An unreadable (403) index, or any listed
+  // item files, must not be overwritten with an empty warehouse.
+  if (loaded.createdEmpty && listedItems.length === 0 && getItemCache().size === 0 && !lastWrite) {
+    try {
+      await writeWarehouse(mergedMoments, mergedJobs);
+    } catch {
+      return {
+        ...loaded.content,
+        jobs: mergedJobs,
+        moments: mergedMoments,
+      };
+    }
   }
 
   return {
