@@ -750,7 +750,7 @@ test("JPEG prepare returns the original file without canvas convert", async () =
   assert.match(prepare, /isHeicPhoto\(file\) \|\| file\.type === "image\/jpeg"/);
 });
 
-test("capture page caps a dump at 40 and queues POSTs at CAPTURE_UPLOAD_CONCURRENCY", async () => {
+test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
   const [capture, upload, prepare] = await Promise.all([
     readSource("app/family/capture/page.tsx"),
     readSource("lib/capture-upload.ts"),
@@ -779,9 +779,11 @@ test("capture page caps a dump at 40 and queues POSTs at CAPTURE_UPLOAD_CONCURRE
   assert.match(upload, /copyCaptureFile/);
   assert.match(upload, /captureDumpCapMessage/);
   assert.doesNotMatch(upload, /capturePrepareConcurrency/);
-  assert.match(capture, /createWorkQueue\(CAPTURE_UPLOAD_CONCURRENCY\)/);
-  assert.match(capture, /photoQueueRef/);
-  assert.match(uploadFn, /photoQueueRef\.current\.enqueue/);
+  assert.doesNotMatch(capture, /createWorkQueue/);
+  assert.doesNotMatch(capture, /photoQueue/);
+  assert.doesNotMatch(uploadFn, /\.enqueue\(/);
+  assert.match(uploadFn, /const run = \(async \(\) => \{/);
+  assert.match(uploadFn, /\}\)\(\);/);
   assert.doesNotMatch(ingestFn, /yieldToBrowser/);
   assert.doesNotMatch(ingestFn, /yieldTurn/);
   assert.doesNotMatch(ingestFn, /requestAnimationFrame/);

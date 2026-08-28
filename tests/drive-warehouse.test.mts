@@ -460,7 +460,7 @@ test("Drive adapter is server-only and Capture still dumps photos in parallel", 
   assert.match(audioApi, /storeMomentBinary/);
   assert.match(audioApi, /isTrustedMomentAudioUrl/);
   assert.match(upload, /CAPTURE_DUMP_LIMIT = 40/);
-  assert.match(capture, /createWorkQueue\(CAPTURE_UPLOAD_CONCURRENCY\)/);
+  assert.doesNotMatch(capture, /createWorkQueue/);
   assert.match(write, /"blob" \| "drive" \| "memory"/);
   assert.match(tripsContent, /readContent/);
   assert.doesNotMatch(tripsContent, /drive-warehouse/);
