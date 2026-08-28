@@ -640,6 +640,114 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
       assert.equal(urls.some((url) => url.includes("blob.vercel-storage.com")), false);
     });
   });
+
+  test("photo GET hydrates Drive files so rebuilt photo ids are not 404", async () => {
+    await withPinEnv(undefined, async () => {
+      const momentId = "moment_1787928443329_3823s1";
+      const fileId = "1dQ9zJGeuGtkMSDsnTPcvQrL4ac4IJhk6";
+      const rebuiltId = `moment_photo_drive_${fileId.replace(/[^A-Za-z0-9]/g, "").slice(0, 24)}`;
+      const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9, 0x11, 0x22, 0x33, 0x44]);
+      const nestedThumb = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9, 0xde, 0xad]);
+      const files = new Map<string, { base64: string; mimeType: string; name: string }>([
+        [
+          fileId,
+          {
+            base64: Buffer.from(jpeg).toString("base64"),
+            mimeType: "image/jpeg",
+            name: `travelos__moments__photos__${momentId}__1787928457686-IMG_0871.jpeg`,
+          },
+        ],
+      ]);
+      const thumbs = new Map<string, Uint8Array>([[fileId, nestedThumb]]);
+
+      const staleMoment = createTravelMoment({
+        note: "edinburgh trip, write a travel blog",
+        time: "2026-08-28T14:47:23.328Z",
+      });
+      staleMoment.id = momentId;
+      staleMoment.photos = [
+        {
+          coordinates: null,
+          createdAt: staleMoment.createdAt,
+          id: "moment_photo_old_upload",
+          momentId,
+          originalFilename: "IMG_0871.jpeg",
+          originalStorageKey: null,
+          storageKey: "drive:stale-old-id",
+          takenAt: staleMoment.createdAt,
+        },
+      ];
+      const indexText = JSON.stringify({
+        jobs: [],
+        moments: [staleMoment],
+        schemaVersion: 2,
+        updatedAt: "2026-08-28T14:47:23.328Z",
+      });
+
+      setDriveWarehouseFetchForTests((async (input, init) => {
+        const url = String(input);
+        const method = (init?.method ?? "GET").toUpperCase();
+        if (method === "GET") {
+          const parsed = new URL(url);
+          if (parsed.searchParams.get("op") === "index") {
+            return new Response(indexText, { headers: { "content-type": "application/json" } });
+          }
+          if (parsed.searchParams.get("op") === "list") {
+            return Response.json({
+              files: [...files.entries()].map(([id, file]) => ({
+                id,
+                mimeType: file.mimeType,
+                name: file.name,
+              })),
+            });
+          }
+          const id = parsed.searchParams.get("id") ?? "";
+          if (parsed.searchParams.get("op") === "thumb") {
+            const thumb = thumbs.get(id);
+            if (!thumb) {
+              return Response.json({ error: "no thumbnail", id });
+            }
+            return Response.json({
+              id,
+              mimeType: "image/jpeg",
+              name: files.get(id)?.name ?? id,
+              base64: Buffer.from(thumb).toString("base64"),
+            });
+          }
+          const file = files.get(id);
+          if (!file) {
+            return new Response("not found", { status: 404 });
+          }
+          return Response.json({ id, ...file });
+        }
+        return Response.json({ ok: true, name: "ignored" });
+      }) as typeof fetch);
+
+      const photos = await import("../app/api/moments/photos/route.ts");
+      const missing = await photos.GET(
+        new Request(`http://travelos.local/api/moments/photos?momentId=${momentId}&photoId=moment_photo_missing`),
+      );
+      assert.equal(missing.status, 404);
+
+      const photoGet = await photos.GET(
+        new Request(`http://travelos.local/api/moments/photos?momentId=${momentId}&photoId=${rebuiltId}`),
+      );
+      assert.equal(photoGet.status, 200);
+      assert.equal(photoGet.headers.get("content-type"), "image/jpeg");
+      assert.deepEqual([...new Uint8Array(await photoGet.arrayBuffer())], [...jpeg]);
+
+      const thumbGet = await photos.GET(
+        new Request(
+          `http://travelos.local/api/moments/photos?momentId=${momentId}&photoId=${rebuiltId}&variant=thumb`,
+        ),
+      );
+      assert.equal(thumbGet.status, 200);
+      assert.equal(thumbGet.headers.get("content-type"), "image/jpeg");
+      const thumbBytes = new Uint8Array(await thumbGet.arrayBuffer());
+      assert.deepEqual([...thumbBytes], [...nestedThumb]);
+      assert.ok(thumbBytes.length < jpeg.length);
+    });
+  });
 });
 
 test("overlay prefers item-file photos when the index is missing the moment", () => {

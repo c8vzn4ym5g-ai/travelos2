@@ -249,6 +249,7 @@ test("Drive adapter is server-only and Capture still dumps photos in parallel", 
   assert.match(drive, /export async function putItem/);
   assert.match(drive, /export async function putBinary/);
   assert.match(drive, /export async function getBinary/);
+  assert.match(drive, /options.op/);
   assert.match(drive, /export async function scanWarehouseFiles/);
   assert.match(drive, /redirect: "manual"/);
   assert.doesNotMatch(drive, /NEXT_PUBLIC/);
@@ -256,13 +257,17 @@ test("Drive adapter is server-only and Capture still dumps photos in parallel", 
   assert.match(store, /putItem\(/);
   assert.match(store, /putIndex\(/);
   assert.match(store, /putBinary\(/);
+  assert.match(store, /resolveMomentPhoto/);
   assert.match(store, /driveStorageKey/);
   assert.doesNotMatch(store, /putWithStoreAccess/);
   assert.doesNotMatch(store, /isBlobConfigured\(\)/);
   assert.match(blob, /parseDriveFileId/);
   assert.match(blob, /getBinary/);
+  assert.match(blob, /readMomentThumbBytes/);
+  assert.match(blob, /op: "thumb"/);
   assert.match(photosApi, /storeMomentBinary/);
   assert.match(photosApi, /readMomentBlobBytes/);
+  assert.match(photosApi, /readMomentThumbBytes/);
   assert.match(audioApi, /storeMomentBinary/);
   assert.match(audioApi, /isTrustedMomentAudioUrl/);
   assert.match(upload, /CAPTURE_DUMP_LIMIT = 40/);

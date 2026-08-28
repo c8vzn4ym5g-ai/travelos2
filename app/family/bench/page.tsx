@@ -333,7 +333,9 @@ export default function FamilyBenchPage() {
                             <img
                               alt={photo.originalFilename || ""}
                               className="h-40 w-full object-cover"
-                              src={momentPhotoPlayUrl(moment.id, photo.id)}
+                              decoding="async"
+                              loading="lazy"
+                              src={momentPhotoPlayUrl(moment.id, photo.id, { variant: "thumb" })}
                             />
                           </li>
                         ))}

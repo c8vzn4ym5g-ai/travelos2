@@ -30,6 +30,8 @@ test("family bench is a private workshop table for raw Capture dumps", async () 
   assert.match(bench, /SESSION_MS = 5000/);
   assert.match(bench, /sortMomentsNewestFirst/);
   assert.match(bench, /momentPhotoPlayUrl/);
+  assert.match(bench, /variant: "thumb"/);
+  assert.match(bench, /loading="lazy"/);
   assert.match(bench, /originalAudioUrl/);
   assert.match(bench, /moment\.transcript/);
   assert.match(bench, /spoken \? <p className="mt-3 text-base leading-7 text-zinc-700">\{spoken\}<\/p>/);

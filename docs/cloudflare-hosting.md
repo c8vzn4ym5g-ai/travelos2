@@ -51,9 +51,11 @@ pnpm exec wrangler secret put TRAVELOS_DRIVE_WAREHOUSE_TOKEN
 ```
 
 The receiver source of truth in-repo is `scripts/drive-warehouse-apps-script.js`.
-It must list folder files (`op=list`), merge `photos[]` under LockService on
-index/item writes, and keep binaries named `travelos__moments__photos__*`.
-Deploy a new version of the existing web app (do not change the `/exec` URL).
+It must list folder files (`op=list`), return Drive thumbnails (`op=thumb`),
+merge `photos[]` under LockService on index/item writes, and keep binaries
+named `travelos__moments__photos__*`. Deploy a new version of the existing
+web app (do not change the `/exec` URL). Bench still serves a JPEG thumb
+from EXIF if `op=thumb` is not deployed yet.
 
 Wrangler vars/secrets show up on `process.env` because `wrangler.jsonc` uses `compatibility_date` ≥ `2025-04-01` and `nodejs_compat`.
 

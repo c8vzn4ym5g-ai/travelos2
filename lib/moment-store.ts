@@ -2,6 +2,7 @@ import { BlobAccessError } from "@vercel/blob";
 import { afterResponse } from "@/lib/after-response";
 import {
   countUniqueDisplayJpegs,
+  findMomentPhoto,
   rebuildMomentsFromDriveFiles,
 } from "@/lib/drive-photo-index";
 import {
@@ -15,6 +16,7 @@ import {
   putItem,
   resetDriveWarehouseForTests,
   scanWarehouseFiles,
+  type DriveWarehouseFile,
 } from "@/lib/drive-warehouse";
 import { isAdminPinValid } from "@/lib/editable-store";
 import {
@@ -25,6 +27,7 @@ import {
   putMomentItemJson,
   putMomentJsonBlob,
   resetBlobStoreAccessForTests,
+  resetMomentThumbCacheForTests,
   setMomentBlobAdapterForTests,
 } from "@/lib/moment-blob";
 import {
@@ -120,11 +123,20 @@ export function momentApiErrorResponse(error: unknown) {
 const memoryKey = "__travelosMomentWarehouse";
 const itemCacheKey = "__travelosMomentItemCache";
 const lastIndexKey = "__travelosMomentLastIndexWrite";
+const listedFilesCacheKey = "__travelosDriveFileListCache";
+const LISTED_FILES_TTL_MS = 20_000;
+
+type ListedFilesCache = {
+  at: number;
+  files: DriveWarehouseFile[];
+  inflight: Promise<DriveWarehouseFile[]> | null;
+};
 
 type GlobalWarehouse = typeof globalThis & {
   [memoryKey]?: MomentContent;
   [itemCacheKey]?: Map<string, TravelMoment>;
   [lastIndexKey]?: MomentContent | null;
+  [listedFilesCacheKey]?: ListedFilesCache;
 };
 
 function getMemoryContent() {
@@ -151,13 +163,24 @@ function setLastIndexWrite(content: MomentContent | null) {
   (globalThis as GlobalWarehouse)[lastIndexKey] = content;
 }
 
+function getListedFilesCache(): ListedFilesCache {
+  const globalStore = globalThis as GlobalWarehouse;
+  globalStore[listedFilesCacheKey] ??= { at: 0, files: [], inflight: null };
+  return globalStore[listedFilesCacheKey];
+}
+
 export function resetMomentStoreForTests() {
   setMomentBlobAdapterForTests(null);
   resetBlobStoreAccessForTests();
   resetDriveWarehouseForTests();
+  resetMomentThumbCacheForTests();
   setMemoryContent(createEmptyWarehouse());
   getItemCache().clear();
   setLastIndexWrite(null);
+  const listed = getListedFilesCache();
+  listed.at = 0;
+  listed.files = [];
+  listed.inflight = null;
   warehouseWriteQueue = Promise.resolve();
   pendingPhotoAppends.length = 0;
   photoAppendFlush = null;
@@ -205,11 +228,28 @@ async function loadDriveIndex(): Promise<MomentContent> {
 }
 
 async function listedDriveFiles() {
-  try {
-    return await scanWarehouseFiles();
-  } catch {
-    return [];
+  const cache = getListedFilesCache();
+  const now = Date.now();
+  if (cache.files.length > 0 && now - cache.at < LISTED_FILES_TTL_MS) {
+    return cache.files;
   }
+  if (cache.inflight) {
+    return cache.inflight;
+  }
+
+  cache.inflight = (async () => {
+    try {
+      const files = await scanWarehouseFiles();
+      cache.files = files;
+      cache.at = Date.now();
+      return files;
+    } catch {
+      return cache.files;
+    } finally {
+      cache.inflight = null;
+    }
+  })();
+  return cache.inflight;
 }
 
 function withUniqueMoments(content: MomentContent): MomentContent {
@@ -327,29 +367,50 @@ export async function getMomentById(momentId: string) {
   return readMomentItem(momentId);
 }
 
+export async function resolveMomentPhoto(momentId: string, photoId: string) {
+  const moment = await getMomentById(momentId);
+  const found = findMomentPhoto(moment, photoId);
+  if (found) {
+    return found;
+  }
+
+  const files = await listedDriveFiles();
+  if (files.length === 0) {
+    return null;
+  }
+
+  const rebuilt = rebuildMomentsFromDriveFiles(files, moment ? [moment] : []);
+  const match = rebuilt.find((item) => item.id === momentId) ?? null;
+  return findMomentPhoto(match, photoId);
+}
+
 async function readMomentItem(momentId: string): Promise<TravelMoment | null> {
   const cached = getItemCache().get(momentId);
+
+  if (isMomentWarehouseConfigured() && shouldUseDriveWarehouse()) {
+    const index = await loadDriveIndex();
+    const merged =
+      uniqueMomentsById([...index.moments, ...(cached ? [cached] : []), ...getItemCache().values()]).find(
+        (moment) => moment.id === momentId,
+      ) ??
+      cached ??
+      null;
+    return merged ? rememberItem(merged) : null;
+  }
+
   if (cached) {
     return cached;
   }
 
   if (isMomentWarehouseConfigured()) {
-    if (shouldUseDriveWarehouse()) {
-      const index = await loadDriveIndex();
-      const fromIndex = index.moments.find((moment) => moment.id === momentId) ?? null;
-      if (fromIndex) {
-        return rememberItem(fromIndex);
-      }
-    } else {
-      const fromBlob = await loadMomentItemFromBlobGet(getMomentJsonBlob, momentId);
-      if (fromBlob) {
-        return rememberItem(fromBlob);
-      }
+    const fromBlob = await loadMomentItemFromBlobGet(getMomentJsonBlob, momentId);
+    if (fromBlob) {
+      return rememberItem(fromBlob);
     }
   }
 
   const index = await readIndexRaw();
-  const fromIndex = index.moments.find((moment) => moment.id === momentId) ?? null;
+  const fromIndex = uniqueMomentsById(index.moments).find((moment) => moment.id === momentId) ?? null;
   if (fromIndex) {
     return rememberItem(fromIndex);
   }

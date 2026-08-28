@@ -41,6 +41,10 @@ test("warehouse JSON reads and writes prefer the private store", () => {
   assert.equal(shouldFallBackToPublicBlob(new Error("Vercel Blob: Failed to fetch blob: 403 Forbidden")), true);
   assert.equal(shouldFallBackToPublicBlob(new Error("origin down")), false);
   assert.equal(momentPhotoPlayUrl("moment_1", "photo_2"), "/api/moments/photos?momentId=moment_1&photoId=photo_2");
+  assert.equal(
+    momentPhotoPlayUrl("moment_1", "photo_2", { variant: "thumb" }),
+    "/api/moments/photos?momentId=moment_1&photoId=photo_2&variant=thumb",
+  );
 });
 
 test("private get 403 rewrites a public head URL onto the private origin", async () => {
@@ -238,7 +242,10 @@ test("live warehouse reader lists then fetches, keeps parallel Capture POSTs, an
   assert.doesNotMatch(store, /list\(/);
   assert.match(photosApi, /export async function GET/);
   assert.match(photosApi, /readMomentBlobBytes/);
+  assert.match(photosApi, /readMomentThumbBytes/);
+  assert.match(photosApi, /resolveMomentPhoto/);
   assert.match(bench, /momentPhotoPlayUrl/);
+  assert.match(bench, /variant: "thumb"/);
   assert.match(write, /momentPhotoPlayUrl/);
   assert.match(transcript, /readMomentBlobBytes/);
   assert.match(capture, /void startBackgroundPhotoUpload\(photo\)/);

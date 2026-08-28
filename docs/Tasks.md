@@ -1,5 +1,23 @@
 # TravelOS Codex Tasks
 
+## TASK-029: Family 工作台 Drive photo thumbs
+
+Status: done
+
+Goal: `/family/bench` showed Capture filenames but every still was a
+broken-image icon. `GET /api/moments/photos` 404'd `Photo not found`
+for Drive-backed `moment_photo_drive_*` ids even though the JPEGs were
+in the warehouse folder. Do not re-dump. Do not put Drive on `/family`
+public. PIN stays off.
+
+Result:
+
+- Photo GET hydrates from Drive `op=list` like the moments listing, then
+  resolves rebuilt Drive photo ids. Index upload ids no longer 404 the
+  bench `img` src.
+- Bench grid uses `variant=thumb` (Apps Script thumbnail or EXIF thumb).
+  Full JPEG remains the default play URL for Write.
+
 ## TASK-028: Capture Drive photo index under-count
 
 Status: done

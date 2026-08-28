@@ -341,6 +341,7 @@ export async function scanWarehouseFiles(request?: DriveFetch): Promise<DriveWar
 export async function getBinary(
   fileId: string,
   request?: DriveFetch,
+  options: { op?: string } = {},
 ): Promise<{
   base64: string;
   bytes: Uint8Array;
@@ -348,17 +349,16 @@ export async function getBinary(
   mimeType: string | null;
   name: string;
 } | null> {
-  const raw = await getJson(
-    { id: fileId, token: getDriveWarehouseToken() },
-    "Drive warehouse binary GET",
-    request,
-    { allowNotFound: true },
-  );
+  const params: Record<string, string> = { id: fileId, token: getDriveWarehouseToken() };
+  if (options.op) {
+    params.op = options.op;
+  }
+  const raw = await getJson(params, "Drive warehouse binary GET", request, { allowNotFound: true });
   if (raw == null) {
     return null;
   }
-  const record = raw as { base64?: unknown; id?: unknown; mimeType?: unknown; name?: unknown };
-  if (typeof record.base64 !== "string") {
+  const record = raw as { base64?: unknown; error?: unknown; id?: unknown; mimeType?: unknown; name?: unknown };
+  if (typeof record.error === "string" || typeof record.base64 !== "string") {
     return null;
   }
   return {
