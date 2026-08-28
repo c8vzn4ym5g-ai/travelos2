@@ -540,6 +540,15 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
           if (parsed.searchParams.get("op") === "index") {
             return new Response(indexText, { headers: { "content-type": "application/json" } });
           }
+          if (parsed.searchParams.get("op") === "list") {
+            return Response.json({
+              files: [...files.entries()].map(([id, file]) => ({
+                id,
+                mimeType: file.mimeType,
+                name: file.name,
+              })),
+            });
+          }
           const id = parsed.searchParams.get("id") ?? "";
           const file = files.get(id);
           if (!file) {
@@ -639,6 +648,24 @@ test("overlay prefers item-file photos when the index is missing the moment", ()
   const merged = overlayMoments([], [item]);
   assert.equal(merged[0]?.id, item.id);
   assert.equal(merged[0]?.photos[0]?.id, "moment_photo_park");
+});
+
+test("overlay unions sibling photos from a stale index copy and a later item write", () => {
+  const moment = createTravelMoment({ note: "race", time: "2026-08-28T14:16:10.163Z" });
+  const first = testPhoto(moment.id, "moment_photo_one");
+  first.originalFilename = "IMG_1377.jpeg";
+  first.storageKey = "drive:one";
+  const second = testPhoto(moment.id, "moment_photo_two");
+  second.originalFilename = "IMG_1359.jpeg";
+  second.storageKey = "drive:two";
+  const indexCopy = { ...moment, photos: [first] };
+  const itemCopy = { ...moment, photos: [second] };
+  const merged = overlayMoments([indexCopy], [itemCopy]);
+  assert.equal(merged.length, 1);
+  assert.deepEqual(
+    merged[0]?.photos.map((photo) => photo.originalFilename).sort(),
+    ["IMG_1359.jpeg", "IMG_1377.jpeg"],
+  );
 });
 
 test("listed item files hydrate GET when the index body 403s", async () => {

@@ -36,19 +36,123 @@ export function emptyMomentLabels() {
   };
 }
 
-export function appendMomentPhotos<T>(current: T[], incoming: T[]) {
-  return [...current, ...incoming];
+export function displayPhotoStem(name: string) {
+  return name.trim().toLowerCase().replace(/\.[^.]+$/, "");
+}
+
+export function mergeMomentPhoto(left: MomentPhoto, right: MomentPhoto): MomentPhoto {
+  const leftCreated = Date.parse(left.createdAt) || Number.POSITIVE_INFINITY;
+  const rightCreated = Date.parse(right.createdAt) || Number.POSITIVE_INFINITY;
+  const earlier = leftCreated <= rightCreated ? left : right;
+  const later = earlier === left ? right : left;
+
+  return {
+    ...earlier,
+    ...later,
+    coordinates: later.coordinates ?? earlier.coordinates,
+    createdAt: earlier.createdAt || later.createdAt,
+    id: earlier.id || later.id,
+    momentId: earlier.momentId || later.momentId,
+    originalFilename: later.originalFilename || earlier.originalFilename,
+    originalStorageKey: later.originalStorageKey || earlier.originalStorageKey,
+    storageKey: later.storageKey || earlier.storageKey,
+    takenAt: later.takenAt || earlier.takenAt,
+  };
+}
+
+export function mergeMomentPhotos(...groups: MomentPhoto[][]) {
+  const byStorage = new Map<string, MomentPhoto>();
+  const byId = new Map<string, MomentPhoto>();
+  const byStem = new Map<string, MomentPhoto>();
+  const order: MomentPhoto[] = [];
+
+  const remember = (photo: MomentPhoto) => {
+    if (photo.storageKey) {
+      byStorage.set(photo.storageKey, photo);
+    }
+    if (photo.id) {
+      byId.set(photo.id, photo);
+    }
+    const stem = displayPhotoStem(photo.originalFilename ?? "");
+    if (stem) {
+      byStem.set(stem, photo);
+    }
+  };
+
+  for (const group of groups) {
+    for (const incoming of group) {
+      if (!incoming) {
+        continue;
+      }
+      const stem = displayPhotoStem(incoming.originalFilename ?? "");
+      const existing =
+        (incoming.storageKey ? byStorage.get(incoming.storageKey) : undefined) ??
+        (incoming.id ? byId.get(incoming.id) : undefined) ??
+        (stem ? byStem.get(stem) : undefined) ??
+        null;
+      if (!existing) {
+        order.push(incoming);
+        remember(incoming);
+        continue;
+      }
+
+      const merged = mergeMomentPhoto(existing, incoming);
+      const index = order.indexOf(existing);
+      if (index >= 0) {
+        order[index] = merged;
+      }
+      remember(merged);
+    }
+  }
+
+  return order;
+}
+
+export function appendMomentPhotos<T extends { id?: string }>(current: T[], incoming: T[]) {
+  const seen = new Set(current.map((item) => item.id).filter((id): id is string => Boolean(id)));
+  const extra: T[] = [];
+  for (const item of incoming) {
+    if (item.id && seen.has(item.id)) {
+      continue;
+    }
+    extra.push(item);
+    if (item.id) {
+      seen.add(item.id);
+    }
+  }
+  return [...current, ...extra];
+}
+
+export function mergeTravelMoment(base: TravelMoment, extra: TravelMoment): TravelMoment {
+  return normalizeTravelMoment({
+    ...base,
+    ...extra,
+    command: extra.command ?? base.command,
+    coordinates: extra.coordinates ?? base.coordinates,
+    createdAt: base.createdAt || extra.createdAt,
+    draft: extra.draft || base.draft,
+    note: extra.note || base.note,
+    originalAudioUrl: extra.originalAudioUrl ?? base.originalAudioUrl,
+    photos: mergeMomentPhotos(base.photos ?? [], extra.photos ?? []),
+    time: extra.time || base.time,
+    transcript: extra.transcript ?? base.transcript,
+    tripId: extra.tripId ?? base.tripId,
+  });
 }
 
 export function uniqueMomentsById(moments: TravelMoment[]) {
   const byId = new Map<string, TravelMoment>();
+  const order: string[] = [];
   for (const moment of moments) {
     const current = byId.get(moment.id);
-    if (!current || moment.photos.length > current.photos.length) {
-      byId.set(moment.id, moment);
+    if (!current) {
+      byId.set(moment.id, normalizeTravelMoment(moment));
+      order.push(moment.id);
+      continue;
     }
+    byId.set(moment.id, mergeTravelMoment(current, moment));
   }
-  return [...byId.values()];
+  return order.map((id) => byId.get(id)).filter((moment): moment is TravelMoment => moment != null);
 }
 
 function momentReceivedStamp(moment: TravelMoment) {

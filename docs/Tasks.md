@@ -1,5 +1,28 @@
 # TravelOS Codex Tasks
 
+## TASK-028: Capture Drive photo index under-count
+
+Status: done
+
+Goal: Owner dump photos landed in the Drive warehouse folder
+(`travelos__moments__photos__*`) but GET `/api/moments` / 工作台
+under-counted them. Parallel photo POSTs last-write-wins truncated
+`moments.json` / item JSON. Do not re-dump. Do not touch Vercel Blob.
+PIN stays off. Drive stays off `/family` public.
+
+Result:
+
+- Moment overlay / unique-by-id now unions `photos[]` instead of
+  replacing the whole array.
+- Drive file names are the authority: `scanWarehouseFiles` + rebuild
+  restores display JPEGs (and attaches `original-*` files). GET
+  `/api/moments` hydrates when the receiver list is cheap; POST
+  `/api/moments/rebuild` or `pnpm run rebuild:moments-drive` rewrites
+  the index and item JSON.
+- Apps Script source `scripts/drive-warehouse-apps-script.js` adds
+  `op=list`, LockService, and merge-on-write so concurrent dumps cannot
+  drop siblings once that receiver version is deployed.
+
 ## TASK-027: Capture dumps use the Drive warehouse receiver
 
 Status: done

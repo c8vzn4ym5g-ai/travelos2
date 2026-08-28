@@ -15,6 +15,7 @@ import {
   putBinary,
   putIndex,
   putItem,
+  scanWarehouseFiles,
 } from "../lib/drive-warehouse.ts";
 import { createTravelMoment } from "../lib/moments.ts";
 
@@ -73,6 +74,15 @@ test("getIndex, putIndex, putItem, putBinary, and getBinary use a fake fetch", a
       assert.equal(parsed.searchParams.get("token"), TRAVELOS_DRIVE_WAREHOUSE_TOKEN);
       if (parsed.searchParams.get("op") === "index") {
         return jsonResponse(JSON.parse(indexText));
+      }
+      if (parsed.searchParams.get("op") === "list") {
+        return jsonResponse({
+          files: [...files.entries()].map(([id, file]) => ({
+            id,
+            mimeType: file.mimeType,
+            name: file.name,
+          })),
+        });
       }
       const id = parsed.searchParams.get("id") ?? "";
       const file = files.get(id);
@@ -137,6 +147,9 @@ test("getIndex, putIndex, putItem, putBinary, and getBinary use a fake fetch", a
     fakeFetch,
   );
   assert.equal(stored.id, "file_tiny_1");
+  const listedFiles = await scanWarehouseFiles(fakeFetch);
+  assert.equal(listedFiles[0]?.id, "file_tiny_1");
+  assert.equal(listedFiles[0]?.name, "travelos__moments__photos__tiny.jpg");
   const loaded = await getBinary(stored.id, fakeFetch);
   assert.deepEqual([...loaded?.bytes ?? []], [1, 2, 3, 4]);
   assert.equal(loaded?.mimeType, "image/jpeg");
@@ -236,6 +249,7 @@ test("Drive adapter is server-only and Capture still dumps photos in parallel", 
   assert.match(drive, /export async function putItem/);
   assert.match(drive, /export async function putBinary/);
   assert.match(drive, /export async function getBinary/);
+  assert.match(drive, /export async function scanWarehouseFiles/);
   assert.match(drive, /redirect: "manual"/);
   assert.doesNotMatch(drive, /NEXT_PUBLIC/);
   assert.match(store, /shouldUseDriveWarehouse/);

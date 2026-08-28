@@ -290,6 +290,54 @@ export async function putBinary(
   };
 }
 
+export type DriveWarehouseFile = {
+  id: string;
+  mimeType: string | null;
+  name: string;
+};
+
+function parseFileList(raw: unknown): DriveWarehouseFile[] {
+  if (!raw || typeof raw !== "object") {
+    return [];
+  }
+  const record = raw as { error?: unknown; files?: unknown };
+  if (typeof record.error === "string") {
+    throw new DriveWarehouseError(`Drive warehouse list failed: ${record.error}`);
+  }
+  if (!Array.isArray(record.files)) {
+    return [];
+  }
+
+  const files: DriveWarehouseFile[] = [];
+  for (const entry of record.files) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+    const file = entry as { id?: unknown; mimeType?: unknown; name?: unknown };
+    if (typeof file.id !== "string" || !file.id.trim() || typeof file.name !== "string" || !file.name.trim()) {
+      continue;
+    }
+    files.push({
+      id: file.id,
+      mimeType: typeof file.mimeType === "string" ? file.mimeType : null,
+      name: file.name,
+    });
+  }
+  return files;
+}
+
+export async function scanWarehouseFiles(request?: DriveFetch): Promise<DriveWarehouseFile[]> {
+  const raw = await getJson(
+    { op: "list", token: getDriveWarehouseToken() },
+    "Drive warehouse list GET",
+    request,
+  );
+  if (raw && typeof raw === "object" && (raw as { error?: unknown }).error === "missing id") {
+    return [];
+  }
+  return parseFileList(raw);
+}
+
 export async function getBinary(
   fileId: string,
   request?: DriveFetch,
