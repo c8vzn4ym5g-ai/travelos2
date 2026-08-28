@@ -3,14 +3,19 @@ import {
   pathnameFromRequestHeaders,
   shouldLoadTravelpayoutsDrive,
   TRAVELPAYOUTS_DRIVE_SCRIPT_ID,
-  TRAVELPAYOUTS_DRIVE_SCRIPT_URL,
+  travelpayoutsDriveScriptUrl,
 } from "@/lib/travelpayouts-drive";
 
 export async function TravelpayoutsDrive() {
-  const pathname = pathnameFromRequestHeaders(await headers());
+  const headerStore = await headers();
+  const pathname = pathnameFromRequestHeaders(headerStore);
   if (!shouldLoadTravelpayoutsDrive(pathname)) {
     return null;
   }
+
+  const src = travelpayoutsDriveScriptUrl({
+    host: headerStore.get("x-forwarded-host") ?? headerStore.get("host"),
+  });
 
   return (
     <script
@@ -21,7 +26,7 @@ export async function TravelpayoutsDrive() {
       data-wpfc-render="false"
       id={TRAVELPAYOUTS_DRIVE_SCRIPT_ID}
       seraph-accel-crit="1"
-      src={TRAVELPAYOUTS_DRIVE_SCRIPT_URL}
+      src={src}
     />
   );
 }

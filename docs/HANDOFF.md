@@ -7,8 +7,9 @@
 - Vercel `https://travelos2-63r3.vercel.app` remains deployed as cold spare.
   Do not delete the Vercel GitHub integration or `pnpm run build`.
 - No custom domain / DNS change is required for this cut. `workers_dev` is
-  the public hostname. Travelpayouts Drive stays `emrldtp.cc`; Drive warehouse
-  stays Apps Script.
+  the public hostname. Travelpayouts Drive on Cloudflare uses
+  `https://emrldtp.cc/NTY3NzUw.js?t=567750` (source 567750). Vercel spare
+  keeps source 550313. Drive warehouse stays Apps Script.
 
 ## 2026-08-27 Family home: 入口 → 工作台 → 編輯
 

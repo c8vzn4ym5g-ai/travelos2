@@ -6,8 +6,11 @@ import {
   pathnameFromRequestHeaders,
   shouldLoadTravelpayoutsDrive,
   travelpayoutsDriveScriptHtml,
+  travelpayoutsDriveScriptUrl,
+  TRAVELPAYOUTS_DRIVE_SCRIPT_CLOUDFLARE_URL,
   TRAVELPAYOUTS_DRIVE_SCRIPT_ID,
   TRAVELPAYOUTS_DRIVE_SCRIPT_URL,
+  TRAVELPAYOUTS_DRIVE_SCRIPT_VERCEL_URL,
 } from "../lib/travelpayouts-drive.ts";
 import {
   AVIASALES_SEARCH_URL,
@@ -66,9 +69,12 @@ test("Travelpayouts Drive loads once at the public app boundary", async () => {
   assert.doesNotMatch(integration, /usePathname/);
   assert.match(integration, /shouldLoadTravelpayoutsDrive/);
   assert.match(integration, /pathnameFromRequestHeaders\(await headers\(\)\)/);
+  assert.match(driveLogic, /https:\/\/emrldtp\.cc\/NTY3NzUw\.js\?t=567750/);
   assert.match(driveLogic, /https:\/\/emrldtp\.cc\/NTUwMzEz\.js\?t=550313/);
+  assert.match(driveLogic, /TRAVELOS_TRAVELPAYOUTS_DRIVE_SRC/);
   assert.match(integration, /id=\{TRAVELPAYOUTS_DRIVE_SCRIPT_ID\}/);
-  assert.match(integration, /src=\{TRAVELPAYOUTS_DRIVE_SCRIPT_URL\}/);
+  assert.match(integration, /travelpayoutsDriveScriptUrl/);
+  assert.match(integration, /src=\{src\}/);
   assert.match(middleware, /TRAVELOS_PATHNAME_HEADER/);
   assert.match(middleware, /request\.nextUrl\.pathname/);
   assert.doesNotMatch(drivePage, /<Script/);
@@ -86,7 +92,13 @@ test("family HTML does not contain Drive, public trip HTML still can", () => {
   assert.equal(shouldLoadTravelpayoutsDrive("/trips/finland-lapland-winter-journal-2020"), true);
   assert.match(publicTripHtml, /emrldtp\.cc/);
   assert.match(publicTripHtml, /id="travelpayouts-drive"/);
-  assert.match(publicTripHtml, /https:\/\/emrldtp\.cc\/NTUwMzEz\.js\?t=550313/);
+  assert.match(publicTripHtml, /https:\/\/emrldtp\.cc\/NTY3NzUw\.js\?t=567750/);
+  assert.doesNotMatch(publicTripHtml, /NTUwMzEz\.js\?t=550313/);
+
+  const vercelSpareHtml = travelpayoutsDriveScriptHtml("/trips/finland-lapland-winter-journal-2020", {
+    host: "travelos2-63r3.vercel.app",
+  });
+  assert.match(vercelSpareHtml, /https:\/\/emrldtp\.cc\/NTUwMzEz\.js\?t=550313/);
 
   for (const pathname of publicSurfaces) {
     assert.equal(shouldLoadTravelpayoutsDrive(pathname), true, pathname);
@@ -97,7 +109,58 @@ test("family HTML does not contain Drive, public trip HTML still can", () => {
   assert.equal(shouldLoadTravelpayoutsDrive(null), false);
   assert.doesNotMatch(travelpayoutsDriveScriptHtml(null), /emrldtp\.cc/);
   assert.equal(TRAVELPAYOUTS_DRIVE_SCRIPT_ID, "travelpayouts-drive");
-  assert.equal(TRAVELPAYOUTS_DRIVE_SCRIPT_URL, "https://emrldtp.cc/NTUwMzEz.js?t=550313");
+  assert.equal(TRAVELPAYOUTS_DRIVE_SCRIPT_URL, "https://emrldtp.cc/NTY3NzUw.js?t=567750");
+  assert.equal(TRAVELPAYOUTS_DRIVE_SCRIPT_CLOUDFLARE_URL, "https://emrldtp.cc/NTY3NzUw.js?t=567750");
+  assert.equal(TRAVELPAYOUTS_DRIVE_SCRIPT_VERCEL_URL, "https://emrldtp.cc/NTUwMzEz.js?t=550313");
+});
+
+test("Drive script follows host, Vercel runtime, and TRAVELOS_TRAVELPAYOUTS_DRIVE_SRC", () => {
+  const previousSrc = process.env.TRAVELOS_TRAVELPAYOUTS_DRIVE_SRC;
+  const previousVercel = process.env.VERCEL;
+  delete process.env.TRAVELOS_TRAVELPAYOUTS_DRIVE_SRC;
+  delete process.env.VERCEL;
+
+  try {
+    assert.equal(travelpayoutsDriveScriptUrl(), TRAVELPAYOUTS_DRIVE_SCRIPT_CLOUDFLARE_URL);
+    assert.equal(
+      travelpayoutsDriveScriptUrl({ host: "travelos2.chao-jason.workers.dev" }),
+      TRAVELPAYOUTS_DRIVE_SCRIPT_CLOUDFLARE_URL,
+    );
+    assert.equal(
+      travelpayoutsDriveScriptUrl({ host: "travelos2-63r3.vercel.app" }),
+      TRAVELPAYOUTS_DRIVE_SCRIPT_VERCEL_URL,
+    );
+
+    process.env.VERCEL = "1";
+    assert.equal(travelpayoutsDriveScriptUrl(), TRAVELPAYOUTS_DRIVE_SCRIPT_VERCEL_URL);
+    assert.equal(
+      travelpayoutsDriveScriptUrl({ host: "travelos2.chao-jason.workers.dev" }),
+      TRAVELPAYOUTS_DRIVE_SCRIPT_CLOUDFLARE_URL,
+    );
+    delete process.env.VERCEL;
+
+    process.env.TRAVELOS_TRAVELPAYOUTS_DRIVE_SRC = "550313";
+    assert.equal(
+      travelpayoutsDriveScriptUrl({ host: "travelos2.chao-jason.workers.dev" }),
+      TRAVELPAYOUTS_DRIVE_SCRIPT_VERCEL_URL,
+    );
+    process.env.TRAVELOS_TRAVELPAYOUTS_DRIVE_SRC = "567750";
+    assert.equal(
+      travelpayoutsDriveScriptUrl({ host: "travelos2-63r3.vercel.app" }),
+      TRAVELPAYOUTS_DRIVE_SCRIPT_CLOUDFLARE_URL,
+    );
+  } finally {
+    if (previousSrc === undefined) {
+      delete process.env.TRAVELOS_TRAVELPAYOUTS_DRIVE_SRC;
+    } else {
+      process.env.TRAVELOS_TRAVELPAYOUTS_DRIVE_SRC = previousSrc;
+    }
+    if (previousVercel === undefined) {
+      delete process.env.VERCEL;
+    } else {
+      process.env.VERCEL = previousVercel;
+    }
+  }
 });
 
 test("Drive pathname comes from the request header, not a guessed widget hash", () => {
@@ -262,7 +325,11 @@ test("served family HTML omits Drive; public Lapland and Drive keep Drive plus b
   const laplandHtml = await laplandResponse.text();
   assert.match(laplandHtml, /emrldtp\.cc/);
   assert.match(laplandHtml, /travelpayouts-drive/);
-  assert.match(laplandHtml, /https:\/\/emrldtp\.cc\/NTUwMzEz\.js\?t=550313/);
+  const expectedDrive =
+    /workers\.dev/i.test(base) || (!/vercel\.app/i.test(base) && !process.env.VERCEL)
+      ? /https:\/\/emrldtp\.cc\/NTY3NzUw\.js\?t=567750/
+      : /https:\/\/emrldtp\.cc\/NTUwMzEz\.js\?t=550313/;
+  assert.match(laplandHtml, expectedDrive);
   assert.match(laplandHtml, /data-booking-band/);
   assert.match(laplandHtml, /aviasales\.com\/search/);
   assert.match(laplandHtml, /search\.hotellook\.com/);
