@@ -53,8 +53,11 @@ test("Cloudflare OpenNext path exists and does not replace Vercel next build", a
 
 test("storefront canonical origin is Cloudflare workers.dev; Vercel remains a cold spare", async () => {
   const site = await readSource("lib/site-url.ts");
-  assert.match(site, /export const PUBLIC_SITE_ORIGIN = "https:\/\/travelos2\.chao-jason\.workers\.dev"/);
+  assert.match(site, /DEFAULT_PUBLIC_SITE_ORIGIN = "https:\/\/travelos2\.chao-jason\.workers\.dev"/);
   assert.match(site, /export const VERCEL_SPARE_ORIGIN = "https:\/\/travelos2-63r3\.vercel\.app"/);
+  assert.match(site, /NEXT_PUBLIC_SITE_URL/);
+  assert.match(site, /SITE_URL/);
+  assert.match(site, /isVercelAppOrigin/);
 
   const storefrontFiles = [
     "app/layout.tsx",
@@ -67,7 +70,7 @@ test("storefront canonical origin is Cloudflare workers.dev; Vercel remains a co
 
   for (const path of storefrontFiles) {
     const source = await readSource(path);
-    assert.match(source, /PUBLIC_SITE_ORIGIN|publicSiteUrl/);
+    assert.match(source, /PUBLIC_SITE_ORIGIN|publicSiteUrl|resolvePublicSiteOrigin/);
     assert.doesNotMatch(source, /travelos2-63r3\.vercel\.app/);
   }
 

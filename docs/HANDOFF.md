@@ -3,7 +3,8 @@
 ## 2026-08-28 Public origin is Cloudflare workers.dev; Vercel is cold spare
 
 - Storefront canonicals (`metadataBase`, sitemap, robots, JSON-LD, share
-  links) use `https://travelos2.chao-jason.workers.dev` from `lib/site-url.ts`.
+  links) use `https://travelos2.chao-jason.workers.dev` from `lib/site-url.ts`
+  (`SITE_URL` / `NEXT_PUBLIC_SITE_URL`, default CF; `*.vercel.app` ignored).
 - Vercel `https://travelos2-63r3.vercel.app` remains deployed as cold spare.
   Do not delete the Vercel GitHub integration or `pnpm run build`.
 - No custom domain / DNS change is required for this cut. `workers_dev` is

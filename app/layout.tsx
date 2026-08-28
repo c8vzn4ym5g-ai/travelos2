@@ -1,12 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { TravelpayoutsDrive } from "@/components/travelpayouts-drive";
-import { PUBLIC_SITE_ORIGIN } from "@/lib/site-url";
+import { resolvePublicSiteOrigin } from "@/lib/site-url";
 import "./globals.css";
 
 const appName = "TravelOS";
 const appDescription = "A personal travel journal, coffee map, photo album, and memory system.";
-const appUrl = PUBLIC_SITE_ORIGIN;
+const appUrl = resolvePublicSiteOrigin();
 const iconUrl = "/travelos-icon.png";
 
 export const metadata: Metadata = {

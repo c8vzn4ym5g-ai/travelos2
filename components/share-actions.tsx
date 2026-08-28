@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PUBLIC_SITE_ORIGIN } from "@/lib/site-url";
+import { publicSiteUrl } from "@/lib/site-url";
 
 type ShareActionsProps = {
   description: string;
@@ -9,11 +9,9 @@ type ShareActionsProps = {
   title: string;
 };
 
-const siteUrl = PUBLIC_SITE_ORIGIN;
-
 export function ShareActions({ description, path, title }: ShareActionsProps) {
   const [message, setMessage] = useState("Share");
-  const url = `${siteUrl}${path}`;
+  const url = publicSiteUrl(path);
   const encodedUrl = encodeURIComponent(url);
   const encodedTitle = encodeURIComponent(title);
   const encodedBody = encodeURIComponent(`${title}\n\n${description}\n\n${url}`);
