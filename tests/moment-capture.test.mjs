@@ -231,7 +231,8 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   assert.match(upload, /createTinyPreviewUrl/);
   assert.match(upload, /prepareDisplayPhoto/);
   assert.match(upload, /uploadOriginalPhotoInBackground/);
-  assert.match(prepare, /isHeicPhoto\(file\) \|\| file\.type === "image\/jpeg"/);
+  assert.match(prepare, /skipCanvasMaxBytes = 400_000/);
+  assert.match(prepare, /file\.type === "image\/jpeg" && file\.size <= skipCanvasMaxBytes/);
   const displayUpload = upload.slice(
     upload.indexOf("export async function uploadDisplayPhoto"),
     upload.indexOf("export function uploadOriginalPhotoInBackground"),
