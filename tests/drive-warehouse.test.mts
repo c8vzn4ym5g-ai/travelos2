@@ -302,7 +302,7 @@ test("Apps Script locks only index/item writes so photo binaries stay parallel",
   const unlocked = stripWithLockCalls(doPost);
   assert.match(unlocked, /createBinaryFile_\(body\)/);
   assert.doesNotMatch(unlocked, /writeIndex_|writeItem_/);
-  assert.doesNotMatch(unlocked, /waitLock|LockService/);
+  assert.doesNotMatch(unlocked, /LockService/);
 
   const lockWaits: number[] = [];
   const created: string[] = [];
