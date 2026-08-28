@@ -20,6 +20,7 @@ import {
   isLaplandStayJournal,
   isLaplandStorefrontSlug,
   laplandPublicStops,
+  storefrontMetaDescription,
   LAPLAND_PHOTO_CREDITS,
   LAPLAND_SEASON_LABEL,
   type LaplandPublicStop,
@@ -255,7 +256,7 @@ export async function generateMetadata({ params }: TripDetailPageProps): Promise
     trip.photos.find((photo) => photo.id === trip.coverPhotoId && isRenderablePhoto(photo)) ??
     trip.photos.find(isRenderablePhoto);
   const title = `${trip.title} - ${trip.city}, ${trip.country}`;
-  const description = trip.summary.slice(0, 155);
+  const description = storefrontMetaDescription(trip.summary, trip.slug);
 
   return {
     alternates: {
@@ -270,6 +271,9 @@ export async function generateMetadata({ params }: TripDetailPageProps): Promise
       url: `/trips/${trip.slug}`,
     },
     title,
+    twitter: {
+      description,
+    },
   };
 }
 

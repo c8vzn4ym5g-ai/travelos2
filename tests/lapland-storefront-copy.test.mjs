@@ -8,12 +8,14 @@ import {
   isLaplandPeerLandmarkName,
   isLaplandStorefrontSlug,
   laplandPublicStops,
+  storefrontMetaDescription,
   LAPLAND_HOOK_EN,
   LAPLAND_HOOK_ZH,
   LAPLAND_STOREFRONT_EN,
   LAPLAND_STOREFRONT_KICKER,
   LAPLAND_STOREFRONT_TITLE,
   LAPLAND_STOREFRONT_ZH,
+  LAPLAND_VISUAL_PATH,
   storefrontCopyLooksInvented,
 } from "../lib/lapland-storefront-copy.ts";
 import { seedTripDetails, LAPLAND_WINTER_VILLAGE_CAPTION } from "../lib/trips.ts";
@@ -193,4 +195,51 @@ test("public Lapland rail lists landmarks, not the village cabin as a peer stop"
   assert.doesNotMatch(travelpayouts, /2027-01-18/);
   assert.doesNotMatch(travelpayouts, /2027-01-25/);
   assert.doesNotMatch(travelpayouts, /2019-12-11/);
+});
+
+test("Lapland public meta keeps Helsinki and 店面文案 paste fixes stay local", async () => {
+  const lapland = seedTripDetails.find((trip) => trip.id === "trip_lapland_2020");
+  assert.ok(lapland);
+  const [page, seed, copy] = await Promise.all([
+    readFile(resolve(root, "app/trips/[slug]/page.tsx"), "utf8"),
+    readFile(resolve(root, "lib/trips.ts"), "utf8"),
+    readFile(resolve(root, "lib/lapland-storefront-copy.ts"), "utf8"),
+  ]);
+  const publicText = `${seed}\n${copy}`;
+  const cover = lapland.photos.find((photo) => photo.id === "photo_lapland_still_cover");
+  const firstBeat = LAPLAND_VISUAL_PATH[0];
+  const meta = storefrontMetaDescription(lapland.summary, lapland.slug);
+
+  assert.match(page, /storefrontMetaDescription/);
+  assert.match(page, /twitter:\s*\{/);
+  assert.doesNotMatch(page, /trip\.summary\.slice\(0,\s*155\)/);
+  assert.match(meta, /Helsinki/);
+  assert.match(meta, /赫爾辛基/);
+  assert.match(meta, /Then south, to Helsinki\./);
+  assert.doesNotMatch(meta, /Then south, to$/);
+  assert.equal(meta.endsWith("Helsinki."), true);
+  assert.match(LAPLAND_HOOK_EN, /Helsinki/);
+  assert.equal(meta.length > 155, true);
+
+  assert.equal(firstBeat.zh, "紅柱 ARCTIC CIRCLE，後是尖頂 Santa Claus Office 與暮光聖誕燈。");
+  assert.equal(firstBeat.en, "Red Arctic Circle pillars and the conical roof of Santa Claus Office.");
+  assert.doesNotMatch(firstBeat.zh, /人已入鏡/);
+  assert.doesNotMatch(firstBeat.en, /person is already in the frame/i);
+  assert.match(firstBeat.en, /Santa Claus Office/);
+
+  assert.ok(cover);
+  assert.equal(cover.caption, "北極圈紅柱與聖誕老人村尖頂。 / Arctic Circle pillars and Santa Claus Office.");
+  assert.match(cover.caption, /Santa Claus Office/);
+  assert.doesNotMatch(cover.caption, /Santa Claus Village/);
+
+  assert.doesNotMatch(publicText, /藍調/);
+  assert.match(seed, /外面是藍時/);
+  assert.match(copy, /外面是藍時/);
+  assert.doesNotMatch(publicText, /聖誕老人公會堂/);
+  assert.match(seed, /聖誕老人辦公室/);
+  assert.match(copy, /聖誕老人辦公室/);
+  assert.doesNotMatch(publicText, /Toffle 的杯托/);
+  assert.match(seed, /Toffle 的杯子/);
+  assert.doesNotMatch(publicText, /排子裡的窗/);
+  assert.match(seed, /巷子裡的窗/);
 });
