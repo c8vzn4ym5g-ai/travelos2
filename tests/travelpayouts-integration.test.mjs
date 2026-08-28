@@ -68,7 +68,8 @@ test("Travelpayouts Drive loads once at the public app boundary", async () => {
   assert.doesNotMatch(integration, /["']use client["']/);
   assert.doesNotMatch(integration, /usePathname/);
   assert.match(integration, /shouldLoadTravelpayoutsDrive/);
-  assert.match(integration, /pathnameFromRequestHeaders\(await headers\(\)\)/);
+  assert.match(integration, /const headerStore = await headers\(\);/);
+  assert.match(integration, /pathnameFromRequestHeaders\(headerStore\)/);
   assert.match(driveLogic, /https:\/\/emrldtp\.cc\/NTY3NzUw\.js\?t=567750/);
   assert.match(driveLogic, /https:\/\/emrldtp\.cc\/NTUwMzEz\.js\?t=550313/);
   assert.match(driveLogic, /TRAVELOS_TRAVELPAYOUTS_DRIVE_SRC/);
