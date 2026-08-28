@@ -1,10 +1,12 @@
-import { BlobAccessError, BlobNotFoundError, get, put } from "@vercel/blob";
+import { BlobAccessError, BlobNotFoundError, get, head, put } from "@vercel/blob";
 import { isBlobConfigured } from "@/lib/editable-store";
 import type { MomentItemPut } from "@/lib/moment-item";
 import type { WarehouseGet, WarehouseGetResult } from "@/lib/warehouse-read";
 
+export type BlobStoreAccess = "private" | "public";
+
 export type MomentBlobPutOptions = {
-  access: "public";
+  access: BlobStoreAccess;
   addRandomSuffix?: boolean;
   allowOverwrite?: boolean;
   cacheControlMaxAge?: number;
@@ -16,21 +18,43 @@ export type MomentBlobAdapter = {
   put: (pathname: string, body: string, options: MomentBlobPutOptions) => Promise<{ pathname: string; url: string }>;
 };
 
+export type LiveMomentBlobGetResult = {
+  statusCode: number;
+  stream: ReadableStream<Uint8Array> | null;
+  contentType?: string | null;
+  blob?: { contentType?: string | null };
+};
+
 export type LiveMomentBlobGet = (
   pathname: string,
-  options: { access: "public" | "private"; useCache?: boolean },
-) => Promise<{ statusCode: number; stream: ReadableStream<Uint8Array> | null } | null>;
+  options: { access: BlobStoreAccess; useCache?: boolean },
+) => Promise<LiveMomentBlobGetResult | null>;
+
+export type LiveMomentBlobHead = (pathname: string) => Promise<{ url: string } | null>;
+
+export type LiveMomentBlobPut = (
+  pathname: string,
+  body: string | Blob,
+  options: MomentBlobPutOptions,
+) => Promise<{ pathname: string; url: string }>;
 
 export type LiveMomentBlobReader = {
   fetchBlob?: typeof fetch;
   getBlob?: LiveMomentBlobGet;
+  headBlob?: LiveMomentBlobHead;
   storeId?: string;
 };
 
 let testAdapter: MomentBlobAdapter | null = null;
+let rememberedAccess: BlobStoreAccess | null = null;
 
 export function setMomentBlobAdapterForTests(adapter: MomentBlobAdapter | null) {
   testAdapter = adapter;
+  rememberedAccess = null;
+}
+
+export function resetBlobStoreAccessForTests() {
+  rememberedAccess = null;
 }
 
 export function isMomentJsonBlobConfigured() {
@@ -56,6 +80,18 @@ export function publicBlobUrl(pathname: string, storeId = resolveBlobStoreId()) 
   return `https://${storeId}.public.blob.vercel-storage.com/${pathname}`;
 }
 
+export function privateBlobUrlFrom(urlOrPathname: string, storeId = resolveBlobStoreId()) {
+  if (urlOrPathname.startsWith("http://") || urlOrPathname.startsWith("https://")) {
+    return urlOrPathname.replace(".public.blob.vercel-storage.com", ".private.blob.vercel-storage.com");
+  }
+
+  if (!storeId) {
+    return null;
+  }
+
+  return `https://${storeId}.private.blob.vercel-storage.com/${urlOrPathname}`;
+}
+
 export function shouldFallBackToPublicBlob(error: unknown) {
   if (error instanceof BlobNotFoundError || error instanceof BlobAccessError) {
     return true;
@@ -65,28 +101,103 @@ export function shouldFallBackToPublicBlob(error: unknown) {
     return false;
   }
 
-  return /403|404|Forbidden|Failed to fetch blob|unable to extract store ID/i.test(error.message);
+  return /403|404|Forbidden|Failed to fetch blob|unable to extract store ID|Access denied/i.test(error.message);
+}
+
+function shouldTryNextPutAccess(error: unknown) {
+  if (error instanceof BlobAccessError) {
+    return true;
+  }
+
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return /access|forbidden|private|public|Access denied|Failed to fetch blob/i.test(error.message);
+}
+
+function contentTypeFromGet(result: LiveMomentBlobGetResult) {
+  return result.contentType ?? result.blob?.contentType ?? null;
+}
+
+async function getWithAccess(
+  urlOrPathname: string,
+  access: BlobStoreAccess,
+  getBlob: LiveMomentBlobGet,
+): Promise<(WarehouseGetResult & { contentType?: string | null }) | null> {
+  const result = await getBlob(urlOrPathname, { access, useCache: false });
+  if (result?.statusCode === 200 && result.stream) {
+    rememberedAccess = access;
+    return { statusCode: 200, stream: result.stream, contentType: contentTypeFromGet(result) };
+  }
+  return null;
+}
+
+async function tryGet(
+  urlOrPathname: string,
+  access: BlobStoreAccess,
+  getBlob: LiveMomentBlobGet,
+) {
+  try {
+    return await getWithAccess(urlOrPathname, access, getBlob);
+  } catch (error) {
+    if (!shouldFallBackToPublicBlob(error)) {
+      throw error;
+    }
+    return null;
+  }
 }
 
 export async function readLiveMomentBlob(
   pathname: string,
   deps: LiveMomentBlobReader = {},
-): Promise<WarehouseGetResult | null> {
+): Promise<(WarehouseGetResult & { contentType?: string | null }) | null> {
   const getBlob = deps.getBlob ?? (get as LiveMomentBlobGet);
   const fetchBlob = deps.fetchBlob ?? fetch;
+  const headBlob =
+    deps.headBlob ??
+    (async (target: string) => {
+      try {
+        return await head(target);
+      } catch (error) {
+        if (error instanceof BlobNotFoundError || shouldFallBackToPublicBlob(error)) {
+          return null;
+        }
+        throw error;
+      }
+    });
+  const storeId = deps.storeId ?? resolveBlobStoreId();
+  const preferred = rememberedAccess ?? "private";
+  const order: BlobStoreAccess[] = preferred === "public" ? ["public", "private"] : ["private", "public"];
 
-  try {
-    const result = await getBlob(pathname, { access: "private", useCache: false });
-    if (result?.statusCode === 200 && result.stream) {
-      return { statusCode: result.statusCode, stream: result.stream };
+  for (const access of order) {
+    const loaded = await tryGet(pathname, access, getBlob);
+    if (loaded) {
+      return loaded;
     }
+  }
+
+  let locatedUrl: string | null = null;
+  try {
+    const meta = await headBlob(pathname);
+    locatedUrl = meta?.url ?? null;
   } catch (error) {
     if (!shouldFallBackToPublicBlob(error)) {
       throw error;
     }
   }
 
-  const url = publicBlobUrl(pathname, deps.storeId ?? resolveBlobStoreId());
+  if (locatedUrl) {
+    const privateUrl = privateBlobUrlFrom(locatedUrl, storeId);
+    if (privateUrl && privateUrl !== pathname) {
+      const rewritten = await tryGet(privateUrl, "private", getBlob);
+      if (rewritten) {
+        return rewritten;
+      }
+    }
+  }
+
+  const url = locatedUrl ?? publicBlobUrl(pathname, storeId);
   if (!url) {
     return null;
   }
@@ -104,12 +215,36 @@ export async function readLiveMomentBlob(
     return null;
   }
 
-  return { statusCode: 200, stream: response.body };
+  rememberedAccess = "public";
+  return { statusCode: 200, stream: response.body, contentType: response.headers.get("content-type") };
+}
+
+export async function readMomentBlobBytes(urlOrPathname: string): Promise<{
+  bytes: Uint8Array;
+  contentType: string | null;
+} | null> {
+  if (urlOrPathname.startsWith("data:")) {
+    const match = /^data:([^,;]+)?(?:;base64)?,([\s\S]*)$/.exec(urlOrPathname);
+    if (!match) {
+      return null;
+    }
+    const contentType = match[1] || "application/octet-stream";
+    const bytes = Buffer.from(match[2] ?? "", match[0].includes(";base64,") ? "base64" : "utf8");
+    return { bytes: new Uint8Array(bytes), contentType };
+  }
+
+  const result = await readLiveMomentBlob(urlOrPathname);
+  if (!result?.stream) {
+    return null;
+  }
+
+  const bytes = new Uint8Array(await new Response(result.stream).arrayBuffer());
+  return { bytes, contentType: result.contentType ?? null };
 }
 
 export async function getMomentJsonBlob(
   pathname: string,
-  options: { access: "public" | "private"; useCache?: boolean },
+  options: { access: BlobStoreAccess; useCache?: boolean },
 ): Promise<WarehouseGetResult | null> {
   if (testAdapter) {
     return testAdapter.get(pathname, options);
@@ -125,13 +260,38 @@ export async function getMomentJsonBlob(
   }
 }
 
+export async function putWithStoreAccess(
+  pathname: string,
+  body: string | Blob,
+  options: Omit<MomentBlobPutOptions, "access"> & { access?: BlobStoreAccess },
+  putBlob: LiveMomentBlobPut = put as LiveMomentBlobPut,
+) {
+  const preferred = rememberedAccess ?? options.access ?? "private";
+  const order: BlobStoreAccess[] = preferred === "public" ? ["public", "private"] : ["private", "public"];
+  let lastError: unknown;
+
+  for (const access of order) {
+    try {
+      const blob = await putBlob(pathname, body, { ...options, access });
+      rememberedAccess = access;
+      return { pathname: blob.pathname ?? pathname, url: blob.url };
+    } catch (error) {
+      lastError = error;
+      if (!shouldTryNextPutAccess(error)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Blob put failed");
+}
+
 export async function putMomentJsonBlob(pathname: string, body: string, options: MomentBlobPutOptions) {
   if (testAdapter) {
     return testAdapter.put(pathname, body, options);
   }
 
-  const blob = await put(pathname, body, options);
-  return { pathname: blob.pathname, url: blob.url };
+  return putWithStoreAccess(pathname, body, options);
 }
 
 export const putMomentItemJson: MomentItemPut = (pathname, body, options) => {

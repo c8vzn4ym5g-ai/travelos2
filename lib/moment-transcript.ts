@@ -1,5 +1,6 @@
 import { readRequestOidcToken } from "@/lib/after-response";
 import { filenameForAudioMime, resolveAudioMime } from "@/lib/moment-audio";
+import { readMomentBlobBytes } from "@/lib/moment-blob";
 
 export { momentNeedsTranscript } from "@/lib/moments";
 
@@ -57,6 +58,15 @@ export async function transcribeAudioUrl(
 ): Promise<string | null> {
   if (!(await readTranscriptAuth(env))) {
     return null;
+  }
+
+  try {
+    const loaded = await readMomentBlobBytes(url);
+    if (loaded?.bytes.byteLength) {
+      return transcribeAudioBytes(loaded.bytes, loaded.contentType, env, request);
+    }
+  } catch {
+    // Fall through to a direct fetch for non-blob URLs.
   }
 
   const audioResponse = await request(url, {

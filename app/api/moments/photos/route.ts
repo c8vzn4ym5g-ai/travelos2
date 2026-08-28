@@ -1,6 +1,8 @@
 import { isUploadBlob, uploadFilename } from "@/lib/form-upload";
+import { readMomentBlobBytes } from "@/lib/moment-blob";
 import {
   addPhotoToMoment,
+  getMomentById,
   isAdminPinValid,
   momentApiErrorResponse,
   removePhotoFromMoment,
@@ -30,6 +32,48 @@ function readCoordinates(formData: FormData): GeoPoint | null {
   }
 
   return { latitude, longitude };
+}
+
+export async function GET(request: Request) {
+  try {
+    const pin = request.headers.get("x-travelos-admin-pin");
+    if (!isAdminPinValid(pin)) {
+      return Response.json({ error: "Invalid admin PIN" }, { status: 401 });
+    }
+
+    const url = new URL(request.url);
+    const momentId = url.searchParams.get("momentId")?.trim() ?? "";
+    const photoId = url.searchParams.get("photoId")?.trim() ?? "";
+    if (!momentId || !photoId) {
+      return Response.json({ error: "Moment and photo are required" }, { status: 400 });
+    }
+
+    const moment = await getMomentById(momentId);
+    const photo = moment?.photos.find((item) => item.id === photoId);
+    const storageKey = photo?.storageKey?.trim() ?? "";
+    if (!storageKey) {
+      return Response.json({ error: "Photo not found" }, { status: 404 });
+    }
+
+    const loaded = await readMomentBlobBytes(storageKey);
+    if (!loaded) {
+      return Response.json({ error: "Photo not found" }, { status: 404 });
+    }
+
+    const filename = photo?.originalFilename || "photo.jpg";
+    const contentType =
+      loaded.contentType || (filename.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg");
+    return new Response(Buffer.from(loaded.bytes), {
+      headers: {
+        "Cache-Control": "private, max-age=60",
+        "Content-Disposition": `inline; filename="${filename.replace(/"/g, "")}"`,
+        "Content-Type": contentType,
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch (error) {
+    return momentApiErrorResponse(error);
+  }
 }
 
 export async function POST(request: Request) {

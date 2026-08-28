@@ -1,6 +1,14 @@
+import { BlobAccessError } from "@vercel/blob";
 import { afterResponse } from "@/lib/after-response";
-import { put } from "@vercel/blob";
-import { getMomentJsonBlob, isMomentJsonBlobConfigured, putMomentItemJson, putMomentJsonBlob, setMomentBlobAdapterForTests } from "@/lib/moment-blob";
+import {
+  getMomentJsonBlob,
+  isMomentJsonBlobConfigured,
+  putMomentItemJson,
+  putMomentJsonBlob,
+  putWithStoreAccess,
+  resetBlobStoreAccessForTests,
+  setMomentBlobAdapterForTests,
+} from "@/lib/moment-blob";
 import { isAdminPinValid, isBlobConfigured } from "@/lib/editable-store";
 import {
   loadMomentItemFromBlobGet,
@@ -45,9 +53,12 @@ export type MomentStoreStatus = {
 export { isAdminPinValid };
 
 function isBlobWarehouseReadError(error: unknown) {
+  if (error instanceof BlobAccessError) {
+    return true;
+  }
   return (
     error instanceof Error &&
-    /Vercel Blob:|Failed to fetch blob|403 Forbidden|BlobAccessError/i.test(error.message)
+    /Vercel Blob:|Failed to fetch blob|403 Forbidden|BlobAccessError|Access denied/i.test(error.message)
   );
 }
 
@@ -101,6 +112,7 @@ function setLastIndexWrite(content: MomentContent | null) {
 
 export function resetMomentStoreForTests() {
   setMomentBlobAdapterForTests(null);
+  resetBlobStoreAccessForTests();
   setMemoryContent(createEmptyWarehouse());
   getItemCache().clear();
   setLastIndexWrite(null);
@@ -207,15 +219,29 @@ async function syncIndexBestEffort(
     rememberItem(moment);
   }
 
-  const index = await readIndexRaw();
-  const withPhotos = photoAppends.length > 0 ? applyMomentPhotoAppends(index.moments, photoAppends) : index.moments;
-  const moments = overlayMoments(withPhotos, [...getItemCache().values()]);
   try {
-    return await writeWarehouse(moments, index.jobs);
+    const index = await readIndexRaw();
+    const withPhotos = photoAppends.length > 0 ? applyMomentPhotoAppends(index.moments, photoAppends) : index.moments;
+    const moments = overlayMoments(withPhotos, [...getItemCache().values()]);
+    try {
+      return await writeWarehouse(moments, index.jobs);
+    } catch {
+      return {
+        ...index,
+        moments,
+        updatedAt: new Date().toISOString(),
+      };
+    }
   } catch {
+    // Item files are the source of truth. A dead index must not fail Capture dumps
+    // and must not overwrite the warehouse with an empty snapshot.
     return {
-      ...index,
-      moments,
+      jobs: [],
+      moments: overlayMoments(
+        updatedMoments,
+        photoAppends.length > 0 ? applyMomentPhotoAppends(updatedMoments, photoAppends) : [...getItemCache().values()],
+      ),
+      schemaVersion: MOMENTS_SCHEMA_VERSION,
       updatedAt: new Date().toISOString(),
     };
   }
@@ -251,7 +277,7 @@ export async function writeWarehouse(moments: TravelMoment[], jobs: TravelJob[])
   }
 
   await putMomentJsonBlob(MOMENTS_BLOB_PATH, JSON.stringify(content, null, 2), {
-    access: "public",
+    access: "private",
     allowOverwrite: true,
     cacheControlMaxAge: 60,
     contentType: "application/json",
@@ -267,8 +293,7 @@ export async function storeMomentBinary(pathname: string, file: Blob) {
     return { url: `data:${mime};base64,${bytes.toString("base64")}` };
   }
 
-  const blob = await put(pathname, file, {
-    access: "public",
+  const blob = await putWithStoreAccess(pathname, file, {
     addRandomSuffix: true,
     ...(file.type ? { contentType: file.type } : {}),
   });
@@ -393,14 +418,13 @@ async function flushPhotoAppends() {
         accepted.push(...items);
       }
 
-      const { content } = await readMoments();
       const saved =
         acceptedItems.length > 0
           ? await syncIndexBestEffort(
               acceptedItems,
               accepted.map((item) => ({ momentId: item.momentId, photo: item.photo })),
             )
-          : content;
+          : (await readMoments()).content;
 
       for (const item of accepted) {
         item.resolve(saved);

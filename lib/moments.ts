@@ -2,6 +2,11 @@ import { calendarDayInTimeZone, momentCalendarDay, shiftCalendarDay } from "./mo
 import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "@/lib/types";
 
 export const MOMENTS_BLOB_PATH = "travelos/moments.json";
+export const MOMENT_PHOTO_PLAY_PATH = "/api/moments/photos";
+
+export function momentPhotoPlayUrl(momentId: string, photoId: string) {
+  return `${MOMENT_PHOTO_PLAY_PATH}?momentId=${encodeURIComponent(momentId)}&photoId=${encodeURIComponent(photoId)}`;
+}
 export const MOMENT_ITEM_PREFIX = "travelos/moments/items";
 export const MOMENTS_SCHEMA_VERSION = 2;
 

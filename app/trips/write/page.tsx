@@ -17,7 +17,7 @@ import {
   warehousePlaces,
 } from "@/lib/moment-index";
 import type { MomentContent } from "@/lib/moment-store";
-import { createTravelJob } from "@/lib/moments";
+import { createTravelJob, momentPhotoPlayUrl } from "@/lib/moments";
 import type { JournalEntry, TravelJob, TravelMoment, TripDetail } from "@/lib/types";
 
 type MomentsResponse = {
@@ -543,7 +543,7 @@ export default function SitAndWritePage() {
                     return (
                       <figure className={`overflow-hidden rounded-2xl bg-stone-100 ${visible ? "" : "opacity-40"}`} key={photo.id}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img alt="" className="h-40 w-full object-cover" src={photo.storageKey} />
+                        <img alt="" className="h-40 w-full object-cover" src={momentPhotoPlayUrl(photo.momentId, photo.id)} />
                         <button
                           className="flex min-h-11 w-full items-center justify-center bg-white text-xs font-semibold text-zinc-800"
                           onClick={() => togglePhoto(photo.id)}

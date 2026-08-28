@@ -1,5 +1,6 @@
 import { isUploadBlob, uploadFilename } from "@/lib/form-upload";
 import { filenameForAudioMime, isTrustedMomentAudioUrl, resolveAudioMime } from "@/lib/moment-audio";
+import { readMomentBlobBytes } from "@/lib/moment-blob";
 import {
   getMomentById,
   isAdminPinValid,
@@ -38,16 +39,13 @@ export async function GET(request: Request) {
       return Response.json({ error: "找不到這段聲音。" }, { status: 404 });
     }
 
-    const audioResponse = await fetch(audioUrl, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!audioResponse.ok) {
-      return Response.json({ error: "找不到這段聲音。" }, { status: 502 });
+    const loaded = await readMomentBlobBytes(audioUrl);
+    if (!loaded) {
+      return Response.json({ error: "找不到這段聲音。" }, { status: 404 });
     }
 
-    const bytes = new Uint8Array(await audioResponse.arrayBuffer());
-    const mime = resolveAudioMime(bytes, audioResponse.headers.get("content-type")) ?? "audio/mp4";
+    const bytes = loaded.bytes;
+    const mime = resolveAudioMime(bytes, loaded.contentType) ?? "audio/mp4";
     return new Response(Buffer.from(bytes), {
       headers: {
         "Accept-Ranges": "none",

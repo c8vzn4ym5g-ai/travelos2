@@ -114,6 +114,7 @@ test("unique moment item path is the id and does not add a random suffix", () =>
   assert.equal(MOMENTS_BLOB_PATH, "travelos/moments.json");
   assert.equal(MOMENT_ITEM_PUT_OPTIONS.addRandomSuffix, false);
   assert.equal(MOMENT_ITEM_PUT_OPTIONS.allowOverwrite, true);
+  assert.equal(MOMENT_ITEM_PUT_OPTIONS.access, "private");
   assert.equal(MOMENT_ITEM_GET_OPTIONS.access, "private");
 });
 
