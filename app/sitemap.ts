@@ -1,9 +1,9 @@
 import type { MetadataRoute } from "next";
 import { readCoffeeContent } from "@/lib/coffee-store";
 import { readContent } from "@/lib/editable-store";
-import { PUBLIC_SITE_ORIGIN } from "@/lib/site-url";
+import { resolvePublicSiteOrigin } from "@/lib/site-url";
 
-const siteUrl = PUBLIC_SITE_ORIGIN;
+const siteUrl = resolvePublicSiteOrigin();
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [{ content: travelContent }, { content: coffeeContent }] = await Promise.all([readContent(), readCoffeeContent()]);
