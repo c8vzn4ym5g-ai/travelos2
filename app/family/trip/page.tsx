@@ -45,13 +45,22 @@ function Refs({ label, refs }: { label?: string; refs: TripRef[] }) {
   );
 }
 
+function HotelClock({ letter, official }: { letter: string; official: string }) {
+  return (
+    <dd>
+      <span>信 {letter}</span>
+      {official ? <span className="fam-clock-official">官網 {official}</span> : null}
+    </dd>
+  );
+}
+
 function HotelFields({ leg }: { leg: HotelLeg }) {
   if (leg.compact) {
     return (
       <dl>
         <div className="fam-kv">
           <dt>退房</dt>
-          <dd>{leg.checkOut}</dd>
+          <HotelClock letter={leg.checkOut} official={leg.officialOut} />
         </div>
         <div className="fam-kv">
           <dt>早餐</dt>
@@ -67,11 +76,11 @@ function HotelFields({ leg }: { leg: HotelLeg }) {
     <dl>
       <div className="fam-kv">
         <dt>入住</dt>
-        <dd>{leg.checkIn}</dd>
+        <HotelClock letter={leg.checkIn} official={leg.officialIn} />
       </div>
       <div className="fam-kv">
         <dt>退房</dt>
-        <dd>{leg.checkOut}</dd>
+        <HotelClock letter={leg.checkOut} official={leg.officialOut} />
       </div>
       <div className="fam-kv">
         <dt>早餐</dt>
@@ -168,6 +177,7 @@ function LegCard({ leg }: { leg: TripLeg }) {
         </div>
       </div>
       <HotelFields leg={leg} />
+      {leg.extras ? <p className="fam-extras">{leg.extras}</p> : null}
       {leg.note ? <p className="fam-empty-line">{leg.note}</p> : null}
       <Refs refs={leg.refs} />
       <Refs label="官網聯絡" refs={leg.official} />

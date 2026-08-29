@@ -832,6 +832,22 @@
   font-weight: 600;
 }
 
+[data-surface="family"] .fam-clock-official {
+  display: block;
+  margin-top: 2px;
+  color: var(--fam-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+[data-surface="family"] .fam-extras {
+  margin: 10px 0 0;
+  color: var(--fam-muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
 [data-surface="family"] .fam-ref {
   display: block;
   margin-top: 8px;

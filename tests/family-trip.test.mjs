@@ -52,10 +52,11 @@ test("confirmed email fields fill the companion; remaining gaps stay blank", () 
   assert.equal(familyTripCarry.title, "帶著走");
   assert.ok(familyTripCarry.flights.some((line) => line.includes("FCX2TD")));
   assert.ok(familyTripCarry.car.some((line) => line.includes("26082202410")));
+  assert.ok(familyTripCarry.car.includes("有車，不用車站接送"));
 
   assert.equal(day1.stay, "Solaria");
   assert.equal(day1.breakfast, "yes");
-  assert.equal(day1.next, "熊本落地取車，開去福岡天神入住。");
+  assert.equal(day1.next, "熊本 18:15 落地，19:30 取車，開去天神。官網入住 15:00，這晚晚到。");
   const day1Flight = legsOf(1, "flight")[0];
   const day1Car = legsOf(1, "car")[0];
   const day1Hotel = legsOf(1, "hotel")[0];
@@ -71,9 +72,12 @@ test("confirmed email fields fill the companion; remaining gaps stay blank", () 
   assert.equal(day1Hotel.name, "西鉄ホテル福岡 Solaria");
   assert.equal(day1Hotel.checkIn, "8/30");
   assert.equal(day1Hotel.checkOut, "8/31");
+  assert.equal(day1Hotel.officialIn, "15:00");
+  assert.equal(day1Hotel.officialOut, "11:00");
   assert.equal(day1Hotel.breakfast, "yes");
   assert.equal(day1Hotel.dinner, "no");
   assert.equal(day1Hotel.note, "");
+  assert.match(day1Hotel.extras, /7:00–10:30/);
   assert.doesNotMatch(day1Hotel.checkIn, /15:00/);
   assert.doesNotMatch(JSON.stringify(day1Hotel), /另外兩人|MISSING/);
   assert.ok(day1Hotel.refs.some((ref) => ref.value === "TF53AEFAC2A33"));
@@ -85,12 +89,14 @@ test("confirmed email fields fill the companion; remaining gaps stay blank", () 
 
   assert.equal(day2.stay, "界 由布院");
   assert.equal(day2.breakfast, "yes");
-  assert.equal(day2.next, "14:30 入住。JR由布院接送需提前預約。");
+  assert.equal(day2.next, "開車從福岡去界。14:30 入住。");
   const yufuin = legsOf(2, "hotel")[0];
   assert.equal(yufuin.checkIn, "8/31 14:30");
   assert.equal(yufuin.checkOut, "9/1 11:00");
   assert.equal(yufuin.breakfast, "yes");
   assert.equal(yufuin.dinner, "no");
+  assert.match(yufuin.extras, /いろは/);
+  assert.doesNotMatch(yufuin.extras, /接送|申請期限/);
   assert.ok(yufuin.refs.some((ref) => ref.value === "KYIBNF266359"));
   assert.ok(yufuin.refs.some((ref) => /兩間/.test(ref.value) && /4人/.test(ref.value)));
   assert.ok(yufuin.official.length > 0);
@@ -101,28 +107,39 @@ test("confirmed email fields fill the companion; remaining gaps stay blank", () 
   assert.equal(day3.breakfast, "yes");
   assert.equal(legsOf(3, "hotel").length, 1);
   const ume = legsOf(3, "hotel")[0];
+  assert.equal(day3.next, "開車去うめひびき。15:00 入住。");
   assert.equal(ume.checkIn, "9/1 15:00");
+  assert.equal(ume.officialIn, "最晚 18:00");
   assert.equal(ume.breakfast, "yes");
   assert.equal(ume.dinner, "no");
   assert.equal(ume.note, "");
+  assert.match(ume.extras, /試飲/);
   assert.doesNotMatch(ume.note, /另外兩人|MISSING/);
+  assert.doesNotMatch(ume.extras, /接送|JR|日田站/);
   assert.ok(ume.refs.some((ref) => ref.value === "202608240003264.01"));
 
   assert.equal(day4.stay, "フリューゲル久住");
   assert.equal(day4.breakfast, "yes");
   const kuju = legsOf(4, "hotel")[0];
+  assert.equal(day4.next, "開車去フリューゲル。15:00 入住，最晚 18:00。這晚有晚餐。");
   assert.equal(kuju.dinner, "yes");
   assert.equal(kuju.checkIn, "9/2 15:00");
+  assert.equal(kuju.officialIn, "15:00–18:00（更晚先打電話）");
+  assert.match(kuju.extras, /レーゲンボーゲン/);
   assert.ok(kuju.refs.some((ref) => ref.value === "1252"));
+  assert.ok(kuju.refs.some((ref) => ref.label === "交通" && ref.value === "車"));
   assert.ok(kuju.official.length > 0);
+  assert.doesNotMatch(kuju.extras, /豊後竹田|接送/);
 
   assert.equal(day5.stay, "Solaria");
   assert.equal(day5.breakfast, "no");
-  assert.equal(day5.next, "15:00 天神入住。");
+  assert.equal(day5.next, "開車回天神。15:00 入住。");
   const solaria = legsOf(5, "hotel")[0];
   assert.equal(solaria.checkIn, "9/3 15:00");
   assert.equal(solaria.checkOut, "9/5");
+  assert.equal(solaria.officialOut, "11:00");
   assert.equal(solaria.breakfast, "no");
+  assert.match(solaria.extras, /櫃台可加早餐/);
   assert.ok(solaria.refs.some((ref) => ref.value === "T032CA29B451B"));
   assert.doesNotMatch(JSON.stringify(solaria), /TF53AEFAC2A33/);
   assert.equal(solaria.compact, undefined);
@@ -178,6 +195,9 @@ test("companion page is family-only, uses the workshop surface, and does not inv
   assert.match(page, /familyTripCarry/);
   assert.match(data, /帶著走/);
   assert.match(page, /官網聯絡/);
+  assert.match(page, /信 \{letter\}/);
+  assert.match(page, /官網 \{official\}/);
+  assert.match(page, /fam-extras/);
   assert.match(page, /fam-doll/);
   assert.match(page, /resolveFamilySession/);
   assert.match(page, /router\.replace\("\/family"\)/);
@@ -203,6 +223,14 @@ test("companion page is family-only, uses the workshop surface, and does not inv
   assert.match(data, /TF53AEFAC2A33/);
   assert.match(data, /T032CA29B451B/);
   assert.match(data, /Moderate Twin/);
+  assert.match(data, /有車，不用車站接送/);
+  assert.match(data, /いろは/);
+  assert.match(data, /試飲/);
+  assert.doesNotMatch(data, /申請期限/);
+  assert.doesNotMatch(data, /JR由布院接送/);
+  assert.doesNotMatch(data, /JR日田站/);
+  assert.doesNotMatch(data, /豊後竹田/);
+  assert.doesNotMatch(data, /計程車招呼站接送/);
   assert.match(family, /href="\/family\/trip"/);
   assert.match(family, /福岡 • 大分/);
   assert.match(robots, /\/family\/trip/);

@@ -49,10 +49,13 @@ export type HotelLeg = LegBase & {
   checkOut: string;
   compact?: boolean;
   dinner: Breakfast;
+  extras: string;
   kind: "hotel";
   name: string;
   note: string;
   official: TripRef[];
+  officialIn: string;
+  officialOut: string;
 };
 
 export type TripLeg = FlightLeg | CarLeg | HotelLeg;
@@ -67,7 +70,13 @@ export type FamilyTripDay = {
 };
 
 export const familyTripCarry = {
-  car: ["Nissan 26082202410", "8/30 19:30 熊本機場取車", "9/6 19:00 同店還車", "(W4) SERENA"],
+  car: [
+    "Nissan 26082202410",
+    "8/30 19:30 熊本機場取車",
+    "9/6 19:00 同店還車",
+    "(W4) SERENA",
+    "有車，不用車站接送",
+  ],
   flights: ["JX316 台中 T2 15:00 → 熊本 18:15", "JX317 熊本 19:15 → 台中 20:45", "PNR FCX2TD"],
   title: "帶著走",
 };
@@ -126,6 +135,7 @@ const yufuinHotel: HotelLeg = {
   checkOut: "9/1 11:00",
   dinner: "no",
   english: "",
+  extras: "いろは 16:10/16:30/17:10（15分）；湯上がりかぼす蜜；圖書室飲料 24h。晚餐不能加。",
   kind: "hotel",
   name: "界 由布院",
   note: "",
@@ -135,6 +145,8 @@ const yufuinHotel: HotelLeg = {
     { label: "夜間緊急", value: "0977-76-5283" },
     { label: "信箱", value: "yufuin@kai-ryokan.jp" },
   ],
+  officialIn: "",
+  officialOut: "",
   refs: [
     { label: "訂房號", value: "KYIBNF266359" },
     { label: "房間", value: "兩間 Japanese-style Room with Outdoor Bath RA3，4人" },
@@ -149,10 +161,13 @@ const umehibikiHotel: HotelLeg = {
   checkOut: "9/2 11:00",
   dinner: "no",
   english: "",
+  extras: "梅酒蔵約十種免費試飲；藤五郎 20:00–23:00；房內歡迎甜點。",
   kind: "hotel",
   name: "奥日田温泉 うめひびき",
   note: "",
   official: [],
+  officialIn: "最晚 18:00",
+  officialOut: "",
   refs: [
     { label: "訂房號", value: "202608240003264.01" },
     { label: "房間", value: "OUSHUKU DELUXE 和洋室露天風呂" },
@@ -168,6 +183,7 @@ const kujuHotel: HotelLeg = {
   checkOut: "9/3 11:00",
   dinner: "yes",
   english: "",
+  extras: "入住歡迎飲；冰箱飲料免費；晚餐在レーゲンボーゲン。",
   kind: "hotel",
   name: "フリューゲル久住",
   note: "",
@@ -175,10 +191,13 @@ const kujuHotel: HotelLeg = {
     { label: "地址", value: "大分県竹田市久住町大字栢木6049-89" },
     { label: "電話", value: "0974-64-7839" },
   ],
+  officialIn: "15:00–18:00（更晚先打電話）",
+  officialOut: "",
   refs: [
     { label: "予約", value: "1252" },
     { label: "房間", value: "スターライトルーム 天然露天風呂付和洋室，2室4人" },
     { label: "餐食", value: "朝夕食付" },
+    { label: "交通", value: "車" },
   ],
   sticker: "住宿",
 };
@@ -194,10 +213,13 @@ const solariaArrivalHotel: HotelLeg = {
   checkOut: "8/31",
   dinner: "no",
   english: "Solaria",
+  extras: "官網週末早餐約 7:00–10:30。",
   kind: "hotel",
   name: "西鉄ホテル福岡 Solaria",
   note: "",
   official: [],
+  officialIn: "15:00",
+  officialOut: "11:00",
   refs: [
     { label: "訂房號", value: "TF53AEFAC2A33" },
     { label: "房型", value: "Moderate Twin（禁煙）" },
@@ -215,10 +237,13 @@ const solariaReturnHotel: HotelLeg = {
   checkOut: "9/5",
   dinner: "no",
   english: "Solaria",
+  extras: "櫃台可加早餐。",
   kind: "hotel",
   name: "西鉄ホテル福岡 Solaria",
   note: "",
   official: [],
+  officialIn: "",
+  officialOut: "11:00",
   refs: [
     { label: "訂房號", value: "T032CA29B451B" },
     { label: "房型", value: "スーペリアツイン 禁煙 ×2" },
@@ -250,31 +275,31 @@ export const familyTripDays: FamilyTripDay[] = [
   emptyDay(1, FAMILY_TRIP_DATES[0], {
     breakfast: "yes",
     legs: [outboundFlight, nissanPickup, solariaArrivalHotel],
-    next: "熊本落地取車，開去福岡天神入住。",
+    next: "熊本 18:15 落地，19:30 取車，開去天神。官網入住 15:00，這晚晚到。",
     stay: "Solaria",
   }),
   emptyDay(2, FAMILY_TRIP_DATES[1], {
     breakfast: "yes",
     legs: [yufuinHotel],
-    next: "14:30 入住。JR由布院接送需提前預約。",
+    next: "開車從福岡去界。14:30 入住。",
     stay: "界 由布院",
   }),
   emptyDay(3, FAMILY_TRIP_DATES[2], {
     breakfast: "yes",
     legs: [umehibikiHotel],
-    next: "15:00 入住。JR日田站計程車招呼站接送。",
+    next: "開車去うめひびき。15:00 入住。",
     stay: "奥日田温泉 うめひびき",
   }),
   emptyDay(4, FAMILY_TRIP_DATES[3], {
     breakfast: "yes",
     legs: [kujuHotel],
-    next: "15:00 入住，這晚有晚餐。",
+    next: "開車去フリューゲル。15:00 入住，最晚 18:00。這晚有晚餐。",
     stay: "フリューゲル久住",
   }),
   emptyDay(5, FAMILY_TRIP_DATES[4], {
     breakfast: "no",
     legs: [solariaReturnHotel],
-    next: "15:00 天神入住。",
+    next: "開車回天神。15:00 入住。",
     stay: "Solaria",
   }),
   emptyDay(6, FAMILY_TRIP_DATES[5], {
