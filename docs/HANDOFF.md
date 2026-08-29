@@ -8,8 +8,9 @@
   `#FFF4EC`.
 - `/family/trip` is a private companion: sticky days 1–8 from 2026-08-30
   Taipei. Confirmed STARLUX JX316/JX317, Nissan 26082202410 / SERENA,
-  界 由布院, うめひびき (group stay), フリューゲル久住, and Solaria
-  T032CA29B451B (9/3–9/5). Day 1 and Day 7 tonight stay blank. Capture dump is
+  界 由布院, うめひびき (group stay), フリューゲル久住, Solaria arrival
+  TF53AEFAC2A33 (8/30–8/31, breakfast included), and Solaria return
+  T032CA29B451B (9/3–9/5). Day 7 tonight stay blank. Capture dump is
   unchanged.
 
 ## 2026-08-28 Family 工作台 Drive photo thumbs 404
