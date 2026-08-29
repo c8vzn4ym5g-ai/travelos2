@@ -1,20 +1,20 @@
 # TravelOS Codex Tasks
 
-## TASK-032: Empty Capture camera glyph is a real 拍照 control
+## TASK-032: Empty Capture card is preview, not a shutter
 
 Status: done
 
-Goal: Sana tapped the decorative camera in the empty photo card and
-nothing happened, so she thought Capture was broken. That glyph and the
-whole empty card must start the existing 拍照 / take-photo path
-(`capture="environment"`, `onTakePhoto`). No extra copy, no dump change,
-no Lapland.
+Goal: Sana tapped the camera drawing in the empty middle card, nothing
+happened, and she quit. That card is the record/preview of photos after
+they land, not a second shutter. The pink 拍照 pill is the only
+take-photo control. Remove the camera glyph. Empty copy means preview.
 
 Result:
 
-- Empty card is a `<label class="fam-empty-take">` with an overlay file
-  input on top of the camera glyph. Same accept/capture/onChange as the
-  拍照 pill. Pills, voice chips, and dump path stay.
+- Empty middle card has no camera drawing and is not wired to 拍照.
+  Short booklet copy: 預覽 / Preview / 剛拍的會出現在這裡。 After
+  photos exist, the same slot shows the dump. Pills stay the only
+  capture doors. Dump line and Lapland unchanged.
 
 ## TASK-031: Capture voice editable line + 粵/国/EN
 

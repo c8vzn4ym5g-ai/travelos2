@@ -52,14 +52,18 @@ test("capture keeps camera and library, with retake and remove", async () => {
   assert.notEqual(choosePhotosIndex, -1);
   assert.ok(takePhotoIndex < photosListIndex);
   assert.ok(choosePhotosIndex < photosListIndex);
-  assert.equal((capture.match(/type="file"/g) ?? []).length, 3);
-  assert.equal((capture.match(/capture="environment"/g) ?? []).length, 2);
-  assert.match(capture, /<label className="fam-empty fam-empty-take mt-5">/);
-  const emptyBlock = capture.slice(capture.indexOf("fam-empty fam-empty-take"), capture.indexOf("fam-audio"));
-  assert.match(emptyBlock, /FamIconWell name="camera"/);
-  assert.match(emptyBlock, /onChange=\{onTakePhoto\}/);
-  assert.match(emptyBlock, /capture="environment"/);
-  assert.doesNotMatch(emptyBlock, /<div className="fam-empty mt-5">/);
+  assert.equal((capture.match(/type="file"/g) ?? []).length, 2);
+  assert.equal((capture.match(/capture="environment"/g) ?? []).length, 1);
+  const emptyBlock = capture.slice(capture.indexOf("{photos.length > 0 ? ("), capture.indexOf("fam-audio"));
+  assert.match(emptyBlock, /預覽/);
+  assert.match(emptyBlock, /Preview/);
+  assert.match(emptyBlock, /剛拍的會出現在這裡。/);
+  assert.doesNotMatch(emptyBlock, /FamIconWell/);
+  assert.doesNotMatch(emptyBlock, /name="camera"/);
+  assert.doesNotMatch(emptyBlock, /fam-empty-take/);
+  assert.doesNotMatch(emptyBlock, /onChange=\{onTakePhoto\}/);
+  assert.doesNotMatch(emptyBlock, /<label className="fam-empty/);
+  assert.match(emptyBlock, /<div className="fam-empty mt-5">/);
 });
 
 test("capture has no tag form and is named Capture", async () => {

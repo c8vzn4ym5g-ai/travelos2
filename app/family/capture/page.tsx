@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CaptureSpeechLangChips } from "@/app/family/capture-speech-lang";
-import { FamGlyph, FamIconWell } from "@/app/family/family-icons";
+import { FamGlyph } from "@/app/family/family-icons";
 import { MomentAudioPlayer } from "@/app/family/moment-audio-player";
 import { SpokenLine } from "@/app/family/spoken-line";
 import {
@@ -779,14 +779,7 @@ export default function CapturePage() {
           <label className="fam-file fam-pill fam-pill-blush-outline">
             <span>拍照</span>
             <span className="fam-en">Take Photo</span>
-            <input
-              accept="image/*"
-              capture="environment"
-              id="capture-take-photo"
-              onChange={onTakePhoto}
-              ref={cameraInputRef}
-              type="file"
-            />
+            <input accept="image/*" capture="environment" onChange={onTakePhoto} ref={cameraInputRef} type="file" />
           </label>
           <label className="fam-file fam-pill fam-pill-blush">
             <span>選照片</span>
@@ -834,18 +827,11 @@ export default function CapturePage() {
             <p className="fam-muted mt-3">一次選好，一起傳。不是 3 張一排隊。</p>
           </>
         ) : (
-          <label className="fam-empty fam-empty-take mt-5">
-            <FamIconWell name="camera" well="paper" />
-            <p className="fam-muted mt-3">還沒有照片。先拍照或從相簿選。</p>
-            <p className="fam-muted">一次選很多張也可以，會分批上傳。</p>
-            <input
-              accept="image/*"
-              aria-label="拍照"
-              capture="environment"
-              onChange={onTakePhoto}
-              type="file"
-            />
-          </label>
+          <div className="fam-empty mt-5">
+            <p className="fam-label">預覽</p>
+            <p className="fam-en">Preview</p>
+            <p className="fam-muted mt-2">剛拍的會出現在這裡。</p>
+          </div>
         )}
 
         <div className="fam-audio mt-5">

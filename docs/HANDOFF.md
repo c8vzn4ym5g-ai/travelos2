@@ -1,11 +1,11 @@
 # TravelOS Handoff
 
-## 2026-08-29 Empty Capture camera glyph opens 拍照
+## 2026-08-29 Empty Capture card is preview, not a shutter
 
-- The empty photo card camera drawing was decorative. Sana tapped it
-  and Capture looked broken. The empty card is now a label with the
-  same `capture="environment"` take-photo input over the glyph. One tap
-  starts the existing 拍照 path. Dump and Lapland unchanged.
+- The middle empty card is where she looks at what just landed. A camera
+  drawing there made Sana tap it, get nothing, and quit. Glyph is gone.
+  Copy is 預覽 / Preview / 剛拍的會出現在這裡。 Not wired to 拍照.
+  The pink 拍照 pill stays the only take-photo control. Dump unchanged.
 
 ## 2026-08-29 Capture voice: edit the line, pick 粵/国/EN
 
