@@ -15,7 +15,7 @@ export function CaptureSpeechLangChips({ onChange, value }: CaptureSpeechLangChi
         return (
           <button
             aria-checked={selected}
-            className={`family-speech-chip inline-flex min-h-9 min-w-11 items-center justify-center rounded-full border px-3 text-sm ${
+            className={`family-speech-chip fam-pill inline-flex min-h-9 min-w-11 items-center justify-center px-3 text-sm ${
               selected ? "is-selected" : ""
             }`}
             key={option.id}

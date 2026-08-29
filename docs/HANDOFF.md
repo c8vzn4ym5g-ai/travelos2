@@ -11,7 +11,21 @@
   Default `国` (`zh-TW`). `粵` sends `zh-HK` if the engine keeps it,
   else `yue-Hant-HK`. `EN` is `en-US`. Do not set `lang=""`.
 - Photo dump is unchanged (one pick, 40, parallel POSTs). Public Lapland
-  is untouched. Family workshop only (`data-surface=family`).
+  is untouched. Family workshop only (`data-surface=family` 本子).
+
+## 2026-08-28 Family 本子 visual and trip companion
+
+- Family workshop routes (`/family`, `/family/capture`, `/family/bench`) sit
+  inside `data-surface="family"` with 家庭本子 tokens. Public Lapland / `/trips`
+  keep magazine Georgia and teal theme-color `#0f766e`. Family theme-color is
+  `#FFF4EC`.
+- `/family/trip` is a private companion matching the passed day-1 / week
+  mocks: sticky days 1–8 from 2026-08-30 Taipei, one long scroll.
+  Confirmed STARLUX JX316/JX317, Nissan 26082202410 / Serena photo + KMJ
+  map bytes, 星野 界・由布院, 奧日田溫泉 梅響 / うめひびき (group stay),
+  Flügel 久住, Solaria arrival TF53AEFAC2A33, and Solaria return
+  T032CA29B451B. Meals are 早餐 / 晚餐 ticks, not 有/沒. 9/5 is 還沒訂.
+  No station shuttles. Capture dump is unchanged.
 
 ## 2026-08-28 Family 工作台 Drive photo thumbs 404
 

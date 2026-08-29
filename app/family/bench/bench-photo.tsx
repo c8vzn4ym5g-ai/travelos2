@@ -120,16 +120,12 @@ export function BenchPhotoThumb({ momentId, photo }: { momentId: string; photo: 
   const label = photo.originalFilename || "照片";
 
   return (
-    <li className="overflow-hidden rounded-2xl bg-stone-100" ref={nodeRef}>
+    <li className="fam-thumb" ref={nodeRef}>
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img alt={label} className="h-40 w-full object-cover" decoding="async" src={src} />
+        <img alt={label} decoding="async" src={src} />
       ) : (
-        <div
-          aria-label={failed ? label : `${label}載入中`}
-          className="flex h-40 w-full items-center justify-center px-3 text-center text-xs leading-5 text-zinc-500"
-          role="img"
-        >
+        <div aria-label={failed ? label : `${label}載入中`} className="fam-thumb-fallback" role="img">
           {failed ? label : ""}
         </div>
       )}

@@ -30,27 +30,6 @@ function sessionPin(fallback: string) {
   return window.sessionStorage.getItem(FAMILY_ADMIN_SESSION_KEY) ?? fallback;
 }
 
-function formatBenchDay(moment: TravelMoment) {
-  const raw = moment.createdAt || moment.time;
-  if (!raw) {
-    return "";
-  }
-
-  const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  const parts = new Intl.DateTimeFormat("zh-Hant", {
-    day: "numeric",
-    month: "numeric",
-    timeZone: "Asia/Taipei",
-  }).formatToParts(date);
-  const month = parts.find((part) => part.type === "month")?.value;
-  const day = parts.find((part) => part.type === "day")?.value;
-  return month && day ? `${month}月${day}日` : "";
-}
-
 function highlightedMomentId() {
   return new URLSearchParams(window.location.search).get("moment")?.trim() || null;
 }
@@ -266,17 +245,15 @@ export default function FamilyBenchPage() {
 
   if (!authenticated) {
     return (
-      <main className="travel-body min-h-screen bg-[#f8f3ea] text-zinc-950">
-        <section className="mx-auto max-w-md px-6 py-8 lg:px-10">
-          <div className="rounded-3xl border border-amber-200 bg-white p-6 text-center shadow-sm">
-            <p className="travel-label text-sm font-semibold text-amber-900">
-              {redirecting ? "正在返回家庭登入…" : "正在開啟工作台…"}
-            </p>
-            <p className="mt-3 text-sm leading-6 text-zinc-600">
+      <main className="fam-page">
+        <div className="fam-splash">
+          <div className="fam-splash-card">
+            <p className="fam-label">{redirecting ? "正在返回家庭登入…" : "正在開啟工作台…"}</p>
+            <p className="fam-muted mt-3">
               {redirecting ? "工作台使用同一個家庭密碼，不會另外開密碼表單。" : "家庭入口開啟中，不必先輸入密碼。"}
             </p>
           </div>
-        </section>
+        </div>
       </main>
     );
   }
@@ -285,45 +262,44 @@ export default function FamilyBenchPage() {
   const showCards = listed.length > 0;
 
   return (
-    <main className="travel-body min-h-screen bg-[#f8f3ea] text-zinc-950">
-      <section className="border-b border-amber-100 bg-[radial-gradient(circle_at_top_left,_#fde68a_0,_transparent_34%),linear-gradient(180deg,_#fffdf7_0%,_#f8f3ea_100%)]">
-        <div className="mx-auto max-w-xl px-6 py-8 lg:px-10">
-          <Link className="travel-label inline-flex min-h-11 items-center text-sm font-semibold text-amber-900" href="/family">
+    <main className="fam-page">
+      <header className="fam-hero">
+        <div className="fam-hero-inner">
+          <Link className="fam-back min-h-11" href="/family">
             ← 家庭入口
           </Link>
-          <p className="travel-script mt-8 text-2xl text-rose-700">family workshop</p>
-          <h1 className="travel-display mt-2 text-4xl font-semibold">工作台 / Bench</h1>
-          <p className="mt-4 text-base leading-7 text-zinc-600">{BENCH_INTRO}</p>
+          <p className="fam-script">family workshop</p>
+          <h1 className="fam-title">工作台 / Bench</h1>
+          <p className="fam-lede">{BENCH_INTRO}</p>
         </div>
-      </section>
+      </header>
 
-      <section className="mx-auto max-w-xl px-6 py-8 lg:px-10">
+      <section className="fam-sheet">
         {message ? (
-          <p aria-live="polite" className="mb-5 text-sm leading-6 text-zinc-600">
+          <p aria-live="polite" className="fam-muted mb-5">
             {message}
           </p>
         ) : null}
 
         {showEmptyWarehouse ? (
-          <article className="rounded-3xl border border-dashed border-amber-200 bg-white p-6 text-center shadow-sm">
-            <p className="text-base leading-7 text-zinc-700">還沒有收下的。</p>
-            <Link
-              className="mt-5 flex min-h-12 items-center justify-center rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 font-semibold text-emerald-950"
-              href="/family/capture"
-            >
+          <article className="fam-empty fam-empty-honey">
+            <p className="fam-lede" style={{ marginTop: 0 }}>
+              還沒有收下的。
+            </p>
+            <Link className="fam-pill fam-pill-blush mt-5 w-full" href="/family/capture">
               去 Capture 拍一張
             </Link>
           </article>
         ) : null}
 
         {!showCards && !showEmptyWarehouse ? (
-          <article className="rounded-3xl border border-amber-200 bg-white p-6 text-center shadow-sm">
-            <p className="text-sm leading-6 text-zinc-600">
+          <article className="fam-card p-6 text-center">
+            <p className="fam-muted">
               {loadState === "error" ? "現在打不開工作台。請再試一次。" : "正在打開工作台…"}
             </p>
             {loadState === "error" ? (
               <button
-                className="mt-5 flex min-h-12 w-full items-center justify-center rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 font-semibold text-amber-950"
+                className="fam-pill fam-pill-honey mt-5 w-full"
                 onClick={() => void loadMoments(pin)}
                 type="button"
               >
@@ -339,19 +315,16 @@ export default function FamilyBenchPage() {
               const highlighted = moment.id === highlightId;
               const oneLiner = moment.note.trim();
               const spoken = moment.transcript?.trim() ?? "";
-              const day = formatBenchDay(moment);
               const hasPhotos = moment.photos.length > 0;
               const hasAudio = Boolean(moment.originalAudioUrl);
               return (
                 <li key={moment.id}>
-                  <article
-                    className={`scroll-mt-4 rounded-3xl border p-5 shadow-sm ${
-                      highlighted ? "border-amber-400 bg-amber-50 ring-2 ring-amber-300" : "border-amber-200 bg-white"
-                    }`}
-                    id={moment.id}
-                  >
-                    {day ? <p className="travel-label text-sm font-semibold text-amber-900">{day}</p> : null}
-                    {oneLiner ? <p className="mt-2 text-base leading-7 text-zinc-800">{oneLiner}</p> : null}
+                  <article className={`fam-moment scroll-mt-4${highlighted ? " fam-moment-hot" : ""}`} id={moment.id}>
+                    <div className="fam-stickers">
+                      <span className="fam-sticker-chip fam-sticker-honey">剛收下</span>
+                      <span className="fam-sticker-chip fam-sticker-sky">還不用分類</span>
+                    </div>
+                    {oneLiner ? <p className="fam-voice" style={{ marginTop: 0 }}>{oneLiner}</p> : null}
                     {hasAudio || spoken || spokenDrafts[moment.id] !== undefined ? (
                       <SpokenLine
                         onChange={(next) => editSpokenLine(moment.id, next)}
@@ -369,9 +342,7 @@ export default function FamilyBenchPage() {
                     ) : null}
 
                     {!hasPhotos && !hasAudio && !spoken ? (
-                      <p className="mt-4 rounded-2xl border border-dashed border-amber-200 bg-amber-50/60 px-4 py-5 text-sm text-zinc-600">
-                        這筆還沒有照片。
-                      </p>
+                      <p className="fam-empty-line">這筆還沒有照片。</p>
                     ) : null}
 
                     {hasAudio ? <BenchAudio momentId={moment.id} /> : null}

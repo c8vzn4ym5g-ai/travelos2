@@ -1,6 +1,6 @@
 # TravelOS Codex Tasks
 
-## TASK-030: Capture voice editable line + 粵/国/EN
+## TASK-031: Capture voice editable line + 粵/国/EN
 
 Status: done
 
@@ -17,8 +17,17 @@ Result:
 - Tiny chips `粵 / 国 / EN` sit next to the mic. Last choice is kept in
   `localStorage`. Default `国` (`zh-TW`). `粵` probes `zh-HK` then
   `yue-Hant-HK`; `EN` is `en-US`. No auto-detect fake. No settings page.
-- Family surface `data-surface=family` loads M PLUS Rounded / Nunito for
-  those booklet chips and the spoken line. Dump and Lapland unchanged.
+- Sits on the existing `data-surface=family` 本子. Dump and Lapland unchanged.
+
+## TASK-030: Family 本子 visual + trip companion
+
+Status: done
+
+Goal: Wrap `/family`, `/family/capture`, and `/family/bench` in a family-only
+`data-surface="family"` 本子 visual (peach paper, rounded type, blush/honey
+wash). Add `/family/trip` companion for the 8-day 2026-08-30 Taipei window,
+filled only from confirmed emails. Do not restyle public `/trips` or change
+Capture dump (40 parallel POSTs, no `createWorkQueue`).
 
 ## TASK-029: Family 工作台 Drive photo thumbs
 
