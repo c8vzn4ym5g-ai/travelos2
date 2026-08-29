@@ -64,6 +64,7 @@ export type FamilyTripDay = {
   breakfast: Breakfast;
   date: string;
   day: number;
+  dinner: Breakfast;
   legs: TripLeg[];
   next: string;
   stay: string;
@@ -246,7 +247,7 @@ const solariaReturnHotel: HotelLeg = {
   officialOut: "11:00",
   refs: [
     { label: "訂房號", value: "T032CA29B451B" },
-    { label: "房型", value: "スーペリアツイン 禁煙 ×2" },
+    { label: "房型", value: "スーペリアツイン 禁煙 ×2，4人" },
     { label: "計畫", value: "素泊り" },
     ...solariaPlaceRefs,
   ],
@@ -259,11 +260,19 @@ const solariaStayOn: HotelLeg = {
   refs: [],
 };
 
+const solariaCheckout: HotelLeg = {
+  ...solariaReturnHotel,
+  compact: true,
+  extras: "今早素泊り。",
+  refs: [{ label: "訂房號", value: "T032CA29B451B" }],
+};
+
 function emptyDay(day: number, date: string, patch: Partial<FamilyTripDay> = {}): FamilyTripDay {
   return {
     breakfast: "unknown",
     date,
     day,
+    dinner: "unknown",
     legs: [],
     next: "",
     stay: "",
@@ -274,42 +283,52 @@ function emptyDay(day: number, date: string, patch: Partial<FamilyTripDay> = {})
 export const familyTripDays: FamilyTripDay[] = [
   emptyDay(1, FAMILY_TRIP_DATES[0], {
     breakfast: "yes",
+    dinner: "no",
     legs: [outboundFlight, nissanPickup, solariaArrivalHotel],
     next: "熊本 18:15 落地，19:30 取車，開去天神。官網入住 15:00，這晚晚到。",
     stay: "Solaria",
   }),
   emptyDay(2, FAMILY_TRIP_DATES[1], {
     breakfast: "yes",
+    dinner: "no",
     legs: [yufuinHotel],
     next: "開車從福岡去界。14:30 入住。",
     stay: "界 由布院",
   }),
   emptyDay(3, FAMILY_TRIP_DATES[2], {
     breakfast: "yes",
+    dinner: "no",
     legs: [umehibikiHotel],
     next: "開車去うめひびき。15:00 入住。",
     stay: "奥日田温泉 うめひびき",
   }),
   emptyDay(4, FAMILY_TRIP_DATES[3], {
     breakfast: "yes",
+    dinner: "yes",
     legs: [kujuHotel],
     next: "開車去フリューゲル。15:00 入住，最晚 18:00。這晚有晚餐。",
     stay: "フリューゲル久住",
   }),
   emptyDay(5, FAMILY_TRIP_DATES[4], {
     breakfast: "no",
+    dinner: "no",
     legs: [solariaReturnHotel],
     next: "開車回天神。15:00 入住。",
     stay: "Solaria",
   }),
   emptyDay(6, FAMILY_TRIP_DATES[5], {
     breakfast: "no",
+    dinner: "no",
     legs: [solariaStayOn],
-    next: "福岡市區。",
-    stay: "Solaria 續住",
+    next: "福岡。",
+    stay: "Solaria 連泊",
   }),
   emptyDay(7, FAMILY_TRIP_DATES[6], {
-    next: "Solaria 退房；回程是明天熊本晚上的飛機。",
+    breakfast: "no",
+    dinner: "unknown",
+    legs: [solariaCheckout],
+    next: "Solaria 官網 11:00 退房。今晚未訂。",
+    stay: "今晚未訂",
   }),
   emptyDay(8, FAMILY_TRIP_DATES[7], {
     legs: [returnFlight, nissanDropoff],

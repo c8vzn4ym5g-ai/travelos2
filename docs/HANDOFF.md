@@ -11,7 +11,8 @@
   界 由布院, うめひびき (group stay), フリューゲル久住, Solaria arrival
   TF53AEFAC2A33 (8/30–8/31, breakfast included), and Solaria return
   T032CA29B451B (9/3–9/5). They drive every hotel; station shuttles are
-  omitted. Day 7 tonight stay blank. Capture dump is unchanged.
+  omitted. Day 7 tonight is `今晚未訂` (Solaria 官網 11:00 checkout that
+  morning). Capture dump is unchanged.
 
 ## 2026-08-28 Family 工作台 Drive photo thumbs 404
 

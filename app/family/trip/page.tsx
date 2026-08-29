@@ -68,6 +68,12 @@ function HotelFields({ leg }: { leg: HotelLeg }) {
             <BreakfastChips value={leg.breakfast} />
           </dd>
         </div>
+        <div className="fam-kv">
+          <dt>晚餐</dt>
+          <dd>
+            <BreakfastChips value={leg.dinner} />
+          </dd>
+        </div>
       </dl>
     );
   }
@@ -190,7 +196,7 @@ function TodayCard({ day, isCalendarToday }: { day: FamilyTripDay; isCalendarTod
     <article className="today-card">
       <div className="fam-stickers">
         {isCalendarToday ? <span className="fam-sticker-chip fam-sticker-honey">今天</span> : null}
-        <span className="fam-muted">先看這三行</span>
+        <span className="fam-muted">先看這幾行</span>
       </div>
       <dl>
         <div className="fam-kv">
@@ -201,6 +207,12 @@ function TodayCard({ day, isCalendarToday }: { day: FamilyTripDay; isCalendarTod
           <dt>早餐</dt>
           <dd>
             <BreakfastChips value={day.breakfast} />
+          </dd>
+        </div>
+        <div className="fam-kv">
+          <dt>晚餐</dt>
+          <dd>
+            <BreakfastChips value={day.dinner} />
           </dd>
         </div>
         <div className="fam-kv">
@@ -355,6 +367,12 @@ export default function FamilyTripPage() {
                       <dt>早餐</dt>
                       <dd>
                         <BreakfastChips value={item.breakfast} />
+                      </dd>
+                    </span>
+                    <span className="fam-kv">
+                      <dt>晚餐</dt>
+                      <dd>
+                        <BreakfastChips value={item.dinner} />
                       </dd>
                     </span>
                     <span className="fam-kv">
