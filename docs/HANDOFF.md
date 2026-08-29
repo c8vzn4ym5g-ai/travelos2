@@ -6,14 +6,13 @@
   inside `data-surface="family"` with 家庭本子 tokens. Public Lapland / `/trips`
   keep magazine Georgia and teal theme-color `#0f766e`. Family theme-color is
   `#FFF4EC`.
-- `/family/trip` is a private companion: sticky days 1–8 from 2026-08-30
-  Taipei. Confirmed STARLUX JX316/JX317, Nissan 26082202410 / SERENA,
-  界 由布院, うめひびき (group stay), フリューゲル久住, Solaria arrival
-  TF53AEFAC2A33 (8/30–8/31, breakfast included), and Solaria return
-  T032CA29B451B (9/3–9/5). They drive every hotel; station shuttles are
-  omitted. Day 7 tonight is `今晚未訂` (Solaria 官網 11:00 checkout that
-  morning). Meal chips are 今早 (wake) / 今晚 (night), not the check-in hotel’s
-  plan copied onto that morning. Capture dump is unchanged.
+- `/family/trip` is a private companion matching the passed day-1 / week
+  mocks: sticky days 1–8 from 2026-08-30 Taipei, one long scroll.
+  Confirmed STARLUX JX316/JX317, Nissan 26082202410 / Serena photo + KMJ
+  map bytes, 星野 界・由布院, 奧日田溫泉 梅響 / うめひびき (group stay),
+  Flügel 久住, Solaria arrival TF53AEFAC2A33, and Solaria return
+  T032CA29B451B. Meals are 早餐 / 晚餐 ticks, not 有/沒. 9/5 is 還沒訂.
+  No station shuttles. Capture dump is unchanged.
 
 ## 2026-08-28 Family 工作台 Drive photo thumbs 404
 

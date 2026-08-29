@@ -36,7 +36,7 @@ export default function FamilyWorkspacePage() {
             Jason 與 Sana 都可以查看、增加、修改彼此的旅行、咖啡與照片。每次修改保留作者與版本，內容可以復原。
           </p>
           <Link className="fam-companion-sticker min-h-11" href="/family/trip">
-            福岡 • 大分
+            福岡・大分
           </Link>
         </div>
       </header>

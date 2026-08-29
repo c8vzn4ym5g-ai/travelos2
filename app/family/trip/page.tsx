@@ -3,246 +3,85 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { FamIconWell } from "@/app/family/family-icons";
+import { FamGlyph, FamIconWell } from "@/app/family/family-icons";
 import { resolveFamilySession } from "@/lib/family-session";
 import {
-  defaultTripDay,
+  FAMILY_TRIP_LEDE,
+  FAMILY_TRIP_FOOTER,
   FAMILY_TRIP_TITLE,
-  familyTripCarry,
+  defaultTripDay,
+  familyTripDay1,
   familyTripDays,
+  formatTripDateLabel,
   formatTripMd,
   taipeiCalendarDate,
   tripDayFromCalendarDate,
-  type Breakfast,
-  type FamilyTripDay,
-  type HotelLeg,
-  type TripLeg,
-  type TripRef,
+  type MealMark,
+  type WeekIcon,
 } from "@/lib/family-trip";
 
-function BreakfastChips({ value }: { value: Breakfast }) {
+function MealMarkIcon({ value }: { value: MealMark }) {
+  if (value === "yes") {
+    return (
+      <span aria-label="有" className="fam-mark fam-mark-yes">
+        <svg fill="none" height="14" viewBox="0 0 16 16" width="14">
+          <path d="M3.2 8.4 6.1 11.2 12.8 4.6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" />
+        </svg>
+      </span>
+    );
+  }
+
   return (
-    <span className="fam-breakfast">
-      <span className={value === "yes" ? "is-on" : undefined}>有</span>
-      <span className={value === "no" ? "is-on" : undefined}>沒有</span>
+    <span aria-label="沒有" className="fam-mark fam-mark-no">
+      <svg fill="none" height="14" viewBox="0 0 16 16" width="14">
+        <path d="M4.2 4.2 11.8 11.8" stroke="currentColor" strokeLinecap="round" strokeWidth="2.2" />
+        <path d="M11.8 4.2 4.2 11.8" stroke="currentColor" strokeLinecap="round" strokeWidth="2.2" />
+      </svg>
     </span>
   );
 }
 
-function Refs({ label, refs }: { label?: string; refs: TripRef[] }) {
-  if (refs.length === 0) {
+function MealPair({
+  breakfast,
+  breakfastNote,
+  dinner,
+}: {
+  breakfast: MealMark | null;
+  breakfastNote?: string;
+  dinner: MealMark | null;
+}) {
+  if (breakfast == null && dinner == null) {
     return null;
   }
+
   return (
-    <div>
-      {label ? <span className="fam-ref">{label}</span> : null}
-      {refs.map((ref) => (
-        <span className="fam-ref" key={`${ref.label}-${ref.value}`}>
-          {ref.label} {ref.value}
+    <div className="fam-meals">
+      {breakfast != null ? (
+        <span className="fam-meal">
+          <span>早餐</span>
+          <MealMarkIcon value={breakfast} />
+          {breakfastNote ? <span className="fam-meal-note">{breakfastNote}</span> : null}
         </span>
-      ))}
+      ) : null}
+      {dinner != null ? (
+        <span className="fam-meal">
+          <span>晚餐</span>
+          <MealMarkIcon value={dinner} />
+        </span>
+      ) : null}
     </div>
   );
 }
 
-function HotelClock({ letter, official }: { letter: string; official: string }) {
+function WeekIcons({ icons }: { icons: WeekIcon[] }) {
   return (
-    <dd>
-      <span>信 {letter}</span>
-      {official ? <span className="fam-clock-official">官網 {official}</span> : null}
-    </dd>
-  );
-}
-
-function HotelFields({ leg }: { leg: HotelLeg }) {
-  if (leg.compact) {
-    return (
-      <dl>
-        <div className="fam-kv">
-          <dt>退房</dt>
-          <HotelClock letter={leg.checkOut} official={leg.officialOut} />
-        </div>
-        <div className="fam-kv">
-          <dt>今早</dt>
-          <dd>
-            <BreakfastChips value={leg.breakfast} />
-          </dd>
-        </div>
-        <div className="fam-kv">
-          <dt>今晚</dt>
-          <dd>
-            <BreakfastChips value={leg.dinner} />
-          </dd>
-        </div>
-      </dl>
-    );
-  }
-
-  return (
-    <dl>
-      <div className="fam-kv">
-        <dt>入住</dt>
-        <HotelClock letter={leg.checkIn} official={leg.officialIn} />
-      </div>
-      <div className="fam-kv">
-        <dt>退房</dt>
-        <HotelClock letter={leg.checkOut} official={leg.officialOut} />
-      </div>
-      <div className="fam-kv">
-        <dt>今早</dt>
-        <dd>
-          <BreakfastChips value={leg.breakfast} />
-        </dd>
-      </div>
-      <div className="fam-kv">
-        <dt>今晚</dt>
-        <dd>
-          <BreakfastChips value={leg.dinner} />
-        </dd>
-      </div>
-    </dl>
-  );
-}
-
-function LegCard({ leg }: { leg: TripLeg }) {
-  if (leg.kind === "flight") {
-    return (
-      <article className="leg-card" data-kind="flight">
-        <div className="flex items-center gap-3">
-          <FamIconWell name="plane" well="sky" />
-          <div>
-            <p className="fam-label">{leg.sticker}</p>
-            {leg.english ? (
-              <p className="fam-en" style={{ marginTop: 0 }}>
-                {leg.english}
-              </p>
-            ) : null}
-          </div>
-        </div>
-        <dl>
-          <div className="fam-kv">
-            <dt>{leg.routeLabel}</dt>
-            <dd>{leg.route}</dd>
-          </div>
-          <div className="fam-kv">
-            <dt>航班</dt>
-            <dd>{leg.flight}</dd>
-          </div>
-          <div className="fam-kv">
-            <dt>時間</dt>
-            <dd>{leg.time}</dd>
-          </div>
-        </dl>
-        <Refs refs={leg.refs} />
-      </article>
-    );
-  }
-
-  if (leg.kind === "car") {
-    return (
-      <article className="leg-card" data-kind="car">
-        <div className="flex items-center gap-3">
-          <FamIconWell name="car" well="mint" />
-          <div>
-            <p className="fam-label">{leg.sticker}</p>
-            {leg.english ? (
-              <p className="fam-en" style={{ marginTop: 0 }}>
-                {leg.english}
-              </p>
-            ) : null}
-          </div>
-        </div>
-        <dl>
-          {leg.pickup ? (
-            <div className="fam-kv">
-              <dt>取車</dt>
-              <dd>{leg.pickup}</dd>
-            </div>
-          ) : null}
-          <div className="fam-kv">
-            <dt>還車</dt>
-            <dd>{leg.dropoff}</dd>
-          </div>
-          <div className="fam-kv">
-            <dt>車型</dt>
-            <dd>{leg.model}</dd>
-          </div>
-        </dl>
-        <Refs refs={leg.refs} />
-      </article>
-    );
-  }
-
-  return (
-    <article className="leg-card" data-kind="hotel">
-      <div className="flex items-center gap-3">
-        <FamIconWell name="hotel" well="blush" />
-        <div>
-          <p className="fam-label">{leg.sticker}</p>
-          <p className="mt-1 text-base font-bold">{leg.name}</p>
-        </div>
-      </div>
-      <HotelFields leg={leg} />
-      {leg.extras ? (
-        <p className="fam-extras">
-          <span className="fam-extras-sticker">{leg.extras}</span>
-        </p>
-      ) : null}
-      {leg.note ? <p className="fam-empty-line">{leg.note}</p> : null}
-      <Refs refs={leg.refs} />
-      <Refs label="官網聯絡" refs={leg.official} />
-    </article>
-  );
-}
-
-function TodayCard({ day, isCalendarToday }: { day: FamilyTripDay; isCalendarToday: boolean }) {
-  return (
-    <article className="today-card">
-      <div className="fam-stickers">
-        {isCalendarToday ? <span className="fam-sticker-chip fam-sticker-honey">今天</span> : null}
-        <span className="fam-muted">先看這幾行</span>
-      </div>
-      <dl>
-        <div className="fam-kv">
-          <dt>今晚住</dt>
-          <dd>{day.stay}</dd>
-        </div>
-        <div className="fam-kv">
-          <dt>今早</dt>
-          <dd>
-            <BreakfastChips value={day.breakfast} />
-          </dd>
-        </div>
-        <div className="fam-kv">
-          <dt>今晚</dt>
-          <dd>
-            <BreakfastChips value={day.dinner} />
-          </dd>
-        </div>
-        <div className="fam-kv">
-          <dt>下一步</dt>
-          <dd>{day.next}</dd>
-        </div>
-      </dl>
-    </article>
-  );
-}
-
-function CarryPocket() {
-  return (
-    <article className="fam-carry">
-      <p className="fam-label">{familyTripCarry.title}</p>
-      {familyTripCarry.flights.map((line) => (
-        <span className="fam-ref" key={line}>
-          {line}
+    <span className="fam-week-icons">
+      {icons.map((name) => (
+        <span className="fam-week-glyph" key={name}>
+          <FamGlyph name={name} size={16} />
         </span>
       ))}
-      {familyTripCarry.car.map((line) => (
-        <span className="fam-ref" key={line}>
-          {line}
-        </span>
-      ))}
-    </article>
+    </span>
   );
 }
 
@@ -255,7 +94,6 @@ export default function FamilyTripPage() {
   const calendarToday = useMemo(() => taipeiCalendarDate(), []);
   const calendarDay = tripDayFromCalendarDate(calendarToday);
   const activeDay = selected ?? calendarDay ?? defaultTripDay();
-  const day = familyTripDays[activeDay - 1] ?? familyTripDays[0];
 
   useEffect(() => {
     let cancelled = false;
@@ -277,6 +115,12 @@ export default function FamilyTripPage() {
     };
   }, [router]);
 
+  function jumpToDay(day: number) {
+    setSelected(day);
+    const target = document.getElementById(day === 1 ? "trip-today" : `trip-day-${day}`);
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   if (!authenticated) {
     return (
       <main className="fam-page">
@@ -292,6 +136,8 @@ export default function FamilyTripPage() {
     );
   }
 
+  const { car, flight, hotel } = familyTripDay1;
+
   return (
     <main className="fam-page">
       <header className="fam-hero">
@@ -304,91 +150,162 @@ export default function FamilyTripPage() {
             <h1 className="fam-title">{FAMILY_TRIP_TITLE}</h1>
             <span aria-hidden className="fam-doll" />
           </div>
-          <p className="fam-lede">早上打開這頁。下一步會在最上面。</p>
-          <CarryPocket />
+          <p className="fam-lede">{FAMILY_TRIP_LEDE}</p>
         </div>
       </header>
 
       <nav aria-label="行程日期" className="fam-day-strip">
         <div className="fam-day-strip-inner">
           {familyTripDays.map((item) => {
-            const isToday = item.day === calendarDay;
             const isActive = item.day === activeDay;
             return (
               <button
                 className={`fam-day-btn${isActive ? " is-active" : ""}`}
                 key={item.date}
-                onClick={() => setSelected(item.day)}
+                onClick={() => jumpToDay(item.day)}
                 type="button"
               >
                 <span className="fam-day-dot">{item.day}</span>
-                <span className="fam-day-date">{isToday ? formatTripMd(item.date) : ""}</span>
+                <span className="fam-day-date">{formatTripMd(item.date)}</span>
+                <span className="fam-day-wk">{item.weekday}</span>
               </button>
             );
           })}
         </div>
       </nav>
 
-      <section className="fam-sheet">
-        <TodayCard day={day} isCalendarToday={day.day === calendarDay} />
-        <div className="mt-4 grid gap-3">
-          {day.legs.map((leg, index) => (
-            <LegCard key={`${leg.kind}-${index}`} leg={leg} />
-          ))}
-        </div>
+      <section className="fam-sheet fam-trip-day1">
+        <article className="today-card" id="trip-today">
+          <div className="fam-today-head">
+            <span className="fam-sticker-chip fam-sticker-honey">今天</span>
+            <span className="fam-today-date">{familyTripDay1.dateLabel}</span>
+          </div>
+          <dl>
+            <div className="fam-kv">
+              <dt>下一步</dt>
+              <dd>
+                {familyTripDay1.next}
+                <span className="fam-next-detail">{familyTripDay1.nextDetail}</span>
+              </dd>
+            </div>
+          </dl>
+        </article>
+
+        <article className="leg-card" data-kind="flight">
+          <div className="flex items-center gap-3">
+            <FamIconWell name="plane" well="sky" />
+            <div>
+              <p className="fam-label">{flight.sticker}</p>
+              <p className="fam-leg-name">{flight.number}</p>
+            </div>
+          </div>
+          <dl>
+            <div className="fam-kv">
+              <dt>{flight.routeLabel}</dt>
+              <dd>{flight.route}</dd>
+            </div>
+            <div className="fam-kv">
+              <dt>時間</dt>
+              <dd>{flight.time}</dd>
+            </div>
+            <div className="fam-kv">
+              <dt>訂位 PNR</dt>
+              <dd>{flight.pnr}</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article className="leg-card" data-kind="car">
+          <div className="fam-car-head">
+            <div className="flex items-center gap-3">
+              <FamIconWell name="car" well="mint" />
+              <div>
+                <p className="fam-label">{car.sticker}</p>
+                <p className="fam-leg-name">{car.name}</p>
+              </div>
+            </div>
+            <img alt={car.photoAlt} className="fam-car-photo object-contain" src={car.photoSrc} />
+          </div>
+          <dl>
+            <div className="fam-kv">
+              <dt>取車</dt>
+              <dd>{car.pickup}</dd>
+            </div>
+            <div className="fam-kv">
+              <dt>還車</dt>
+              <dd>{car.dropoff}</dd>
+            </div>
+          </dl>
+          <p className="fam-car-access">{car.access}</p>
+          <p className="fam-car-access-detail">{car.accessDetail}</p>
+          <img alt={car.mapAlt} className="fam-kmj-map object-contain" src={car.mapSrc} />
+          <p className="fam-ref">預約號 {car.reservation}</p>
+        </article>
+
+        <article className="leg-card" data-kind="hotel">
+          <div className="flex items-center gap-3">
+            <FamIconWell name="hotel" well="blush" />
+            <div>
+              <p className="fam-label">{hotel.sticker}</p>
+              <p className="fam-leg-name">{hotel.nameZh}</p>
+              <p className="fam-name-ja">{hotel.nameJa}</p>
+            </div>
+          </div>
+          <dl>
+            <div className="fam-kv">
+              <dt>入住</dt>
+              <dd>{hotel.checkIn}</dd>
+            </div>
+            <div className="fam-kv">
+              <dt>退房</dt>
+              <dd>{hotel.checkOut}</dd>
+            </div>
+          </dl>
+          <MealPair breakfast={hotel.breakfast} dinner={hotel.dinner} />
+          <dl>
+            <div className="fam-kv">
+              <dt>付款</dt>
+              <dd>{hotel.pay}</dd>
+            </div>
+          </dl>
+          <p className="fam-ref">訂房號 {hotel.booking}</p>
+        </article>
       </section>
 
-      <section className="fam-sheet">
-        <p className="fam-script" style={{ marginTop: 0 }}>
-          the week
-        </p>
-        <h2 className="fam-title">八天總表</h2>
-        <p className="fam-lede">一長頁往下捲。不是試算表。</p>
-        <ul className="mt-5 grid gap-3">
+      <section className="fam-sheet fam-trip-week">
+        <ul className="fam-week-list">
           {familyTripDays.map((item) => {
             const isToday = item.day === calendarDay;
             const isActive = item.day === activeDay;
             return (
-              <li key={item.date}>
+              <li id={`trip-day-${item.day}`} key={item.date}>
                 <button
-                  className={`fam-week-row w-full text-left${isToday ? " is-today" : ""}${isActive ? " is-active" : ""}`}
-                  onClick={() => setSelected(item.day)}
+                  className={`fam-week-row fam-week-${item.tone}${isToday ? " is-today" : ""}${isActive ? " is-active" : ""}`}
+                  onClick={() => jumpToDay(item.day)}
                   type="button"
                 >
-                  <span className="fam-day-dot" style={isActive ? { background: "var(--fam-blush)", color: "#fffbfa" } : undefined}>
-                    {item.day}
+                  <span className="fam-day-dot">{item.day}</span>
+                  <span className="fam-week-copy">
+                    <strong>{formatTripDateLabel(item)}</strong>
+                    <span className="fam-week-name">{item.nameZh}</span>
+                    {item.nameJa ? <span className="fam-name-ja">{item.nameJa}</span> : null}
+                    {item.extra.map((line) => (
+                      <span className="fam-week-extra" key={line}>
+                        {line}
+                      </span>
+                    ))}
+                    {item.pay ? <span className="fam-week-pay">{item.pay}</span> : null}
                   </span>
-                  <span>
-                    <span className="flex flex-wrap items-center gap-2">
-                      <strong>{isToday ? "今天" : `第${item.day}天`}</strong>
-                      {isToday ? <span className="fam-muted">{formatTripMd(item.date)}</span> : null}
-                    </span>
-                    <span className="fam-kv">
-                      <dt>今晚住</dt>
-                      <dd>{item.stay}</dd>
-                    </span>
-                    <span className="fam-kv">
-                      <dt>今早</dt>
-                      <dd>
-                        <BreakfastChips value={item.breakfast} />
-                      </dd>
-                    </span>
-                    <span className="fam-kv">
-                      <dt>今晚</dt>
-                      <dd>
-                        <BreakfastChips value={item.dinner} />
-                      </dd>
-                    </span>
-                    <span className="fam-kv">
-                      <dt>下一步</dt>
-                      <dd>{item.next}</dd>
-                    </span>
+                  <span className="fam-week-side">
+                    <WeekIcons icons={item.icons} />
+                    <MealPair breakfast={item.breakfast} breakfastNote={item.breakfastNote} dinner={item.dinner} />
                   </span>
                 </button>
               </li>
             );
           })}
         </ul>
+        <p className="fam-trip-footer">{FAMILY_TRIP_FOOTER}</p>
       </section>
     </main>
   );
