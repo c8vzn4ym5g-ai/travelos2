@@ -66,6 +66,7 @@ test("day-1 companion matches the passed mock: 飛 → 車 → 住", () => {
   assert.equal(familyTripDay1.car.mapSrc, FAMILY_TRIP_KMJ_MAP_SRC);
   assert.equal(familyTripDay1.hotel.nameZh, "Solaria福岡");
   assert.equal(familyTripDay1.hotel.nameJa, "ソラリア西鉄ホテル福岡");
+  assert.equal(familyTripDay1.hotel.address, "天神2-2-43");
   assert.equal(familyTripDay1.hotel.checkIn, "預計車程 熊本機場→福岡 約1小時15分");
   assert.equal(familyTripDay1.hotel.checkOut, "11:00 官網");
   assert.equal(familyTripDay1.hotel.breakfast, "yes");
@@ -90,30 +91,40 @@ test("week rows keep hotel-plan meals, pay, and the two Solaria bookings", () =>
   assert.equal(day2.breakfast, "yes");
   assert.equal(day2.breakfastNote, "8:45");
   assert.equal(day2.dinner, "no");
+  assert.equal(day2.address, "川上398");
   assert.ok(day2.extra.includes("14:30入界"));
+  assert.ok(day2.extra.includes("可選 金鱗湖"));
   assert.ok(day2.extra.includes("温泉小課 いろは 16:10"));
   assert.ok(day2.extra.includes("晚餐 建議自訂"));
+  assert.equal(day2.dinnerNote, "不能加");
   assert.equal(day2.pay, "已付 ¥141,000");
   assert.equal(day2.booking, "KYIBNF266359");
   assert.equal(day2.tone, "mint");
 
   assert.equal(day3.nameZh, "奧日田溫泉 梅響");
   assert.equal(day3.nameJa, "うめひびき");
+  assert.equal(day3.address, "西大山4587");
+  assert.equal(day3.checkIn, "15:00");
   assert.equal(day3.breakfast, "yes");
   assert.equal(day3.dinner, "no");
   assert.ok(day3.extra.includes("15:00入"));
-  assert.ok(day3.extra.includes("梅酒試飲・酒吧 20:00"));
+  assert.ok(day3.extra.includes("酒吧 藤五郎 20:00"));
   assert.ok(day3.extra.includes("晚餐 建議自訂"));
   assert.equal(day3.pay, "到店付 ¥55,800");
   assert.equal(day3.booking, "202608240003264.01");
+  assert.ok(day3.places.some((place) => place.name.includes("小鹿田燒之里") && place.phone === "0973-29-2020"));
+  assert.ok(day3.places.some((place) => place.name === "和くら" && place.address === "日田市隈2-4-13" && place.phone === "0973-24-2728"));
 
   assert.equal(day4.nameZh, "Flügel 久住");
   assert.equal(day4.nameJa, "フリューゲル久住");
+  assert.equal(day4.address, "栢木6049-89");
   assert.equal(day4.breakfast, "yes");
   assert.equal(day4.dinner, "yes");
   assert.equal(day4.pay, "到店付 ¥149,600・入湯稅另計");
   assert.equal(day4.booking, "1252");
   assert.ok(day4.extra.includes("晚餐在旅館"));
+  assert.equal(day4.places.length, 1);
+  assert.equal(day4.places[0].name, "佐藤酒造 久住千羽鶴");
 
   assert.equal(day5.nameZh, "Solaria福岡");
   assert.equal(day5.breakfast, "no");
@@ -187,6 +198,22 @@ test("companion page is family-only, matches the mock chrome, and keeps dump/Lap
   assert.match(page, /fam-day-strip/);
   assert.match(page, />總表</);
   assert.match(page, />表1</);
+  assert.match(page, /id="trip-day-1"/);
+  assert.match(page, /id=\{`trip-day-\$\{item\.day\}`\}/);
+  assert.match(page, /function jumpToDay/);
+  assert.match(page, /getElementById\(`trip-day-\$\{day\}`\)/);
+  assert.match(page, /scrollTo\(\{[\s\S]*behavior:\s*"smooth"/);
+  assert.match(page, /fam-day-strip/);
+  assert.match(css, /scroll-margin-top: 112px/);
+  assert.match(page, /data-map-slot="kyushu-1-8"/);
+  assert.match(page, /hotspots\.json/);
+  assert.match(page, /familyTripReturn\.flight/);
+  assert.match(page, /JX317/);
+  assert.doesNotMatch(
+    page,
+    /<ul className="fam-week-list"[\s\S]*id=\{`trip-day-\$\{item\.day\}`\}/,
+    "總表 rows are not the trip-day-N targets",
+  );
   const summaryIndex = page.indexOf(">總表<");
   const table1Index = page.indexOf(">表1<");
   const weekListIndex = page.indexOf("fam-week-list");

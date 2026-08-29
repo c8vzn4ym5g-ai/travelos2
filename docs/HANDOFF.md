@@ -7,10 +7,13 @@
   to public `/trips`.
 - Inner family pages (Capture, 工作台, trip) use a framed back pill with
   press flash, linking to `/family`. Home back is 首頁.
-- `/family/trip` opens on **總表** (days 1–8) then **表1** day cards.
-  Restaurant/craft recs include 地址 and 電話. Dinners are 建議自訂
-  except 西川 已訂 and 佐藤酒造 已發申請. 8/30 sleep only. 9/5 night
-  empty. Public Lapland untouched. Dump unchanged.
+- `/family/trip` is **總表** (week rows) then **表1** — eight real day
+  writeups (`trip-day-1` … `trip-day-8`). Sticky 1–8 + 總表 rows
+  `jumpToDay` scroll the matching detail under the sticky strip. Day 3
+  is 梅響 / 小鹿田 / 和くら with 地址+電話. Map slot under 總表 is an
+  empty well for the Kyushu plate (no GIS). Dinners are 建議自訂 except
+  西川 已訂 and 佐藤酒造 已發申請. 8/30 sleep only. 9/5 night empty.
+  Public Lapland untouched. Dump unchanged.
 
 ## 2026-08-29 Family booklet wash is pale green-apple
 

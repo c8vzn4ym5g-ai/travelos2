@@ -12,11 +12,13 @@ import {
   defaultTripDay,
   familyTripDay1,
   familyTripDays,
+  familyTripReturn,
   formatTripDateLabel,
   formatTripMd,
   placeMarkLabel,
   taipeiCalendarDate,
   tripDayFromCalendarDate,
+  type FamilyTripDay,
   type FamilyTripPlace,
   type MealMark,
   type PlaceKind,
@@ -48,10 +50,12 @@ function MealPair({
   breakfast,
   breakfastNote,
   dinner,
+  dinnerNote,
 }: {
   breakfast: MealMark | null;
   breakfastNote?: string;
   dinner: MealMark | null;
+  dinnerNote?: string;
 }) {
   if (breakfast == null && dinner == null) {
     return null;
@@ -70,6 +74,7 @@ function MealPair({
         <span className="fam-meal">
           <span>晚餐</span>
           <MealMarkIcon value={dinner} />
+          {dinnerNote ? <span className="fam-meal-note">{dinnerNote}</span> : null}
         </span>
       ) : null}
     </div>
@@ -104,6 +109,68 @@ function placeKindLabel(kind: PlaceKind) {
   return "店";
 }
 
+function DayBanner({ item }: { item: FamilyTripDay }) {
+  return (
+    <header className="fam-day-banner">
+      <span className="fam-day-dot">{item.day}</span>
+      <div>
+        <p className="fam-label">{formatTripDateLabel(item)}</p>
+        <p className="fam-leg-name">{item.nameZh}</p>
+        {item.nameJa ? <p className="fam-name-ja">{item.nameJa}</p> : null}
+      </div>
+    </header>
+  );
+}
+
+function StayCard({ item }: { item: FamilyTripDay }) {
+  const kind = item.icons.includes("hotel") ? "hotel" : "car";
+  return (
+    <article className="leg-card" data-kind={kind}>
+      <div className="flex items-center gap-3">
+        <FamIconWell name={kind === "hotel" ? "hotel" : "car"} well="blush" />
+        <div>
+          <p className="fam-label">住宿</p>
+          <p className="fam-leg-name">{item.nameZh}</p>
+          {item.nameJa ? <p className="fam-name-ja">{item.nameJa}</p> : null}
+        </div>
+      </div>
+      <dl>
+        {item.address ? (
+          <div className="fam-kv">
+            <dt>地址</dt>
+            <dd>{item.address}</dd>
+          </div>
+        ) : null}
+        {item.checkIn ? (
+          <div className="fam-kv">
+            <dt>入住</dt>
+            <dd>{item.checkIn}</dd>
+          </div>
+        ) : null}
+        {item.checkOut ? (
+          <div className="fam-kv">
+            <dt>退房</dt>
+            <dd>{item.checkOut}</dd>
+          </div>
+        ) : null}
+        {item.pay ? (
+          <div className="fam-kv">
+            <dt>付款</dt>
+            <dd>{item.pay}</dd>
+          </div>
+        ) : null}
+      </dl>
+      <MealPair
+        breakfast={item.breakfast}
+        breakfastNote={item.breakfastNote}
+        dinner={item.dinner}
+        dinnerNote={item.dinnerNote}
+      />
+      {item.booking ? <p className="fam-ref">訂房號 {item.booking}</p> : null}
+    </article>
+  );
+}
+
 function PlaceCard({ place }: { place: FamilyTripPlace }) {
   return (
     <article className="fam-place">
@@ -116,11 +183,13 @@ function PlaceCard({ place }: { place: FamilyTripPlace }) {
       <dl>
         <div className="fam-kv">
           <dt>地址</dt>
-          <dd>{place.address}</dd>
+          <dd>
+            <address>{place.address}</address>
+          </dd>
         </div>
         <div className="fam-kv">
           <dt>電話</dt>
-          <dd>{place.phone}</dd>
+          <dd className="place-phone">{place.phone}</dd>
         </div>
         {place.hours ? (
           <div className="fam-kv">
@@ -174,8 +243,16 @@ export default function FamilyTripPage() {
 
   function jumpToDay(day: number) {
     setSelected(day);
-    const target = document.getElementById(`trip-day-${day}`);
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.requestAnimationFrame(() => {
+      const target = document.getElementById(`trip-day-${day}`);
+      if (!target) {
+        return;
+      }
+      const strip = document.querySelector<HTMLElement>("[data-surface='family'] .fam-day-strip");
+      const offset = (strip?.getBoundingClientRect().height ?? 96) + 8;
+      const top = window.scrollY + target.getBoundingClientRect().top - offset;
+      window.scrollTo({ behavior: "smooth", top: Math.max(0, top) });
+    });
   }
 
   if (!authenticated) {
@@ -268,12 +345,26 @@ export default function FamilyTripPage() {
         </ul>
       </section>
 
+      <section aria-label="九州地圖 1 到 8" className="fam-sheet">
+        <h2 className="fam-section">地圖</h2>
+        <span className="fam-en">Days 1–8</span>
+        <div
+          className="fam-map-slot mt-4"
+          data-hotspots="/family/trip/hotspots.json"
+          data-map-slot="kyushu-1-8"
+        >
+          <p className="fam-label">1–8 的本子地圖</p>
+          <p className="fam-muted mt-2">美工會放九州圖。先點日子看當天。</p>
+        </div>
+      </section>
+
       <section className="fam-sheet">
         <h2 className="fam-section">表1</h2>
         <span className="fam-en">Days</span>
       </section>
 
       <section className="fam-sheet fam-trip-day1 fam-trip-day" id="trip-day-1">
+        <DayBanner item={familyTripDays[0]} />
         <article className="today-card" id="trip-today">
           <div className="fam-today-head">
             <span className="fam-sticker-chip fam-sticker-honey">今天</span>
@@ -352,6 +443,10 @@ export default function FamilyTripPage() {
           </div>
           <dl>
             <div className="fam-kv">
+              <dt>地址</dt>
+              <dd>{hotel.address}</dd>
+            </div>
+            <div className="fam-kv">
               <dt>入住</dt>
               <dd>{hotel.checkIn}</dd>
             </div>
@@ -378,12 +473,52 @@ export default function FamilyTripPage() {
 
       {familyTripDays.slice(1).map((item) => (
         <section className="fam-sheet fam-trip-day" id={`trip-day-${item.day}`} key={item.date}>
-          <p className="fam-label">{formatTripDateLabel(item)}</p>
-          <p className="fam-leg-name">{item.nameZh}</p>
-          {item.nameJa ? <p className="fam-name-ja">{item.nameJa}</p> : null}
-          {item.booking ? <p className="fam-ref">訂房號 {item.booking}</p> : null}
-          {item.pay ? <p className="fam-week-pay">{item.pay}</p> : null}
-          <MealPair breakfast={item.breakfast} breakfastNote={item.breakfastNote} dinner={item.dinner} />
+          <DayBanner item={item} />
+          {item.day === 8 ? (
+            <>
+              <article className="leg-card" data-kind="car">
+                <div className="flex items-center gap-3">
+                  <FamIconWell name="car" well="mint" />
+                  <div>
+                    <p className="fam-label">{car.sticker}</p>
+                    <p className="fam-leg-name">{car.name}</p>
+                  </div>
+                </div>
+                <dl>
+                  <div className="fam-kv">
+                    <dt>還車</dt>
+                    <dd>{car.dropoff}</dd>
+                  </div>
+                </dl>
+                <p className="fam-ref">預約號 {car.reservation}</p>
+              </article>
+              <article className="leg-card" data-kind="flight">
+                <div className="flex items-center gap-3">
+                  <FamIconWell name="plane" well="sky" />
+                  <div>
+                    <p className="fam-label">{familyTripReturn.flight.sticker}</p>
+                    <p className="fam-leg-name">{familyTripReturn.flight.number}</p>
+                  </div>
+                </div>
+                <dl>
+                  <div className="fam-kv">
+                    <dt>{familyTripReturn.flight.routeLabel}</dt>
+                    <dd>{familyTripReturn.flight.route}</dd>
+                  </div>
+                  <div className="fam-kv">
+                    <dt>時間</dt>
+                    <dd>{familyTripReturn.flight.time}</dd>
+                  </div>
+                  <div className="fam-kv">
+                    <dt>訂位 PNR</dt>
+                    <dd>{familyTripReturn.flight.pnr}</dd>
+                  </div>
+                </dl>
+              </article>
+            </>
+          ) : (
+            <StayCard item={item} />
+          )}
           {item.blurb.map((line) => (
             <p className="fam-muted" key={line}>
               {line}

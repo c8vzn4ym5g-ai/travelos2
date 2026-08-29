@@ -47,13 +47,17 @@ export type FamilyTripPlace = {
 };
 
 export type FamilyTripDay = {
+  address: string;
   blurb: string[];
   booking: string;
   breakfast: MealMark | null;
   breakfastNote: string;
+  checkIn: string;
+  checkOut: string;
   date: string;
   day: number;
   dinner: MealMark | null;
+  dinnerNote: string;
   extra: string[];
   icons: WeekIcon[];
   nameJa: string;
@@ -98,6 +102,7 @@ export const familyTripDay1 = {
     time: "15:00 → 18:15",
   },
   hotel: {
+    address: "天神2-2-43",
     booking: SOLARIA_ARRIVAL_BOOKING,
     breakfast: "yes" as MealMark,
     checkIn: "預計車程 熊本機場→福岡 約1小時15分",
@@ -112,16 +117,31 @@ export const familyTripDay1 = {
   nextDetail: "JX316 15:00 RMQ→KMJ",
 };
 
+export const familyTripReturn = {
+  flight: {
+    number: "JX317",
+    pnr: STARLUX_PNR,
+    route: "KMJ → RMQ",
+    routeLabel: "回程",
+    sticker: "飛機",
+    time: "19:15",
+  },
+};
+
 export const familyTripDays: FamilyTripDay[] = [
   {
-    blurb: ["飛機、取車、Solaria 只睡。沒有 REC，也不繞路。"],
+    address: "天神2-2-43",
+    blurb: ["不排行程、不排 REC。Solaria 只睡。"],
     booking: SOLARIA_ARRIVAL_BOOKING,
     breakfast: "yes",
     breakfastNote: "",
+    checkIn: "預計車程 熊本機場→福岡 約1小時15分",
+    checkOut: "11:00 官網",
     date: FAMILY_TRIP_DATES[0],
     day: 1,
     dinner: "no",
-    extra: ["今晚只住"],
+    dinnerNote: "",
+    extra: ["只住一晚"],
     icons: ["hotel", "plane"],
     nameJa: "ソラリア西鉄ホテル福岡",
     nameZh: "Solaria福岡",
@@ -131,14 +151,18 @@ export const familyTripDays: FamilyTripDay[] = [
     weekday: FAMILY_TRIP_WEEKDAYS[0],
   },
   {
-    blurb: ["開車去界。金鱗湖可走走。旅館晚餐加不了，外面自己訂。"],
+    address: "川上398",
+    blurb: ["11:00 退 Solaria，開車到界。金鱗湖可選。旅館晚餐不能加。"],
     booking: KAI_YUFUIN_BOOKING,
     breakfast: "yes",
     breakfastNote: "8:45",
+    checkIn: "11:00 退 Solaria → 14:30 入界",
+    checkOut: "",
     date: FAMILY_TRIP_DATES[1],
     day: 2,
     dinner: "no",
-    extra: ["14:30入界", "温泉小課 いろは 16:10", "晚餐 建議自訂"],
+    dinnerNote: "不能加",
+    extra: ["14:30入界", "可選 金鱗湖", "温泉小課 いろは 16:10", "晚餐 建議自訂"],
     icons: ["hotel", "car"],
     nameJa: "界 由布院",
     nameZh: "星野 界・由布院",
@@ -167,14 +191,18 @@ export const familyTripDays: FamilyTripDay[] = [
     weekday: FAMILY_TRIP_WEEKDAYS[1],
   },
   {
-    blurb: ["先看窯與酒，日田吃完再開車約 25 分上山住梅響。"],
+    address: "西大山4587",
+    blurb: ["先看窯與酒，城裡吃完再開車上山住梅響。酒吧 藤五郎 20:00。"],
     booking: UMEHIBIKI_BOOKING,
     breakfast: "yes",
     breakfastNote: "",
+    checkIn: "15:00",
+    checkOut: "",
     date: FAMILY_TRIP_DATES[2],
     day: 3,
     dinner: "no",
-    extra: ["15:00入", "梅酒試飲・酒吧 20:00", "晚餐 建議自訂"],
+    dinnerNote: "",
+    extra: ["15:00入", "酒吧 藤五郎 20:00", "晚餐 建議自訂"],
     icons: ["hotel", "car"],
     nameJa: "うめひびき",
     nameZh: "奧日田溫泉 梅響",
@@ -226,13 +254,17 @@ export const familyTripDays: FamilyTripDay[] = [
     weekday: FAMILY_TRIP_WEEKDAYS[2],
   },
   {
-    blurb: ["Flügel 早晚都含，不用再訂館外晚餐。"],
+    address: "栢木6049-89",
+    blurb: ["Flügel 含早晚餐，不另寫晚餐店。"],
     booking: FLUGEL_BOOKING,
     breakfast: "yes",
     breakfastNote: "",
+    checkIn: "",
+    checkOut: "",
     date: FAMILY_TRIP_DATES[3],
     day: 4,
     dinner: "yes",
+    dinnerNote: "在旅館",
     extra: ["晚餐在旅館"],
     icons: ["hotel", "car"],
     nameJa: "フリューゲル久住",
@@ -254,13 +286,17 @@ export const familyTripDays: FamilyTripDay[] = [
     weekday: FAMILY_TRIP_WEEKDAYS[3],
   },
   {
-    blurb: ["Solaria 素泊り。週四 ワンビル 15:30 關，15:00 後入住改去天神南。"],
+    address: "天神2-2-43",
+    blurb: ["素泊り。兩晚一次。ワンビル週四 15:30 關，入住後去天神南。"],
     booking: SOLARIA_RETURN_BOOKING,
     breakfast: "no",
-    breakfastNote: "",
+    breakfastNote: "素泊り",
+    checkIn: "15:00",
+    checkOut: "",
     date: FAMILY_TRIP_DATES[4],
     day: 5,
     dinner: "no",
+    dinnerNote: "",
     extra: ["15:00入天神", "晚餐 建議自訂"],
     icons: ["hotel"],
     nameJa: "ソラリア西鉄ホテル福岡",
@@ -297,13 +333,17 @@ export const familyTripDays: FamilyTripDay[] = [
     weekday: FAMILY_TRIP_WEEKDAYS[4],
   },
   {
-    blurb: ["上午 REC，下午西川。晚餐自己訂。"],
+    address: "天神2-2-43",
+    blurb: ["同一間 Solaria。早上 REC ワンビル。下午西川。"],
     booking: SOLARIA_RETURN_BOOKING,
     breakfast: "no",
     breakfastNote: "",
+    checkIn: "",
+    checkOut: "",
     date: FAMILY_TRIP_DATES[5],
     day: 6,
     dinner: "no",
+    dinnerNote: "",
     extra: ["西川 已訂 14:00", "晚餐 建議自訂"],
     icons: ["hotel"],
     nameJa: "ソラリア西鉄ホテル福岡",
@@ -341,13 +381,17 @@ export const familyTripDays: FamilyTripDay[] = [
     weekday: FAMILY_TRIP_WEEKDAYS[5],
   },
   {
-    blurb: ["Solaria 11:00 退。今晚還沒訂。只輕輕看一下 REC。"],
+    address: "",
+    blurb: ["Solaria 11:00 退。住宿還沒訂。輕的 REC 即可。"],
     booking: "",
     breakfast: "no",
     breakfastNote: "",
+    checkIn: "",
+    checkOut: "Solaria 11:00",
     date: FAMILY_TRIP_DATES[6],
     day: 7,
     dinner: null,
+    dinnerNote: "",
     extra: ["Solaria 11:00退", "夜還沒訂"],
     icons: ["hotel"],
     nameJa: "",
@@ -367,13 +411,17 @@ export const familyTripDays: FamilyTripDay[] = [
     weekday: FAMILY_TRIP_WEEKDAYS[6],
   },
   {
-    blurb: ["還車 19:00，JX317 19:15。沒有再繞。"],
+    address: "",
+    blurb: ["還車後登機。不排觀光。"],
     booking: "",
     breakfast: null,
     breakfastNote: "",
+    checkIn: "",
+    checkOut: "",
     date: FAMILY_TRIP_DATES[7],
     day: 8,
     dinner: null,
+    dinnerNote: "",
     extra: ["還車 19:00 ・ JX317 19:15"],
     icons: ["car", "plane"],
     nameJa: "",

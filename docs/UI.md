@@ -90,7 +90,9 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
   (橱窗). Do not put Drive or booking widgets there.
 - `/family/trip` is a family-only trip companion in the same 家庭本子 visual
   (`data-surface="family"`). Sticky 1–8 day-strip stays. **總表** (week
-  rows) sits at the top; **表1** is the detailed day cards below. Day-1
+  rows) sits at the top; **表1** is eight day writeups (`trip-day-N`)
+  below, not a highlighted row. Sticky + 總表 tap `jumpToDay` scrolls
+  that section under the sticky strip. Day-1
   cards stay 飛 → 車 → 住. Chinese first, muted Japanese under hotel names.
   Restaurant and craft recs include 地址 and 電話. Dinners are 建議自訂
   except 西川 已訂. 佐藤酒造 is 已發申請, not confirmed. Solaria / Flügel /
@@ -100,6 +102,8 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
   night is empty. Copy the KMJ map crop and Serena photo as bytes
   (`object-fit: contain`); do not redraw them. Day 1 Solaria
   `TF53AEFAC2A33` is a different booking from Days 5–6 `T032CA29B451B`.
+  Map slot under 總表 is an empty well for the family Kyushu plate — do
+  not draw GIS. Grade: tap 3 lands on 梅響 / 小鹿田 / 和くら.
   No station shuttles. Footer: 沒有接駁車。9/5 還沒訂. Do not invent a
   letter check-in clock, a missing-guest warning, passenger DOB, or “GM 填”.
   Public `/trips` is untouched.
