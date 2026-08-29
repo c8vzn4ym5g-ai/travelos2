@@ -183,7 +183,31 @@ const kujuHotel: HotelLeg = {
   sticker: "住宿",
 };
 
-const solariaHotel: HotelLeg = {
+const solariaPlaceRefs: TripRef[] = [
+  { label: "地址", value: "福岡県福岡市中央区天神２丁目２−４３" },
+  { label: "電話", value: "092-761-6500" },
+];
+
+const solariaArrivalHotel: HotelLeg = {
+  breakfast: "unknown",
+  checkIn: "8/30",
+  checkOut: "8/31",
+  dinner: "unknown",
+  english: "Solaria",
+  kind: "hotel",
+  name: "西鉄ホテル福岡 Solaria",
+  note: "",
+  official: [],
+  refs: [
+    { label: "訂房號", value: "TF53AEFAC2A33" },
+    { label: "旅客", value: "Tik Shan Sana Lai" },
+    { label: "預訂", value: "tripla.ai" },
+    ...solariaPlaceRefs,
+  ],
+  sticker: "住宿",
+};
+
+const solariaReturnHotel: HotelLeg = {
   breakfast: "no",
   checkIn: "9/3 15:00",
   checkOut: "9/5",
@@ -197,14 +221,13 @@ const solariaHotel: HotelLeg = {
     { label: "訂房號", value: "T032CA29B451B" },
     { label: "房型", value: "スーペリアツイン 禁煙 ×2" },
     { label: "計畫", value: "素泊り" },
-    { label: "地址", value: "福岡県福岡市中央区天神２丁目２−４３" },
-    { label: "電話", value: "092-761-6500" },
+    ...solariaPlaceRefs,
   ],
   sticker: "住宿",
 };
 
 const solariaStayOn: HotelLeg = {
-  ...solariaHotel,
+  ...solariaReturnHotel,
   compact: true,
   refs: [],
 };
@@ -223,8 +246,9 @@ function emptyDay(day: number, date: string, patch: Partial<FamilyTripDay> = {})
 
 export const familyTripDays: FamilyTripDay[] = [
   emptyDay(1, FAMILY_TRIP_DATES[0], {
-    legs: [outboundFlight, nissanPickup],
-    next: "台中 T2 出發，熊本落地後取車。",
+    legs: [outboundFlight, nissanPickup, solariaArrivalHotel],
+    next: "熊本落地取車，開去福岡天神入住。",
+    stay: "Solaria",
   }),
   emptyDay(2, FAMILY_TRIP_DATES[1], {
     breakfast: "yes",
@@ -246,7 +270,7 @@ export const familyTripDays: FamilyTripDay[] = [
   }),
   emptyDay(5, FAMILY_TRIP_DATES[4], {
     breakfast: "no",
-    legs: [solariaHotel],
+    legs: [solariaReturnHotel],
     next: "15:00 天神入住。",
     stay: "Solaria",
   }),
