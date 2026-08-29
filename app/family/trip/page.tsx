@@ -87,7 +87,9 @@ function WeekIcons({ icons }: { icons: WeekIcon[] }) {
 
 export default function FamilyTripPage() {
   const router = useRouter();
-  const [authenticated, setAuthenticated] = useState(false);
+  // Start open so the Worker HTML already has 去搭飛機 / JX316 / days 1–8.
+  // Family PIN is off on Cloudflare unless TRAVELOS_REQUIRE_FAMILY_PIN=1.
+  const [authenticated, setAuthenticated] = useState(true);
   const [redirecting, setRedirecting] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
 

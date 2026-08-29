@@ -170,6 +170,7 @@ test("companion page is family-only, matches the mock chrome, and keeps dump/Lap
   assert.match(page, /fam-doll/);
   assert.match(page, /resolveFamilySession/);
   assert.match(page, /router\.replace\("\/family"\)/);
+  assert.match(page, /const \[authenticated, setAuthenticated\] = useState\(true\)/);
   assert.doesNotMatch(page, /type="password"/);
   assert.doesNotMatch(page, /id="family-pin"/);
   assert.doesNotMatch(page, /familyTripCarry/);
