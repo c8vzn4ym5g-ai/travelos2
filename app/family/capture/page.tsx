@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CaptureSpeechLangChips } from "@/app/family/capture-speech-lang";
+import { FamilyBackLink } from "@/app/family/family-back";
 import { FamGlyph } from "@/app/family/family-icons";
 import { MomentAudioPlayer } from "@/app/family/moment-audio-player";
 import { SpokenLine } from "@/app/family/spoken-line";
@@ -763,9 +764,9 @@ export default function CapturePage() {
     <main className="fam-page">
       <header className="fam-hero">
         <div className="fam-hero-inner">
-          <Link className="fam-back min-h-11" href="/family">
+          <FamilyBackLink className="min-h-11" href="/family">
             ← 家庭入口
-          </Link>
+          </FamilyBackLink>
           <p className="fam-script">one capture door</p>
           <h1 className="fam-title">Capture</h1>
           <p className="fam-lede">

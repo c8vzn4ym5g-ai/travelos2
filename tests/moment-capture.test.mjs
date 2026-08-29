@@ -97,6 +97,8 @@ test("family home has one Capture door and no retired second-app cards", async (
   assert.match(family, /咖啡記憶/);
   assert.match(family, /href="\/family\/capture"/);
   assert.match(family, /href="\/trips\/write"/);
+  assert.match(family, /href="\/family\/trip"/);
+  assert.match(family, />行程</);
   assert.match(family, /href="\/family\/bench"/);
   assert.match(family, /安裝到 iPhone/);
   assert.equal((family.match(/工作台/g) ?? []).length, 1);

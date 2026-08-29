@@ -1,5 +1,17 @@
 # TravelOS Handoff
 
+## 2026-08-29 Family 行程 door, framed back, 總表 then 表1
+
+- `/family` 入口 now has a framed 行程 pill (福岡・大分) next to Capture /
+  Write. The old header chip did not look tappable. 旅行遊記 still goes
+  to public `/trips`.
+- Inner family pages (Capture, 工作台, trip) use a framed back pill with
+  press flash, linking to `/family`. Home back is 首頁.
+- `/family/trip` opens on **總表** (days 1–8) then **表1** day cards.
+  Restaurant/craft recs include 地址 and 電話. Dinners are 建議自訂
+  except 西川 已訂 and 佐藤酒造 已發申請. 8/30 sleep only. 9/5 night
+  empty. Public Lapland untouched. Dump unchanged.
+
 ## 2026-08-29 Family booklet wash is pale green-apple
 
 - Owner: 粉紅色太少女了. Family Capture (and the shared

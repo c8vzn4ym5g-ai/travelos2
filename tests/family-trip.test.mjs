@@ -92,7 +92,9 @@ test("week rows keep hotel-plan meals, pay, and the two Solaria bookings", () =>
   assert.equal(day2.dinner, "no");
   assert.ok(day2.extra.includes("14:30入界"));
   assert.ok(day2.extra.includes("温泉小課 いろは 16:10"));
+  assert.ok(day2.extra.includes("晚餐 建議自訂"));
   assert.equal(day2.pay, "已付 ¥141,000");
+  assert.equal(day2.booking, "KYIBNF266359");
   assert.equal(day2.tone, "mint");
 
   assert.equal(day3.nameZh, "奧日田溫泉 梅響");
@@ -101,18 +103,23 @@ test("week rows keep hotel-plan meals, pay, and the two Solaria bookings", () =>
   assert.equal(day3.dinner, "no");
   assert.ok(day3.extra.includes("15:00入"));
   assert.ok(day3.extra.includes("梅酒試飲・酒吧 20:00"));
+  assert.ok(day3.extra.includes("晚餐 建議自訂"));
   assert.equal(day3.pay, "到店付 ¥55,800");
+  assert.equal(day3.booking, "202608240003264.01");
 
   assert.equal(day4.nameZh, "Flügel 久住");
   assert.equal(day4.nameJa, "フリューゲル久住");
   assert.equal(day4.breakfast, "yes");
   assert.equal(day4.dinner, "yes");
   assert.equal(day4.pay, "到店付 ¥149,600・入湯稅另計");
+  assert.equal(day4.booking, "1252");
+  assert.ok(day4.extra.includes("晚餐在旅館"));
 
   assert.equal(day5.nameZh, "Solaria福岡");
   assert.equal(day5.breakfast, "no");
   assert.equal(day5.dinner, "no");
   assert.ok(day5.extra.includes("15:00入天神"));
+  assert.ok(day5.extra.includes("晚餐 建議自訂"));
   assert.equal(day5.pay, "到店付 ¥156,868");
   assert.equal(SOLARIA_RETURN_BOOKING, "T032CA29B451B");
 
@@ -121,11 +128,14 @@ test("week rows keep hotel-plan meals, pay, and the two Solaria bookings", () =>
   assert.doesNotMatch(day6.pay, /¥/);
   assert.equal(day6.breakfast, "no");
   assert.equal(day6.dinner, "no");
+  assert.ok(day6.extra.includes("西川 已訂 14:00"));
+  assert.ok(day6.extra.includes("晚餐 建議自訂"));
 
   assert.equal(day7.nameZh, "還沒訂");
   assert.equal(day7.breakfast, "no");
   assert.equal(day7.dinner, null);
   assert.ok(day7.extra.includes("Solaria 11:00退"));
+  assert.ok(day7.extra.includes("夜還沒訂"));
   assert.equal(day7.pay, "");
 
   assert.equal(day8.nameZh, "回程");
@@ -134,6 +144,27 @@ test("week rows keep hotel-plan meals, pay, and the two Solaria bookings", () =>
   assert.ok(day8.extra.includes("還車 19:00 ・ JX317 19:15"));
   assert.equal(day8.tone, "sky");
   assert.equal(FAMILY_TRIP_FOOTER, "沒有接駁車。9/5 還沒訂。");
+});
+
+test("every restaurant and craft rec has address and phone", () => {
+  const booked = [];
+  const requested = [];
+  for (const day of familyTripDays) {
+    for (const place of day.places) {
+      assert.ok(place.address.length > 6, place.name);
+      assert.match(place.phone, /^\d{2,4}-\d{2,4}-\d{3,4}$/);
+      if (place.mark === "booked") {
+        booked.push(place.name);
+      }
+      if (place.mark === "requested") {
+        requested.push(place.name);
+      }
+    }
+  }
+  assert.deepEqual(booked, ["西川ネムリウム 福岡三越"]);
+  assert.deepEqual(requested, ["佐藤酒造 久住千羽鶴"]);
+  assert.ok(familyTripDays[1].places.some((place) => place.name.includes("亜李蘭離宮") && place.kind === "main"));
+  assert.ok(familyTripDays[1].places.some((place) => place.name.includes("和作") && place.kind === "backup"));
 });
 
 test("companion page is family-only, matches the mock chrome, and keeps dump/Lapland untouched", async () => {
@@ -154,6 +185,43 @@ test("companion page is family-only, matches the mock chrome, and keeps dump/Lap
   assert.match(page, /data-kind="car"/);
   assert.match(page, /data-kind="hotel"/);
   assert.match(page, /fam-day-strip/);
+  assert.match(page, />總表</);
+  assert.match(page, />表1</);
+  const summaryIndex = page.indexOf(">總表<");
+  const table1Index = page.indexOf(">表1<");
+  const weekListIndex = page.indexOf("fam-week-list");
+  const table1DayIndex = page.indexOf('id="trip-day-1"');
+  assert.ok(summaryIndex !== -1 && table1Index !== -1);
+  assert.ok(summaryIndex < weekListIndex);
+  assert.ok(weekListIndex < table1Index);
+  assert.ok(table1Index < table1DayIndex);
+  assert.match(page, /FamilyBackLink/);
+  assert.match(css, /\.fam-back:active/);
+  assert.doesNotMatch(page, /亂表/);
+  assert.doesNotMatch(data, /金鱟湖/);
+  assert.doesNotMatch(data, /椰屋/);
+  assert.doesNotMatch(data, /万ビル/);
+  assert.doesNotMatch(data, /もつ鍋/);
+  assert.doesNotMatch(data, /水炊き/);
+  assert.doesNotMatch(data, /榎屋/);
+  assert.doesNotMatch(data, /南の風/);
+  assert.match(data, /金鱗湖/);
+  assert.match(data, /日田市隈2-4-13/);
+  assert.match(data, /天神ワンビル/);
+  assert.match(data, /建議自訂/);
+  assert.match(data, /已發申請/);
+  assert.match(data, /fJR20h7nd/);
+  assert.match(data, /092-725-7615/);
+  assert.match(data, /0974-76-0004/);
+  assert.match(family, />行程</);
+  assert.match(family, /href="\/family\/trip"/);
+  const entryIndex = family.indexOf(">入口<");
+  const tripDoorIndex = family.indexOf('href="/family/trip"');
+  const benchDoorIndex = family.indexOf(">工作台<");
+  const editIndex = family.indexOf(">編輯<");
+  assert.ok(entryIndex < tripDoorIndex && tripDoorIndex < benchDoorIndex && benchDoorIndex < editIndex);
+  assert.match(family, /viewHref: "\/trips"/);
+  assert.doesNotMatch(family, /fam-companion-sticker/);
   assert.match(page, /fam-day-wk/);
   assert.match(page, />早餐</);
   assert.match(page, />晚餐</);

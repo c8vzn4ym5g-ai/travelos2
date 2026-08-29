@@ -53,4 +53,12 @@ test("family workshop wraps a family surface and does not restyle public Lapland
   assert.match(capture, /剛拍的會出現在這裡。/);
   assert.doesNotMatch(capture, /fam-empty-take/);
   assert.doesNotMatch(familyCss, /fam-empty-take/);
+  assert.match(familyHome, />行程</);
+  assert.match(familyHome, /href="\/family\/trip"/);
+  assert.match(familyCss, /\.fam-back:active/);
+  assert.match(trip, />總表</);
+  assert.match(trip, />表1</);
+  assert.match(capture, /FamilyBackLink/);
+  assert.match(bench, /FamilyBackLink/);
+  assert.match(trip, /FamilyBackLink/);
 });

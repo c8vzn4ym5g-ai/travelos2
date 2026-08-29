@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BenchAudio } from "@/app/family/bench/bench-audio";
 import { BenchPhotoThumb } from "@/app/family/bench/bench-photo";
+import { FamilyBackLink } from "@/app/family/family-back";
 import { SpokenLine } from "@/app/family/spoken-line";
 import { updateMomentTranscript } from "@/lib/capture-upload";
 import { FAMILY_ADMIN_SESSION_KEY, familyPinHeaders, resolveFamilySession } from "@/lib/family-session";
@@ -265,9 +266,9 @@ export default function FamilyBenchPage() {
     <main className="fam-page">
       <header className="fam-hero">
         <div className="fam-hero-inner">
-          <Link className="fam-back min-h-11" href="/family">
+          <FamilyBackLink className="min-h-11" href="/family">
             ← 家庭入口
-          </Link>
+          </FamilyBackLink>
           <p className="fam-script">family workshop</p>
           <h1 className="fam-title">工作台 / Bench</h1>
           <p className="fam-lede">{BENCH_INTRO}</p>

@@ -1,5 +1,21 @@
 # TravelOS Codex Tasks
 
+## TASK-034: Family 行程 door, framed back, fill 總表 / 表1
+
+Status: done
+
+Goal: Owner on the phone could not find the itinerary (chip did not look
+tappable) or go back (ghost text). Put 總表 on top of `/family/trip`,
+fill 8-day recs with 地址+電話, mark 建議自訂 vs 已訂. Green-apple
+wash. Do not restyle Lapland. Do not classify Capture dumps.
+
+Result:
+
+- 入口 has a framed 行程 / 福岡・大分 pill next to Capture / Write.
+- Back is a framed pill with :active flash on Capture, 工作台, trip, and
+  family home.
+- `/family/trip` is 總表 then 表1. Recs include address and phone.
+
 ## TASK-033: Family booklet wash is pale green-apple
 
 Status: done
