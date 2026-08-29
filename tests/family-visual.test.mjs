@@ -10,7 +10,7 @@ async function readSource(path) {
 }
 
 test("family workshop wraps a family surface and does not restyle public Lapland", async () => {
-  const [layout, familyCss, rootLayout, manifest, familyHome, capture, bench, trip, lapland, home, globals] = await Promise.all([
+  const [layout, familyCss, rootLayout, manifest, familyHome, capture, bench, trip, talk, lapland, home, globals] = await Promise.all([
     readSource("app/family/layout.tsx"),
     readSource("app/family/family.css"),
     readSource("app/layout.tsx"),
@@ -19,6 +19,7 @@ test("family workshop wraps a family surface and does not restyle public Lapland
     readSource("app/family/capture/page.tsx"),
     readSource("app/family/bench/page.tsx"),
     readSource("app/family/trip/page.tsx"),
+    readSource("app/family/talk/page.tsx"),
     readSource("app/trips/[slug]/page.tsx"),
     readSource("app/page.tsx"),
     readSource("app/globals.css"),
@@ -42,6 +43,8 @@ test("family workshop wraps a family surface and does not restyle public Lapland
   assert.doesNotMatch(capture, /travel-display/);
   assert.doesNotMatch(bench, /travel-display/);
   assert.doesNotMatch(trip, /travel-display/);
+  assert.doesNotMatch(talk, /travel-display/);
+  assert.match(talk, /我說中文/);
   assert.match(home, /travel-display/);
   assert.match(globals, /\.travel-display \{/);
   assert.match(globals, /font-family: Georgia/);

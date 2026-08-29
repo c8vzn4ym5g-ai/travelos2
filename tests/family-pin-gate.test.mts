@@ -218,7 +218,7 @@ test("moments APIs still return 401 for a missing or wrong PIN when the flag is 
 });
 
 test("family and capture clients discover the PIN gate and do not add a Capture PIN form", async () => {
-  const [gate, pin, session, unlock, capture, bench, write, family, tripsAdmin, coffeeAdmin] = await Promise.all([
+  const [gate, pin, session, unlock, capture, bench, write, talk, family, tripsAdmin, coffeeAdmin] = await Promise.all([
     readSource("app/api/family/gate/route.ts"),
     readSource("lib/family-pin.ts"),
     readSource("lib/family-session.ts"),
@@ -226,6 +226,7 @@ test("family and capture clients discover the PIN gate and do not add a Capture 
     readSource("app/family/capture/page.tsx"),
     readSource("app/family/bench/page.tsx"),
     readSource("app/trips/write/page.tsx"),
+    readSource("app/family/talk/page.tsx"),
     readSource("app/family/page.tsx"),
     readSource("app/trips/admin/page.tsx"),
     readSource("app/coffee/admin/page.tsx"),
@@ -250,15 +251,19 @@ test("family and capture clients discover the PIN gate and do not add a Capture 
   assert.match(capture, /resolveFamilySession/);
   assert.match(bench, /resolveFamilySession/);
   assert.match(write, /resolveFamilySession/);
+  assert.match(talk, /resolveFamilySession/);
   assert.match(tripsAdmin, /resolveFamilySession/);
   assert.match(coffeeAdmin, /resolveFamilySession/);
   assert.match(capture, /router\.replace\("\/family"\)/);
   assert.match(bench, /router\.replace\("\/family"\)/);
   assert.match(write, /router\.replace\("\/family"\)/);
+  assert.match(talk, /router\.replace\("\/family"\)/);
   assert.doesNotMatch(capture, /type="password"/);
   assert.doesNotMatch(capture, /id="family-pin"/);
   assert.doesNotMatch(bench, /type="password"/);
   assert.doesNotMatch(write, /type="password"/);
+  assert.doesNotMatch(talk, /type="password"/);
+  assert.doesNotMatch(talk, /id="family-pin"/);
   assert.doesNotMatch(family, /travelpayouts/i);
   assert.doesNotMatch(family, /emrldtp/);
   assert.doesNotMatch(capture, /travelpayouts/i);

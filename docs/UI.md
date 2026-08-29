@@ -99,9 +99,16 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
   沒有接駁車。9/5 還沒訂. Do not invent a letter check-in clock, a
   missing-guest warning, passenger DOB, or “GM 填”. Public `/trips` is
   untouched.
+- `/family/talk` is a family-only Kyushu talk translator on the same apple
+  paper. Two huge tap modes only: 我說中文 (zh-TW/zh-CN → spoken Japanese)
+  and 對方說日文 (ja-JP → spoken Chinese). Tap to start, tap to stop.
+  Web Speech first, then MediaRecorder + Workers AI Whisper. Translation
+  is spoken, not literary. Back is a framed press-in button, not naked
+  text. PWA manifest + apple-touch-icon live under `/family/talk`.
+  English, auto-detect, Capture dump, itinerary, and Drive stay out.
 - Family workshop pages use pale green-apple paper, rounded 本子 type, and family tokens.
   Do not use public magazine Georgia / teal kickers or theme-color `#0f766e`
-  on `/family`, `/family/capture`, `/family/bench`, or `/family/trip`.
+  on `/family`, `/family/capture`, `/family/bench`, `/family/trip`, or `/family/talk`.
 - Bench shows the workshop intro once. Native audio controls that error must
   not appear; unplayable voice is a quiet line. Transcripts may appear later
   without blocking the page. The spoken line is tappable on the card itself;

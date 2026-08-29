@@ -4,6 +4,9 @@ interface __BaseEnv_CloudflareEnv {
 	ASSETS: Fetcher;
 	NEXTJS_ENV: string;
 	WORKER_SELF_REFERENCE: Fetcher /* travelos2 */;
+	AI: {
+		run(model: string, inputs: Record<string, unknown>): Promise<unknown>;
+	};
 }
 declare namespace Cloudflare {
 	interface Env extends __BaseEnv_CloudflareEnv {}
