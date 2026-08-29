@@ -63,13 +63,13 @@ function HotelFields({ leg }: { leg: HotelLeg }) {
           <HotelClock letter={leg.checkOut} official={leg.officialOut} />
         </div>
         <div className="fam-kv">
-          <dt>早餐</dt>
+          <dt>今早</dt>
           <dd>
             <BreakfastChips value={leg.breakfast} />
           </dd>
         </div>
         <div className="fam-kv">
-          <dt>晚餐</dt>
+          <dt>今晚</dt>
           <dd>
             <BreakfastChips value={leg.dinner} />
           </dd>
@@ -89,13 +89,13 @@ function HotelFields({ leg }: { leg: HotelLeg }) {
         <HotelClock letter={leg.checkOut} official={leg.officialOut} />
       </div>
       <div className="fam-kv">
-        <dt>早餐</dt>
+        <dt>今早</dt>
         <dd>
           <BreakfastChips value={leg.breakfast} />
         </dd>
       </div>
       <div className="fam-kv">
-        <dt>晚餐</dt>
+        <dt>今晚</dt>
         <dd>
           <BreakfastChips value={leg.dinner} />
         </dd>
@@ -204,13 +204,13 @@ function TodayCard({ day, isCalendarToday }: { day: FamilyTripDay; isCalendarTod
           <dd>{day.stay}</dd>
         </div>
         <div className="fam-kv">
-          <dt>早餐</dt>
+          <dt>今早</dt>
           <dd>
             <BreakfastChips value={day.breakfast} />
           </dd>
         </div>
         <div className="fam-kv">
-          <dt>晚餐</dt>
+          <dt>今晚</dt>
           <dd>
             <BreakfastChips value={day.dinner} />
           </dd>
@@ -364,13 +364,13 @@ export default function FamilyTripPage() {
                       <dd>{item.stay}</dd>
                     </span>
                     <span className="fam-kv">
-                      <dt>早餐</dt>
+                      <dt>今早</dt>
                       <dd>
                         <BreakfastChips value={item.breakfast} />
                       </dd>
                     </span>
                     <span className="fam-kv">
-                      <dt>晚餐</dt>
+                      <dt>今晚</dt>
                       <dd>
                         <BreakfastChips value={item.dinner} />
                       </dd>

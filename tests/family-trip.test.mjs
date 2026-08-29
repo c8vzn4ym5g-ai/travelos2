@@ -55,7 +55,7 @@ test("confirmed email fields fill the companion; remaining gaps stay blank", () 
   assert.ok(familyTripCarry.car.includes("有車，不用車站接送"));
 
   assert.equal(day1.stay, "Solaria");
-  assert.equal(day1.breakfast, "yes");
+  assert.equal(day1.breakfast, "no");
   assert.equal(day1.dinner, "no");
   assert.equal(day1.next, "熊本 18:15 落地，19:30 取車，開去天神。官網入住 15:00，這晚晚到。");
   const day1Flight = legsOf(1, "flight")[0];
@@ -75,9 +75,10 @@ test("confirmed email fields fill the companion; remaining gaps stay blank", () 
   assert.equal(day1Hotel.checkOut, "8/31");
   assert.equal(day1Hotel.officialIn, "15:00");
   assert.equal(day1Hotel.officialOut, "11:00");
-  assert.equal(day1Hotel.breakfast, "yes");
+  assert.equal(day1Hotel.breakfast, "no");
   assert.equal(day1Hotel.dinner, "no");
   assert.equal(day1Hotel.note, "");
+  assert.match(day1Hotel.extras, /明早含早餐/);
   assert.match(day1Hotel.extras, /7:00–10:30/);
   assert.doesNotMatch(day1Hotel.checkIn, /15:00/);
   assert.doesNotMatch(JSON.stringify(day1Hotel), /另外兩人|MISSING/);
@@ -136,16 +137,17 @@ test("confirmed email fields fill the companion; remaining gaps stay blank", () 
   assert.doesNotMatch(kuju.extras, /豊後竹田|接送/);
 
   assert.equal(day5.stay, "Solaria");
-  assert.equal(day5.breakfast, "no");
+  assert.equal(day5.breakfast, "yes");
   assert.equal(day5.dinner, "no");
-  assert.equal(day5.next, "開車回天神。15:00 入住。");
+  assert.equal(day5.next, "フリューゲル 11:00 退房，開車回天神。15:00 入住。");
   const solaria = legsOf(5, "hotel")[0];
   assert.equal(solaria.checkIn, "9/3 15:00");
   assert.equal(solaria.checkOut, "9/5");
   assert.equal(solaria.officialOut, "11:00");
-  assert.equal(solaria.breakfast, "no");
+  assert.equal(solaria.breakfast, "yes");
   assert.equal(solaria.dinner, "no");
-  assert.match(solaria.extras, /櫃台可加早餐/);
+  assert.match(solaria.extras, /素泊り從明早算/);
+  assert.doesNotMatch(solaria.extras, /今早素泊り/);
   assert.ok(solaria.refs.some((ref) => ref.value === "T032CA29B451B"));
   assert.ok(solaria.refs.some((ref) => /4人/.test(ref.value)));
   assert.doesNotMatch(JSON.stringify(solaria), /TF53AEFAC2A33/);
@@ -157,6 +159,8 @@ test("confirmed email fields fill the companion; remaining gaps stay blank", () 
   assert.equal(day6.next, "福岡。");
   const stayOn = legsOf(6, "hotel")[0];
   assert.equal(stayOn.compact, true);
+  assert.equal(stayOn.breakfast, "no");
+  assert.match(stayOn.extras, /今早素泊り/);
   assert.equal(stayOn.refs.length, 0);
   assert.doesNotMatch(JSON.stringify(stayOn.refs), /T032CA29B451B/);
 
@@ -170,6 +174,8 @@ test("confirmed email fields fill the companion; remaining gaps stay blank", () 
   assert.equal(day7Hotel.checkOut, "9/5");
   assert.equal(day7Hotel.officialOut, "11:00");
   assert.equal(day7Hotel.breakfast, "no");
+  assert.equal(day7Hotel.dinner, "unknown");
+  assert.match(day7Hotel.extras, /今早素泊り/);
   assert.ok(day7Hotel.refs.some((ref) => ref.value === "T032CA29B451B"));
   assert.doesNotMatch(JSON.stringify(day7Hotel), /TF53AEFAC2A33/);
   assert.equal(legsOf(7, "flight").length, 0);
@@ -216,7 +222,10 @@ test("companion page is family-only, uses the workshop surface, and does not inv
   assert.match(page, /官網 \{official\}/);
   assert.match(page, /fam-extras/);
   assert.match(page, /先看這幾行/);
-  assert.match(page, /<dt>晚餐<\/dt>/);
+  assert.match(page, /<dt>今早<\/dt>/);
+  assert.match(page, /<dt>今晚<\/dt>/);
+  assert.doesNotMatch(page, /<dt>早餐<\/dt>/);
+  assert.doesNotMatch(page, /<dt>晚餐<\/dt>/);
   assert.match(page, /fam-doll/);
   assert.match(page, /resolveFamilySession/);
   assert.match(page, /router\.replace\("\/family"\)/);

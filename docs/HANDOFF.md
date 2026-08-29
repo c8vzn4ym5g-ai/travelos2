@@ -12,7 +12,8 @@
   TF53AEFAC2A33 (8/30–8/31, breakfast included), and Solaria return
   T032CA29B451B (9/3–9/5). They drive every hotel; station shuttles are
   omitted. Day 7 tonight is `今晚未訂` (Solaria 官網 11:00 checkout that
-  morning). Capture dump is unchanged.
+  morning). Meal chips are 今早 (wake) / 今晚 (night), not the check-in hotel’s
+  plan copied onto that morning. Capture dump is unchanged.
 
 ## 2026-08-28 Family 工作台 Drive photo thumbs 404
 
