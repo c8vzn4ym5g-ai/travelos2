@@ -85,6 +85,9 @@ test("confirmed email fields fill the companion; remaining gaps stay blank", () 
   assert.ok(day1Hotel.refs.some((ref) => ref.value === "TF53AEFAC2A33"));
   assert.ok(day1Hotel.refs.some((ref) => /Moderate Twin/.test(ref.value)));
   assert.ok(day1Hotel.refs.some((ref) => ref.value === "Chih Mei Feng"));
+  assert.ok(day1Hotel.refs.some((ref) => ref.value === "Tik Shan Sana Lai"));
+  assert.ok(day1Hotel.refs.some((ref) => /含早餐/.test(ref.value)));
+  assert.equal(day1.breakfast, "no");
   assert.doesNotMatch(JSON.stringify(day1Hotel), /T032CA29B451B/);
   assert.doesNotMatch(JSON.stringify(day1Hotel), /素泊り/);
   assert.doesNotMatch(JSON.stringify(day1Hotel), /スーペリアツイン/);
@@ -248,6 +251,7 @@ test("companion page is family-only, uses the workshop surface, and does not inv
   assert.doesNotMatch(data, /另外兩人/);
   assert.doesNotMatch(data, /MISSING/);
   assert.match(data, /フリューゲル久住/);
+  assert.match(data, /Tik Shan Sana Lai/);
   assert.match(data, /TF53AEFAC2A33/);
   assert.match(data, /T032CA29B451B/);
   assert.match(data, /今晚未訂/);

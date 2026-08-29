@@ -226,6 +226,7 @@ const solariaArrivalHotel: HotelLeg = {
     { label: "房型", value: "Moderate Twin（禁煙）" },
     { label: "計畫", value: "含早餐，不可取消已付" },
     { label: "旅客", value: "Chih Mei Feng" },
+    { label: "收件", value: "Tik Shan Sana Lai" },
     { label: "金額", value: "¥43,580" },
     ...solariaPlaceRefs,
   ],
