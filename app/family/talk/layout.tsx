@@ -30,6 +30,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   colorScheme: "light",
   themeColor: "#F0F6E4",
+  viewportFit: "cover",
 };
 
 export default function FamilyTalkLayout({ children }: { children: React.ReactNode }) {

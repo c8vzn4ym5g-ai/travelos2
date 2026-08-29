@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
-import { handleTalkTranscribe } from "../app/api/family/talk/transcribe/route.ts";
-import { handleTalkTranslate } from "../app/api/family/talk/translate/route.ts";
 import { isAdminPinValid } from "../lib/family-pin.ts";
 import {
   cleanSpokenTranslation,
+  handleTalkTranscribe,
+  handleTalkTranslate,
   m2mLangNames,
   pickSpeechVoice,
   recognitionLangForTalk,
