@@ -208,7 +208,7 @@ test("companion page is family-only, matches the mock chrome, and keeps dump/Lap
   assert.match(page, /data-map-slot="kyushu-1-8"/);
   assert.match(page, /hotspots\.json/);
   assert.match(page, /familyTripReturn\.flight/);
-  assert.match(page, /JX317/);
+  assert.match(data, /JX317/);
   assert.doesNotMatch(
     page,
     /<ul className="fam-week-list"[\s\S]*id=\{`trip-day-\$\{item\.day\}`\}/,
