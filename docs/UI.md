@@ -102,8 +102,8 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
   night is empty. Copy the KMJ map crop and Serena photo as bytes
   (`object-fit: contain`); do not redraw them. Day 1 Solaria
   `TF53AEFAC2A33` is a different booking from Days 5–6 `T032CA29B451B`.
-  Map slot under 總表 is an empty well for the family Kyushu plate — do
-  not draw GIS. Grade: tap 3 lands on 梅響 / 小鹿田 / 和くら.
+  No 8-day map until GM sends a PASSED file + sha256. Do not copy a
+  failed plate or draw GIS. Grade: tap 3 lands on 梅響 / 小鹿田 / 和くら.
   No station shuttles. Footer: 沒有接駁車。9/5 還沒訂. Do not invent a
   letter check-in clock, a missing-guest warning, passenger DOB, or “GM 填”.
   Public `/trips` is untouched.

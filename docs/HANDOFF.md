@@ -10,8 +10,9 @@
 - `/family/trip` is **總表** (week rows) then **表1** — eight real day
   writeups (`trip-day-1` … `trip-day-8`). Sticky 1–8 + 總表 rows
   `jumpToDay` scroll the matching detail under the sticky strip. Day 3
-  is 梅響 / 小鹿田 / 和くら with 地址+電話. Map slot under 總表 is an
-  empty well for the Kyushu plate (no GIS). Dinners are 建議自訂 except
+  is 梅響 / 小鹿田 / 和くら with 地址+電話. No 8-day map until GM
+  sends a PASSED file + sha256. Do not copy the failed plate or draw a
+  substitute. Dinners are 建議自訂 except
   西川 已訂 and 佐藤酒造 已發申請. 8/30 sleep only. 9/5 night empty.
   Public Lapland untouched. Dump unchanged.
 

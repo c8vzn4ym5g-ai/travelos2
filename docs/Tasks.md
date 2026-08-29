@@ -8,7 +8,8 @@ Goal: Owner on the phone could not find the itinerary (chip did not look
 tappable) or go back (ghost text). Put 總表 on top of `/family/trip`,
 then write eight day-detail blocks now (hotel + meals + known 建議).
 Sticky 1–8 must jump to that detail. Green-apple wash. Do not restyle
-Lapland. Do not classify Capture dumps. Do not wait for a map.
+Lapland. Do not classify Capture dumps. Do not wait for a map. Do not
+copy a failed Kyushu plate or draw a substitute.
 
 Result:
 

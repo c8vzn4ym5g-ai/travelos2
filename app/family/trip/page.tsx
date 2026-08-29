@@ -345,19 +345,6 @@ export default function FamilyTripPage() {
         </ul>
       </section>
 
-      <section aria-label="九州地圖 1 到 8" className="fam-sheet">
-        <h2 className="fam-section">地圖</h2>
-        <span className="fam-en">Days 1–8</span>
-        <div
-          className="fam-map-slot mt-4"
-          data-hotspots="/family/trip/hotspots.json"
-          data-map-slot="kyushu-1-8"
-        >
-          <p className="fam-label">1–8 的本子地圖</p>
-          <p className="fam-muted mt-2">美工會放九州圖。先點日子看當天。</p>
-        </div>
-      </section>
-
       <section className="fam-sheet">
         <h2 className="fam-section">表1</h2>
         <span className="fam-en">Days</span>

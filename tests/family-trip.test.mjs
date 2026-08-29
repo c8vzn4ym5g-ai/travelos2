@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -207,8 +208,15 @@ test("companion page is family-only, matches the mock chrome, and keeps dump/Lap
   assert.match(page, /scrollTo\(\{[\s\S]*behavior:\s*"smooth"/);
   assert.match(page, /fam-day-strip/);
   assert.match(css, /scroll-margin-top: 112px/);
-  assert.match(page, /data-map-slot="kyushu-1-8"/);
-  assert.match(page, /hotspots\.json/);
+  assert.doesNotMatch(page, /kyushu-8day-poster/);
+  assert.doesNotMatch(page, /hotspots\.json/);
+  assert.doesNotMatch(page, /data-map-slot/);
+  assert.doesNotMatch(css, /fam-map-slot/);
+  assert.equal(
+    existsSync(resolve(root, "public/family/trip/kyushu-8day-poster-web.jpg")),
+    false,
+    "failed Kyushu plate must not land in the repo",
+  );
   assert.match(page, /familyTripReturn\.flight/);
   assert.match(data, /JX317/);
   assert.doesNotMatch(

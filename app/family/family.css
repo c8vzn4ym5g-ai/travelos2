@@ -863,19 +863,6 @@
   font-style: normal;
 }
 
-[data-surface="family"] .fam-map-slot {
-  display: flex;
-  min-height: 168px;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border: 1.5px dashed var(--fam-line);
-  border-radius: 28px;
-  background: rgba(251, 252, 247, 0.62);
-  padding: 22px 18px;
-  text-align: center;
-}
-
 [data-surface="family"] .fam-place {
   border-radius: 28px;
   background: var(--fam-white);
