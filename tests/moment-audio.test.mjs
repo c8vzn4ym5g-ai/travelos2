@@ -213,7 +213,8 @@ test("capture and audio upload sniff mime instead of forcing webm", async () => 
 
   assert.match(capture, /preferredRecorderMime/);
   assert.match(capture, /startCaptureSpeech/);
-  assert.match(capture, /transcript: spokenRef.current \|\| staged.transcript/);
+  assert.match(capture, /sentTranscript = spokenRef\.current \|\| staged\.transcript/);
+  assert.match(capture, /transcript: sentTranscript/);
   assert.match(upload, /audioData.set\("transcript"/);
   assert.match(capture, /MediaRecorder\(stream, \{ mimeType: recorderMime \}\)/);
   assert.match(capture, /preparePlayableAudio/);

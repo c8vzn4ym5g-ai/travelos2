@@ -333,6 +333,32 @@ export async function finalizeCaptureMoment(input: {
   return (await response.json()) as { job: TravelJob | null; moment: TravelMoment };
 }
 
+export async function updateMomentTranscript(input: {
+  momentId: string;
+  pin: string;
+  transcript: string;
+}) {
+  const response = await fetch("/api/moments", {
+    body: JSON.stringify({
+      moment: {
+        id: input.momentId,
+        transcript: input.transcript,
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+      ...pinHeaders(input.pin),
+    },
+    method: "PUT",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readError(response, "Could not save this line."));
+  }
+
+  return (await response.json()) as { moment: TravelMoment };
+}
+
 export async function uploadDisplayPhoto(input: {
   coordinates: GeoPoint | null;
   file: File;

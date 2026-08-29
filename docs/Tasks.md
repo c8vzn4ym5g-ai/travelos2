@@ -1,5 +1,25 @@
 # TravelOS Codex Tasks
 
+## TASK-030: Capture voice editable line + 粵/国/EN
+
+Status: done
+
+Goal: Family tester could not fix ASR proper nouns (西方 → 西川) and
+Cantonese came back as garbage because `recognition.lang` was hardcoded
+`zh-TW`. Photo dump stays one pick / 40 / parallel POSTs. Public Lapland
+untouched. Family workshop only.
+
+Result:
+
+- After speech-to-text the recognized line is a textarea on Capture and
+  on 工作台 / the moment card. The corrected text is what Save stores,
+  and later edits persist through `PUT /api/moments` (`updateMoment`).
+- Tiny chips `粵 / 国 / EN` sit next to the mic. Last choice is kept in
+  `localStorage`. Default `国` (`zh-TW`). `粵` probes `zh-HK` then
+  `yue-Hant-HK`; `EN` is `en-US`. No auto-detect fake. No settings page.
+- Family surface `data-surface=family` loads M PLUS Rounded / Nunito for
+  those booklet chips and the spoken line. Dump and Lapland unchanged.
+
 ## TASK-029: Family 工作台 Drive photo thumbs
 
 Status: done

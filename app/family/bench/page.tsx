@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BenchAudio } from "@/app/family/bench/bench-audio";
 import { BenchPhotoThumb } from "@/app/family/bench/bench-photo";
+import { SpokenLine } from "@/app/family/spoken-line";
+import { updateMomentTranscript } from "@/lib/capture-upload";
 import { FAMILY_ADMIN_SESSION_KEY, familyPinHeaders, resolveFamilySession } from "@/lib/family-session";
 import type { MomentContent } from "@/lib/moment-store";
 import { momentNeedsTranscript, sortMomentsNewestFirst } from "@/lib/moments";
@@ -71,8 +73,34 @@ export default function FamilyBenchPage() {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("session");
   const [message, setMessage] = useState("正在打開工作台…");
+  const [spokenDrafts, setSpokenDrafts] = useState<Record<string, string>>({});
 
   const listed = useMemo(() => sortMomentsNewestFirst(moments), [moments]);
+
+  function editSpokenLine(momentId: string, next: string) {
+    setSpokenDrafts((current) => ({ ...current, [momentId]: next }));
+  }
+
+  async function commitSpokenLine(momentId: string, next: string) {
+    setSpokenDrafts((current) => ({ ...current, [momentId]: next }));
+    try {
+      const saved = await updateMomentTranscript({
+        momentId,
+        pin: sessionPin(pin),
+        transcript: next,
+      });
+      setMoments((current) =>
+        current.map((item) => (item.id === saved.moment.id ? { ...item, transcript: saved.moment.transcript } : item)),
+      );
+      setSpokenDrafts((current) => {
+        const nextDrafts = { ...current };
+        delete nextDrafts[momentId];
+        return nextDrafts;
+      });
+    } catch {
+      setMessage("這行還沒寫上。再點一下就好。");
+    }
+  }
 
   const fillSpokenText = useCallback(async (pinValue: string, current: TravelMoment[]) => {
     const waiting = sortMomentsNewestFirst(current.filter((moment) => momentNeedsTranscript(moment))).slice(
@@ -324,7 +352,13 @@ export default function FamilyBenchPage() {
                   >
                     {day ? <p className="travel-label text-sm font-semibold text-amber-900">{day}</p> : null}
                     {oneLiner ? <p className="mt-2 text-base leading-7 text-zinc-800">{oneLiner}</p> : null}
-                    {spoken ? <p className="mt-3 text-base leading-7 text-zinc-700">{spoken}</p> : null}
+                    {hasAudio || spoken || spokenDrafts[moment.id] !== undefined ? (
+                      <SpokenLine
+                        onChange={(next) => editSpokenLine(moment.id, next)}
+                        onCommit={(next) => void commitSpokenLine(moment.id, next)}
+                        value={spokenDrafts[moment.id] ?? spoken}
+                      />
+                    ) : null}
 
                     {hasPhotos ? (
                       <ul className="mt-4 grid grid-cols-2 gap-3">

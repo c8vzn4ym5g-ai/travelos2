@@ -10,7 +10,7 @@ async function readSource(path) {
 }
 
 test("family bench is a private workshop table for raw Capture dumps", async () => {
-  const [bench, benchPhoto, audioPlayer, family, unlock, capture, robots] = await Promise.all([
+  const [bench, benchPhoto, audioPlayer, family, unlock, capture, robots, layout] = await Promise.all([
     readSource("app/family/bench/page.tsx"),
     readSource("app/family/bench/bench-photo.tsx"),
     readSource("app/family/bench/bench-audio.tsx"),
@@ -18,6 +18,7 @@ test("family bench is a private workshop table for raw Capture dumps", async () 
     readSource("app/family/family-unlock-panel.tsx"),
     readSource("app/family/capture/page.tsx"),
     readSource("app/robots.ts"),
+    readSource("app/family/layout.tsx"),
   ]);
 
   assert.match(bench, /工作台 \/ Bench/);
@@ -40,7 +41,9 @@ test("family bench is a private workshop table for raw Capture dumps", async () 
   assert.doesNotMatch(benchPhoto, /drive-warehouse/);
   assert.match(bench, /originalAudioUrl/);
   assert.match(bench, /moment\.transcript/);
-  assert.match(bench, /spoken \? <p className="mt-3 text-base leading-7 text-zinc-700">\{spoken\}<\/p>/);
+  assert.match(bench, /SpokenLine/);
+  assert.match(bench, /updateMomentTranscript/);
+  assert.match(bench, /spokenDrafts\[moment\.id\] \?\? spoken/);
   assert.match(bench, /TRANSCRIPT_POLL_MS = 4000/);
   assert.match(bench, /fillSpokenText/);
   assert.match(bench, /\/api\/moments\/transcript/);
@@ -111,6 +114,7 @@ test("family bench is a private workshop table for raw Capture dumps", async () 
   assert.doesNotMatch(capture, /橱窗/);
 
   assert.match(robots, /\/family\/bench/);
+  assert.match(layout, /data-surface="family"/);
 });
 
 test("family bench does not file dumps into coffee or public Lapland", async () => {

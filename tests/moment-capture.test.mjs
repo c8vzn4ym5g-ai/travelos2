@@ -434,3 +434,59 @@ test("write uses a found set for photos and does not fill the writing area", asy
   assert.doesNotMatch(momentsApi, /await scheduleMomentIndex/);
   assert.doesNotMatch(photosApi, /await scheduleMomentIndex/);
 });
+
+test("capture voice line is editable and language chips sit by the mic", async () => {
+  const [capture, speech, chips, spoken, upload, layout, lapland] = await Promise.all([
+    readSource("app/family/capture/page.tsx"),
+    readSource("lib/capture-speech.ts"),
+    readSource("app/family/capture-speech-lang.tsx"),
+    readSource("app/family/spoken-line.tsx"),
+    readSource("lib/capture-upload.ts"),
+    readSource("app/family/layout.tsx"),
+    readSource("app/trips/[slug]/page.tsx"),
+  ]);
+
+  const addBlock = capture.slice(
+    capture.indexOf("async function addIncomingFiles"),
+    capture.indexOf("function onTakePhoto"),
+  );
+  const audioBlock = capture.slice(capture.indexOf("聲音 / Audio"), capture.indexOf("心情或交代"));
+
+  assert.match(spoken, /textarea/);
+  assert.match(spoken, /點這行就能改/);
+  assert.match(capture, /SpokenLine/);
+  assert.match(capture, /applySpokenEdit/);
+  assert.match(capture, /commitSpokenEdit/);
+  assert.match(capture, /transcript: spokenRef\.current \|\| audioRef\.current\?\.transcript \|\| null/);
+  assert.match(upload, /export async function updateMomentTranscript/);
+  assert.match(upload, /method: "PUT"/);
+  assert.match(speech, /chip: "粵"/);
+  assert.match(speech, /chip: "国"/);
+  assert.match(speech, /chip: "EN"/);
+  assert.match(chips, /option\.chip/);
+  assert.match(capture, /CaptureSpeechLangChips/);
+  assert.ok(audioBlock.indexOf("CaptureSpeechLangChips") < audioBlock.indexOf("Record"));
+  assert.match(speech, /CAPTURE_SPEECH_LANG_KEY/);
+  assert.match(speech, /recognition\.lang = options\?\.lang/);
+  assert.match(speech, /zh-HK/);
+  assert.match(speech, /yue-Hant-HK/);
+  assert.match(speech, /en-US/);
+  assert.match(speech, /return "zh-TW"/);
+  assert.doesNotMatch(speech, /recognition\.lang = "zh-TW"/);
+  assert.doesNotMatch(speech, /lang = ""/);
+  assert.doesNotMatch(speech, /lang = "auto"/);
+  assert.match(layout, /data-surface="family"/);
+  assert.match(layout, /M_PLUS_Rounded_1c/);
+  assert.match(layout, /Nunito/);
+  assert.doesNotMatch(capture, /htmlFor="people"/);
+  assert.doesNotMatch(capture, /settings page/i);
+  assert.match(addBlock, /ingestCaptureFileList/);
+  assert.match(addBlock, /void startBackgroundPhotoUpload\(photo\)/);
+  assert.doesNotMatch(addBlock, /classifyCaptureNote/);
+  assert.doesNotMatch(addBlock, /createWorkQueue/);
+  assert.doesNotMatch(capture, /createWorkQueue/);
+  assert.match(upload, /CAPTURE_DUMP_LIMIT = 40/);
+  assert.doesNotMatch(lapland, /SpokenLine/);
+  assert.doesNotMatch(lapland, /CaptureSpeechLangChips/);
+  assert.doesNotMatch(lapland, /capture-speech/);
+});

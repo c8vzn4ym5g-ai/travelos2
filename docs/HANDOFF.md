@@ -1,5 +1,18 @@
 # TravelOS Handoff
 
+## 2026-08-29 Capture voice: edit the line, pick 粵/国/EN
+
+- ASR proper nouns stay wrong unless she can tap the recognized line.
+  Capture and 工作台 now use the same editable spoken line. Corrected
+  text is stored through the existing moment PUT (`updateMoment` /
+  `updateMomentTranscript`). No extra save wizard. No tags. No classify.
+- Browser Web Speech cannot auto-detect like iPhone dictation. Chips
+  `粵 / 国 / EN` sit next to the mic. Last chip is in localStorage.
+  Default `国` (`zh-TW`). `粵` sends `zh-HK` if the engine keeps it,
+  else `yue-Hant-HK`. `EN` is `en-US`. Do not set `lang=""`.
+- Photo dump is unchanged (one pick, 40, parallel POSTs). Public Lapland
+  is untouched. Family workshop only (`data-surface=family`).
+
 ## 2026-08-28 Family 工作台 Drive photo thumbs 404
 
 - GET `/api/moments` hydrates `photos[]` from Drive files (`moment_photo_drive_*`

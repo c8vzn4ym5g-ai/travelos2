@@ -87,7 +87,16 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
   (橱窗). Do not put Drive or booking widgets there.
 - Bench shows the workshop intro once. Native audio controls that error must
   not appear; unplayable voice is a quiet line. Transcripts may appear later
-  without blocking the page.
+  without blocking the page. The spoken line is tappable on the card itself;
+  a correction persists through the existing moment update path. No extra
+  save wizard, tags, or classify on that line.
+- Capture voice keeps the existing mic/dump door. After recognition the
+  spoken line is a textarea on that line. Language chips `粵 / 国 / EN`
+  sit near the mic (`data-surface=family`, paper/blush, M PLUS Rounded /
+  Nunito). Last chip is remembered in localStorage. Default `国` (`zh-TW`).
+  `粵` sends `zh-HK` or `yue-Hant-HK` to Web Speech; `EN` is `en-US`. Do
+  not fake iPhone auto-detect. Photo dump stays one pick up to 40,
+  parallel POSTs, no queue-of-3, no classify at dump.
 - Content cards and editing surfaces use light backgrounds with dark text.
   Dark color may be used as a small accent, not as a large content box that can
   make labels or entered content appear obscured.

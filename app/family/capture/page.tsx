@@ -3,8 +3,16 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { CaptureSpeechLangChips } from "@/app/family/capture-speech-lang";
 import { MomentAudioPlayer } from "@/app/family/moment-audio-player";
-import { startCaptureSpeech } from "@/lib/capture-speech";
+import { SpokenLine } from "@/app/family/spoken-line";
+import {
+  readStoredCaptureSpeechLang,
+  recognitionLangFor,
+  startCaptureSpeech,
+  writeStoredCaptureSpeechLang,
+  type CaptureSpeechLangId,
+} from "@/lib/capture-speech";
 import {
   CAPTURE_DUMP_LIMIT,
   captureDumpProgressMessage,
@@ -19,6 +27,7 @@ import {
   ingestCaptureFileList,
   removeUploadedPhotoInBackground,
   shouldReplaceCaptureDumpRound,
+  updateMomentTranscript,
   uploadDisplayPhoto,
   uploadMomentAudio,
   uploadOriginalPhotoInBackground,
@@ -77,7 +86,10 @@ export default function CapturePage() {
   const photoUploadsRef = useRef(new Map<string, Promise<void>>());
   const audioUploadRef = useRef<Promise<void> | null>(null);
   const savingRef = useRef(false);
+  const persistTimerRef = useRef<number>(0);
+  const speechLangRef = useRef<CaptureSpeechLangId>("cmn");
   const [pin, setPin] = useState("");
+  const [speechLang, setSpeechLang] = useState<CaptureSpeechLangId>("cmn");
   const [authenticated, setAuthenticated] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [photos, setPhotos] = useState<StagedPhoto[]>([]);
@@ -120,6 +132,18 @@ export default function CapturePage() {
   useEffect(() => {
     pinRef.current = pin;
   }, [pin]);
+
+  useEffect(() => {
+    const stored = readStoredCaptureSpeechLang(window.localStorage);
+    speechLangRef.current = stored;
+    setSpeechLang(stored);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(persistTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!authenticated || !("geolocation" in navigator)) {
@@ -204,6 +228,62 @@ export default function CapturePage() {
       session.reset();
     }
     return session.ensure(time);
+  }
+
+  function persistSpokenLine(next: string) {
+    const momentId = momentSessionRef.current?.momentId;
+    if (!momentId) {
+      return;
+    }
+
+    window.clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = window.setTimeout(() => {
+      void updateMomentTranscript({
+        momentId,
+        pin: sessionPin(pinRef.current),
+        transcript: next,
+      }).catch(() => {
+        // Save as Moment still writes the latest spoken line.
+      });
+    }, 400);
+  }
+
+  function applySpokenEdit(next: string) {
+    spokenRef.current = next;
+    setSpoken(next);
+    setAudio((current) => {
+      if (!current) {
+        return current;
+      }
+      const updated = { ...current, transcript: next };
+      audioRef.current = updated;
+      return updated;
+    });
+  }
+
+  function commitSpokenEdit(next: string) {
+    applySpokenEdit(next);
+    persistSpokenLine(next);
+  }
+
+  function beginLiveSpeech() {
+    stopSpeechRef.current?.();
+    stopSpeechRef.current = startCaptureSpeech(
+      (text) => {
+        spokenRef.current = text;
+        setSpoken(text);
+      },
+      { lang: recognitionLangFor(speechLangRef.current) },
+    ).stop;
+  }
+
+  function chooseSpeechLang(next: CaptureSpeechLangId) {
+    speechLangRef.current = next;
+    setSpeechLang(next);
+    writeStoredCaptureSpeechLang(next, window.localStorage);
+    if (recording) {
+      beginLiveSpeech();
+    }
   }
 
   function photoIsOnScreen(photoId: string) {
@@ -312,13 +392,14 @@ export default function CapturePage() {
           return;
         }
 
+        const sentTranscript = spokenRef.current || staged.transcript;
         await uploadMomentAudio({
           blob: staged.blob,
           momentId,
           pin: sessionPin(pinRef.current),
           retryMoment: (status) => retryMoment(recordedAt, status),
           signal: staged.abort.signal,
-          transcript: spokenRef.current || staged.transcript,
+          transcript: sentTranscript,
         });
 
         if (staged.abort.signal.aborted) {
@@ -333,10 +414,11 @@ export default function CapturePage() {
           if (current?.previewUrl !== staged.previewUrl) {
             return current;
           }
-          const next = { ...current, errorMessage: null, status: "uploaded" as const };
+          const next = { ...current, errorMessage: null, status: "uploaded" as const, transcript: spokenRef.current || current.transcript };
           audioRef.current = next;
           return next;
         });
+        persistSpokenLine(spokenRef.current);
       } catch (error) {
         if (staged.abort.signal.aborted) {
           return;
@@ -528,11 +610,7 @@ export default function CapturePage() {
       recordStartedAtRef.current = Date.now();
       spokenRef.current = "";
       setSpoken("");
-      stopSpeechRef.current?.();
-      stopSpeechRef.current = startCaptureSpeech((text) => {
-        spokenRef.current = text;
-        setSpoken(text);
-      }).stop;
+      beginLiveSpeech();
       primePlaybackAudioContext();
       recorder.start();
       setRecording(true);
@@ -606,7 +684,7 @@ export default function CapturePage() {
           note: classified.note,
           pin: sessionPin(pinRef.current),
           time,
-          transcript: audioRef.current?.transcript || spokenRef.current || null,
+          transcript: spokenRef.current || audioRef.current?.transcript || null,
         });
         createdJob = saved.job;
         keptMomentId = saved.moment?.id ?? keptMomentId;
@@ -764,6 +842,7 @@ export default function CapturePage() {
 
           <div className="mt-6 rounded-2xl border border-stone-200 bg-stone-50 p-4">
             <p className="travel-label text-sm font-semibold text-zinc-700">聲音 / Audio</p>
+            <CaptureSpeechLangChips onChange={chooseSpeechLang} value={speechLang} />
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {recording ? (
                 <button
@@ -803,9 +882,11 @@ export default function CapturePage() {
             {audio ? (
               <div className="mt-3 grid gap-2">
                 <MomentAudioPlayer bytes={audio.bytes} durationSeconds={audio.durationSeconds} src={audio.previewUrl} />
-                {spoken || audio.transcript ? (
-                  <p className="text-base leading-7 text-zinc-800">{spoken || audio.transcript}</p>
-                ) : null}
+                <SpokenLine
+                  onChange={applySpokenEdit}
+                  onCommit={commitSpokenEdit}
+                  value={spoken || audio.transcript}
+                />
                 <p className="text-xs font-semibold text-zinc-600">
                   {audio.status === "uploaded" ? "已上傳" : audio.status === "failed" ? "上傳失敗" : "上傳中"}
                 </p>
@@ -821,11 +902,11 @@ export default function CapturePage() {
             ) : audioHold ? (
               <div className="mt-3 rounded-2xl border border-stone-200 bg-white px-4 py-3">
                 <p className="text-sm font-semibold text-zinc-800">約 {audioHold.durationSeconds} 秒</p>
-                {spoken ? <p className="mt-2 text-base leading-7 text-zinc-800">{spoken}</p> : null}
+                <SpokenLine onChange={applySpokenEdit} onCommit={commitSpokenEdit} value={spoken} />
                 <p className="mt-2 text-sm leading-6 text-stone-500">準備播放…</p>
               </div>
-            ) : recording && spoken ? (
-              <p className="mt-3 text-base leading-7 text-zinc-800">{spoken}</p>
+            ) : recording ? (
+              spoken ? <SpokenLine onChange={applySpokenEdit} readOnly value={spoken} /> : null
             ) : null}
           </div>
 
