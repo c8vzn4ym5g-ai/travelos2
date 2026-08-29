@@ -101,7 +101,7 @@ test("confirmed email fields fill the companion; remaining gaps stay blank", () 
   assert.equal(yufuin.checkOut, "9/1 11:00");
   assert.equal(yufuin.breakfast, "yes");
   assert.equal(yufuin.dinner, "no");
-  assert.match(yufuin.extras, /いろは/);
+  assert.match(yufuin.extras, /官網.*いろは/);
   assert.doesNotMatch(yufuin.extras, /接送|申請期限/);
   assert.ok(yufuin.refs.some((ref) => ref.value === "KYIBNF266359"));
   assert.ok(yufuin.refs.some((ref) => /兩間/.test(ref.value) && /4人/.test(ref.value)));
@@ -120,7 +120,7 @@ test("confirmed email fields fill the companion; remaining gaps stay blank", () 
   assert.equal(ume.breakfast, "yes");
   assert.equal(ume.dinner, "no");
   assert.equal(ume.note, "");
-  assert.match(ume.extras, /試飲/);
+  assert.match(ume.extras, /官網.*試飲/);
   assert.doesNotMatch(ume.note, /另外兩人|MISSING/);
   assert.doesNotMatch(ume.extras, /接送|JR|日田站/);
   assert.ok(ume.refs.some((ref) => ref.value === "202608240003264.01"));
@@ -133,7 +133,7 @@ test("confirmed email fields fill the companion; remaining gaps stay blank", () 
   assert.equal(kuju.dinner, "yes");
   assert.equal(kuju.checkIn, "9/2 15:00");
   assert.equal(kuju.officialIn, "15:00–18:00（更晚先打電話）");
-  assert.match(kuju.extras, /レーゲンボーゲン/);
+  assert.match(kuju.extras, /官網.*レーゲンボーゲン/);
   assert.ok(kuju.refs.some((ref) => ref.value === "1252"));
   assert.ok(kuju.refs.some((ref) => ref.label === "交通" && ref.value === "車"));
   assert.ok(kuju.official.length > 0);
@@ -223,7 +223,7 @@ test("companion page is family-only, uses the workshop surface, and does not inv
   assert.match(page, /官網聯絡/);
   assert.match(page, /信 \{letter\}/);
   assert.match(page, /官網 \{official\}/);
-  assert.match(page, /fam-extras/);
+  assert.match(page, /fam-extras-sticker/);
   assert.match(page, /先看這幾行/);
   assert.match(page, /<dt>今早<\/dt>/);
   assert.match(page, /<dt>今晚<\/dt>/);

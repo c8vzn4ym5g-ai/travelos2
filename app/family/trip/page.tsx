@@ -183,7 +183,11 @@ function LegCard({ leg }: { leg: TripLeg }) {
         </div>
       </div>
       <HotelFields leg={leg} />
-      {leg.extras ? <p className="fam-extras">{leg.extras}</p> : null}
+      {leg.extras ? (
+        <p className="fam-extras">
+          <span className="fam-extras-sticker">{leg.extras}</span>
+        </p>
+      ) : null}
       {leg.note ? <p className="fam-empty-line">{leg.note}</p> : null}
       <Refs refs={leg.refs} />
       <Refs label="官網聯絡" refs={leg.official} />
