@@ -29,10 +29,13 @@ test("family workshop wraps a family surface and does not restyle public Lapland
   assert.match(layout, /M_PLUS_Rounded_1c/);
   assert.match(layout, /Nunito/);
   assert.match(layout, /Caveat/);
-  assert.match(layout, /themeColor: "#FFF4EC"/);
-  assert.match(familyCss, /--fam-paper: #fff4ec/);
-  assert.match(familyCss, /--fam-blush: #f57c93/);
+  assert.match(layout, /themeColor: "#F0F6E4"/);
+  assert.match(familyCss, /--fam-paper: #f0f6e4/);
+  assert.match(familyCss, /--fam-blush: #6eaa5a/);
   assert.match(familyCss, /--fam-honey: #f0b429/);
+  assert.doesNotMatch(familyCss, /--fam-paper: #fff4ec/);
+  assert.doesNotMatch(familyCss, /--fam-blush: #f57c93/);
+  assert.doesNotMatch(layout, /themeColor: "#FFF4EC"/);
   assert.match(rootLayout, /themeColor: "#0f766e"/);
   assert.match(manifest, /theme_color: "#0f766e"/);
   assert.doesNotMatch(familyHome, /travel-display/);

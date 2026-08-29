@@ -25,7 +25,7 @@ const caveat = Caveat({
 
 export const viewport: Viewport = {
   colorScheme: "light",
-  themeColor: "#FFF4EC",
+  themeColor: "#F0F6E4",
 };
 
 export default function FamilyLayout({ children }: { children: React.ReactNode }) {

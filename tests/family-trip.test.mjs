@@ -148,7 +148,7 @@ test("companion page is family-only, matches the mock chrome, and keeps dump/Lap
   ]);
 
   assert.match(layout, /data-surface="family"/);
-  assert.match(layout, /themeColor: "#FFF4EC"/);
+  assert.match(layout, /themeColor: "#F0F6E4"/);
   assert.match(page, /today-card/);
   assert.match(page, /data-kind="flight"/);
   assert.match(page, /data-kind="car"/);

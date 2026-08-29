@@ -1,19 +1,19 @@
 [data-surface="family"] {
-  --fam-paper: #fff4ec;
-  --fam-paper-2: #ffe7d6;
-  --fam-white: #fffbfa;
-  --fam-ink: #4a332c;
-  --fam-muted: #8a6f64;
-  --fam-line: #f3d5c4;
-  --fam-blush: #f57c93;
-  --fam-blush-soft: #ffd4dc;
+  --fam-paper: #f0f6e4;
+  --fam-paper-2: #e2efc8;
+  --fam-white: #fbfcf7;
+  --fam-ink: #3c4232;
+  --fam-muted: #6e7a60;
+  --fam-line: #d2e2bc;
+  --fam-blush: #6eaa5a;
+  --fam-blush-soft: #dceec6;
   --fam-honey: #f0b429;
   --fam-honey-soft: #ffe6a8;
   --fam-sky: #7eb8e0;
   --fam-sky-soft: #d5ecf8;
   --fam-mint: #7dbfa6;
   --fam-mint-soft: #d7f0e6;
-  --fam-shadow: 0 10px 28px rgba(74, 51, 44, 0.08);
+  --fam-shadow: 0 10px 28px rgba(60, 66, 50, 0.08);
   min-height: 100vh;
   background: var(--fam-paper);
   color: var(--fam-ink);
@@ -28,8 +28,8 @@
 
 [data-surface="family"] .fam-hero {
   background:
-    radial-gradient(circle at 8% -8%, rgba(245, 124, 147, 0.34) 0, transparent 42%),
-    radial-gradient(circle at 92% 6%, rgba(255, 214, 120, 0.55) 0, transparent 36%),
+    radial-gradient(circle at 8% -8%, rgba(155, 196, 88, 0.22) 0, transparent 44%),
+    radial-gradient(circle at 94% 0%, rgba(210, 224, 120, 0.30) 0, transparent 38%),
     var(--fam-paper);
 }
 
@@ -196,7 +196,7 @@
 }
 
 [data-surface="family"] .fam-icon-blush {
-  background: #ffc4cf;
+  background: #c8e4a8;
   color: var(--fam-blush);
 }
 
@@ -374,9 +374,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  border: 1.5px dashed var(--fam-line);
   border-radius: 28px;
-  background: var(--fam-white);
-  box-shadow: var(--fam-shadow);
+  background: rgba(251, 252, 247, 0.62);
+  box-shadow: none;
   padding: 28px 22px;
   text-align: center;
 }
@@ -526,7 +527,7 @@
   margin-top: 10px;
   border: 1px solid var(--fam-line);
   border-radius: 18px;
-  background: #fff6f0;
+  background: #f5f9ec;
   padding: 12px 14px;
   color: var(--fam-ink);
   font-family: inherit;
@@ -537,7 +538,7 @@
 [data-surface="family"] .fam-field textarea:focus,
 [data-surface="family"] .fam-field input:focus {
   border-color: var(--fam-blush);
-  box-shadow: 0 0 0 3px rgba(245, 124, 147, 0.16);
+  box-shadow: 0 0 0 3px rgba(110, 170, 90, 0.18);
 }
 
 [data-surface="family"] .fam-splash {
@@ -656,7 +657,7 @@
   flex: 1;
   border: 1px solid var(--fam-line);
   border-radius: 18px;
-  background: #fff6f0;
+  background: #f5f9ec;
   padding: 12px 14px;
   color: var(--fam-ink);
   font-size: 16px;
@@ -1111,7 +1112,7 @@
   resize: none;
   border: 1px solid var(--fam-line);
   border-radius: 18px;
-  background: #fff6f0;
+  background: #f5f9ec;
   padding: 10px 14px;
   color: var(--fam-ink);
   font-family: var(--font-fam-nunito), var(--font-fam-rounded), "Noto Sans TC", ui-rounded, sans-serif;
@@ -1122,7 +1123,7 @@
 
 [data-surface="family"] .family-spoken-line:focus {
   border-color: var(--fam-blush);
-  box-shadow: 0 0 0 3px rgba(245, 124, 147, 0.16);
+  box-shadow: 0 0 0 3px rgba(110, 170, 90, 0.18);
 }
 
 [data-surface="family"] .family-spoken-line[readonly] {

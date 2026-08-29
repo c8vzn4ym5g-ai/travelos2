@@ -99,7 +99,7 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
   沒有接駁車。9/5 還沒訂. Do not invent a letter check-in clock, a
   missing-guest warning, passenger DOB, or “GM 填”. Public `/trips` is
   untouched.
-- Family workshop pages use peach paper, rounded 本子 type, and family tokens.
+- Family workshop pages use pale green-apple paper, rounded 本子 type, and family tokens.
   Do not use public magazine Georgia / teal kickers or theme-color `#0f766e`
   on `/family`, `/family/capture`, `/family/bench`, or `/family/trip`.
 - Bench shows the workshop intro once. Native audio controls that error must
@@ -109,7 +109,7 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
   save wizard, tags, or classify on that line.
 - Capture voice keeps the existing mic/dump door. After recognition the
   spoken line is a textarea on that line. Language chips `粵 / 国 / EN`
-  sit near the mic (`data-surface=family`, paper/blush, M PLUS Rounded /
+  sit near the mic (`data-surface=family`, apple paper / young leaf, M PLUS Rounded /
   Nunito). Last chip is remembered in localStorage. Default `国` (`zh-TW`).
   `粵` sends `zh-HK` or `yue-Hant-HK` to Web Speech; `EN` is `en-US`. Do
   not fake iPhone auto-detect. Photo dump stays one pick up to 40,

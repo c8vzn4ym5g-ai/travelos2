@@ -1,12 +1,28 @@
 # TravelOS Codex Tasks
 
+## TASK-033: Family booklet wash is pale green-apple
+
+Status: done
+
+Goal: Live Capture still read peach/pink (少女). Owner wants a pale
+young apple / washed granny-smith booklet wash — youthful, not neon,
+not hospital mint, not dark green. Keep preview-not-shutter. Do not
+restyle public Lapland.
+
+Result:
+
+- `data-surface=family` paper is `#f0f6e4` with a light apple hero
+  wash. Capture pills use young leaf, not hot pink. Empty middle
+  card is still 預覽 / Preview / 剛拍的會出現在這裡, no camera
+  glyph, not wired to 拍照. Dump and voice chips unchanged.
+
 ## TASK-032: Empty Capture card is preview, not a shutter
 
 Status: done
 
 Goal: Sana tapped the camera drawing in the empty middle card, nothing
 happened, and she quit. That card is the record/preview of photos after
-they land, not a second shutter. The pink 拍照 pill is the only
+they land, not a second shutter. The 拍照 pill is the only
 take-photo control. Remove the camera glyph. Empty copy means preview.
 
 Result:
@@ -40,8 +56,8 @@ Result:
 Status: done
 
 Goal: Wrap `/family`, `/family/capture`, and `/family/bench` in a family-only
-`data-surface="family"` 本子 visual (peach paper, rounded type, blush/honey
-wash). Add `/family/trip` companion for the 8-day 2026-08-30 Taipei window,
+`data-surface="family"` 本子 visual (pale green-apple paper, rounded type,
+leaf/honey wash). Add `/family/trip` companion for the 8-day 2026-08-30 Taipei window,
 filled only from confirmed emails. Do not restyle public `/trips` or change
 Capture dump (40 parallel POSTs, no `createWorkQueue`).
 

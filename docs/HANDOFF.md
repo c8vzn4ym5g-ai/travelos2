@@ -1,11 +1,22 @@
 # TravelOS Handoff
 
+## 2026-08-29 Family booklet wash is pale green-apple
+
+- Owner: 粉紅色太少女了. Family Capture (and the shared
+  `data-surface=family` 本子 wash) is a washed granny-smith / young
+  apple paper (`#F0F6E4`), not peach, neon, hospital mint, or dark
+  green. Hot-pink pills softened to young leaf so they sit on the
+  apple wash. Public Lapland / 店面 untouched.
+- Empty middle card stays preview, not a shutter: 預覽 / Preview /
+  剛拍的會出現在這裡。 No camera glyph. 拍照 pill is the only
+  take-photo control. Dump and voice chips unchanged.
+
 ## 2026-08-29 Empty Capture card is preview, not a shutter
 
 - The middle empty card is where she looks at what just landed. A camera
   drawing there made Sana tap it, get nothing, and quit. Glyph is gone.
   Copy is 預覽 / Preview / 剛拍的會出現在這裡。 Not wired to 拍照.
-  The pink 拍照 pill stays the only take-photo control. Dump unchanged.
+  The 拍照 pill stays the only take-photo control. Dump unchanged.
 
 ## 2026-08-29 Capture voice: edit the line, pick 粵/国/EN
 
@@ -25,7 +36,7 @@
 - Family workshop routes (`/family`, `/family/capture`, `/family/bench`) sit
   inside `data-surface="family"` with 家庭本子 tokens. Public Lapland / `/trips`
   keep magazine Georgia and teal theme-color `#0f766e`. Family theme-color is
-  `#FFF4EC`.
+  `#F0F6E4` (pale green-apple).
 - `/family/trip` is a private companion matching the passed day-1 / week
   mocks: sticky days 1–8 from 2026-08-30 Taipei, one long scroll.
   Confirmed STARLUX JX316/JX317, Nissan 26082202410 / Serena photo + KMJ
