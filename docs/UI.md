@@ -87,10 +87,9 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
   (橱窗). Do not put Drive or booking widgets there.
 - `/family/trip` is a family-only trip companion in the same 家庭本子 visual
   (`data-surface="family"`). Fill only from confirmed mail. Unknown fields stay
-  blank, including Day 7 tonight, the second Hita room, and the Aug 30 Solaria
-  rooms/breakfast/price. Day 1 Solaria `TF53AEFAC2A33` is a different booking
-  from Days 5–6 `T032CA29B451B`. Do not invent stays, times, passenger DOB, or
-  “GM 填”. Public `/trips` is untouched.
+  blank, including Day 1 tonight (English Solaria body still being hunted) and
+  Day 7 tonight. うめひびき on Day 3 is the group stay. Do not invent stays,
+  times, passenger DOB, or “GM 填”. Public `/trips` is untouched.
 - Family workshop pages use peach paper, rounded 本子 type, and family tokens.
   Do not use public magazine Georgia / teal kickers or theme-color `#0f766e`
   on `/family`, `/family/capture`, `/family/bench`, or `/family/trip`.

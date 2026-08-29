@@ -151,7 +151,7 @@ const umehibikiHotel: HotelLeg = {
   english: "",
   kind: "hotel",
   name: "奥日田温泉 うめひびき",
-  note: "這間確認信是 2 人 1 室（Feng）。另外兩人這晚還沒有確認。",
+  note: "",
   official: [],
   refs: [
     { label: "訂房號", value: "202608240003264.01" },
@@ -187,25 +187,6 @@ const solariaPlaceRefs: TripRef[] = [
   { label: "地址", value: "福岡県福岡市中央区天神２丁目２−４３" },
   { label: "電話", value: "092-761-6500" },
 ];
-
-const solariaArrivalHotel: HotelLeg = {
-  breakfast: "unknown",
-  checkIn: "8/30",
-  checkOut: "8/31",
-  dinner: "unknown",
-  english: "Solaria",
-  kind: "hotel",
-  name: "西鉄ホテル福岡 Solaria",
-  note: "",
-  official: [],
-  refs: [
-    { label: "訂房號", value: "TF53AEFAC2A33" },
-    { label: "旅客", value: "Tik Shan Sana Lai" },
-    { label: "預訂", value: "tripla.ai" },
-    ...solariaPlaceRefs,
-  ],
-  sticker: "住宿",
-};
 
 const solariaReturnHotel: HotelLeg = {
   breakfast: "no",
@@ -246,9 +227,8 @@ function emptyDay(day: number, date: string, patch: Partial<FamilyTripDay> = {})
 
 export const familyTripDays: FamilyTripDay[] = [
   emptyDay(1, FAMILY_TRIP_DATES[0], {
-    legs: [outboundFlight, nissanPickup, solariaArrivalHotel],
-    next: "熊本落地取車，開去福岡天神入住。",
-    stay: "Solaria",
+    legs: [outboundFlight, nissanPickup],
+    next: "台中 T2 出發，熊本落地後取車。",
   }),
   emptyDay(2, FAMILY_TRIP_DATES[1], {
     breakfast: "yes",
