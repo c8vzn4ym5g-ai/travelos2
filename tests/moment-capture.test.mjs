@@ -52,7 +52,14 @@ test("capture keeps camera and library, with retake and remove", async () => {
   assert.notEqual(choosePhotosIndex, -1);
   assert.ok(takePhotoIndex < photosListIndex);
   assert.ok(choosePhotosIndex < photosListIndex);
-  assert.equal((capture.match(/type="file"/g) ?? []).length, 2);
+  assert.equal((capture.match(/type="file"/g) ?? []).length, 3);
+  assert.equal((capture.match(/capture="environment"/g) ?? []).length, 2);
+  assert.match(capture, /<label className="fam-empty fam-empty-take mt-5">/);
+  const emptyBlock = capture.slice(capture.indexOf("fam-empty fam-empty-take"), capture.indexOf("fam-audio"));
+  assert.match(emptyBlock, /FamIconWell name="camera"/);
+  assert.match(emptyBlock, /onChange=\{onTakePhoto\}/);
+  assert.match(emptyBlock, /capture="environment"/);
+  assert.doesNotMatch(emptyBlock, /<div className="fam-empty mt-5">/);
 });
 
 test("capture has no tag form and is named Capture", async () => {

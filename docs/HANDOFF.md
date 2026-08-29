@@ -1,5 +1,12 @@
 # TravelOS Handoff
 
+## 2026-08-29 Empty Capture camera glyph opens 拍照
+
+- The empty photo card camera drawing was decorative. Sana tapped it
+  and Capture looked broken. The empty card is now a label with the
+  same `capture="environment"` take-photo input over the glyph. One tap
+  starts the existing 拍照 path. Dump and Lapland unchanged.
+
 ## 2026-08-29 Capture voice: edit the line, pick 粵/国/EN
 
 - ASR proper nouns stay wrong unless she can tap the recognized line.

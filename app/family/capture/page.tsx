@@ -779,7 +779,14 @@ export default function CapturePage() {
           <label className="fam-file fam-pill fam-pill-blush-outline">
             <span>拍照</span>
             <span className="fam-en">Take Photo</span>
-            <input accept="image/*" capture="environment" onChange={onTakePhoto} ref={cameraInputRef} type="file" />
+            <input
+              accept="image/*"
+              capture="environment"
+              id="capture-take-photo"
+              onChange={onTakePhoto}
+              ref={cameraInputRef}
+              type="file"
+            />
           </label>
           <label className="fam-file fam-pill fam-pill-blush">
             <span>選照片</span>
@@ -827,11 +834,18 @@ export default function CapturePage() {
             <p className="fam-muted mt-3">一次選好，一起傳。不是 3 張一排隊。</p>
           </>
         ) : (
-          <div className="fam-empty mt-5">
+          <label className="fam-empty fam-empty-take mt-5">
             <FamIconWell name="camera" well="paper" />
             <p className="fam-muted mt-3">還沒有照片。先拍照或從相簿選。</p>
             <p className="fam-muted">一次選很多張也可以，會分批上傳。</p>
-          </div>
+            <input
+              accept="image/*"
+              aria-label="拍照"
+              capture="environment"
+              onChange={onTakePhoto}
+              type="file"
+            />
+          </label>
         )}
 
         <div className="fam-audio mt-5">

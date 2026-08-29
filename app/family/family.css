@@ -381,6 +381,20 @@
   text-align: center;
 }
 
+[data-surface="family"] label.fam-empty-take {
+  position: relative;
+  width: 100%;
+  cursor: pointer;
+}
+
+[data-surface="family"] .fam-empty-take input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  cursor: pointer;
+  opacity: 0;
+}
+
 [data-surface="family"] .fam-empty-honey {
   border: 1.5px dashed var(--fam-honey);
   background: rgba(255, 230, 168, 0.28);

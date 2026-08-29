@@ -47,4 +47,6 @@ test("family workshop wraps a family surface and does not restyle public Lapland
   assert.doesNotMatch(familyHome, /bg-emerald-800/);
   assert.match(capture, /void startBackgroundPhotoUpload\(photo\)/);
   assert.doesNotMatch(capture, /createWorkQueue/);
+  assert.match(capture, /fam-empty-take/);
+  assert.match(familyCss, /fam-empty-take/);
 });

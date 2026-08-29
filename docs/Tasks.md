@@ -1,5 +1,21 @@
 # TravelOS Codex Tasks
 
+## TASK-032: Empty Capture camera glyph is a real 拍照 control
+
+Status: done
+
+Goal: Sana tapped the decorative camera in the empty photo card and
+nothing happened, so she thought Capture was broken. That glyph and the
+whole empty card must start the existing 拍照 / take-photo path
+(`capture="environment"`, `onTakePhoto`). No extra copy, no dump change,
+no Lapland.
+
+Result:
+
+- Empty card is a `<label class="fam-empty-take">` with an overlay file
+  input on top of the camera glyph. Same accept/capture/onChange as the
+  拍照 pill. Pills, voice chips, and dump path stay.
+
 ## TASK-031: Capture voice editable line + 粵/国/EN
 
 Status: done

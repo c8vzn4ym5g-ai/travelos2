@@ -114,6 +114,8 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
   `粵` sends `zh-HK` or `yue-Hant-HK` to Web Speech; `EN` is `en-US`. Do
   not fake iPhone auto-detect. Photo dump stays one pick up to 40,
   parallel POSTs, no queue-of-3, no classify at dump.
+- The empty Capture photo card (camera glyph and the whole card) is the
+  same control as 拍照 / Take Photo. It is not decorative.
 - Content cards and editing surfaces use light backgrounds with dark text.
   Dark color may be used as a small accent, not as a large content box that can
   make labels or entered content appear obscured.
