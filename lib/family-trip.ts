@@ -218,6 +218,15 @@ export const familyTripDays: FamilyTripDay[] = [
         phone: "0973-29-2020",
       },
       {
+        address: "日田市隈2-4-13",
+        hours: "17:00–21:00 LO",
+        kind: "main",
+        mark: "suggest",
+        name: "和くら",
+        note: "日田吃完再開車上梅響。",
+        phone: "0973-24-2728",
+      },
+      {
         address: "日田市中本町5-4",
         hours: "9:30–11:30 / 13:00–16:00 可走入",
         kind: "craft",
@@ -232,15 +241,6 @@ export const familyTripDays: FamilyTripDay[] = [
         mark: "suggest",
         name: "薰長酒造",
         phone: "0973-22-3121",
-      },
-      {
-        address: "日田市隈2-4-13",
-        hours: "17:00–21:00 LO",
-        kind: "main",
-        mark: "suggest",
-        name: "和くら",
-        note: "日田吃完再開車上梅響。",
-        phone: "0973-24-2728",
       },
       {
         address: "日田市丸の内町4-19",

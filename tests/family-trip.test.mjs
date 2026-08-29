@@ -114,6 +114,8 @@ test("week rows keep hotel-plan meals, pay, and the two Solaria bookings", () =>
   assert.equal(day3.booking, "202608240003264.01");
   assert.ok(day3.places.some((place) => place.name.includes("小鹿田燒之里") && place.phone === "0973-29-2020"));
   assert.ok(day3.places.some((place) => place.name === "和くら" && place.address === "日田市隈2-4-13" && place.phone === "0973-24-2728"));
+  assert.equal(day3.places[0].name, "小鹿田燒之里");
+  assert.equal(day3.places[1].name, "和くら");
 
   assert.equal(day4.nameZh, "Flügel 久住");
   assert.equal(day4.nameJa, "フリューゲル久住");
