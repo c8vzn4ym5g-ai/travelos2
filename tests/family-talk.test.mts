@@ -237,7 +237,8 @@ test("talk page is a cute family booklet door with framed back and PWA", async (
   assert.match(manifest, /"start_url": "\/family\/talk"/);
   assert.match(manifest, /家庭說話/);
   assert.match(wrangler, /"binding": "AI"/);
-  assert.doesNotMatch(familyHome, /\/family\/talk/);
+  assert.match(familyHome, /href="\/family\/talk"/);
+  assert.match(familyHome, />說說</);
   assert.doesNotMatch(capture, /family\/talk/);
   assert.doesNotMatch(trip, /family\/talk/);
   assert.doesNotMatch(lapland, /family\/talk/);
