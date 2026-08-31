@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FamIconWell } from "./family-icons";
+import { FamilyBackLink } from "./family-back";
 import { FamilyUnlockPanel } from "./family-unlock-panel";
 
 const departments = [
@@ -24,9 +25,9 @@ export default function FamilyWorkspacePage() {
     <main className="fam-page">
       <header className="fam-hero">
         <div className="fam-hero-inner">
-          <Link className="fam-back min-h-11" href="/">
-            ← TravelOS 首頁
-          </Link>
+          <FamilyBackLink className="min-h-11" href="/">
+            ← 首頁
+          </FamilyBackLink>
           <p className="fam-script">our family workspace</p>
           <h1 className="fam-title">
             <span className="fam-title-strong">家庭</span>編輯
@@ -35,9 +36,6 @@ export default function FamilyWorkspacePage() {
           <p className="fam-lede">
             Jason 與 Sana 都可以查看、增加、修改彼此的旅行、咖啡與照片。每次修改保留作者與版本，內容可以復原。
           </p>
-          <Link className="fam-companion-sticker min-h-11" href="/family/trip">
-            福岡・大分
-          </Link>
         </div>
       </header>
 
@@ -53,6 +51,10 @@ export default function FamilyWorkspacePage() {
           <Link className="fam-tile fam-tile-sky" href="/trips/write">
             <FamIconWell name="pencil" well="sky" />
             Write
+          </Link>
+          <Link className="fam-press fam-pill fam-pill-blush col-span-2 min-h-11 flex-col" href="/family/trip">
+            <span>行程</span>
+            <span className="fam-en">福岡・大分</span>
           </Link>
         </div>
       </section>

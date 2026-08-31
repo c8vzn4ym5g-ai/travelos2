@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { FamilyBackLink } from "@/app/family/family-back";
 import { FamGlyph, FamIconWell } from "@/app/family/family-icons";
 import { resolveFamilySession } from "@/lib/family-session";
 import {
@@ -12,11 +12,16 @@ import {
   defaultTripDay,
   familyTripDay1,
   familyTripDays,
+  familyTripReturn,
   formatTripDateLabel,
   formatTripMd,
+  placeMarkLabel,
   taipeiCalendarDate,
   tripDayFromCalendarDate,
+  type FamilyTripDay,
+  type FamilyTripPlace,
   type MealMark,
+  type PlaceKind,
   type WeekIcon,
 } from "@/lib/family-trip";
 
@@ -45,10 +50,12 @@ function MealPair({
   breakfast,
   breakfastNote,
   dinner,
+  dinnerNote,
 }: {
   breakfast: MealMark | null;
   breakfastNote?: string;
   dinner: MealMark | null;
+  dinnerNote?: string;
 }) {
   if (breakfast == null && dinner == null) {
     return null;
@@ -67,6 +74,7 @@ function MealPair({
         <span className="fam-meal">
           <span>晚餐</span>
           <MealMarkIcon value={dinner} />
+          {dinnerNote ? <span className="fam-meal-note">{dinnerNote}</span> : null}
         </span>
       ) : null}
     </div>
@@ -82,6 +90,122 @@ function WeekIcons({ icons }: { icons: WeekIcon[] }) {
         </span>
       ))}
     </span>
+  );
+}
+
+function placeKindLabel(kind: PlaceKind) {
+  if (kind === "main") {
+    return "MAIN";
+  }
+  if (kind === "backup") {
+    return "備案";
+  }
+  if (kind === "craft") {
+    return "看";
+  }
+  if (kind === "coffee") {
+    return "REC";
+  }
+  return "店";
+}
+
+function DayBanner({ item }: { item: FamilyTripDay }) {
+  return (
+    <header className="fam-day-banner">
+      <span className="fam-day-dot">{item.day}</span>
+      <div>
+        <p className="fam-label">{formatTripDateLabel(item)}</p>
+        <p className="fam-leg-name">{item.nameZh}</p>
+        {item.nameJa ? <p className="fam-name-ja">{item.nameJa}</p> : null}
+      </div>
+    </header>
+  );
+}
+
+function StayCard({ item }: { item: FamilyTripDay }) {
+  const kind = item.icons.includes("hotel") ? "hotel" : "car";
+  return (
+    <article className="leg-card" data-kind={kind}>
+      <div className="flex items-center gap-3">
+        <FamIconWell name={kind === "hotel" ? "hotel" : "car"} well="blush" />
+        <div>
+          <p className="fam-label">住宿</p>
+          <p className="fam-leg-name">{item.nameZh}</p>
+          {item.nameJa ? <p className="fam-name-ja">{item.nameJa}</p> : null}
+        </div>
+      </div>
+      <dl>
+        {item.address ? (
+          <div className="fam-kv">
+            <dt>地址</dt>
+            <dd>{item.address}</dd>
+          </div>
+        ) : null}
+        {item.checkIn ? (
+          <div className="fam-kv">
+            <dt>入住</dt>
+            <dd>{item.checkIn}</dd>
+          </div>
+        ) : null}
+        {item.checkOut ? (
+          <div className="fam-kv">
+            <dt>退房</dt>
+            <dd>{item.checkOut}</dd>
+          </div>
+        ) : null}
+        {item.pay ? (
+          <div className="fam-kv">
+            <dt>付款</dt>
+            <dd>{item.pay}</dd>
+          </div>
+        ) : null}
+      </dl>
+      <MealPair
+        breakfast={item.breakfast}
+        breakfastNote={item.breakfastNote}
+        dinner={item.dinner}
+        dinnerNote={item.dinnerNote}
+      />
+      {item.booking ? <p className="fam-ref">訂房號 {item.booking}</p> : null}
+    </article>
+  );
+}
+
+function PlaceCard({ place }: { place: FamilyTripPlace }) {
+  return (
+    <article className="fam-place">
+      <div className="fam-place-head">
+        <span className={`fam-sticker-chip fam-place-mark-${place.mark}`}>{placeMarkLabel(place.mark)}</span>
+        <span className="fam-place-kind">{placeKindLabel(place.kind)}</span>
+      </div>
+      <p className="fam-leg-name">{place.name}</p>
+      {place.nameJa ? <p className="fam-name-ja">{place.nameJa}</p> : null}
+      <dl>
+        <div className="fam-kv">
+          <dt>地址</dt>
+          <dd>
+            <address>{place.address}</address>
+          </dd>
+        </div>
+        <div className="fam-kv">
+          <dt>電話</dt>
+          <dd className="place-phone">{place.phone}</dd>
+        </div>
+        {place.hours ? (
+          <div className="fam-kv">
+            <dt>時間</dt>
+            <dd>{place.hours}</dd>
+          </div>
+        ) : null}
+        {place.email ? (
+          <div className="fam-kv">
+            <dt>信箱</dt>
+            <dd>{place.email}</dd>
+          </div>
+        ) : null}
+      </dl>
+      {place.note ? <p className="fam-muted mt-2">{place.note}</p> : null}
+    </article>
   );
 }
 
@@ -119,8 +243,16 @@ export default function FamilyTripPage() {
 
   function jumpToDay(day: number) {
     setSelected(day);
-    const target = document.getElementById(day === 1 ? "trip-today" : `trip-day-${day}`);
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.requestAnimationFrame(() => {
+      const target = document.getElementById(`trip-day-${day}`);
+      if (!target) {
+        return;
+      }
+      const strip = document.querySelector<HTMLElement>("[data-surface='family'] .fam-day-strip");
+      const offset = (strip?.getBoundingClientRect().height ?? 96) + 8;
+      const top = window.scrollY + target.getBoundingClientRect().top - offset;
+      window.scrollTo({ behavior: "smooth", top: Math.max(0, top) });
+    });
   }
 
   if (!authenticated) {
@@ -144,9 +276,9 @@ export default function FamilyTripPage() {
     <main className="fam-page">
       <header className="fam-hero">
         <div className="fam-hero-inner">
-          <Link className="fam-back min-h-11" href="/family">
+          <FamilyBackLink className="min-h-11" href="/family">
             ← 家庭入口
-          </Link>
+          </FamilyBackLink>
           <p className="fam-script">trip companion</p>
           <div className="mt-1 flex items-start justify-between gap-3">
             <h1 className="fam-title">{FAMILY_TRIP_TITLE}</h1>
@@ -176,7 +308,50 @@ export default function FamilyTripPage() {
         </div>
       </nav>
 
-      <section className="fam-sheet fam-trip-day1">
+      <section className="fam-sheet fam-trip-week">
+        <h2 className="fam-section">總表</h2>
+        <span className="fam-en">Week</span>
+        <ul className="fam-week-list mt-4">
+          {familyTripDays.map((item) => {
+            const isToday = item.day === calendarDay;
+            const isActive = item.day === activeDay;
+            return (
+              <li key={item.date}>
+                <button
+                  className={`fam-week-row fam-week-${item.tone}${isToday ? " is-today" : ""}${isActive ? " is-active" : ""}`}
+                  onClick={() => jumpToDay(item.day)}
+                  type="button"
+                >
+                  <span className="fam-day-dot">{item.day}</span>
+                  <span className="fam-week-copy">
+                    <strong>{formatTripDateLabel(item)}</strong>
+                    <span className="fam-week-name">{item.nameZh}</span>
+                    {item.nameJa ? <span className="fam-name-ja">{item.nameJa}</span> : null}
+                    {item.extra.map((line) => (
+                      <span className="fam-week-extra" key={line}>
+                        {line}
+                      </span>
+                    ))}
+                    {item.pay ? <span className="fam-week-pay">{item.pay}</span> : null}
+                  </span>
+                  <span className="fam-week-side">
+                    <WeekIcons icons={item.icons} />
+                    <MealPair breakfast={item.breakfast} breakfastNote={item.breakfastNote} dinner={item.dinner} />
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      <section className="fam-sheet">
+        <h2 className="fam-section">表1</h2>
+        <span className="fam-en">Days</span>
+      </section>
+
+      <section className="fam-sheet fam-trip-day1 fam-trip-day" id="trip-day-1">
+        <DayBanner item={familyTripDays[0]} />
         <article className="today-card" id="trip-today">
           <div className="fam-today-head">
             <span className="fam-sticker-chip fam-sticker-honey">今天</span>
@@ -255,6 +430,10 @@ export default function FamilyTripPage() {
           </div>
           <dl>
             <div className="fam-kv">
+              <dt>地址</dt>
+              <dd>{hotel.address}</dd>
+            </div>
+            <div className="fam-kv">
               <dt>入住</dt>
               <dd>{hotel.checkIn}</dd>
             </div>
@@ -272,43 +451,73 @@ export default function FamilyTripPage() {
           </dl>
           <p className="fam-ref">訂房號 {hotel.booking}</p>
         </article>
+        {familyTripDays[0].blurb.map((line) => (
+          <p className="fam-muted" key={line}>
+            {line}
+          </p>
+        ))}
       </section>
 
-      <section className="fam-sheet fam-trip-week">
-        <ul className="fam-week-list">
-          {familyTripDays.map((item) => {
-            const isToday = item.day === calendarDay;
-            const isActive = item.day === activeDay;
-            return (
-              <li id={`trip-day-${item.day}`} key={item.date}>
-                <button
-                  className={`fam-week-row fam-week-${item.tone}${isToday ? " is-today" : ""}${isActive ? " is-active" : ""}`}
-                  onClick={() => jumpToDay(item.day)}
-                  type="button"
-                >
-                  <span className="fam-day-dot">{item.day}</span>
-                  <span className="fam-week-copy">
-                    <strong>{formatTripDateLabel(item)}</strong>
-                    <span className="fam-week-name">{item.nameZh}</span>
-                    {item.nameJa ? <span className="fam-name-ja">{item.nameJa}</span> : null}
-                    {item.extra.map((line) => (
-                      <span className="fam-week-extra" key={line}>
-                        {line}
-                      </span>
-                    ))}
-                    {item.pay ? <span className="fam-week-pay">{item.pay}</span> : null}
-                  </span>
-                  <span className="fam-week-side">
-                    <WeekIcons icons={item.icons} />
-                    <MealPair breakfast={item.breakfast} breakfastNote={item.breakfastNote} dinner={item.dinner} />
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-        <p className="fam-trip-footer">{FAMILY_TRIP_FOOTER}</p>
-      </section>
+      {familyTripDays.slice(1).map((item) => (
+        <section className="fam-sheet fam-trip-day" id={`trip-day-${item.day}`} key={item.date}>
+          <DayBanner item={item} />
+          {item.day === 8 ? (
+            <>
+              <article className="leg-card" data-kind="car">
+                <div className="flex items-center gap-3">
+                  <FamIconWell name="car" well="mint" />
+                  <div>
+                    <p className="fam-label">{car.sticker}</p>
+                    <p className="fam-leg-name">{car.name}</p>
+                  </div>
+                </div>
+                <dl>
+                  <div className="fam-kv">
+                    <dt>還車</dt>
+                    <dd>{car.dropoff}</dd>
+                  </div>
+                </dl>
+                <p className="fam-ref">預約號 {car.reservation}</p>
+              </article>
+              <article className="leg-card" data-kind="flight">
+                <div className="flex items-center gap-3">
+                  <FamIconWell name="plane" well="sky" />
+                  <div>
+                    <p className="fam-label">{familyTripReturn.flight.sticker}</p>
+                    <p className="fam-leg-name">{familyTripReturn.flight.number}</p>
+                  </div>
+                </div>
+                <dl>
+                  <div className="fam-kv">
+                    <dt>{familyTripReturn.flight.routeLabel}</dt>
+                    <dd>{familyTripReturn.flight.route}</dd>
+                  </div>
+                  <div className="fam-kv">
+                    <dt>時間</dt>
+                    <dd>{familyTripReturn.flight.time}</dd>
+                  </div>
+                  <div className="fam-kv">
+                    <dt>訂位 PNR</dt>
+                    <dd>{familyTripReturn.flight.pnr}</dd>
+                  </div>
+                </dl>
+              </article>
+            </>
+          ) : (
+            <StayCard item={item} />
+          )}
+          {item.blurb.map((line) => (
+            <p className="fam-muted" key={line}>
+              {line}
+            </p>
+          ))}
+          {item.places.map((place) => (
+            <PlaceCard key={`${place.name}-${place.address}`} place={place} />
+          ))}
+        </section>
+      ))}
+
+      <p className="fam-trip-footer fam-sheet">{FAMILY_TRIP_FOOTER}</p>
     </main>
   );
 }

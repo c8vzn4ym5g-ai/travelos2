@@ -79,26 +79,34 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
   control so phone users can confirm exactly what they typed before submitting.
 - A direct visit to a protected department without a family session returns the
   user to `/family`.
-- `/family` is three stacked zones: 入口 (Capture + Write), 工作台
+- `/family` is three stacked zones: 入口 (Capture + Write + 行程 pill to
+  `/family/trip`), 工作台
   (one door to `/family/bench`), then 編輯 (旅行遊記 and 咖啡記憶).
   工作台 appears once on that page and is not stuffed next to Capture.
+  旅行遊記 stays public `/trips`. The 行程 control is a framed pill, not a
+  decorative sticker.
 - `/family/bench` is the family workshop table (工作台 / Bench): the raw pile of
   Capture dumps, newest first. It is private family, not the public storefront
   (橱窗). Do not put Drive or booking widgets there.
 - `/family/trip` is a family-only trip companion in the same 家庭本子 visual
-  (`data-surface="family"`). One long scroll matching the passed day-1 then
-  week mocks: sticky 1–8 day-strip with dates and weekdays, Day-1 cards
-  飛 → 車 → 住, then the eight week rows. Chinese first, muted Japanese under
-  hotel names. Solaria / Flügel / Nissan stay Latin. 梅響 + うめひびき.
-  星野 界・由布院 + 界 由布院. Meals are 早餐 / 晚餐 with a cute tick or X —
-  not 有/沒 pills, not 今早 / 明早. Day-1 today card is 去搭飛機 JX316 only.
-  Hotel card: 預計車程 熊本機場→福岡 約1小時15分, tick breakfast, X dinner.
-  Copy the KMJ map crop and Serena photo as bytes (`object-fit: contain`);
-  do not redraw them. Day 1 Solaria `TF53AEFAC2A33` is a different booking
-  from Days 5–6 `T032CA29B451B`. 9/5 is 還沒訂. No station shuttles. Footer:
-  沒有接駁車。9/5 還沒訂. Do not invent a letter check-in clock, a
-  missing-guest warning, passenger DOB, or “GM 填”. Public `/trips` is
-  untouched.
+  (`data-surface="family"`). Sticky 1–8 day-strip stays. **總表** (week
+  rows) sits at the top; **表1** is eight day writeups (`trip-day-N`)
+  below, not a highlighted row. Sticky + 總表 tap `jumpToDay` scrolls
+  that section under the sticky strip. Day-1
+  cards stay 飛 → 車 → 住. Chinese first, muted Japanese under hotel names.
+  Restaurant and craft recs include 地址 and 電話. Dinners are 建議自訂
+  except 西川 已訂. 佐藤酒造 is 已發申請, not confirmed. Solaria / Flügel /
+  Nissan stay Latin. 梅響 + うめひびき. 星野 界・由布院 + 界 由布院.
+  Meals are 早餐 / 晚餐 with a cute tick or X — not 有/沒 pills, not 今早 /
+  明早. Day-1 today card is 去搭飛機 JX316 only. 8/30 is sleep only. 9/5
+  night is empty. Copy the KMJ map crop and Serena photo as bytes
+  (`object-fit: contain`); do not redraw them. Day 1 Solaria
+  `TF53AEFAC2A33` is a different booking from Days 5–6 `T032CA29B451B`.
+  No 8-day map until GM sends a PASSED file + sha256. Do not copy a
+  failed plate or draw GIS. Grade: tap 3 lands on 梅響 / 小鹿田 / 和くら.
+  No station shuttles. Footer: 沒有接駁車。9/5 還沒訂. Do not invent a
+  letter check-in clock, a missing-guest warning, passenger DOB, or “GM 填”.
+  Public `/trips` is untouched.
 - `/family/talk` is a family-only Kyushu talk translator on the same apple
   paper. Two huge tap modes only: 我說中文 (zh-TW/zh-CN → spoken Japanese)
   and 對方說日文 (ja-JP → spoken Chinese). Tap to start, tap to stop.

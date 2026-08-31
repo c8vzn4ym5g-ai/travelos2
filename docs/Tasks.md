@@ -1,6 +1,6 @@
 # TravelOS Codex Tasks
 
-## TASK-034: Family Kyushu talk translator
+## TASK-035: Family Kyushu talk translator
 
 Status: done
 
@@ -15,6 +15,25 @@ Result:
 - `/family/talk` plus `/api/family/talk/transcribe` and `/translate`.
 - Talk-owned CSS, apple-touch-icon, and talk manifest.
 - Cloudflare Workers AI binding on travelos2. No new secrets.
+
+## TASK-034: Family 行程 door, framed back, fill 總表 / 表1
+
+Status: done
+
+Goal: Owner on the phone could not find the itinerary (chip did not look
+tappable) or go back (ghost text). Put 總表 on top of `/family/trip`,
+then write eight day-detail blocks now (hotel + meals + known 建議).
+Sticky 1–8 must jump to that detail. Green-apple wash. Do not restyle
+Lapland. Do not classify Capture dumps. Do not wait for a map. Do not
+copy a failed Kyushu plate or draw a substitute.
+
+Result:
+
+- 入口 has a framed 行程 / 福岡・大分 pill next to Capture / Write.
+- Back is a framed pill with :active flash on Capture, 工作台, trip, and
+  family home.
+- `/family/trip` is 總表 then 表1 day writeups (`trip-day-1`–`8`).
+  Recs include address and phone. Tap 3 shows 梅響 / 小鹿田 / 和くら.
 
 ## TASK-033: Family booklet wash is pale green-apple
 

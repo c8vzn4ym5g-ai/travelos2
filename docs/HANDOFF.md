@@ -7,8 +7,23 @@
   framed back button with press-in. PWA under `/family/talk`.
 - Recognition: Web Speech with explicit lang, then MediaRecorder +
   Workers AI Whisper. Translation: spoken LLM then m2m100. No OpenAI
-  key. `/family` home, Capture dump, `/family/trip`, Lapland, Vercel
-  untouched.
+  key. Capture dump, `/family/trip`, Lapland, Vercel untouched.
+
+## 2026-08-29 Family 行程 door, framed back, 總表 then 表1
+
+- `/family` 入口 now has a framed 行程 pill (福岡・大分) next to Capture /
+  Write. The old header chip did not look tappable. 旅行遊記 still goes
+  to public `/trips`.
+- Inner family pages (Capture, 工作台, trip) use a framed back pill with
+  press flash, linking to `/family`. Home back is 首頁.
+- `/family/trip` is **總表** (week rows) then **表1** — eight real day
+  writeups (`trip-day-1` … `trip-day-8`). Sticky 1–8 + 總表 rows
+  `jumpToDay` scroll the matching detail under the sticky strip. Day 3
+  is 梅響 / 小鹿田 / 和くら with 地址+電話. No 8-day map until GM
+  sends a PASSED file + sha256. Do not copy the failed plate or draw a
+  substitute. Dinners are 建議自訂 except
+  西川 已訂 and 佐藤酒造 已發申請. 8/30 sleep only. 9/5 night empty.
+  Public Lapland untouched. Dump unchanged.
 
 ## 2026-08-29 Family booklet wash is pale green-apple
 

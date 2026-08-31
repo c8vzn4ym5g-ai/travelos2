@@ -100,6 +100,9 @@ test("family bench is a private workshop table for raw Capture dumps", async () 
   assert.ok(entryIndex < benchDoorIndex && benchDoorIndex < editIndex);
   assert.ok(captureIndex !== -1 && writeIndex !== -1);
   assert.ok(captureIndex < benchDoorIndex && writeIndex < benchDoorIndex);
+  const tripDoorIndex = family.indexOf('href="/family/trip"');
+  assert.ok(tripDoorIndex !== -1 && tripDoorIndex < benchDoorIndex);
+  assert.match(family, />行程</);
 
   assert.doesNotMatch(unlock, />\s*工作台\s*</);
   assert.doesNotMatch(unlock, /href="\/family\/bench"/);

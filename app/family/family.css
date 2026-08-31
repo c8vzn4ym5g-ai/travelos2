@@ -49,9 +49,28 @@
   display: inline-flex;
   min-height: 44px;
   align-items: center;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--fam-muted);
+  justify-content: center;
+  border: 1.5px solid var(--fam-blush);
+  border-radius: 999px;
+  background: var(--fam-white);
+  padding: 0 16px;
+  color: var(--fam-blush);
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: 0 6px 14px rgba(60, 66, 50, 0.06);
+  transition: transform 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+[data-surface="family"] .fam-back:active {
+  transform: scale(0.96);
+  background: var(--fam-blush);
+  color: var(--fam-white);
+}
+
+[data-surface="family"] .fam-press:active,
+[data-surface="family"] .fam-tile:active,
+[data-surface="family"] .fam-pill:active {
+  transform: scale(0.96);
 }
 
 [data-surface="family"] .fam-script {
@@ -146,6 +165,7 @@
   color: var(--fam-ink);
   font-size: 18px;
   font-weight: 700;
+  transition: transform 0.12s ease;
 }
 
 [data-surface="family"] .fam-tile-blush {
@@ -154,6 +174,10 @@
 
 [data-surface="family"] .fam-tile-sky {
   background: var(--fam-sky-soft);
+}
+
+[data-surface="family"] .fam-tile-mint {
+  background: var(--fam-mint-soft);
 }
 
 [data-surface="family"] .fam-tray {
@@ -231,6 +255,7 @@
   font-size: 16px;
   font-weight: 700;
   line-height: 1.15;
+  transition: transform 0.12s ease, background 0.12s ease;
 }
 
 [data-surface="family"] .fam-pill-blush {
@@ -822,6 +847,57 @@
   gap: 12px;
 }
 
+[data-surface="family"] .fam-trip-day {
+  display: grid;
+  gap: 12px;
+  scroll-margin-top: 112px;
+}
+
+[data-surface="family"] .fam-day-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+[data-surface="family"] .fam-place address {
+  font-style: normal;
+}
+
+[data-surface="family"] .fam-place {
+  border-radius: 28px;
+  background: var(--fam-white);
+  box-shadow: var(--fam-shadow);
+  padding: 16px;
+}
+
+[data-surface="family"] .fam-place-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+[data-surface="family"] .fam-place-mark-suggest {
+  background: var(--fam-honey-soft);
+  color: #8a6a12;
+}
+
+[data-surface="family"] .fam-place-mark-booked {
+  background: var(--fam-mint-soft);
+  color: #2f6f5c;
+}
+
+[data-surface="family"] .fam-place-mark-requested {
+  background: var(--fam-sky-soft);
+  color: #3d7399;
+}
+
+[data-surface="family"] .fam-place-kind {
+  color: var(--fam-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 [data-surface="family"] .leg-card {
   border-radius: 28px;
   box-shadow: var(--fam-shadow);
@@ -988,6 +1064,11 @@
   padding: 14px;
   text-align: left;
   scroll-margin-top: 88px;
+  transition: transform 0.12s ease;
+}
+
+[data-surface="family"] .fam-week-row:active {
+  transform: scale(0.98);
 }
 
 [data-surface="family"] #trip-today {
