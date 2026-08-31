@@ -1,5 +1,14 @@
 # TravelOS Handoff
 
+## 2026-08-29 Family Kyushu talk translator
+
+- New private door `/family/talk` on travelos2. iPhone Safari. Two huge
+  modes: 我說中文 and 對方說日文. Pale green-apple paper, cute 本子,
+  framed back button with press-in. PWA under `/family/talk`.
+- Recognition: Web Speech with explicit lang, then MediaRecorder +
+  Workers AI Whisper. Translation: spoken LLM then m2m100. No OpenAI
+  key. Capture dump, `/family/trip`, Lapland, Vercel untouched.
+
 ## 2026-08-29 Family 行程 door, framed back, 總表 then 表1
 
 - `/family` 入口 now has a framed 行程 pill (福岡・大分) next to Capture /

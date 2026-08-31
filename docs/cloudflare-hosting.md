@@ -71,6 +71,9 @@ Files under `public/travelos/` are copied into the Worker assets bundle. They ke
 
 - `nodejs_compat` — `Buffer`, `process.env`, and other Node APIs used by Drive (`Buffer.from` base64) and API routes (`runtime = "nodejs"`).
 - `global_fetch_strictly_public` — server `fetch()` to the Drive Apps Script URL.
+- `ai.binding = "AI"` — Workers AI for `/family/talk` Whisper + spoken
+  zh↔ja translation. No extra secret. Do not send this path through
+  OpenAI or Vercel AI Gateway.
 
 No R2 incremental cache is configured, so ISR cache is in-memory per isolate. Capture persistence is Drive, not CF cache.
 

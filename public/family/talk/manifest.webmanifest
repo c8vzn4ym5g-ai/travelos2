@@ -1,0 +1,28 @@
+{
+  "background_color": "#f0f6e4",
+  "categories": ["travel", "utilities"],
+  "description": "九州旅行用的中日口譯。你說中文，或把手機對準對方。",
+  "dir": "ltr",
+  "display": "standalone",
+  "icons": [
+    {
+      "purpose": "any",
+      "sizes": "180x180",
+      "src": "/family/talk/apple-touch-icon.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "any",
+      "sizes": "512x512",
+      "src": "/family/talk/icon-512.png",
+      "type": "image/png"
+    }
+  ],
+  "id": "/family/talk",
+  "lang": "zh-Hant",
+  "name": "家庭說話",
+  "scope": "/family/talk",
+  "short_name": "說話",
+  "start_url": "/family/talk",
+  "theme_color": "#F0F6E4"
+}

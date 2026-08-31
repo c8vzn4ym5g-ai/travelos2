@@ -1,5 +1,21 @@
 # TravelOS Codex Tasks
 
+## TASK-035: Family Kyushu talk translator
+
+Status: done
+
+Goal: Live `/family/talk` on travelos2 for a 4-person Kyushu trip.
+iPhone Safari only. Two huge Chinese modes, pale green-apple paper,
+PWA, framed back button. Web Speech then Workers AI Whisper + spoken
+zh↔ja translation. Do not touch Capture dump, `/family/trip`, Lapland,
+Vercel, or `/family` page.tsx.
+
+Result:
+
+- `/family/talk` plus `/api/family/talk/transcribe` and `/translate`.
+- Talk-owned CSS, apple-touch-icon, and talk manifest.
+- Cloudflare Workers AI binding on travelos2. No new secrets.
+
 ## TASK-034: Family 行程 door, framed back, fill 總表 / 表1
 
 Status: done
