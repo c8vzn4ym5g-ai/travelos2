@@ -83,8 +83,8 @@ Use compact cards only for repeated records and dashboard panels. Avoid nested c
   `/family/trip`), 工作台
   (one door to `/family/bench`), then 編輯 (旅行遊記 and 咖啡記憶).
   工作台 appears once on that page and is not stuffed next to Capture.
-  旅行遊記 stays public `/trips`. The 行程 control is a framed pill, not a
-  decorative sticker.
+  旅行遊記 stays public `/trips`. The 行程 and 說說 controls are framed
+  pills, not decorative stickers.
 - `/family/bench` is the family workshop table (工作台 / Bench): the raw pile of
   Capture dumps, newest first. It is private family, not the public storefront
   (橱窗). Do not put Drive or booking widgets there.

@@ -244,6 +244,7 @@ test("family and capture clients discover the PIN gate and do not add a Capture 
   assert.match(unlock, /開啟家庭入口/);
   assert.match(family, /href="\/family\/capture"/);
   assert.match(family, /href="\/family\/bench"/);
+  assert.match(family, /href="\/family\/talk"/);
   assert.match(family, /href="\/trips\/write"/);
   assert.doesNotMatch(unlock, /href="\/family\/capture"/);
   assert.doesNotMatch(unlock, /href="\/family\/bench"/);

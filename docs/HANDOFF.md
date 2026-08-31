@@ -1,5 +1,11 @@
 # TravelOS Handoff
 
+## 2026-08-31 說說 pill on family 入口
+
+- `/family` 入口 keeps the framed 行程 pill and adds 說說 next to it,
+  same `fam-press fam-pill` language, linking to `/family/talk`.
+- Talk itself is already live on travelos2 after PR #70.
+
 ## 2026-08-29 Family Kyushu talk translator
 
 - New private door `/family/talk` on travelos2. iPhone Safari. Two huge

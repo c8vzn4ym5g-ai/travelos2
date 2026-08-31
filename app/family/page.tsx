@@ -52,9 +52,13 @@ export default function FamilyWorkspacePage() {
             <FamIconWell name="pencil" well="sky" />
             Write
           </Link>
-          <Link className="fam-press fam-pill fam-pill-blush col-span-2 min-h-11 flex-col" href="/family/trip">
+          <Link className="fam-press fam-pill fam-pill-blush min-h-11 w-full flex-col" href="/family/trip">
             <span>行程</span>
             <span className="fam-en">福岡・大分</span>
+          </Link>
+          <Link className="fam-press fam-pill fam-pill-blush min-h-11 w-full flex-col" href="/family/talk">
+            <span>說說</span>
+            <span className="fam-en">中日口譯</span>
           </Link>
         </div>
       </section>

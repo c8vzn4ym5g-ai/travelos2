@@ -58,6 +58,8 @@ test("family workshop wraps a family surface and does not restyle public Lapland
   assert.doesNotMatch(familyCss, /fam-empty-take/);
   assert.match(familyHome, />行程</);
   assert.match(familyHome, /href="\/family\/trip"/);
+  assert.match(familyHome, />說說</);
+  assert.match(familyHome, /href="\/family\/talk"/);
   assert.match(familyCss, /\.fam-back:active/);
   assert.match(trip, />總表</);
   assert.match(trip, />表1</);
