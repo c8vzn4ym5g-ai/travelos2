@@ -25,6 +25,28 @@ import {
   type WeekIcon,
 } from "@/lib/family-trip";
 
+const KYUSHU_8DAY_POSTER_SRC = "/family/trip/kyushu-8day-poster-web.jpg";
+
+/** Existing 2b plate taps. tap-5 and tap-6 share one Solaria bbox. Locator is not a tap. */
+const KYUSHU_8DAY_HOTSPOTS = [
+  { id: "tap-1", day: 1, x: 0.035, y: 0.118, w: 0.3, h: 0.072 },
+  { id: "tap-2", day: 2, x: 0.035, y: 0.198, w: 0.3, h: 0.072 },
+  { id: "tap-3", day: 3, x: 0.035, y: 0.278, w: 0.3, h: 0.072 },
+  { id: "tap-4", day: 4, x: 0.035, y: 0.358, w: 0.3, h: 0.072 },
+  { id: "tap-5", day: 5, x: 0.035, y: 0.438, w: 0.3, h: 0.072 },
+  { id: "tap-6", day: 6, x: 0.035, y: 0.438, w: 0.3, h: 0.072 },
+  { id: "tap-7", day: 7, x: 0.035, y: 0.518, w: 0.3, h: 0.072 },
+  { id: "tap-8", day: 8, x: 0.035, y: 0.598, w: 0.3, h: 0.072 },
+] as const;
+
+function kyushuHotspotLabel(day: number) {
+  const item = familyTripDays[day - 1];
+  if (!item) {
+    return `Day ${day}`;
+  }
+  return `${item.day} ${item.nameZh}`;
+}
+
 function MealMarkIcon({ value }: { value: MealMark }) {
   if (value === "yes") {
     return (
@@ -351,6 +373,37 @@ export default function FamilyTripPage() {
             );
           })}
         </ul>
+        <figure className="fam-trip-poster">
+          <div className="fam-trip-poster-frame">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt="九州八日 1 到 8"
+              className="object-contain"
+              draggable={false}
+              src={KYUSHU_8DAY_POSTER_SRC}
+            />
+            <nav aria-label="地圖 1 到 8" className="fam-trip-poster-taps">
+              {KYUSHU_8DAY_HOTSPOTS.map((spot) => (
+                <button
+                  className="fam-trip-poster-tap"
+                  data-kyushu-hotspot={spot.id}
+                  key={spot.id}
+                  onClick={() => jumpToDay(spot.day)}
+                  style={{
+                    height: `${spot.h * 100}%`,
+                    left: `${spot.x * 100}%`,
+                    top: `${spot.y * 100}%`,
+                    width: `${spot.w * 100}%`,
+                    zIndex: spot.id === "tap-5" ? 2 : 1,
+                  }}
+                  type="button"
+                >
+                  <span className="sr-only">{kyushuHotspotLabel(spot.day)}</span>
+                </button>
+              ))}
+            </nav>
+          </div>
+        </figure>
       </section>
 
       <section className="fam-sheet">

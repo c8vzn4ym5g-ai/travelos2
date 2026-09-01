@@ -1,5 +1,14 @@
 # TravelOS Handoff
 
+## 2026-09-01 Family trip 總表 sits the Kyushu 8-day plate
+
+- `/family/trip` only: the PASSED portrait `kyushu-8day-poster-web.jpg`
+  sits under 總表, full-bleed, `object-contain`. Overlay tap 1–8 calls
+  the existing `jumpToDay`. tap-5 / tap-6 share the Solaria bbox.
+  tap-7 is 還沒訂. tap-8 is day 8. Locator is not a tap.
+- Do not rewrite `family-trip.ts`. Capture, talk, Lapland, Vercel, and
+  family home stay untouched. Bytes may land from GM after the slot.
+
 ## 2026-08-31 說說 pill on family 入口
 
 - `/family` 入口 keeps the framed 行程 pill and adds 說說 next to it,
