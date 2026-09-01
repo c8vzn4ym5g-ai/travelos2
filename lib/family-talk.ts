@@ -7,7 +7,6 @@ export type TalkMode = "zh-to-ja" | "ja-to-zh";
 
 export const TALK_WHISPER_TURBO = "@cf/openai/whisper-large-v3-turbo";
 export const TALK_WHISPER = "@cf/openai/whisper";
-export const TALK_SPOKEN_LLM = "@cf/meta/llama-3.2-3b-instruct";
 export const TALK_M2M = "@cf/meta/m2m100-1.2b";
 
 export const TALK_MAX_AUDIO_BYTES = 8 * 1024 * 1024;
@@ -101,24 +100,6 @@ export function cleanSpokenTranslation(text: string) {
     .find((line) => line.length > 0);
 
   return (firstLine ?? "").replace(/\s+/g, " ").trim();
-}
-
-export function spokenTranslateMessages(text: string, from: TalkLang, to: TalkLang) {
-  const fromName = from === "zh" ? "中文" : "日文";
-  const toName = to === "zh" ? "中文" : "日文";
-  return {
-    messages: [
-      {
-        role: "system",
-        content:
-          "你是九州旅行現場口譯。只輸出譯文，不要拼音、不要解釋、不要引號、不要前後綴。口語、短、能立刻對店員說。",
-      },
-      {
-        role: "user",
-        content: `請把這段${fromName}翻成${toName}：\n${text}`,
-      },
-    ],
-  };
 }
 
 export function m2mLangNames(lang: TalkLang) {
@@ -292,12 +273,6 @@ export async function translateTalkText(ai: FamilyTalkAi, text: string, from: Ta
     return spoken;
   }
 
-  const llm = await runQuiet(ai, TALK_SPOKEN_LLM, spokenTranslateMessages(spoken, from, to));
-  const llmText = cleanSpokenTranslation(readAiText(llm) ?? "");
-  if (llmText && llmText !== spoken) {
-    return llmText;
-  }
-
   for (const sourceLang of m2mLangNames(from)) {
     for (const targetLang of m2mLangNames(to)) {
       const raw = await runQuiet(ai, TALK_M2M, {
@@ -310,10 +285,6 @@ export async function translateTalkText(ai: FamilyTalkAi, text: string, from: Ta
         return translated;
       }
     }
-  }
-
-  if (llmText) {
-    return llmText;
   }
 
   throw new Error("翻譯沒成功，再試一次。");
