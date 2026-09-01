@@ -1051,12 +1051,15 @@
 [data-surface="family"] .fam-trip-poster-frame {
   position: relative;
   width: 100%;
+  aspect-ratio: 2 / 3;
 }
 
 [data-surface="family"] .fam-trip-poster img {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
   object-fit: contain;
 }
 

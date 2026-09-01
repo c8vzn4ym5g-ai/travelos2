@@ -390,10 +390,10 @@ export default function FamilyTripPage() {
                   key={spot.id}
                   onClick={() => jumpToDay(spot.day)}
                   style={{
-                    height: `${spot.h * 100}%`,
-                    left: `${spot.x * 100}%`,
-                    top: `${spot.y * 100}%`,
-                    width: `${spot.w * 100}%`,
+                    height: `${(spot.h * 100).toFixed(1)}%`,
+                    left: `${(spot.x * 100).toFixed(1)}%`,
+                    top: `${(spot.y * 100).toFixed(1)}%`,
+                    width: `${(spot.w * 100).toFixed(1)}%`,
                     zIndex: spot.id === "tap-5" ? 2 : 1,
                   }}
                   type="button"
