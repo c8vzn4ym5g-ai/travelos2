@@ -37,6 +37,7 @@ export type FamilyTripPlace = {
   address: string;
   email?: string;
   hours?: string;
+  hoursNote?: string;
   kind: PlaceKind;
   mark: PlaceMark;
   name: string;
@@ -124,7 +125,7 @@ export const familyTripReturn = {
     route: "KMJ → RMQ",
     routeLabel: "回程",
     sticker: "飛機",
-    time: "19:15",
+    time: "19:15 → 20:45",
   },
 };
 
@@ -265,7 +266,7 @@ export const familyTripDays: FamilyTripDay[] = [
     day: 4,
     dinner: "yes",
     dinnerNote: "在旅館",
-    extra: ["晚餐在旅館"],
+    extra: ["佐藤 已發申請 9/2 約 10:00", "晚餐在旅館"],
     icons: ["hotel", "car"],
     nameJa: "フリューゲル久住",
     nameZh: "Flügel 久住",
@@ -274,7 +275,7 @@ export const familyTripDays: FamilyTripDay[] = [
       {
         address: "竹田市久住町大字久住6197",
         email: "info@kuju-senbazuru.co.jp",
-        hours: "想 10:00 看，4 位大人・ライ サナ",
+        hours: "申請 9/2 約 10:00・4人・ライ サナ",
         kind: "craft",
         mark: "requested",
         name: "佐藤酒造 久住千羽鶴",
@@ -344,7 +345,7 @@ export const familyTripDays: FamilyTripDay[] = [
     day: 6,
     dinner: "no",
     dinnerNote: "",
-    extra: ["西川 已訂 14:00", "晚餐 建議自訂"],
+    extra: ["西川 已訂 14:00–15:00", "晚餐 建議自訂"],
     icons: ["hotel"],
     nameJa: "ソラリア西鉄ホテル福岡",
     nameZh: "Solaria福岡",
@@ -360,11 +361,12 @@ export const familyTripDays: FamilyTripDay[] = [
       },
       {
         address: "福岡市中央區天神2-1-1 福岡三越 B1",
-        hours: "10:00–20:00・14:00–15:00",
+        hours: "預約 14:00–15:00",
+        hoursNote: "店 10:00–20:00開",
         kind: "shop",
         mark: "booked",
         name: "西川ネムリウム 福岡三越",
-        note: "確認號 fJR20h7nd・Ms Sana Lai",
+        note: "確認號 fJR20h7nd・Ms Sana Lai（ライ サナ）",
         phone: "092-725-7615",
         url: "https://www.nishikawa1566.com/shops/fukuoka/100546/",
       },
@@ -422,7 +424,7 @@ export const familyTripDays: FamilyTripDay[] = [
     day: 8,
     dinner: null,
     dinnerNote: "",
-    extra: ["還車 19:00 ・ JX317 19:15"],
+    extra: ["還車 19:00 ・ JX317 19:15 → 20:45"],
     icons: ["car", "plane"],
     nameJa: "",
     nameZh: "回程",

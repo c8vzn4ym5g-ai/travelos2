@@ -207,7 +207,6 @@ export default function FamilyTalkPage() {
 
     unlockSpeech();
     setTalkPhase("working");
-    setStatus("正在翻譯…");
 
     const activeMode = modeRef.current;
     const from = talkSourceLang(activeMode);
@@ -225,14 +224,25 @@ export default function FamilyTalkPage() {
     const spoken = spokenRef.current.trim();
 
     try {
-      const sourceText = spoken || (await transcribeOnWorker(audio, from));
+      let sourceText = spoken;
+      if (sourceText) {
+        setSource(sourceText);
+        setLiveText(sourceText);
+        setStatus("正在翻譯…");
+      } else {
+        setStatus("沒聽到語音辨識，改用備援聽寫…");
+        sourceText = await transcribeOnWorker(audio, from);
+        if (sourceText) {
+          setSource(sourceText);
+          setLiveText(sourceText);
+          setStatus("正在翻譯…");
+        }
+      }
       if (!sourceText) {
         throw new Error("沒聽到，再靠近一點、再點一次。");
       }
       const nextTranslation = await translateOnWorker(sourceText, from, to);
-      setSource(sourceText);
       setTranslated(nextTranslation);
-      setLiveText(sourceText);
       setStatus(to === "ja" ? "正在唸日文給對方聽。" : "正在唸中文給你們聽。");
       speakText(nextTranslation, to);
     } catch (error) {

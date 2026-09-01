@@ -10,12 +10,10 @@ import {
   m2mLangNames,
   pickSpeechVoice,
   recognitionLangForTalk,
-  spokenTranslateMessages,
   talkChineseRecognitionLang,
   talkSourceLang,
   talkTargetLang,
   TALK_M2M,
-  TALK_SPOKEN_LLM,
   TALK_WHISPER,
   TALK_WHISPER_TURBO,
   transcribeTalkAudio,
@@ -75,10 +73,6 @@ test("talk modes keep zh→ja and ja→zh, never English", () => {
 test("spoken translation stays short and strips literary wrappers", () => {
   assert.equal(cleanSpokenTranslation("「すみません」"), "すみません");
   assert.equal(cleanSpokenTranslation("譯文：請給我菜單\n第二行"), "請給我菜單");
-  const prompt = spokenTranslateMessages("請給我看菜單", "zh", "ja");
-  assert.match(prompt.messages[0]?.content ?? "", /只輸出譯文/);
-  assert.match(prompt.messages[1]?.content ?? "", /中文翻成日文/);
-  assert.doesNotMatch(JSON.stringify(prompt), /English|english/);
 });
 
 test("Japanese speech prefers Kyoko or O-ren when present", () => {
@@ -131,26 +125,27 @@ test("Workers AI transcribes then falls back across whisper models", async () =>
   assert.deepEqual(calls, [TALK_WHISPER_TURBO, TALK_WHISPER]);
 });
 
-test("spoken LLM translation falls back to m2m100", async () => {
+test("talk translation uses m2m100 only, never a spoken LLM first", async () => {
   const calls: string[] = [];
   const ai: FamilyTalkAi = {
     async run(model, inputs) {
       calls.push(model);
-      if (model === TALK_SPOKEN_LLM) {
-        return { response: "" };
-      }
       if (model === TALK_M2M) {
         assert.equal(typeof inputs.text, "string");
         return { translated_text: "メニューを見せてください" };
       }
-      return {};
+      throw new Error(`unexpected model ${model}`);
     },
   };
 
   const text = await translateTalkText(ai, "請給我看菜單", "zh", "ja");
   assert.equal(text, "メニューを見せてください");
-  assert.equal(calls[0], TALK_SPOKEN_LLM);
-  assert.equal(calls.includes(TALK_M2M), true);
+  assert.equal(calls[0], TALK_M2M);
+  assert.deepEqual(calls, [TALK_M2M]);
+  assert.equal(
+    calls.some((model) => model.includes("llama") || model.includes("instruct")),
+    false,
+  );
 });
 
 test("talk APIs work with PIN off and still lock when the flag is on", async () => {
@@ -204,7 +199,7 @@ test("talk APIs work with PIN off and still lock when the flag is on", async () 
 });
 
 test("talk page is a cute family booklet door with framed back and PWA", async () => {
-  const [page, css, layout, wrangler, manifest, familyHome, capture, trip, lapland] = await Promise.all([
+  const [page, css, layout, wrangler, manifest, familyHome, capture, trip, lapland, srcTalk] = await Promise.all([
     readSource("app/family/talk/page.tsx"),
     readSource("app/family/talk/talk.css"),
     readSource("app/family/talk/layout.tsx"),
@@ -214,6 +209,7 @@ test("talk page is a cute family booklet door with framed back and PWA", async (
     readSource("app/family/capture/page.tsx"),
     readSource("app/family/trip/page.tsx"),
     readSource("app/trips/[slug]/page.tsx"),
+    readSource("lib/family-talk.ts"),
   ]);
 
   assert.match(page, /我說中文/);
@@ -224,6 +220,11 @@ test("talk page is a cute family booklet door with framed back and PWA", async (
   assert.match(page, /MediaRecorder/);
   assert.match(page, /\/api\/family\/talk\/transcribe/);
   assert.match(page, /\/api\/family\/talk\/translate/);
+  assert.match(page, /setSource\(sourceText\)/);
+  assert.match(page, /speakText\(nextTranslation, to\)/);
+  assert.match(srcTalk, /TALK_M2M/);
+  assert.doesNotMatch(srcTalk, /llama-3\.2|TALK_SPOKEN_LLM|spokenTranslateMessages/);
+  assert.doesNotMatch(page, /llama-3\.2|TALK_SPOKEN_LLM/);
   assert.match(page, /wakeLock/);
   assert.match(page, /className="talk-back"/);
   assert.doesNotMatch(page, /className="fam-back/);

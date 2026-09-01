@@ -194,7 +194,15 @@ function PlaceCard({ place }: { place: FamilyTripPlace }) {
         {place.hours ? (
           <div className="fam-kv">
             <dt>時間</dt>
-            <dd>{place.hours}</dd>
+            <dd>
+              {place.hours}
+              {place.hoursNote ? (
+                <>
+                  <br />
+                  <span className="fam-muted">{place.hoursNote}</span>
+                </>
+              ) : null}
+            </dd>
           </div>
         ) : null}
         {place.email ? (

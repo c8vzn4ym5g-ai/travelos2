@@ -13,6 +13,7 @@ import {
   FAMILY_TRIP_TITLE,
   familyTripDay1,
   familyTripDays,
+  familyTripReturn,
   formatTripMd,
   NISSAN_RESERVATION,
   SOLARIA_ARRIVAL_BOOKING,
@@ -125,15 +126,20 @@ test("week rows keep hotel-plan meals, pay, and the two Solaria bookings", () =>
   assert.equal(day4.dinner, "yes");
   assert.equal(day4.pay, "到店付 ¥149,600・入湯稅另計");
   assert.equal(day4.booking, "1252");
+  assert.ok(day4.extra.includes("佐藤 已發申請 9/2 約 10:00"));
   assert.ok(day4.extra.includes("晚餐在旅館"));
   assert.equal(day4.places.length, 1);
   assert.equal(day4.places[0].name, "佐藤酒造 久住千羽鶴");
+  assert.equal(day4.places[0].mark, "requested");
+  assert.equal(day4.places[0].hours, "申請 9/2 約 10:00・4人・ライ サナ");
 
   assert.equal(day5.nameZh, "Solaria福岡");
   assert.equal(day5.breakfast, "no");
   assert.equal(day5.dinner, "no");
   assert.ok(day5.extra.includes("15:00入天神"));
   assert.ok(day5.extra.includes("晚餐 建議自訂"));
+  assert.equal(day5.places[0].name, "REC 天神ワンビル");
+  assert.equal(day5.places[0].hours, "週四 8:00–15:30");
   assert.equal(day5.pay, "到店付 ¥156,868");
   assert.equal(SOLARIA_RETURN_BOOKING, "T032CA29B451B");
 
@@ -142,8 +148,17 @@ test("week rows keep hotel-plan meals, pay, and the two Solaria bookings", () =>
   assert.doesNotMatch(day6.pay, /¥/);
   assert.equal(day6.breakfast, "no");
   assert.equal(day6.dinner, "no");
-  assert.ok(day6.extra.includes("西川 已訂 14:00"));
+  assert.ok(day6.extra.includes("西川 已訂 14:00–15:00"));
   assert.ok(day6.extra.includes("晚餐 建議自訂"));
+  const nishikawa = day6.places.find((place) => place.name === "西川ネムリウム 福岡三越");
+  assert.equal(nishikawa?.mark, "booked");
+  assert.equal(nishikawa?.hours, "預約 14:00–15:00");
+  assert.equal(nishikawa?.hoursNote, "店 10:00–20:00開");
+  assert.equal(nishikawa?.note, "確認號 fJR20h7nd・Ms Sana Lai（ライ サナ）");
+  assert.equal(nishikawa?.address, "福岡市中央區天神2-1-1 福岡三越 B1");
+  assert.equal(nishikawa?.phone, "092-725-7615");
+  assert.notEqual(day5.booking, day1.booking);
+  assert.equal(day5.booking, day6.booking);
 
   assert.equal(day7.nameZh, "還沒訂");
   assert.equal(day7.breakfast, "no");
@@ -155,7 +170,10 @@ test("week rows keep hotel-plan meals, pay, and the two Solaria bookings", () =>
   assert.equal(day8.nameZh, "回程");
   assert.equal(day8.breakfast, null);
   assert.equal(day8.dinner, null);
-  assert.ok(day8.extra.includes("還車 19:00 ・ JX317 19:15"));
+  assert.ok(day8.extra.includes("還車 19:00 ・ JX317 19:15 → 20:45"));
+  assert.equal(familyTripReturn.flight.number, "JX317");
+  assert.equal(familyTripReturn.flight.time, "19:15 → 20:45");
+  assert.equal(familyTripReturn.flight.route, "KMJ → RMQ");
   assert.equal(day8.tone, "sky");
   assert.equal(FAMILY_TRIP_FOOTER, "沒有接駁車。9/5 還沒訂。");
 });
@@ -249,6 +267,14 @@ test("companion page is family-only, matches the mock chrome, and keeps dump/Lap
   assert.match(data, /已發申請/);
   assert.match(data, /fJR20h7nd/);
   assert.match(data, /092-725-7615/);
+  assert.match(data, /預約 14:00–15:00/);
+  assert.match(data, /西川 已訂 14:00–15:00/);
+  assert.match(data, /申請 9\/2 約 10:00・4人・ライ サナ/);
+  assert.match(data, /週四 8:00–15:30/);
+  assert.match(data, /19:15 → 20:45/);
+  assert.match(page, /hoursNote/);
+  assert.doesNotMatch(data, /10:00–20:00・14:00–15:00/);
+  assert.doesNotMatch(data, /一休|Ikyu|ikyu/i);
   assert.match(data, /0974-76-0004/);
   assert.match(family, />行程</);
   assert.match(family, /href="\/family\/trip"/);
