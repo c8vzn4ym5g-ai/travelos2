@@ -1,12 +1,54 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { SessionPhotoCarousel } from "@/components/session-photo-carousel";
 import { getCoffeeShopsByVisitDate, getCoffeeStats } from "@/lib/coffee";
 import { readCoffeeContent } from "@/lib/coffee-store";
 import { readContent } from "@/lib/editable-store";
 import { isTripPublic } from "@/lib/trip-visibility";
+import { LAPLAND_COVER_PHOTO, LAPLAND_JOURNAL_PATH, LAPLAND_TRIP_SLUG } from "@/lib/travelpayouts";
 import type { CoffeePhoto, CoffeeShop, CoffeeShopListItem, Photo, TripDetail } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+const FEATURED_JOURNAL_KICKER = "現在公開 / Now public";
+const FEATURED_JOURNAL_TITLE = "北極圈上的十二月 / December on the Arctic Circle";
+const FEATURED_JOURNAL_DEK_ZH = "廣場上有一條線。走過去，就是北極圈。十二月。深冬。白晝只剩兩三小時。";
+const FEATURED_JOURNAL_DEK_EN =
+  "A line in the square you can walk across. December. Midwinter. Two or three hours of daylight.";
+const FEATURED_JOURNAL_DEK = `${FEATURED_JOURNAL_DEK_ZH}\n${FEATURED_JOURNAL_DEK_EN}`;
+const FEATURED_JOURNAL_CTA = "打開遊記 / Open the journal";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { content } = await readContent();
+  const publicTrips = content.trips.filter(isTripPublic);
+
+  if (publicTrips.length !== 1 || publicTrips[0].slug !== LAPLAND_TRIP_SLUG) {
+    return {};
+  }
+
+  const featured = publicTrips[0];
+  const coverPhoto =
+    featured.photos.find((photo) => photo.storageKey.includes("cover_IMG_3619") && isRenderablePhoto(photo)) ??
+    featured.photos.find((photo) => photo.id === featured.coverPhotoId && isRenderablePhoto(photo)) ??
+    featured.photos.find(isRenderablePhoto);
+
+  return {
+    description: FEATURED_JOURNAL_DEK,
+    openGraph: {
+      description: FEATURED_JOURNAL_DEK,
+      images: [
+        {
+          alt: coverPhoto?.caption ?? FEATURED_JOURNAL_TITLE,
+          url: coverPhoto?.storageKey ?? LAPLAND_COVER_PHOTO,
+        },
+      ],
+      title: FEATURED_JOURNAL_TITLE,
+      type: "website",
+      url: "/",
+    },
+    title: FEATURED_JOURNAL_TITLE,
+  };
+}
 
 const travelStats = [
   { label: "Countries", value: "18" },
@@ -236,16 +278,30 @@ export default async function Home() {
           <nav className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="travel-label text-sm font-medium uppercase tracking-[0.18em] text-amber-700">TravelOS</p>
-              <h1 className="travel-display mt-2 max-w-4xl text-4xl font-semibold tracking-normal text-zinc-950 sm:text-6xl">
-                Your travel and coffee memory system.
-              </h1>
-              <p className="travel-script mt-3 text-2xl leading-8 text-rose-700 sm:text-3xl">
-                collected slowly, remembered beautifully
-              </p>
-              <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-600">
-                Two separate workspaces on one first page: Travel Journal for trips, Coffee Map for cafes, taste notes,
-                photos, and the life moments that happen between destinations.
-              </p>
+              <Link
+                className="mt-4 grid max-w-4xl overflow-hidden rounded-xl border border-amber-100 bg-white/90 shadow-sm transition hover:border-amber-200 hover:bg-white sm:grid-cols-[minmax(10rem,16rem)_1fr]"
+                href={LAPLAND_JOURNAL_PATH}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  alt="北極圈紅柱與聖誕老人村尖頂。 / Arctic Circle pillars and Santa Claus Office."
+                  className="h-44 w-full object-cover sm:h-full"
+                  src={LAPLAND_COVER_PHOTO}
+                />
+                <div className="flex flex-col p-5 sm:p-6">
+                  <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">
+                    {FEATURED_JOURNAL_KICKER}
+                  </p>
+                  <h1 className="travel-display mt-2 text-3xl font-semibold tracking-normal text-zinc-950 sm:text-5xl">
+                    {FEATURED_JOURNAL_TITLE}
+                  </h1>
+                  <p className="mt-3 text-sm leading-6 text-zinc-600">{FEATURED_JOURNAL_DEK_ZH}</p>
+                  <p className="mt-1 text-sm leading-6 text-zinc-600">{FEATURED_JOURNAL_DEK_EN}</p>
+                  <span className="travel-label mt-5 inline-flex min-h-11 w-fit items-center rounded-full border border-emerald-300 bg-emerald-700 px-4 py-2 text-sm font-semibold text-white">
+                    {FEATURED_JOURNAL_CTA}
+                  </span>
+                </div>
+              </Link>
             </div>
             <div className="flex flex-wrap gap-2">
               <Link className="travel-label inline-flex min-h-11 items-center rounded-full border border-emerald-300 bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800" href="/family">
