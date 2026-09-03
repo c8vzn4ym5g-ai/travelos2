@@ -8,14 +8,18 @@ import {
   CAPTURE_UPLOAD_FAILED_MESSAGE,
   CAPTURE_VIDEO_CHUNK_BYTES,
   CAPTURE_VIDEO_MAX_BYTES,
+  CAPTURE_VIDEO_SINGLE_PUT_MAX_BYTES,
   assertCaptureFileFits,
+  captureVideoPutChunkBytes,
   captureVideoTooLargeMessage,
   ingestCaptureFileList,
   uploadDisplayPhoto,
 } from "../lib/capture-upload.ts";
 import {
   DRIVE_UPLOAD_CHUNK_BYTES,
+  DRIVE_UPLOAD_SINGLE_PUT_MAX_BYTES,
   DRIVE_WAREHOUSE_FOLDER_ID,
+  driveUploadPutChunkBytes,
   initDriveResumableUpload,
   putDriveResumableChunk,
   putVideoBinary,
@@ -54,8 +58,18 @@ function videoFileWithSize(bytes: number, name = "IMG_1504.MOV") {
   return file;
 }
 
+const IMG_1504_BYTES = 45_901_603;
+const NINETY_MB = 90_000_000;
+
+function expectedPutCount(fileSize: number) {
+  if (fileSize <= CAPTURE_VIDEO_SINGLE_PUT_MAX_BYTES) {
+    return 1;
+  }
+  return Math.ceil(fileSize / CAPTURE_VIDEO_CHUNK_BYTES);
+}
+
 function threeChunkMovieBytes() {
-  const chunk = DRIVE_UPLOAD_CHUNK_BYTES;
+  const chunk = 256 * 1024;
   const last = 100;
   const bytes = new Uint8Array(chunk * 2 + last);
   bytes.fill(7, 0, chunk);
@@ -140,10 +154,41 @@ test("15s-class dummy IMG_1504.MOV at 60MB and 80MB is not rejected", () => {
   assert.doesNotThrow(() => assertCaptureFileFits(videoFileWithSize(80_000_000, "IMG_1504.MOV")));
 });
 
-test("video upload client does not send one multipart FormData of the whole .mov to /api/moments/photos", async () => {
-  const { bytes } = threeChunkMovieBytes();
-  const file = new File([bytes], "IMG_1504.MOV", { type: "video/quicktime" });
-  const calls: Array<{ form: boolean; method: string; url: string; byteLength: number }> = [];
+test("46MB-class dummy uses 1 PUT not 175; 8MiB boundary; 90MB uses 8MiB chunks", () => {
+  assert.equal(CAPTURE_VIDEO_CHUNK_BYTES, 8 * 1024 * 1024);
+  assert.equal(CAPTURE_VIDEO_CHUNK_BYTES, 8_388_608);
+  assert.equal(CAPTURE_VIDEO_CHUNK_BYTES % (256 * 1024), 0);
+  assert.equal(DRIVE_UPLOAD_CHUNK_BYTES, CAPTURE_VIDEO_CHUNK_BYTES);
+  assert.equal(CAPTURE_VIDEO_SINGLE_PUT_MAX_BYTES, 80_000_000);
+  assert.equal(DRIVE_UPLOAD_SINGLE_PUT_MAX_BYTES, 80_000_000);
+
+  assert.equal(captureVideoPutChunkBytes(1), 1);
+  assert.equal(captureVideoPutChunkBytes(CAPTURE_VIDEO_CHUNK_BYTES), CAPTURE_VIDEO_CHUNK_BYTES);
+  assert.equal(captureVideoPutChunkBytes(CAPTURE_VIDEO_CHUNK_BYTES + 1), CAPTURE_VIDEO_CHUNK_BYTES + 1);
+  assert.equal(captureVideoPutChunkBytes(IMG_1504_BYTES), IMG_1504_BYTES);
+  assert.equal(captureVideoPutChunkBytes(80_000_000), 80_000_000);
+  assert.equal(captureVideoPutChunkBytes(80_000_001), CAPTURE_VIDEO_CHUNK_BYTES);
+  assert.equal(captureVideoPutChunkBytes(NINETY_MB), CAPTURE_VIDEO_CHUNK_BYTES);
+  assert.equal(driveUploadPutChunkBytes(IMG_1504_BYTES), IMG_1504_BYTES);
+  assert.equal(driveUploadPutChunkBytes(NINETY_MB), DRIVE_UPLOAD_CHUNK_BYTES);
+
+  assert.equal(expectedPutCount(IMG_1504_BYTES), 1);
+  assert.notEqual(expectedPutCount(IMG_1504_BYTES), 175);
+  assert.equal(expectedPutCount(CAPTURE_VIDEO_CHUNK_BYTES), 1);
+  assert.equal(expectedPutCount(80_000_000), 1);
+  assert.equal(expectedPutCount(NINETY_MB), Math.ceil(NINETY_MB / CAPTURE_VIDEO_CHUNK_BYTES));
+  assert.ok(expectedPutCount(NINETY_MB) > 1);
+  assert.ok(expectedPutCount(NINETY_MB) < 20);
+});
+
+async function uploadVideoAndCollectPuts(file: File) {
+  const calls: Array<{
+    byteLength: number;
+    contentRange: string | null;
+    form: boolean;
+    method: string;
+    url: string;
+  }> = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -153,7 +198,13 @@ test("video upload client does not send one multipart FormData of the whole .mov
     const byteLength = form
       ? ((body.get("file") as File | null)?.size ?? 0)
       : (await bodyBytes(body as BodyInit)).byteLength;
-    calls.push({ form, method, url, byteLength });
+    calls.push({
+      byteLength,
+      contentRange: headerValue(init?.headers, "content-range"),
+      form,
+      method,
+      url,
+    });
     if (form && url.includes("/api/moments/photos") && !url.includes("/video")) {
       throw new Error("video must not POST whole-file FormData to /api/moments/photos");
     }
@@ -179,28 +230,77 @@ test("video upload client does not send one multipart FormData of the whole .mov
       pin: "test-capture-pin",
       takenAt: "2026-09-03T01:10:00.000Z",
     });
-    assert.equal(uploaded.photo.id, "photo_mov");
-    assert.equal(
-      calls.some((call) => call.form && call.url.includes("/api/moments/photos") && !call.url.includes("/video")),
-      false,
-    );
-    assert.equal(
-      calls.some((call) => call.url.includes("/api/moments/photos/video") && call.method === "POST"),
-      true,
-    );
-    const puts = calls.filter((call) => call.method === "PUT");
-    assert.equal(puts.length, 3);
-    assert.equal(
-      puts.every((call) => call.byteLength <= CAPTURE_VIDEO_CHUNK_BYTES),
-      true,
-    );
+    return { calls, uploaded };
   } finally {
     globalThis.fetch = originalFetch;
   }
+}
+
+test("video upload client does not send one multipart FormData of the whole .mov to /api/moments/photos", async () => {
+  const { bytes } = threeChunkMovieBytes();
+  const file = new File([bytes], "IMG_1504.MOV", { type: "video/quicktime" });
+  const { calls, uploaded } = await uploadVideoAndCollectPuts(file);
+  assert.equal(uploaded.photo.id, "photo_mov");
+  assert.equal(
+    calls.some((call) => call.form && call.url.includes("/api/moments/photos") && !call.url.includes("/video")),
+    false,
+  );
+  assert.equal(
+    calls.some((call) => call.url.includes("/api/moments/photos/video") && call.method === "POST"),
+    true,
+  );
+  const puts = calls.filter((call) => call.method === "PUT");
+  assert.equal(puts.length, 1);
+  assert.equal(puts[0]?.contentRange, `bytes 0-${file.size - 1}/${file.size}`);
 });
 
-test("init + two 256KiB chunks + last chunk never json-base64 and never putBinary", async () => {
-  assert.equal(DRIVE_UPLOAD_CHUNK_BYTES, 256 * 1024);
+test("46MB IMG_1504-class dummy is one raw PUT after init, not 175 hops", async () => {
+  const file = videoFileWithSize(IMG_1504_BYTES);
+  const { calls, uploaded } = await uploadVideoAndCollectPuts(file);
+  assert.equal(uploaded.photo.id, "photo_mov");
+  const puts = calls.filter((call) => call.method === "PUT");
+  assert.equal(puts.length, 1);
+  assert.notEqual(puts.length, 175);
+  assert.equal(puts[0]?.contentRange, `bytes 0-${IMG_1504_BYTES - 1}/${IMG_1504_BYTES}`);
+  assert.equal(
+    calls.some((call) => call.form && call.url.includes("/api/moments/photos") && !call.url.includes("/video")),
+    false,
+  );
+});
+
+test("8MiB boundary is one whole-file PUT; 90MB dummy uses 8MiB chunks", async () => {
+  const eight = videoFileWithSize(CAPTURE_VIDEO_CHUNK_BYTES, "eight.MOV");
+  const eightUploaded = await uploadVideoAndCollectPuts(eight);
+  const eightPuts = eightUploaded.calls.filter((call) => call.method === "PUT");
+  assert.equal(eightPuts.length, 1);
+  assert.equal(eightPuts[0]?.contentRange, `bytes 0-${CAPTURE_VIDEO_CHUNK_BYTES - 1}/${CAPTURE_VIDEO_CHUNK_BYTES}`);
+
+  const ninety = videoFileWithSize(NINETY_MB, "ninety.MOV");
+  const ninetyUploaded = await uploadVideoAndCollectPuts(ninety);
+  const ninetyPuts = ninetyUploaded.calls.filter((call) => call.method === "PUT");
+  const expected = expectedPutCount(NINETY_MB);
+  assert.equal(ninetyPuts.length, expected);
+  assert.ok(ninetyPuts.length > 1);
+  const lastIndex = ninetyPuts.length - 1;
+  for (const [index, put] of ninetyPuts.entries()) {
+    const match = put.contentRange?.match(/^bytes (\d+)-(\d+)\/(\d+)$/);
+    assert.ok(match);
+    const start = Number(match[1]);
+    const end = Number(match[2]);
+    const total = Number(match[3]);
+    assert.equal(total, NINETY_MB);
+    assert.equal(start, index * CAPTURE_VIDEO_CHUNK_BYTES);
+    if (index < lastIndex) {
+      assert.equal(end - start + 1, CAPTURE_VIDEO_CHUNK_BYTES);
+    } else {
+      assert.equal(end, NINETY_MB - 1);
+      assert.ok(end - start + 1 <= CAPTURE_VIDEO_CHUNK_BYTES);
+    }
+  }
+});
+
+test("init + raw Drive hops never json-base64 and never putBinary", async () => {
+  assert.equal(DRIVE_UPLOAD_CHUNK_BYTES, 8 * 1024 * 1024);
   assert.equal(CAPTURE_VIDEO_CHUNK_BYTES, DRIVE_UPLOAD_CHUNK_BYTES);
   const { bytes, chunk, last, total } = threeChunkMovieBytes();
   const calls: Array<{ bodyKind: string; byteLength: number; contentRange: string | null; method: string; url: string }> =
@@ -234,9 +334,8 @@ test("init + two 256KiB chunks + last chunk never json-base64 and never putBinar
     if (method === "PUT" && url.includes("upload_id=mov15s")) {
       const range = headerValue(init?.headers as HeadersInit, "Content-Range") ?? "";
       assert.match(range, /^bytes \d+-\d+\/\d+$/);
-      assert.ok(chunkBytes.byteLength <= chunk);
-      if (range === `bytes ${chunk * 2}-${total - 1}/${total}`) {
-        assert.equal(chunkBytes.byteLength, last);
+      assert.ok(chunkBytes.byteLength <= DRIVE_UPLOAD_SINGLE_PUT_MAX_BYTES);
+      if (range.endsWith(`/${total}`) && range.includes(`${total - 1}/`)) {
         return jsonResponse({ id: "file_mov_15s", name: "IMG_1504.MOV" });
       }
       return new Response(null, { status: 308, headers: { range: `bytes=0-${range.split("-")[1]?.split("/")[0]}` } });
@@ -289,9 +388,11 @@ test("init + two 256KiB chunks + last chunk never json-base64 and never putBinar
   assert.equal(stored.id, "file_mov_15s");
 
   const puts = calls.filter((call) => call.method === "PUT");
-  assert.ok(puts.length >= 3);
+  assert.ok(puts.length >= 4);
+  const wholeFilePuts = puts.filter((call) => call.contentRange === `bytes 0-${total - 1}/${total}`);
+  assert.equal(wholeFilePuts.length >= 1, true);
   assert.equal(
-    puts.every((call) => call.byteLength <= chunk && call.bodyKind === "bytes"),
+    puts.every((call) => call.bodyKind === "bytes"),
     true,
   );
   assert.equal(
@@ -320,9 +421,9 @@ test("init + two 256KiB chunks + last chunk never json-base64 and never putBinar
   setDriveWarehouseFetchForTests(null);
 });
 
-test("Worker video route init + chunks stay tiny raw bodies and return a Drive file id", async () => {
+test("Worker video route accepts one whole-file PUT and 8MiB hops, returns a Drive file id", async () => {
   const { POST, PUT } = await import("../app/api/moments/photos/video/route.ts");
-  const { bytes, chunk, last, total } = threeChunkMovieBytes();
+  const { bytes, total } = threeChunkMovieBytes();
   const drivePuts: number[] = [];
   const fakeFetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
     const url = String(input);
@@ -347,10 +448,10 @@ test("Worker video route init + chunks stay tiny raw bodies and return a Drive f
     if (method === "PUT" && url.includes("upload_id=route15s")) {
       const chunkBytes = await bodyBytes(init?.body as BodyInit);
       drivePuts.push(chunkBytes.byteLength);
-      assert.ok(chunkBytes.byteLength <= chunk);
+      assert.ok(chunkBytes.byteLength <= DRIVE_UPLOAD_SINGLE_PUT_MAX_BYTES);
       const range = headerValue(init?.headers as HeadersInit, "Content-Range") ?? "";
       if (range.endsWith(`/${total}`) && range.includes(`${total - 1}/`)) {
-        assert.equal(chunkBytes.byteLength, last);
+        assert.equal(chunkBytes.byteLength, total);
         return jsonResponse({ id: "file_route_15s", name: "IMG_1504.MOV" });
       }
       return new Response(null, { status: 308 });
@@ -380,31 +481,55 @@ test("Worker video route init + chunks stay tiny raw bodies and return a Drive f
     assert.equal(initPayload.photo, undefined);
     assert.doesNotMatch(JSON.stringify(initPayload), /ya29/);
 
-    async function putChunk(start: number, end: number, payload: Uint8Array) {
-      return PUT(
-        new Request("https://travelos2.test/api/moments/photos/video", {
-          body: new Blob([payload]),
-          headers: {
-            "content-range": `bytes ${start}-${end}/${total}`,
-            "content-type": "application/octet-stream",
-            "x-travelos-admin-pin": "test-capture-pin",
-            "x-travelos-video-session": initPayload.session ?? "",
-          },
-          method: "PUT",
-        }),
-      );
-    }
-
-    const first = await putChunk(0, chunk - 1, bytes.subarray(0, chunk));
-    assert.equal(first.ok, true);
-    const second = await putChunk(chunk, chunk * 2 - 1, bytes.subarray(chunk, chunk * 2));
-    assert.equal(second.ok, true);
-    const done = await putChunk(chunk * 2, total - 1, bytes.subarray(chunk * 2));
+    const done = await PUT(
+      new Request("https://travelos2.test/api/moments/photos/video", {
+        body: new Blob([bytes]),
+        headers: {
+          "content-range": `bytes 0-${total - 1}/${total}`,
+          "content-type": "application/octet-stream",
+          "x-travelos-admin-pin": "test-capture-pin",
+          "x-travelos-video-session": initPayload.session ?? "",
+        },
+        method: "PUT",
+      }),
+    );
     assert.equal(done.ok, true);
     const payload = (await done.json()) as { photo?: { id?: string; kind?: string; storageKey?: string } };
     assert.equal(payload.photo?.kind, "video");
     assert.equal(payload.photo?.storageKey, "drive:file_route_15s");
-    assert.deepEqual(drivePuts, [chunk, chunk, last]);
+    assert.deepEqual(drivePuts, [total]);
+
+    const bigInit = await POST(
+      new Request("https://travelos2.test/api/moments/photos/video", {
+        body: JSON.stringify({
+          filename: "IMG_1504.MOV",
+          mimeType: "video/quicktime",
+          momentId: "moment_route_90",
+          size: NINETY_MB,
+          takenAt: "2026-09-03T01:10:00.000Z",
+        }),
+        headers: { "content-type": "application/json", "x-travelos-admin-pin": "test-capture-pin" },
+        method: "POST",
+      }),
+    );
+    assert.equal(bigInit.ok, true);
+    const bigSession = ((await bigInit.json()) as { session?: string }).session ?? "";
+    const eight = new Uint8Array(DRIVE_UPLOAD_CHUNK_BYTES);
+    eight.fill(3);
+    const hop = await PUT(
+      new Request("https://travelos2.test/api/moments/photos/video", {
+        body: new Blob([eight]),
+        headers: {
+          "content-range": `bytes 0-${DRIVE_UPLOAD_CHUNK_BYTES - 1}/${NINETY_MB}`,
+          "content-type": "application/octet-stream",
+          "x-travelos-admin-pin": "test-capture-pin",
+          "x-travelos-video-session": bigSession,
+        },
+        method: "PUT",
+      }),
+    );
+    assert.equal(hop.ok, true);
+    assert.equal((await hop.json() as { ok?: boolean }).ok, true);
     await new Promise((resolve) => setTimeout(resolve, 30));
   } finally {
     setDriveWarehouseFetchForTests(null);
@@ -519,8 +644,10 @@ test("Capture card fallback and album accept stay family Chinese / one door", as
   assert.match(videoUpload, /\/api\/moments\/photos\/video/);
   assert.doesNotMatch(videoUpload, /new FormData/);
   assert.doesNotMatch(videoUpload, /formData\.set\("file"/);
+  assert.match(videoUpload, /captureVideoPutChunkBytes/);
   assert.match(videoUpload, /file\.slice\(|source\.slice\(/);
   assert.match(videoUpload, /content-range/i);
+  assert.match(videoRoute, /VIDEO_CHUNK_MAX_BYTES = DRIVE_UPLOAD_SINGLE_PUT_MAX_BYTES/);
 
   assert.match(photosApi, /await request\.formData\(\)/);
   assert.doesNotMatch(videoRoute, /request\.formData\(/);

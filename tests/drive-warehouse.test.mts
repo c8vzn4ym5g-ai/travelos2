@@ -591,7 +591,9 @@ test("Drive adapter is server-only and Capture still dumps photos in parallel", 
   assert.match(drive, /export async function putVideoBinary/);
   assert.match(drive, /export async function initDriveResumableUpload/);
   assert.match(drive, /export async function putDriveResumableChunk/);
-  assert.match(drive, /DRIVE_UPLOAD_CHUNK_BYTES = 256 \* 1024/);
+  assert.match(drive, /DRIVE_UPLOAD_CHUNK_BYTES = 8 \* 1024 \* 1024/);
+  assert.match(drive, /DRIVE_UPLOAD_SINGLE_PUT_MAX_BYTES = 80_000_000/);
+  assert.match(drive, /driveUploadPutChunkBytes/);
   assert.match(drive, /export async function getDriveAccess/);
   assert.match(drive, /export async function getDriveMedia/);
   assert.match(drive, /uploadType=resumable/);

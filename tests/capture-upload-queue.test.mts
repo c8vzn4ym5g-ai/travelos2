@@ -1049,7 +1049,8 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
   );
 
   assert.match(upload, /CAPTURE_DUMP_LIMIT = 40/);
-  assert.match(upload, /CAPTURE_VIDEO_CHUNK_BYTES = 256 \* 1024/);
+  assert.match(upload, /CAPTURE_VIDEO_CHUNK_BYTES = 8 \* 1024 \* 1024/);
+  assert.match(upload, /CAPTURE_VIDEO_SINGLE_PUT_MAX_BYTES = 80_000_000/);
   assert.match(upload, /ingestCaptureFileList/);
   assert.match(upload, /copyCaptureFile/);
   assert.match(upload, /captureDumpCapMessage/);

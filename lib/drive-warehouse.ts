@@ -28,7 +28,15 @@ export const TRAVELOS_DRIVE_WAREHOUSE_TOKEN = DEFAULT_DRIVE_WAREHOUSE_TOKEN;
 export const DRIVE_STORAGE_PREFIX = "drive:";
 export const DRIVE_INDEX_NAME = "moments.json";
 export const DRIVE_WAREHOUSE_FOLDER_ID = "1Sk2TqgpF6NxoNYdUKO4h8t84UA7KxChN";
-export const DRIVE_UPLOAD_CHUNK_BYTES = 256 * 1024;
+export const DRIVE_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
+export const DRIVE_UPLOAD_SINGLE_PUT_MAX_BYTES = 80_000_000;
+
+export function driveUploadPutChunkBytes(fileSize: number) {
+  if (fileSize <= DRIVE_UPLOAD_SINGLE_PUT_MAX_BYTES) {
+    return fileSize;
+  }
+  return DRIVE_UPLOAD_CHUNK_BYTES;
+}
 export const APPS_SCRIPT_PUTBINARY_MAX_BYTES = 4_500_000;
 const DRIVE_RESUMABLE_INIT_URL = "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable";
 const DRIVE_FILE_MEDIA_URL = "https://www.googleapis.com/drive/v3/files";
@@ -501,7 +509,7 @@ async function putDriveResumable(
     { mimeType: input.mimeType, name: input.name, size: total },
     requestImpl,
   );
-  const chunkSize = DRIVE_UPLOAD_CHUNK_BYTES;
+  const chunkSize = driveUploadPutChunkBytes(total);
   for (let start = 0; start < total; start += chunkSize) {
     const end = Math.min(start + chunkSize, total);
     const result = await putDriveResumableChunk(
