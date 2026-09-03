@@ -197,7 +197,7 @@ test("putVideoBinary sends raw bytes on Drive resumable, not Apps Script JSON+ba
     const method = (init?.method ?? "GET").toUpperCase();
     const body = init?.body;
     const bodyKind =
-      body instanceof Uint8Array
+      Buffer.isBuffer(body) || body instanceof Uint8Array || body instanceof Blob
         ? "bytes"
         : typeof body === "string" && body.includes("base64")
           ? "json-base64"
@@ -220,8 +220,15 @@ test("putVideoBinary sends raw bytes on Drive resumable, not Apps Script JSON+ba
       });
     }
     if (method === "PUT" && url.includes("upload_id=mov15s")) {
-      assert.ok(body instanceof Uint8Array);
-      assert.deepEqual([...body], [...movie]);
+      let bytes: Uint8Array;
+      if (Buffer.isBuffer(body) || body instanceof Uint8Array) {
+        bytes = new Uint8Array(body);
+      } else if (body instanceof Blob) {
+        bytes = new Uint8Array(await body.arrayBuffer());
+      } else {
+        throw new Error("Drive resumable PUT must send raw bytes, not JSON");
+      }
+      assert.deepEqual([...bytes], [...movie]);
       return jsonResponse({ id: "file_mov_15s", name: "IMG_1504.MOV" });
     }
     throw new Error(`unexpected fetch ${method} ${url}`);

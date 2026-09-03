@@ -356,10 +356,11 @@ async function putDriveResumable(
     throw new DriveWarehouseError("Drive resumable init did not return a location");
   }
 
+  const payload = Buffer.from(input.bytes);
   const uploaded = await request(location, {
-    body: input.bytes,
+    body: payload,
     headers: {
-      "Content-Length": String(input.bytes.byteLength),
+      "Content-Length": String(payload.byteLength),
       "Content-Type": input.mimeType,
     },
     method: "PUT",
