@@ -197,6 +197,14 @@ function doGet(e) {
     return json_({ error: "unauthorized" });
   }
   var op = (e.parameter && e.parameter.op) || "";
+  if (op === "drive-access") {
+    // Worker mints a short-lived Drive token so 15s iPhone videos can
+    // resumable-PUT as binary. Bytes never ride JSON+base64 through this script.
+    return json_({
+      folderId: FOLDER_ID,
+      token: ScriptApp.getOAuthToken(),
+    });
+  }
   if (op === "index") {
     return json_(readIndexObject_());
   }

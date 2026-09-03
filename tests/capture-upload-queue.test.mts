@@ -5,7 +5,9 @@ import test from "node:test";
 import {
   CAPTURE_DUMP_LIMIT,
   CAPTURE_UPLOAD_CONCURRENCY,
+  CAPTURE_UPLOAD_FAILED_MESSAGE,
   CAPTURE_VIDEO_MAX_BYTES,
+  assertCaptureFileFits,
   captureBatchMessage,
   captureDumpCapMessage,
   captureDumpProgressMessage,
@@ -52,6 +54,12 @@ function fakeFileList(files: File[]): FileList {
     list[index] = file;
   });
   return list as unknown as FileList;
+}
+
+function videoFileWithSize(bytes: number, name = "IMG_1504.MOV") {
+  const file = new File([new Uint8Array([0, 0, 1, 2])], name, { type: "video/quicktime" });
+  Object.defineProperty(file, "size", { configurable: true, value: bytes });
+  return file;
 }
 
 function albumFiles(count: number, type = "image/heic") {
@@ -1177,13 +1185,46 @@ test("a mixed 40-file dump still starts 40 POSTs in parallel", async () => {
   }
 });
 
-test("a huge video fails that item and does not stall the rest of the dump", async () => {
-  const huge = new File([new Uint8Array(CAPTURE_VIDEO_MAX_BYTES + 1).fill(7)], "FUKUOKA.MOV", {
-    type: "video/quicktime",
-  });
+test("a 15s-class iPhone video is not rejected by the client size gate", async () => {
+  assert.equal(CAPTURE_VIDEO_MAX_BYTES, 100_000_000);
+  assert.equal(captureVideoTooLargeMessage(), CAPTURE_UPLOAD_FAILED_MESSAGE);
+  assert.doesNotMatch(captureVideoTooLargeMessage(), /換一段短一點的/);
+  assert.doesNotMatch(captureVideoTooLargeMessage(), /短一點/);
+
+  const fifteenSeconds = videoFileWithSize(60_000_000, "IMG_1504.MOV");
+  const alsoFine = videoFileWithSize(80_000_000, "clip.mp4");
+  assert.equal(fifteenSeconds.size, 60_000_000);
+  assert.doesNotThrow(() => assertCaptureFileFits(fifteenSeconds));
+  assert.doesNotThrow(() => assertCaptureFileFits(alsoFine));
+
+  const posted: string[] = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const file = (init?.body as FormData).get("file");
+    assert.ok(file instanceof File);
+    posted.push(file.name);
+    return Response.json({ photo: { id: "photo_mov", momentId: "moment_video", kind: "video" } });
+  }) as typeof fetch;
+
+  try {
+    const uploaded = await uploadDisplayPhoto({
+      coordinates: null,
+      file: fifteenSeconds,
+      momentId: "moment_video",
+      pin: "test-capture-pin",
+      takenAt: "2026-09-03T01:10:00.000Z",
+    });
+    assert.equal(uploaded.photo.id, "photo_mov");
+    assert.deepEqual(posted, ["IMG_1504.MOV"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a video over the Worker ceiling fails that item and does not stall the rest of the dump", async () => {
+  const huge = videoFileWithSize(CAPTURE_VIDEO_MAX_BYTES + 1, "FUKUOKA.MOV");
   const jpeg = new File([new Uint8Array([1, 2, 3, 4])], "IMG_3104.jpg", { type: "image/jpeg" });
   assert.ok(huge.size > CAPTURE_VIDEO_MAX_BYTES);
-  assert.match(captureVideoTooLargeMessage(), /這段影片太大了/);
 
   const posted: string[] = [];
   const originalFetch = globalThis.fetch;
@@ -1209,7 +1250,12 @@ test("a huge video fails that item and does not stall the rest of the dump", asy
       pin: "test-capture-pin",
       takenAt: "2026-09-03T01:10:01.000Z",
     });
-    await assert.rejects(failed, /這段影片太大了/);
+    await assert.rejects(failed, /上傳失敗/);
+    await assert.rejects(failed, (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.doesNotMatch(error.message, /換一段短一點的/);
+      return true;
+    });
     const uploaded = await ok;
     assert.equal(uploaded.photo.id, "photo_ok");
     assert.deepEqual(posted, ["IMG_3104.jpg"]);

@@ -1,5 +1,25 @@
 # TravelOS Codex Tasks
 
+## TASK-036: Capture 15s iPhone video dump
+
+Status: done
+
+Goal: Owner dumped a 15s iPhone `IMG_1504.MOV` on Capture and was told
+「這段影片太大了，換一段短一點的就好。」15s is a normal album dump.
+Keep the 40-file mixed dump, one Capture door, no classify, no queue of
+3. Family errors in Chinese. Live is Cloudflare Worker travelos2.
+
+Result:
+
+- Client video ceiling is the Worker/Drive 100MB body, not 28MB.
+  `assertCaptureFileFits` accepts a 40–80MB dummy .mov. The short-clip
+  lecture is gone.
+- Videos leave the Worker as raw bytes via Drive resumable
+  (`putVideoBinary` + Apps Script `op=drive-access`). Photos stay on
+  the JPEG JSON+base64 dump line.
+- Capture card fallback is `上傳失敗。`, not English
+  "Photo upload failed."
+
 ## TASK-035: Family Kyushu talk translator
 
 Status: done

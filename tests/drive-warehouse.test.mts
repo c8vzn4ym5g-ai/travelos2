@@ -3,11 +3,14 @@ import { readdir, readFile } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
 import test from "node:test";
 import {
+  DRIVE_WAREHOUSE_FOLDER_ID,
   TRAVELOS_DRIVE_WAREHOUSE_TOKEN,
   TRAVELOS_DRIVE_WAREHOUSE_URL,
   driveObjectName,
   driveStorageKey,
   getBinary,
+  getDriveAccess,
+  getDriveMedia,
   getDriveWarehouseToken,
   getDriveWarehouseUrl,
   getIndex,
@@ -15,6 +18,7 @@ import {
   putBinary,
   putIndex,
   putItem,
+  putVideoBinary,
   scanWarehouseFiles,
   setDriveWarehouseFetchForTests,
 } from "../lib/drive-warehouse.ts";
@@ -185,6 +189,107 @@ test("getBinary runs at most two Drive file GETs at a time", async () => {
   }
 });
 
+test("putVideoBinary sends raw bytes on Drive resumable, not Apps Script JSON+base64", async () => {
+  const movie = new Uint8Array(64).fill(9);
+  const calls: Array<{ bodyKind: string; method: string; url: string }> = [];
+  const fakeFetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+    const url = String(input);
+    const method = (init?.method ?? "GET").toUpperCase();
+    const body = init?.body;
+    const bodyKind =
+      body instanceof Uint8Array
+        ? "bytes"
+        : typeof body === "string" && body.includes("base64")
+          ? "json-base64"
+          : typeof body === "string"
+            ? "json"
+            : body == null
+              ? "empty"
+              : "other";
+    calls.push({ bodyKind, method, url });
+
+    if (method === "GET" && url.includes("op=drive-access")) {
+      return jsonResponse({ folderId: DRIVE_WAREHOUSE_FOLDER_ID, token: "ya29.fake-drive-token" });
+    }
+    if (method === "POST" && url.includes("uploadType=resumable")) {
+      assert.equal((init?.headers as Record<string, string>)?.Authorization, "Bearer ya29.fake-drive-token");
+      assert.doesNotMatch(typeof body === "string" ? body : "", /base64/);
+      return new Response(null, {
+        headers: { location: "https://www.googleapis.com/upload/drive/v3/files?upload_id=mov15s" },
+        status: 200,
+      });
+    }
+    if (method === "PUT" && url.includes("upload_id=mov15s")) {
+      assert.ok(body instanceof Uint8Array);
+      assert.deepEqual([...body], [...movie]);
+      return jsonResponse({ id: "file_mov_15s", name: "IMG_1504.MOV" });
+    }
+    throw new Error(`unexpected fetch ${method} ${url}`);
+  }) as typeof fetch;
+
+  const stored = await putVideoBinary(
+    { bytes: movie, mimeType: "video/quicktime", name: "IMG_1504.MOV" },
+    fakeFetch,
+  );
+  assert.equal(stored.id, "file_mov_15s");
+  assert.equal(
+    calls.some((call) => call.url.includes("script.google.com") && call.method === "GET"),
+    true,
+  );
+  assert.equal(
+    calls.some((call) => call.url.includes("uploadType=resumable") && call.method === "POST"),
+    true,
+  );
+  assert.equal(
+    calls.some((call) => call.bodyKind === "bytes" && call.method === "PUT"),
+    true,
+  );
+  assert.equal(
+    calls.some((call) => call.bodyKind === "json-base64"),
+    false,
+  );
+
+  const access = await getDriveAccess(fakeFetch);
+  assert.equal(access?.token, "ya29.fake-drive-token");
+  assert.equal(access?.folderId, DRIVE_WAREHOUSE_FOLDER_ID);
+
+  const mediaFetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+    const url = String(input);
+    if (url.includes("op=drive-access")) {
+      return jsonResponse({ folderId: DRIVE_WAREHOUSE_FOLDER_ID, token: "ya29.fake-drive-token" });
+    }
+    if (url.includes("alt=media")) {
+      assert.match(url, /file_mov_15s/);
+      return new Response(movie, { headers: { "content-type": "video/quicktime" } });
+    }
+    throw new Error(`unexpected media fetch ${url}`);
+  }) as typeof fetch;
+  const media = await getDriveMedia("file_mov_15s", mediaFetch);
+  assert.deepEqual([...(media?.bytes ?? [])], [...movie]);
+  assert.equal(media?.mimeType, "video/quicktime");
+});
+
+test("putVideoBinary falls back to JSON+base64 when Apps Script has no drive-access yet", async () => {
+  const bytes = new Uint8Array([1, 2, 3]);
+  const fakeFetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+    const url = String(input);
+    const method = (init?.method ?? "GET").toUpperCase();
+    if (method === "GET") {
+      return jsonResponse({ error: "missing id" });
+    }
+    const payload = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as {
+      base64?: string;
+      name?: string;
+    };
+    assert.ok(payload.base64);
+    assert.equal(payload.name, "tiny.MOV");
+    return jsonResponse({ id: "file_tiny_mov", name: payload.name });
+  }) as typeof fetch;
+
+  const stored = await putVideoBinary({ bytes, mimeType: "video/quicktime", name: "tiny.MOV" }, fakeFetch);
+  assert.equal(stored.id, "file_tiny_mov");
+});
+
 test("POST JSON to /exec survives a Google 302 by sending the body before following", async () => {
   let postedBody: string | null = null;
   const fakeFetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
@@ -324,6 +429,12 @@ test("Apps Script locks only index/item writes so photo binaries stay parallel",
   assert.equal((doPost.match(/withLock_\(/g) ?? []).length, 2);
   assert.match(doPost, /return createBinaryFile_\(body\)/);
   assert.doesNotMatch(doPost, /var body = JSON\.parse\(e\.postData\.contents\);\s*return withLock_/);
+
+  const doGet = extractNamedFunction(script, "doGet");
+  assert.match(doGet, /op === "drive-access"/);
+  assert.match(doGet, /ScriptApp\.getOAuthToken/);
+  assert.match(doGet, /folderId: FOLDER_ID/);
+  assert.ok(doGet.indexOf('op === "drive-access"') < doGet.indexOf('error: "missing id"'));
 
   const unlocked = stripWithLockCalls(doPost);
   assert.match(unlocked, /createBinaryFile_\(body\)/);
@@ -468,6 +579,10 @@ test("Drive adapter is server-only and Capture still dumps photos in parallel", 
   assert.match(drive, /export async function putIndex/);
   assert.match(drive, /export async function putItem/);
   assert.match(drive, /export async function putBinary/);
+  assert.match(drive, /export async function putVideoBinary/);
+  assert.match(drive, /export async function getDriveAccess/);
+  assert.match(drive, /export async function getDriveMedia/);
+  assert.match(drive, /uploadType=resumable/);
   assert.match(drive, /export async function getBinary/);
   assert.match(drive, /options.op/);
   assert.match(drive, /DRIVE_BINARY_CONCURRENCY = 2/);
@@ -479,11 +594,14 @@ test("Drive adapter is server-only and Capture still dumps photos in parallel", 
   assert.match(store, /putItem\(/);
   assert.match(store, /putIndex\(/);
   assert.match(store, /putBinary\(/);
+  assert.match(store, /putVideoBinary\(/);
+  assert.match(store, /isCaptureVideoFile/);
   assert.match(store, /resolveMomentPhoto/);
   assert.match(store, /driveStorageKey/);
   assert.doesNotMatch(store, /putWithStoreAccess/);
   assert.doesNotMatch(store, /isBlobConfigured\(\)/);
   assert.match(blob, /parseDriveFileId/);
+  assert.match(blob, /getDriveMedia/);
   assert.match(blob, /getBinary/);
   assert.match(blob, /readMomentThumbBytes/);
   assert.match(blob, /op: "thumb"/);

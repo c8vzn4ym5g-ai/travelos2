@@ -276,8 +276,14 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   assert.match(capture, /isCaptureVideoFile\(photo.file\)/);
   assert.match(capture, /<video muted playsInline/);
   assert.match(upload, /isCaptureDumpFile/);
-  assert.match(upload, /CAPTURE_VIDEO_MAX_BYTES = 28_000_000/);
+  assert.match(upload, /CAPTURE_VIDEO_MAX_BYTES = 100_000_000/);
   assert.match(upload, /assertCaptureFileFits/);
+  assert.match(upload, /CAPTURE_UPLOAD_FAILED_MESSAGE = "上傳失敗。"/);
+  assert.doesNotMatch(upload, /換一段短一點的/);
+  assert.doesNotMatch(capture, /換一段短一點的/);
+  assert.doesNotMatch(capture, /Photo upload failed/);
+  assert.doesNotMatch(upload, /Photo upload failed/);
+  assert.match(capture, /captureErrorMessage\(error, "上傳失敗。"\)/);
 });
 
 test("background upload starts on add and Save does not wait on originals", async () => {

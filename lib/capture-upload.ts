@@ -8,7 +8,13 @@ import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "./types.ts"
 export { createTinyPreviewUrl };
 export const CAPTURE_UPLOAD_CONCURRENCY = 3;
 export const CAPTURE_DUMP_LIMIT = 40;
-export const CAPTURE_VIDEO_MAX_BYTES = 28_000_000;
+// Cloudflare Workers accept ~100MB request bodies. Apps Script JSON+base64
+// cannot carry a typical 15s iPhone Camera Roll .mov (HEVC/4K often 40–80MB;
+// base64 inflates ~4/3 past the script ceiling). Videos leave the Worker as
+// raw bytes via Drive resumable (`putVideoBinary`). This number is that
+// Worker/Drive ceiling — not a lecture about clip length.
+export const CAPTURE_VIDEO_MAX_BYTES = 100_000_000;
+export const CAPTURE_UPLOAD_FAILED_MESSAGE = "上傳失敗。";
 
 export type CapturePhotoDraft = {
   errorMessage: null;
@@ -48,7 +54,7 @@ export function isCaptureDumpFile(file: File) {
 }
 
 export function captureVideoTooLargeMessage() {
-  return "這段影片太大了，換一段短一點的就好。其餘會繼續上傳。";
+  return CAPTURE_UPLOAD_FAILED_MESSAGE;
 }
 
 export function assertCaptureFileFits(file: File) {
@@ -430,7 +436,7 @@ export async function uploadDisplayPhoto(input: {
   const { momentId, response } = await sendWithMomentRetry(send, input.momentId, input.retryMoment);
 
   if (!response.ok) {
-    throw new Error(await readError(response, "Photo upload failed."));
+    throw new Error(await readError(response, CAPTURE_UPLOAD_FAILED_MESSAGE));
   }
 
   const payload = (await response.json()) as { photo: MomentPhoto };

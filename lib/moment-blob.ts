@@ -1,5 +1,5 @@
 import { BlobAccessError, BlobNotFoundError, get, head, list, put } from "@vercel/blob";
-import { getBinary, parseDriveFileId } from "@/lib/drive-warehouse";
+import { getBinary, getDriveMedia, parseDriveFileId } from "@/lib/drive-warehouse";
 import { isBlobConfigured } from "@/lib/editable-store";
 import { extractExifJpegThumbnail, isJpegBytes } from "@/lib/jpeg-exif-thumb";
 import type { MomentItemPut } from "@/lib/moment-item";
@@ -246,6 +246,14 @@ export async function readMomentBlobBytes(urlOrPathname: string): Promise<{
 
   const driveId = parseDriveFileId(urlOrPathname);
   if (driveId) {
+    try {
+      const media = await getDriveMedia(driveId);
+      if (media?.bytes.length) {
+        return { bytes: media.bytes, contentType: media.mimeType };
+      }
+    } catch {
+      // Drive alt=media needs op=drive-access; fall back to Apps Script JSON.
+    }
     try {
       const file = await getBinary(driveId);
       if (!file) {
