@@ -229,6 +229,8 @@ test("putVideoBinary sends raw bytes on Drive resumable, not Apps Script JSON+ba
         throw new Error("Drive resumable PUT must send raw bytes, not JSON");
       }
       assert.deepEqual([...bytes], [...movie]);
+      const range = (init?.headers as Record<string, string>)?.["Content-Range"];
+      assert.equal(range, `bytes 0-${movie.byteLength - 1}/${movie.byteLength}`);
       return jsonResponse({ id: "file_mov_15s", name: "IMG_1504.MOV" });
     }
     throw new Error(`unexpected fetch ${method} ${url}`);
@@ -587,9 +589,18 @@ test("Drive adapter is server-only and Capture still dumps photos in parallel", 
   assert.match(drive, /export async function putItem/);
   assert.match(drive, /export async function putBinary/);
   assert.match(drive, /export async function putVideoBinary/);
+  assert.match(drive, /export async function initDriveResumableUpload/);
+  assert.match(drive, /export async function putDriveResumableChunk/);
+  assert.match(drive, /DRIVE_UPLOAD_CHUNK_BYTES = 256 \* 1024/);
   assert.match(drive, /export async function getDriveAccess/);
   assert.match(drive, /export async function getDriveMedia/);
   assert.match(drive, /uploadType=resumable/);
+  assert.match(drive, /Content-Range/);
+  const resumablePut = drive.slice(
+    drive.indexOf("export async function putDriveResumableChunk"),
+    drive.indexOf("export async function putVideoBinary"),
+  );
+  assert.doesNotMatch(resumablePut, /Buffer\.from\(input\.bytes\)/);
   assert.match(drive, /export async function getBinary/);
   assert.match(drive, /options.op/);
   assert.match(drive, /DRIVE_BINARY_CONCURRENCY = 2/);

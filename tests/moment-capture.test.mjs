@@ -270,14 +270,17 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   const addBlock = capture.slice(addIndex, capture.indexOf("function onTakePhoto"));
   assert.ok(addIndex !== -1 && saveIndex !== -1);
   assert.ok(addIndex < saveIndex);
-  assert.doesNotMatch(addBlock, /URL\.createObjectURL/);
+  assert.match(addBlock, /URL\.createObjectURL\(file\)/);
   assert.match(addBlock, /ingestCaptureFileList/);
   assert.match(capture, /createTinyPreviewUrl\(display\)/);
   assert.match(capture, /isCaptureVideoFile\(photo.file\)/);
   assert.match(capture, /<video muted playsInline/);
   assert.match(upload, /isCaptureDumpFile/);
   assert.match(upload, /CAPTURE_VIDEO_MAX_BYTES = 100_000_000/);
+  assert.match(upload, /CAPTURE_VIDEO_CHUNK_BYTES = 256 \* 1024/);
   assert.match(upload, /assertCaptureFileFits/);
+  assert.match(upload, /uploadCaptureVideo/);
+  assert.match(upload, /\/api\/moments\/photos\/video/);
   assert.match(upload, /CAPTURE_UPLOAD_FAILED_MESSAGE = "上傳失敗。"/);
   assert.doesNotMatch(upload, /換一段短一點的/);
   assert.doesNotMatch(capture, /換一段短一點的/);

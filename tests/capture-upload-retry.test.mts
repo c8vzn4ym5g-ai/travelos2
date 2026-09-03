@@ -180,13 +180,14 @@ test("write then immediate uncached blob get sees the new moment", async () => {
 });
 
 test("PIN is still required without the admin header", async () => {
-  const [momentsApi, photosApi, audioApi] = await Promise.all([
+  const [momentsApi, photosApi, audioApi, videoApi] = await Promise.all([
     readSource("app/api/moments/route.ts"),
     readSource("app/api/moments/photos/route.ts"),
     readSource("app/api/moments/audio/route.ts"),
+    readSource("app/api/moments/photos/video/route.ts"),
   ]);
 
-  for (const source of [momentsApi, photosApi, audioApi]) {
+  for (const source of [momentsApi, photosApi, audioApi, videoApi]) {
     assert.match(source, /isAdminPinValid/);
     assert.match(source, /Invalid admin PIN/);
     assert.match(source, /status: 401/);

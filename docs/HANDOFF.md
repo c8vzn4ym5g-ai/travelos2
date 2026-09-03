@@ -1,5 +1,22 @@
 # TravelOS Handoff
 
+## 2026-09-03 Capture 15s video is chunked, not one Worker body
+
+- Owner dumped a mixed album: one JPEG landed, one 15s-class video card
+  showed empty green + `上傳失敗。`. Warehouse folder had 245 files and
+  zero videos. PR 76 was not enough: Workers Free cannot
+  `formData()` + `arrayBuffer()` + `Buffer.from` a 20–80MB HEVC clip.
+- Videos now init a Drive resumable session, then PUT 256KiB raw chunks
+  with `Content-Range` through `/api/moments/photos/video`. The phone
+  never posts one multipart `.mov` to `/api/moments/photos`. Photos keep
+  the 40 parallel JPEG FormData POSTs.
+- Capture cards call `URL.createObjectURL(file)` immediately for videos
+  so HEVC is not an empty green square. Fallback copy stays `上傳失敗。`.
+- Opaque session is HMAC of the Drive Location URL with the warehouse
+  token. `ScriptApp.getOAuthToken()` stays on Apps Script; it is not
+  sent to the browser. Do not ask Owner to re-paste Apps Script or
+  re-dump.
+
 ## 2026-09-03 Capture 15s iPhone video
 
 - Owner: 15s `IMG_1504.MOV` on Capture is a normal dump. The old 28MB

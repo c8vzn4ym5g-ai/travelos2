@@ -8,11 +8,10 @@ import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "./types.ts"
 export { createTinyPreviewUrl };
 export const CAPTURE_UPLOAD_CONCURRENCY = 3;
 export const CAPTURE_DUMP_LIMIT = 40;
-// Cloudflare Workers accept ~100MB request bodies. Apps Script JSON+base64
-// cannot carry a typical 15s iPhone Camera Roll .mov (HEVC/4K often 40–80MB;
-// base64 inflates ~4/3 past the script ceiling). Videos leave the Worker as
-// raw bytes via Drive resumable (`putVideoBinary`). This number is that
-// Worker/Drive ceiling — not a lecture about clip length.
+// Total Drive file ceiling for one Capture video. Each Worker request is one
+// 256KiB chunk (Google resumable requires multiples of 256KiB except the last),
+// so a 15s iPhone HEVC/4K clip never enters the isolate as one body.
+export const CAPTURE_VIDEO_CHUNK_BYTES = 256 * 1024;
 export const CAPTURE_VIDEO_MAX_BYTES = 100_000_000;
 export const CAPTURE_UPLOAD_FAILED_MESSAGE = "上傳失敗。";
 
@@ -391,6 +390,98 @@ export async function updateMomentTranscript(input: {
   return (await response.json()) as { moment: TravelMoment };
 }
 
+function isLastVideoRange(contentRange: string | null, total: number) {
+  if (!contentRange) {
+    return false;
+  }
+  return contentRange.endsWith(`/${total}`) && contentRange.includes(`${total - 1}/`);
+}
+
+export async function uploadCaptureVideo(input: {
+  coordinates: GeoPoint | null;
+  file: File;
+  momentId: string;
+  onDisplayReady?: (display: File) => void | Promise<void>;
+  pin: string;
+  retryMoment?: (status: number) => Promise<string>;
+  signal?: AbortSignal;
+  takenAt: string;
+}) {
+  assertCaptureFileFits(input.file);
+  const source = withCaptureFileMime(input.file);
+
+  void Promise.resolve(input.onDisplayReady?.(source)).catch(() => {
+    // Tiny previews are optional; they must never block the video init POST.
+  });
+
+  const sendInit = async (momentId: string) =>
+    fetch("/api/moments/photos/video", {
+      body: JSON.stringify({
+        coordinates: input.coordinates,
+        filename: source.name,
+        mimeType: source.type,
+        momentId,
+        size: source.size,
+        takenAt: input.takenAt,
+      }),
+      headers: {
+        "content-type": "application/json",
+        ...pinHeaders(input.pin),
+      },
+      method: "POST",
+      signal: input.signal,
+    });
+
+  const { momentId, response: initResponse } = await sendWithMomentRetry(
+    sendInit,
+    input.momentId,
+    input.retryMoment,
+  );
+
+  if (!initResponse.ok) {
+    throw new Error(await readError(initResponse, CAPTURE_UPLOAD_FAILED_MESSAGE));
+  }
+
+  const initPayload = (await initResponse.json()) as { session?: string };
+  const session = initPayload.session?.trim() ?? "";
+  if (!session) {
+    throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
+  }
+
+  const total = source.size;
+  const chunkSize = CAPTURE_VIDEO_CHUNK_BYTES;
+  let offset = 0;
+  while (offset < total) {
+    const end = Math.min(offset + chunkSize, total);
+    const chunk = source.slice(offset, end);
+    const contentRange = `bytes ${offset}-${end - 1}/${total}`;
+    const response = await fetch("/api/moments/photos/video", {
+      body: chunk,
+      headers: {
+        ...pinHeaders(input.pin),
+        "content-range": contentRange,
+        "content-type": "application/octet-stream",
+        "x-travelos-video-session": session,
+      },
+      method: "PUT",
+      signal: input.signal,
+    });
+    if (!response.ok) {
+      throw new Error(await readError(response, CAPTURE_UPLOAD_FAILED_MESSAGE));
+    }
+    if (end === total || isLastVideoRange(contentRange, total)) {
+      const payload = (await response.json()) as { photo?: MomentPhoto };
+      if (!payload.photo) {
+        throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
+      }
+      return { display: source, momentId, photo: payload.photo };
+    }
+    offset = end;
+  }
+
+  throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
+}
+
 export async function uploadDisplayPhoto(input: {
   coordinates: GeoPoint | null;
   file: File;
@@ -401,6 +492,10 @@ export async function uploadDisplayPhoto(input: {
   signal?: AbortSignal;
   takenAt: string;
 }) {
+  if (isCaptureVideoFile(input.file)) {
+    return uploadCaptureVideo(input);
+  }
+
   assertCaptureFileFits(input.file);
   const source = withCaptureFileMime(input.file);
 
