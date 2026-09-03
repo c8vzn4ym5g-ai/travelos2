@@ -216,6 +216,8 @@ export interface CoffeeShopListItem {
   photoCount: number;
 }
 
+export type MomentMediaKind = "photo" | "video";
+
 export interface MomentPhoto {
   id: string;
   momentId: string;
@@ -225,6 +227,8 @@ export interface MomentPhoto {
   takenAt: string | null;
   coordinates: GeoPoint | null;
   createdAt: string;
+  kind?: MomentMediaKind;
+  mimeType?: string | null;
 }
 
 export interface TravelMoment {

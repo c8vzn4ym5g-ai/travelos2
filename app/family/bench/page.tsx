@@ -343,7 +343,7 @@ export default function FamilyBenchPage() {
                     ) : null}
 
                     {!hasPhotos && !hasAudio && !spoken ? (
-                      <p className="fam-empty-line">這筆還沒有照片。</p>
+                      <p className="fam-empty-line">這筆還沒有照片或影片。</p>
                     ) : null}
 
                     {hasAudio ? <BenchAudio momentId={moment.id} /> : null}

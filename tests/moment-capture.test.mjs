@@ -30,6 +30,8 @@ test("capture does not create trips and photos append to a moment", async () => 
   assert.match(capture, /trips\/write\?job=/);
   assert.match(photosApi, /addPhotoToMoment\(momentId, photo\)/);
   assert.match(photosApi, /storeMomentBinary/);
+  assert.match(photosApi, /kind: momentMediaKindFromFile/);
+  assert.match(photosApi, /mimeType: file.type/);
   assert.match(photosApi, /afterResponse\(async \(\) => \{/);
   assert.doesNotMatch(photosApi, /createWorkQueue/);
   assert.match(helpers, /MOMENTS_BLOB_PATH = "travelos\/moments.json"/);
@@ -39,7 +41,7 @@ test("capture does not create trips and photos append to a moment", async () => 
 test("capture keeps camera and library, with retake and remove", async () => {
   const capture = await readSource("app/family/capture/page.tsx");
   const takePhotoIndex = capture.indexOf("Take Photo");
-  const choosePhotosIndex = capture.indexOf("Choose Photos");
+  const choosePhotosIndex = capture.indexOf("Choose from album");
   const photosListIndex = capture.indexOf("{photos.length > 0 ? (");
 
   assert.match(capture, /capture="environment"/);
@@ -54,6 +56,12 @@ test("capture keeps camera and library, with retake and remove", async () => {
   assert.ok(choosePhotosIndex < photosListIndex);
   assert.equal((capture.match(/type="file"/g) ?? []).length, 2);
   assert.equal((capture.match(/capture="environment"/g) ?? []).length, 1);
+  assert.match(capture, /選照片或影片/);
+  assert.match(capture, /Choose from album/);
+  const albumBlock = capture.slice(capture.indexOf("選照片或影片"), capture.indexOf("加入之後"));
+  assert.doesNotMatch(albumBlock, /capture=/);
+  assert.doesNotMatch(capture, /加视频/);
+  assert.doesNotMatch(capture, />\s*加影片\s*</);
   const emptyBlock = capture.slice(capture.indexOf("{photos.length > 0 ? ("), capture.indexOf("fam-audio"));
   assert.match(emptyBlock, /預覽/);
   assert.match(emptyBlock, /Preview/);
@@ -241,7 +249,8 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   assert.match(prepare, /displayJpegQuality = 0.72/);
   assert.match(prepare, /maxUploadBytes = 4_500_000/);
   assert.doesNotMatch(prepare, /POSITIVE_INFINITY/);
-  assert.match(capture, /image\/heic,image\/heif,\.heic,\.heif/);
+  assert.match(capture, /accept="image\/\*,video\/\*,\.heic,\.heif,\.mov,\.mp4,\.m4v"/);
+  assert.match(capture, /accept="image\/\*" capture="environment"/);
   assert.match(upload, /CAPTURE_DUMP_LIMIT = 40/);
   assert.match(upload, /createTinyPreviewUrl/);
   assert.match(upload, /prepareDisplayPhoto/);
@@ -252,7 +261,7 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
     upload.indexOf("export async function uploadDisplayPhoto"),
     upload.indexOf("export function uploadOriginalPhotoInBackground"),
   );
-  assert.match(displayUpload, /await prepareDisplayPhoto\(input\.file\)/);
+  assert.match(displayUpload, /await prepareDisplayPhoto\(source\)/);
   assert.match(prepare, /return file;/);
   assert.doesNotMatch(prepare, /Could not prepare this photo for upload/);
   assert.doesNotMatch(prepare, /supportedUploadTypes/);
@@ -264,6 +273,11 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   assert.doesNotMatch(addBlock, /URL\.createObjectURL/);
   assert.match(addBlock, /ingestCaptureFileList/);
   assert.match(capture, /createTinyPreviewUrl\(display\)/);
+  assert.match(capture, /isCaptureVideoFile\(photo.file\)/);
+  assert.match(capture, /<video muted playsInline/);
+  assert.match(upload, /isCaptureDumpFile/);
+  assert.match(upload, /CAPTURE_VIDEO_MAX_BYTES = 28_000_000/);
+  assert.match(upload, /assertCaptureFileFits/);
 });
 
 test("background upload starts on add and Save does not wait on originals", async () => {
@@ -315,7 +329,7 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(saveBlock, /Promise\.all\(\[\.\.\.photoUploadsRef\.current\.values\(\)\]\)/);
   assert.doesNotMatch(saveBlock, /uploadOriginalPhotoInBackground/);
   assert.match(displayUpload, /formData\.set\("file", display\)/);
-  assert.match(displayUpload, /await prepareDisplayPhoto\(input\.file\)/);
+  assert.match(displayUpload, /await prepareDisplayPhoto\(source\)/);
   assert.doesNotMatch(displayUpload, /formData\.set\("original"/);
   assert.match(upload, /void fetch\("\/api\/moments\/photos"/);
   assert.match(upload, /Originals are durable when they land; they must never block Capture/);

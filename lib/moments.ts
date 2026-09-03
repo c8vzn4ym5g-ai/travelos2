@@ -38,6 +38,7 @@ export function momentItemBlobPath(momentId: string) {
 }
 
 const heicTypes = new Set(["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"]);
+const videoExtensions = [".mov", ".mp4", ".m4v"];
 
 const instructionVerbPattern = /^(please\s+)?(add|save|put|move|delete|remove|tag|attach)\b/i;
 const writeLogPattern = /\bwrite\b[\s\S]{0,80}\b(log|journal)\b/i;
@@ -75,6 +76,8 @@ export function mergeMomentPhoto(left: MomentPhoto, right: MomentPhoto): MomentP
     createdAt: earlier.createdAt || later.createdAt,
     id: left.id || right.id,
     momentId: left.momentId || right.momentId,
+    kind: later.kind ?? earlier.kind,
+    mimeType: later.mimeType || earlier.mimeType || null,
     originalFilename: later.originalFilename || earlier.originalFilename,
     originalStorageKey: later.originalStorageKey || earlier.originalStorageKey,
     storageKey: later.storageKey || earlier.storageKey,
@@ -219,6 +222,82 @@ export function isHeicPhoto(file: { name: string; type: string }) {
   const type = file.type.toLowerCase();
   const name = file.name.toLowerCase();
   return heicTypes.has(type) || name.endsWith(".heic") || name.endsWith(".heif");
+}
+
+export function isCaptureVideoFile(file: { name: string; type: string }) {
+  const type = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  return type.startsWith("video/") || videoExtensions.some((extension) => name.endsWith(extension));
+}
+
+export function captureFileMime(file: { name: string; type: string }) {
+  const type = file.type.trim();
+  if (type) {
+    return type;
+  }
+
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".mov")) {
+    return "video/quicktime";
+  }
+  if (name.endsWith(".mp4") || name.endsWith(".m4v")) {
+    return "video/mp4";
+  }
+  if (name.endsWith(".heic")) {
+    return "image/heic";
+  }
+  if (name.endsWith(".heif")) {
+    return "image/heif";
+  }
+  return file.type;
+}
+
+export function momentMediaKindFromFile(file: { name: string; type: string }) {
+  return isCaptureVideoFile(file) ? ("video" as const) : ("photo" as const);
+}
+
+export function isMomentVideo(photo: Pick<MomentPhoto, "kind" | "mimeType" | "originalFilename">) {
+  if (photo.kind === "video") {
+    return true;
+  }
+  if (photo.kind === "photo") {
+    return false;
+  }
+  return isCaptureVideoFile({
+    name: photo.originalFilename ?? "",
+    type: photo.mimeType ?? "",
+  });
+}
+
+export function contentTypeForMomentMedia(
+  photo: Pick<MomentPhoto, "kind" | "mimeType" | "originalFilename">,
+  fallback = "image/jpeg",
+) {
+  const mime = photo.mimeType?.trim();
+  if (mime) {
+    return mime;
+  }
+
+  const name = (photo.originalFilename ?? "").toLowerCase();
+  if (name.endsWith(".mp4") || name.endsWith(".m4v")) {
+    return "video/mp4";
+  }
+  if (name.endsWith(".mov")) {
+    return "video/quicktime";
+  }
+  if (name.endsWith(".png")) {
+    return "image/png";
+  }
+  if (name.endsWith(".webp")) {
+    return "image/webp";
+  }
+  if (name.endsWith(".gif")) {
+    return "image/gif";
+  }
+  if (isMomentVideo(photo)) {
+    return "video/mp4";
+  }
+  return fallback;
 }
 
 export function heicJpegFilename(name: string) {

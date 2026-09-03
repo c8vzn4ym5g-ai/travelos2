@@ -1,13 +1,14 @@
 "use client";
 
 import { filenameForAudioMime, resolveAudioMime } from "./moment-audio.ts";
-import { isHeicPhoto } from "./moments.ts";
+import { captureFileMime, isCaptureVideoFile, isHeicPhoto } from "./moments.ts";
 import { createTinyPreviewUrl, prepareDisplayPhoto, shouldKeepOriginal } from "./prepare-photo.ts";
 import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "./types.ts";
 
 export { createTinyPreviewUrl };
 export const CAPTURE_UPLOAD_CONCURRENCY = 3;
 export const CAPTURE_DUMP_LIMIT = 40;
+export const CAPTURE_VIDEO_MAX_BYTES = 28_000_000;
 
 export type CapturePhotoDraft = {
   errorMessage: null;
@@ -42,6 +43,31 @@ export function isCaptureImageFile(file: File) {
   return file.type.startsWith("image/") || isHeicPhoto(file);
 }
 
+export function isCaptureDumpFile(file: File) {
+  return isCaptureImageFile(file) || isCaptureVideoFile(file);
+}
+
+export function captureVideoTooLargeMessage() {
+  return "這段影片太大了，換一段短一點的就好。其餘會繼續上傳。";
+}
+
+export function assertCaptureFileFits(file: File) {
+  if (isCaptureVideoFile(file) && file.size > CAPTURE_VIDEO_MAX_BYTES) {
+    throw new Error(captureVideoTooLargeMessage());
+  }
+}
+
+export function withCaptureFileMime(file: File) {
+  const mime = captureFileMime(file);
+  if (mime === file.type) {
+    return file;
+  }
+  return new File([file], file.name, {
+    lastModified: file.lastModified,
+    type: mime,
+  });
+}
+
 export function copyCaptureFile(file: File) {
   const blob = file.slice(0);
   return new File([blob], file.name, {
@@ -73,7 +99,7 @@ export async function ingestCaptureFileList(
 
   for (let index = 0; index < fileListLength && copied.length < limit; index += 1) {
     const file = fileList.item(index) ?? fileList[index];
-    if (!file || !isCaptureImageFile(file)) {
+    if (!file || !isCaptureDumpFile(file)) {
       continue;
     }
 
@@ -93,7 +119,7 @@ export async function ingestCaptureFileList(
 }
 
 export function createStagedCapturePhotos(files: File[]): CapturePhotoDraft[] {
-  return files.filter(isCaptureImageFile).map((file) => ({
+  return files.filter(isCaptureDumpFile).map((file) => ({
     errorMessage: null,
     file,
     id: `staged_${file.name}_${file.size}_${file.lastModified}_${Math.random().toString(36).slice(2, 6)}`,
@@ -141,7 +167,7 @@ export function detachStagedCapturePhotos<T extends { previewUrl: string | null 
 
 export function captureBatchMessage(received: number, total: number) {
   if (received <= 0) {
-    return "請選照片。iPhone HEIC 會轉成 JPEG 上傳，原檔稍後另存。";
+    return "請選照片或影片。iPhone HEIC 會轉成 JPEG 上傳，原檔稍後另存。";
   }
 
   if (received > CAPTURE_DUMP_LIMIT) {
@@ -369,11 +395,14 @@ export async function uploadDisplayPhoto(input: {
   signal?: AbortSignal;
   takenAt: string;
 }) {
+  assertCaptureFileFits(input.file);
+  const source = withCaptureFileMime(input.file);
+
   let display: File;
   try {
-    display = await prepareDisplayPhoto(input.file);
+    display = await prepareDisplayPhoto(source);
   } catch {
-    display = input.file;
+    display = source;
   }
 
   void Promise.resolve(input.onDisplayReady?.(display)).catch(() => {
