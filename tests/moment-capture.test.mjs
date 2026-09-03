@@ -277,7 +277,9 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   assert.match(capture, /<video muted playsInline/);
   assert.match(upload, /isCaptureDumpFile/);
   assert.match(upload, /CAPTURE_VIDEO_MAX_BYTES = 100_000_000/);
-  assert.match(upload, /CAPTURE_VIDEO_CHUNK_BYTES = 256 \* 1024/);
+  assert.match(upload, /CAPTURE_VIDEO_CHUNK_BYTES = 8 \* 1024 \* 1024/);
+  assert.match(upload, /CAPTURE_VIDEO_SINGLE_PUT_MAX_BYTES = 80_000_000/);
+  assert.match(upload, /captureVideoPutChunkBytes/);
   assert.match(upload, /assertCaptureFileFits/);
   assert.match(upload, /uploadCaptureVideo/);
   assert.match(upload, /\/api\/moments\/photos\/video/);

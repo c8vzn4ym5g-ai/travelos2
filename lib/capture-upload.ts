@@ -8,12 +8,21 @@ import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "./types.ts"
 export { createTinyPreviewUrl };
 export const CAPTURE_UPLOAD_CONCURRENCY = 3;
 export const CAPTURE_DUMP_LIMIT = 40;
-// Total Drive file ceiling for one Capture video. Each Worker request is one
-// 256KiB chunk (Google resumable requires multiples of 256KiB except the last),
-// so a 15s iPhone HEVC/4K clip never enters the isolate as one body.
-export const CAPTURE_VIDEO_CHUNK_BYTES = 256 * 1024;
+// Google resumable requires multiples of 256KiB except the last chunk.
+// 8MiB is 32 × 256KiB. Files at or under 80MB go as one PUT (Worker already
+// survived a 40MB body). Larger files split into 8MiB hops so a 46MB iPhone
+// clip is 1 request, not 175 phone round-trips.
+export const CAPTURE_VIDEO_CHUNK_BYTES = 8 * 1024 * 1024;
+export const CAPTURE_VIDEO_SINGLE_PUT_MAX_BYTES = 80_000_000;
 export const CAPTURE_VIDEO_MAX_BYTES = 100_000_000;
 export const CAPTURE_UPLOAD_FAILED_MESSAGE = "上傳失敗。";
+
+export function captureVideoPutChunkBytes(fileSize: number) {
+  if (fileSize <= CAPTURE_VIDEO_SINGLE_PUT_MAX_BYTES) {
+    return fileSize;
+  }
+  return CAPTURE_VIDEO_CHUNK_BYTES;
+}
 
 export type CapturePhotoDraft = {
   errorMessage: null;
@@ -449,7 +458,7 @@ export async function uploadCaptureVideo(input: {
   }
 
   const total = source.size;
-  const chunkSize = CAPTURE_VIDEO_CHUNK_BYTES;
+  const chunkSize = captureVideoPutChunkBytes(total);
   let offset = 0;
   while (offset < total) {
     const end = Math.min(offset + chunkSize, total);

@@ -9,6 +9,7 @@ import {
   verifyDriveResumableSession,
   putDriveResumableChunk,
   DRIVE_UPLOAD_CHUNK_BYTES,
+  DRIVE_UPLOAD_SINGLE_PUT_MAX_BYTES,
 } from "@/lib/drive-warehouse";
 import {
   addPhotoToMoment,
@@ -24,7 +25,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const VIDEO_MAX_BYTES = 100_000_000;
-const VIDEO_CHUNK_MAX_BYTES = DRIVE_UPLOAD_CHUNK_BYTES * 2;
+const VIDEO_CHUNK_MAX_BYTES = DRIVE_UPLOAD_SINGLE_PUT_MAX_BYTES;
 const FAMILY_UPLOAD_FAILED = "上傳失敗。";
 
 function cleanFilename(name: string) {
