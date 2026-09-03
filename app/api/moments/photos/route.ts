@@ -14,7 +14,7 @@ import {
   setPhotoOriginal,
   storeMomentBinary,
 } from "@/lib/moment-store";
-import { makeMomentId } from "@/lib/moments";
+import { contentTypeForMomentMedia, makeMomentId, momentMediaKindFromFile } from "@/lib/moments";
 import type { GeoPoint, MomentPhoto } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -75,7 +75,15 @@ export async function GET(request: Request) {
 
     const filename = photo?.originalFilename || (variant === "thumb" ? "thumb.jpg" : "photo.jpg");
     const contentType =
-      loaded.contentType || (filename.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg");
+      loaded.contentType ||
+      contentTypeForMomentMedia(
+        {
+          kind: photo.kind,
+          mimeType: photo.mimeType,
+          originalFilename: filename,
+        },
+        filename.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg",
+      );
     return new Response(Buffer.from(loaded.bytes), {
       headers: {
         "Cache-Control": variant === "thumb" ? "private, max-age=86400" : "private, max-age=60",
@@ -141,10 +149,13 @@ export async function POST(request: Request) {
     );
 
     const now = new Date().toISOString();
+    const mediaFile = { name: displayName, type: file.type };
     const photo: MomentPhoto = {
       coordinates: readCoordinates(formData),
       createdAt: now,
       id: makeMomentId("moment_photo"),
+      kind: momentMediaKindFromFile(mediaFile),
+      mimeType: file.type || null,
       momentId,
       originalFilename: displayName,
       originalStorageKey: null,

@@ -5,10 +5,12 @@ import test from "node:test";
 import {
   CAPTURE_DUMP_LIMIT,
   CAPTURE_UPLOAD_CONCURRENCY,
+  CAPTURE_VIDEO_MAX_BYTES,
   captureBatchMessage,
   captureDumpCapMessage,
   captureDumpProgressMessage,
   captureFreshDumpRoundMessage,
+  captureVideoTooLargeMessage,
   copyCaptureFile,
   createMomentSession,
   createStagedCapturePhotos,
@@ -16,12 +18,13 @@ import {
   createWorkQueue,
   detachStagedCapturePhotos,
   ingestCaptureFileList,
+  isCaptureDumpFile,
   shouldReplaceCaptureDumpRound,
   snapshotFileList,
   uploadDisplayPhoto,
   uploadOriginalPhotoInBackground,
 } from "../lib/capture-upload.ts";
-import { isHeicPhoto } from "../lib/moments.ts";
+import { isCaptureVideoFile, isHeicPhoto, isMomentVideo } from "../lib/moments.ts";
 import {
   maxUploadBytes,
   prepareDisplayPhoto,
@@ -1088,11 +1091,145 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
     upload.indexOf("export async function uploadDisplayPhoto"),
     upload.indexOf("export function uploadOriginalPhotoInBackground"),
   );
-  assert.match(displayUpload, /await prepareDisplayPhoto\(input\.file\)/);
+  assert.match(displayUpload, /await prepareDisplayPhoto\(source\)/);
   assert.doesNotMatch(displayUpload, /createImageBitmap\(/);
   assert.doesNotMatch(displayUpload, /canvas\.toBlob/);
   assert.doesNotMatch(prepare, /withExclusivePhotoDecode/);
   assert.doesNotMatch(capture, /from "@\/lib\/trips"/);
   assert.doesNotMatch(capture, /travelpayouts/i);
   assert.doesNotMatch(upload, /travelpayouts/i);
+});
+
+test("album dump keeps photos and videos in the same 40-file list", async () => {
+  const files = [
+    new File([new Uint8Array([1])], "IMG_0001.JPG", { type: "image/jpeg" }),
+    new File([new Uint8Array([2])], "IMG_0002.MOV", { type: "video/quicktime" }),
+    new File([new Uint8Array([3])], "notes.txt", { type: "text/plain" }),
+    new File([new Uint8Array([4])], "clip.mp4", { type: "video/mp4" }),
+    new File([new Uint8Array([5])], "IMG_0005.MOV", { type: "" }),
+  ];
+  assert.equal(isCaptureDumpFile(files[0]!), true);
+  assert.equal(isCaptureVideoFile(files[1]!), true);
+  assert.equal(isCaptureDumpFile(files[2]!), false);
+  assert.equal(isCaptureVideoFile(files[4]!), true);
+
+  const result = await ingestCaptureFileList(fakeFileList(files), {
+    onCopied() {},
+  });
+  assert.equal(result.copied.length, 4);
+  assert.deepEqual(
+    result.copied.map((file) => file.name),
+    ["IMG_0001.JPG", "IMG_0002.MOV", "clip.mp4", "IMG_0005.MOV"],
+  );
+
+  const staged = createStagedCapturePhotos(result.copied);
+  assert.equal(staged.length, 4);
+  assert.equal(staged.every((item) => item.previewUrl === null && item.status === "queued"), true);
+});
+
+test("a mixed 40-file dump still starts 40 POSTs in parallel", async () => {
+  const files = Array.from({ length: CAPTURE_DUMP_LIMIT }, (_, index) => {
+    if (index % 5 === 0) {
+      return new File([new Uint8Array([index, 9])], `IMG_${String(index).padStart(4, "0")}.MOV`, {
+        type: "video/quicktime",
+      });
+    }
+    return new File([new Uint8Array([index, 1, 2, 3])], `IMG_${String(index).padStart(4, "0")}.JPG`, {
+      type: "image/jpeg",
+    });
+  });
+  let posted = 0;
+  const release: Array<() => void> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    posted += 1;
+    await new Promise<void>((resolve) => {
+      release.push(resolve);
+    });
+    return Response.json({ photo: { id: `photo_${posted}`, momentId: "moment_mixed", kind: "photo" } });
+  }) as typeof fetch;
+
+  try {
+    const jobs: Promise<unknown>[] = [];
+    await ingestCaptureFileList(fakeFileList(files), {
+      onCopied(file) {
+        jobs.push(
+          uploadDisplayPhoto({
+            coordinates: null,
+            file,
+            momentId: "moment_mixed",
+            pin: "test-capture-pin",
+            takenAt: "2026-09-03T01:00:00.000Z",
+          }),
+        );
+      },
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(posted, 40);
+    assert.equal(release.length, 40);
+    for (const resolve of release) {
+      resolve();
+    }
+    await Promise.all(jobs);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a huge video fails that item and does not stall the rest of the dump", async () => {
+  const huge = new File([new Uint8Array(CAPTURE_VIDEO_MAX_BYTES + 1).fill(7)], "FUKUOKA.MOV", {
+    type: "video/quicktime",
+  });
+  const jpeg = new File([new Uint8Array([1, 2, 3, 4])], "IMG_3104.jpg", { type: "image/jpeg" });
+  assert.ok(huge.size > CAPTURE_VIDEO_MAX_BYTES);
+  assert.match(captureVideoTooLargeMessage(), /這段影片太大了/);
+
+  const posted: string[] = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const file = (init?.body as FormData).get("file");
+    assert.ok(file instanceof File);
+    posted.push(file.name);
+    return Response.json({ photo: { id: "photo_ok", momentId: "moment_video" } });
+  }) as typeof fetch;
+
+  try {
+    const failed = uploadDisplayPhoto({
+      coordinates: null,
+      file: huge,
+      momentId: "moment_video",
+      pin: "test-capture-pin",
+      takenAt: "2026-09-03T01:10:00.000Z",
+    });
+    const ok = uploadDisplayPhoto({
+      coordinates: null,
+      file: jpeg,
+      momentId: "moment_video",
+      pin: "test-capture-pin",
+      takenAt: "2026-09-03T01:10:01.000Z",
+    });
+    await assert.rejects(failed, /這段影片太大了/);
+    const uploaded = await ok;
+    assert.equal(uploaded.photo.id, "photo_ok");
+    assert.deepEqual(posted, ["IMG_3104.jpg"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("video dumps skip canvas convert and keep a video kind on the moment photo", async () => {
+  const movie = new File([new Uint8Array([0, 1, 2, 3])], "IMG_2001.MOV", { type: "video/quicktime" });
+  const stub = stubJpegCanvas({ bytes: 12_000 });
+  try {
+    const display = await prepareDisplayPhoto(movie);
+    assert.equal(display, movie);
+    assert.equal(stub.decodeCalls, 0);
+    assert.equal(stub.canvasCalls, 0);
+    assert.equal(isMomentVideo({ kind: "video", mimeType: "video/quicktime", originalFilename: movie.name }), true);
+    assert.equal(isMomentVideo({ kind: "photo", mimeType: "image/jpeg", originalFilename: "park.jpg" }), false);
+    assert.equal(isMomentVideo({ mimeType: null, originalFilename: "clip.mp4" }), true);
+  } finally {
+    stub.restore();
+  }
 });

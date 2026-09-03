@@ -3,6 +3,7 @@ import {
   displayPhotoStem,
   mergeMomentPhotos,
   mergeTravelMoment,
+  momentMediaKindFromFile,
   normalizeTravelMoment,
   uniqueMomentsById,
 } from "@/lib/moments";
@@ -14,7 +15,7 @@ export const DRIVE_AUDIO_NAME_PREFIX = "travelos__moments__audio__";
 
 const MOMENT_FILE_RE = /^(moment_[A-Za-z0-9]+_[A-Za-z0-9]+)__(.+)$/;
 const PHOTO_TAIL_RE = /^(original-)?(\d+)-(.+)$/;
-const IMAGE_EXT_RE = /\.(jpe?g|png|webp|heic|heif|gif)$/i;
+const MEDIA_EXT_RE = /\.(jpe?g|png|webp|heic|heif|gif|mov|mp4|m4v)$/i;
 
 export type DriveListedFile = {
   id: string;
@@ -48,7 +49,7 @@ export function parseDrivePhotoObjectName(name: string): ParsedDrivePhotoFile | 
   const tailMatch = tail.match(PHOTO_TAIL_RE);
   const isOriginal = tail.startsWith("original-");
   const filename = tailMatch?.[3] || tail.replace(/^original-/, "");
-  if (!IMAGE_EXT_RE.test(filename) && !IMAGE_EXT_RE.test(name)) {
+  if (!MEDIA_EXT_RE.test(filename) && !MEDIA_EXT_RE.test(name)) {
     return null;
   }
 
@@ -132,10 +133,13 @@ export function findMomentPhoto(moment: TravelMoment | null | undefined, photoId
 
 function photoFromDriveFile(file: ParsedDrivePhotoFile, createdAt: string): MomentPhoto {
   const storageKey = driveStorageKey(file.id);
+  const media = { name: file.filename, type: file.mimeType ?? "" };
   return {
     coordinates: null,
     createdAt,
     id: drivePhotoRecordId(file.id),
+    kind: momentMediaKindFromFile(media),
+    mimeType: file.mimeType,
     momentId: file.momentId,
     originalFilename: file.filename,
     originalStorageKey: null,

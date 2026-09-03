@@ -62,6 +62,14 @@ test("Drive photo object names parse moment id, display vs original, and filenam
     parseDriveAudioObjectName("travelos__moments__audio__moment_1_abc__1787912285245-voice.m4a"),
     "moment_1_abc",
   );
+
+  const movie = parseDrivePhotoObjectName(
+    "travelos__moments__photos__moment_1787926570164_55omdg__1787926584151-IMG_2001.MOV",
+  );
+  assert.equal(movie?.momentId, "moment_1787926570164_55omdg");
+  assert.equal(movie?.filename, "IMG_2001.MOV");
+  assert.equal(movie?.isOriginal, false);
+  assert.equal(isDriveDisplayJpeg(movie!), false);
 });
 
 test("partial moment records union photos instead of last-write-wins truncate", () => {
@@ -131,6 +139,29 @@ test("rebuild from Drive photo files restores display jpegs dropped from moments
   assert.equal(lexvoy?.photos[0]?.originalStorageKey, "drive:1KIjvSYu3hQpPCTWJHnqjmgx3f1EZBXcF");
   assert.equal(countUniqueDisplayJpegs(rebuilt), 4);
   assert.equal(countUniqueDriveDisplayJpegs(files), 4);
+});
+
+test("rebuild from Drive keeps a dumped video on the same moment photos list", () => {
+  const empty = createTravelMoment({ note: "", time: "2026-09-03T01:20:00.000Z" });
+  empty.id = "moment_1787926570164_55omdg";
+  const rebuilt = rebuildMomentsFromDriveFiles(
+    [
+      {
+        id: "1videoFileIdFukuokaClip000000001",
+        mimeType: "video/quicktime",
+        name: "travelos__moments__photos__moment_1787926570164_55omdg__1787926589999-IMG_2001.MOV",
+      },
+      {
+        id: "1dmzRKs9PvWrtAlq3E9F_R-8OKBruyyXe",
+        name: "travelos__moments__photos__moment_1787926570164_55omdg__1787926584151-IMG_1359.jpeg",
+      },
+    ],
+    [empty],
+  );
+  const photos = rebuilt[0]?.photos ?? [];
+  assert.equal(photos.length, 2);
+  assert.equal(photos.some((item) => item.originalFilename === "IMG_2001.MOV" && item.kind === "video"), true);
+  assert.equal(photos.some((item) => item.originalFilename === "IMG_1359.jpeg"), true);
 });
 
 test("duplicate filename photos collapse to one display jpeg", () => {

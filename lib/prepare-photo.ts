@@ -1,6 +1,6 @@
 "use client";
 
-import { heicJpegFilename, isHeicPhoto } from "./moments.ts";
+import { heicJpegFilename, isCaptureVideoFile, isHeicPhoto } from "./moments.ts";
 
 export const maxUploadBytes = 4_500_000;
 export const displayMaxEdge = 1600;
@@ -93,7 +93,7 @@ async function convertPhonePhotoToJpeg(file: File) {
 }
 
 function canSkipDisplayCanvas(file: File) {
-  if (isHeicPhoto(file)) {
+  if (isHeicPhoto(file) || isCaptureVideoFile(file)) {
     return true;
   }
   return file.type === "image/jpeg" && file.size <= skipCanvasMaxBytes;

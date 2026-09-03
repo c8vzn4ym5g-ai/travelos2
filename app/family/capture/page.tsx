@@ -37,7 +37,7 @@ import {
 import { FAMILY_ADMIN_SESSION_KEY, resolveFamilySession } from "@/lib/family-session";
 import { preferredRecorderMime } from "@/lib/moment-audio";
 import { preparePlayableAudio, primePlaybackAudioContext } from "@/lib/moment-audio-playback";
-import { appendMomentPhotos, classifyCaptureNote } from "@/lib/moments";
+import { appendMomentPhotos, classifyCaptureNote, isCaptureVideoFile } from "@/lib/moments";
 import type { GeoPoint, TravelJob } from "@/lib/types";
 
 type UploadStatus = "queued" | "uploading" | "uploaded" | "failed";
@@ -346,7 +346,9 @@ export default function CapturePage() {
             if (photo.abort.signal.aborted) {
               return;
             }
-            const previewUrl = await createTinyPreviewUrl(display);
+            const previewUrl = isCaptureVideoFile(photo.file)
+              ? URL.createObjectURL(display)
+              : await createTinyPreviewUrl(display);
             if (!previewUrl) {
               return;
             }
@@ -684,7 +686,7 @@ export default function CapturePage() {
 
       const failedPhoto = photosRef.current.find((photo) => photo.status === "failed");
       if (failedPhoto) {
-        throw new Error("有照片還沒傳上去，請再試一次。");
+        throw new Error("有照片或影片還沒傳上去，請再試一次。");
       }
       if (audioRef.current?.status === "failed") {
         throw new Error("聲音還沒傳上去，請再試一次。");
@@ -783,10 +785,10 @@ export default function CapturePage() {
             <input accept="image/*" capture="environment" onChange={onTakePhoto} ref={cameraInputRef} type="file" />
           </label>
           <label className="fam-file fam-pill fam-pill-blush">
-            <span>選照片</span>
-            <span className="fam-en">Choose Photos</span>
+            <span>選照片或影片</span>
+            <span className="fam-en">Choose from album</span>
             <input
-              accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+              accept="image/*,video/*,.heic,.heif,.mov,.mp4,.m4v"
               multiple
               onChange={onChoosePhotos}
               type="file"
@@ -802,11 +804,14 @@ export default function CapturePage() {
                 const chip = photoChip(photo.status);
                 return (
                   <li className="fam-thumb" key={photo.id}>
-                    {photo.previewUrl ? (
+                    {photo.previewUrl && isCaptureVideoFile(photo.file) ? (
+                      <video muted playsInline preload="metadata" src={photo.previewUrl} />
+                    ) : photo.previewUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img alt="" src={photo.previewUrl} />
                     ) : (
                       <div className="fam-thumb-fallback">
+                        {isCaptureVideoFile(photo.file) ? <FamGlyph name="play" /> : null}
                         <p className="line-clamp-3">{photo.file.name}</p>
                       </div>
                     )}

@@ -38,7 +38,13 @@ test("family bench is a private workshop table for raw Capture dumps", async () 
   assert.match(benchPhoto, /fileId/);
   assert.match(benchPhoto, /THUMB_CONCURRENCY = 2/);
   assert.match(benchPhoto, /createObjectURL/);
+  assert.match(benchPhoto, /isMomentVideo/);
+  assert.match(benchPhoto, /播放影片/);
+  assert.match(benchPhoto, /<video/);
   assert.doesNotMatch(benchPhoto, /drive-warehouse/);
+  assert.doesNotMatch(bench, /加视频/);
+  assert.doesNotMatch(bench, /BenchVideo/);
+  assert.match(bench, /這筆還沒有照片或影片/);
   assert.match(bench, /originalAudioUrl/);
   assert.match(bench, /moment\.transcript/);
   assert.match(bench, /SpokenLine/);
