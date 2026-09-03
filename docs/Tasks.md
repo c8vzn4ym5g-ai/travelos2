@@ -1,5 +1,26 @@
 # TravelOS Codex Tasks
 
+## TASK-037: Capture 15s video in 256KiB Drive chunks
+
+Status: done
+
+Goal: Live Capture on Workers Free still dropped a 15s iPhone `.mov`.
+PR 76 raised the client ceiling and had the Worker `formData()` +
+`arrayBuffer()` + `Buffer.from` the whole clip, which blows the 10ms /
+128MB isolate. Photos stay the JPEG FormData dump. Videos leave the
+phone in 256KiB raw chunks. Family errors stay `上傳失敗。`.
+
+Result:
+
+- Same album picker, same 40-file dump, no second door, no classify,
+  no user queue of 3. Video cards get `URL.createObjectURL` immediately.
+- Client POSTs a tiny init, then PUT/POSTs 256KiB raw bodies with
+  `Content-Range` to `/api/moments/photos/video`. Opaque HMAC session
+  signs the Drive Location URL. OAuth token never returns to the phone.
+- Last chunk writes `MomentPhoto` `kind: video` the same way photos do.
+- `putBinary` JSON+base64 stays photos-only (tiny clips may still fall
+  back). A 40–80MB dummy `.mov` is not rejected by `assertCaptureFileFits`.
+
 ## TASK-036: Capture 15s iPhone video dump
 
 Status: done

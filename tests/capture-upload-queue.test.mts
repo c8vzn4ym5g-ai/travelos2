@@ -1049,6 +1049,7 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
   );
 
   assert.match(upload, /CAPTURE_DUMP_LIMIT = 40/);
+  assert.match(upload, /CAPTURE_VIDEO_CHUNK_BYTES = 256 \* 1024/);
   assert.match(upload, /ingestCaptureFileList/);
   assert.match(upload, /copyCaptureFile/);
   assert.match(upload, /captureDumpCapMessage/);
@@ -1070,7 +1071,7 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
   assert.match(addBlock, /captureDumpProgressMessage/);
   assert.match(addBlock, /resetInput/);
   assert.doesNotMatch(addBlock, /snapshotFileList/);
-  assert.doesNotMatch(addBlock, /URL\.createObjectURL/);
+  assert.match(addBlock, /URL\.createObjectURL\(file\)/);
   assert.match(chooseBlock, /"choose-photos"/);
   assert.doesNotMatch(chooseBlock, /"take-photo"/);
   assert.doesNotMatch(chooseBlock, /event\.target\.value = ""/);
@@ -1149,12 +1150,35 @@ test("a mixed 40-file dump still starts 40 POSTs in parallel", async () => {
   let posted = 0;
   const release: Array<() => void> = [];
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async () => {
-    posted += 1;
-    await new Promise<void>((resolve) => {
-      release.push(resolve);
-    });
-    return Response.json({ photo: { id: `photo_${posted}`, momentId: "moment_mixed", kind: "photo" } });
+  let photoPosts = 0;
+  let videoInits = 0;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = (init?.method ?? "POST").toUpperCase();
+    const body = init?.body;
+    if (typeof FormData !== "undefined" && body instanceof FormData) {
+      const file = body.get("file");
+      assert.ok(file instanceof File);
+      assert.equal(isCaptureVideoFile(file), false);
+      photoPosts += 1;
+      posted += 1;
+      await new Promise<void>((resolve) => {
+        release.push(resolve);
+      });
+      return Response.json({ photo: { id: `photo_${photoPosts}`, momentId: "moment_mixed", kind: "photo" } });
+    }
+    if (url.includes("/api/moments/photos/video") && method === "POST") {
+      videoInits += 1;
+      posted += 1;
+      await new Promise<void>((resolve) => {
+        release.push(resolve);
+      });
+      return Response.json({ session: `sess_${videoInits}` });
+    }
+    if (url.includes("/api/moments/photos/video") && method === "PUT") {
+      return Response.json({ photo: { id: "photo_video", momentId: "moment_mixed", kind: "video" } });
+    }
+    throw new Error(`unexpected fetch ${method} ${url}`);
   }) as typeof fetch;
 
   try {
@@ -1175,6 +1199,8 @@ test("a mixed 40-file dump still starts 40 POSTs in parallel", async () => {
     await Promise.resolve();
     await Promise.resolve();
     assert.equal(posted, 40);
+    assert.equal(photoPosts, 32);
+    assert.equal(videoInits, 8);
     assert.equal(release.length, 40);
     for (const resolve of release) {
       resolve();
@@ -1196,29 +1222,6 @@ test("a 15s-class iPhone video is not rejected by the client size gate", async (
   assert.equal(fifteenSeconds.size, 60_000_000);
   assert.doesNotThrow(() => assertCaptureFileFits(fifteenSeconds));
   assert.doesNotThrow(() => assertCaptureFileFits(alsoFine));
-
-  const posted: string[] = [];
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-    const file = (init?.body as FormData).get("file");
-    assert.ok(file instanceof File);
-    posted.push(file.name);
-    return Response.json({ photo: { id: "photo_mov", momentId: "moment_video", kind: "video" } });
-  }) as typeof fetch;
-
-  try {
-    const uploaded = await uploadDisplayPhoto({
-      coordinates: null,
-      file: fifteenSeconds,
-      momentId: "moment_video",
-      pin: "test-capture-pin",
-      takenAt: "2026-09-03T01:10:00.000Z",
-    });
-    assert.equal(uploaded.photo.id, "photo_mov");
-    assert.deepEqual(posted, ["IMG_1504.MOV"]);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
 });
 
 test("a video over the Worker ceiling fails that item and does not stall the rest of the dump", async () => {

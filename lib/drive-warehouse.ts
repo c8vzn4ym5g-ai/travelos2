@@ -1,8 +1,10 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import {
   createEmptyWarehouse,
   withNormalizedContent,
   type MomentContent,
 } from "@/lib/warehouse-read";
+import type { GeoPoint } from "@/lib/types";
 
 const DEFAULT_DRIVE_WAREHOUSE_URL =
   "https://script.google.com/macros/s/AKfycbyE4a9bahFmASEh6Dda_8udSlLLhnIIr70NggG5cSSAa8EB3pxxt4SoFZ96TgJLeozY/exec";
@@ -26,8 +28,11 @@ export const TRAVELOS_DRIVE_WAREHOUSE_TOKEN = DEFAULT_DRIVE_WAREHOUSE_TOKEN;
 export const DRIVE_STORAGE_PREFIX = "drive:";
 export const DRIVE_INDEX_NAME = "moments.json";
 export const DRIVE_WAREHOUSE_FOLDER_ID = "1Sk2TqgpF6NxoNYdUKO4h8t84UA7KxChN";
+export const DRIVE_UPLOAD_CHUNK_BYTES = 256 * 1024;
+export const APPS_SCRIPT_PUTBINARY_MAX_BYTES = 4_500_000;
 const DRIVE_RESUMABLE_INIT_URL = "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable";
 const DRIVE_FILE_MEDIA_URL = "https://www.googleapis.com/drive/v3/files";
+const DRIVE_SESSION_TTL_MS = 60 * 60 * 1000;
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const MAX_REDIRECTS = 5;
@@ -298,6 +303,88 @@ export type DriveAccess = {
   token: string;
 };
 
+export type DriveResumableSessionPayload = {
+  coordinates: GeoPoint | null;
+  exp: number;
+  filename: string;
+  location: string;
+  mimeType: string;
+  momentId: string;
+  name: string;
+  size: number;
+  takenAt: string;
+};
+
+export type DriveResumableChunkResult =
+  | { incomplete: true }
+  | { id: string; name: string };
+
+function hmacSign(body: string) {
+  return createHmac("sha256", getDriveWarehouseToken()).update(body).digest("base64url");
+}
+
+export function signDriveResumableSession(
+  payload: Omit<DriveResumableSessionPayload, "exp">,
+): string {
+  const full: DriveResumableSessionPayload = {
+    ...payload,
+    exp: Date.now() + DRIVE_SESSION_TTL_MS,
+  };
+  const body = Buffer.from(JSON.stringify(full)).toString("base64url");
+  return `${body}.${hmacSign(body)}`;
+}
+
+export function verifyDriveResumableSession(token: string): DriveResumableSessionPayload {
+  const dot = token.lastIndexOf(".");
+  if (dot <= 0) {
+    throw new DriveWarehouseError("Invalid video session");
+  }
+  const body = token.slice(0, dot);
+  const mac = token.slice(dot + 1);
+  const expected = hmacSign(body);
+  const left = Buffer.from(mac);
+  const right = Buffer.from(expected);
+  if (left.length !== right.length || !timingSafeEqual(left, right)) {
+    throw new DriveWarehouseError("Invalid video session");
+  }
+  let payload: DriveResumableSessionPayload;
+  try {
+    payload = JSON.parse(Buffer.from(body, "base64url").toString()) as DriveResumableSessionPayload;
+  } catch {
+    throw new DriveWarehouseError("Invalid video session");
+  }
+  if (payload.exp < Date.now()) {
+    throw new DriveWarehouseError("Video session expired");
+  }
+  if (typeof payload.location !== "string" || !payload.location.includes("googleapis.com/upload/drive")) {
+    throw new DriveWarehouseError("Invalid video session");
+  }
+  if (typeof payload.momentId !== "string" || !payload.momentId.trim()) {
+    throw new DriveWarehouseError("Invalid video session");
+  }
+  if (!Number.isInteger(payload.size) || payload.size <= 0) {
+    throw new DriveWarehouseError("Invalid video session");
+  }
+  return payload;
+}
+
+export function parseDriveContentRange(header: string | null | undefined) {
+  const match = /^bytes\s+(\d+)-(\d+)\/(\d+)$/i.exec((header ?? "").trim());
+  if (!match) {
+    return null;
+  }
+  const start = Number(match[1]);
+  const end = Number(match[2]);
+  const total = Number(match[3]);
+  if (!Number.isInteger(start) || !Number.isInteger(end) || !Number.isInteger(total)) {
+    return null;
+  }
+  if (start < 0 || end < start || total <= 0 || end >= total) {
+    return null;
+  }
+  return { start, end, total };
+}
+
 function parseDriveAccess(raw: unknown): DriveAccess | null {
   if (!raw || typeof raw !== "object") {
     return null;
@@ -325,15 +412,18 @@ export async function getDriveAccess(request?: DriveFetch): Promise<DriveAccess 
   return parseDriveAccess(raw);
 }
 
-async function putDriveResumable(
+export async function initDriveResumableUpload(
   input: {
-    bytes: Uint8Array;
     mimeType: string;
     name: string;
+    size: number;
   },
-  access: DriveAccess,
   requestImpl?: DriveFetch,
-): Promise<{ id: string; name: string }> {
+): Promise<{ folderId: string; location: string }> {
+  const access = await getDriveAccess(requestImpl);
+  if (!access) {
+    throw new DriveWarehouseError("Drive access is not available");
+  }
   const request = resolveFetch(requestImpl);
   const init = await request(DRIVE_RESUMABLE_INIT_URL, {
     body: JSON.stringify({
@@ -343,10 +433,11 @@ async function putDriveResumable(
     headers: {
       Authorization: `Bearer ${access.token}`,
       "Content-Type": "application/json; charset=UTF-8",
-      "X-Upload-Content-Length": String(input.bytes.byteLength),
+      "X-Upload-Content-Length": String(input.size),
       "X-Upload-Content-Type": input.mimeType,
     },
     method: "POST",
+    redirect: "manual",
   });
   if (!init.ok) {
     throw new DriveWarehouseError(`Drive resumable init failed: ${init.status}`);
@@ -355,16 +446,35 @@ async function putDriveResumable(
   if (!location) {
     throw new DriveWarehouseError("Drive resumable init did not return a location");
   }
+  return { folderId: access.folderId, location };
+}
 
-  const payload = Buffer.from(input.bytes);
-  const uploaded = await request(location, {
-    body: payload,
+export async function putDriveResumableChunk(
+  input: {
+    body: Uint8Array | Blob | Buffer;
+    contentRange: string;
+    location: string;
+    mimeType: string;
+  },
+  requestImpl?: DriveFetch,
+): Promise<DriveResumableChunkResult> {
+  const range = parseDriveContentRange(input.contentRange);
+  if (!range) {
+    throw new DriveWarehouseError("Drive resumable chunk has an invalid Content-Range");
+  }
+  const request = resolveFetch(requestImpl);
+  const uploaded = await request(input.location, {
+    body: input.body as BodyInit,
     headers: {
-      "Content-Length": String(payload.byteLength),
+      "Content-Range": input.contentRange,
       "Content-Type": input.mimeType,
     },
     method: "PUT",
+    redirect: "manual",
   });
+  if (uploaded.status === 308) {
+    return { incomplete: true };
+  }
   const record = (await readResponseJson(uploaded, "Drive resumable PUT")) as {
     id?: unknown;
     name?: unknown;
@@ -374,8 +484,43 @@ async function putDriveResumable(
   }
   return {
     id: record.id,
-    name: typeof record.name === "string" ? record.name : input.name,
+    name: typeof record.name === "string" ? record.name : "",
   };
+}
+
+async function putDriveResumable(
+  input: {
+    bytes: Uint8Array;
+    mimeType: string;
+    name: string;
+  },
+  requestImpl?: DriveFetch,
+): Promise<{ id: string; name: string }> {
+  const total = input.bytes.byteLength;
+  const started = await initDriveResumableUpload(
+    { mimeType: input.mimeType, name: input.name, size: total },
+    requestImpl,
+  );
+  const chunkSize = DRIVE_UPLOAD_CHUNK_BYTES;
+  for (let start = 0; start < total; start += chunkSize) {
+    const end = Math.min(start + chunkSize, total);
+    const result = await putDriveResumableChunk(
+      {
+        body: input.bytes.subarray(start, end),
+        contentRange: `bytes ${start}-${end - 1}/${total}`,
+        location: started.location,
+        mimeType: input.mimeType,
+      },
+      requestImpl,
+    );
+    if ("id" in result && result.id) {
+      return {
+        id: result.id,
+        name: result.name || input.name,
+      };
+    }
+  }
+  throw new DriveWarehouseError("Drive resumable PUT did not return an id");
 }
 
 export async function putVideoBinary(
@@ -389,10 +534,13 @@ export async function putVideoBinary(
   const access = await getDriveAccess(request);
   if (!access) {
     // Live Apps Script without op=drive-access can still take tiny clips on
-    // the photo JSON+base64 line. A 15s iPhone .mov will not fit that line.
+    // the photo JSON+base64 line. A 15s iPhone .mov must not take that line.
+    if (input.bytes.byteLength > APPS_SCRIPT_PUTBINARY_MAX_BYTES) {
+      throw new DriveWarehouseError("Drive access is not available");
+    }
     return putBinary(input, request);
   }
-  return putDriveResumable(input, access, request);
+  return putDriveResumable(input, request);
 }
 
 export async function getDriveMedia(

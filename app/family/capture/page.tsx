@@ -343,12 +343,10 @@ export default function CapturePage() {
           file: photo.file,
           momentId,
           onDisplayReady: async (display) => {
-            if (photo.abort.signal.aborted) {
+            if (photo.abort.signal.aborted || isCaptureVideoFile(photo.file)) {
               return;
             }
-            const previewUrl = isCaptureVideoFile(photo.file)
-              ? URL.createObjectURL(display)
-              : await createTinyPreviewUrl(display);
+            const previewUrl = await createTinyPreviewUrl(display);
             if (!previewUrl) {
               return;
             }
@@ -488,6 +486,7 @@ export default function CapturePage() {
         const incoming = createStagedCapturePhotos([file]).map((draft) => ({
           ...draft,
           abort: new AbortController(),
+          previewUrl: isCaptureVideoFile(file) ? URL.createObjectURL(file) : null,
         }));
         if (incoming.length === 0) {
           return;
@@ -805,7 +804,7 @@ export default function CapturePage() {
                 return (
                   <li className="fam-thumb" key={photo.id}>
                     {photo.previewUrl && isCaptureVideoFile(photo.file) ? (
-                      <video muted playsInline preload="metadata" src={photo.previewUrl} />
+                      <video muted playsInline preload="metadata" src={`${photo.previewUrl}#t=0.001`} />
                     ) : photo.previewUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img alt="" src={photo.previewUrl} />
