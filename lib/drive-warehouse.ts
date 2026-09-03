@@ -25,6 +25,9 @@ export const TRAVELOS_DRIVE_WAREHOUSE_TOKEN = DEFAULT_DRIVE_WAREHOUSE_TOKEN;
 
 export const DRIVE_STORAGE_PREFIX = "drive:";
 export const DRIVE_INDEX_NAME = "moments.json";
+export const DRIVE_WAREHOUSE_FOLDER_ID = "1Sk2TqgpF6NxoNYdUKO4h8t84UA7KxChN";
+const DRIVE_RESUMABLE_INIT_URL = "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable";
+const DRIVE_FILE_MEDIA_URL = "https://www.googleapis.com/drive/v3/files";
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const MAX_REDIRECTS = 5;
@@ -287,6 +290,148 @@ export async function putBinary(
   return {
     id: record.id,
     name: typeof record.name === "string" ? record.name : input.name,
+  };
+}
+
+export type DriveAccess = {
+  folderId: string;
+  token: string;
+};
+
+function parseDriveAccess(raw: unknown): DriveAccess | null {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  const record = raw as { error?: unknown; folderId?: unknown; token?: unknown };
+  if (typeof record.error === "string" || typeof record.token !== "string" || !record.token.trim()) {
+    return null;
+  }
+  return {
+    folderId:
+      typeof record.folderId === "string" && record.folderId.trim()
+        ? record.folderId
+        : DRIVE_WAREHOUSE_FOLDER_ID,
+    token: record.token,
+  };
+}
+
+export async function getDriveAccess(request?: DriveFetch): Promise<DriveAccess | null> {
+  const raw = await getJson(
+    { op: "drive-access", token: getDriveWarehouseToken() },
+    "Drive warehouse access GET",
+    request,
+    { allowNotFound: true },
+  );
+  return parseDriveAccess(raw);
+}
+
+async function putDriveResumable(
+  input: {
+    bytes: Uint8Array;
+    mimeType: string;
+    name: string;
+  },
+  access: DriveAccess,
+  requestImpl?: DriveFetch,
+): Promise<{ id: string; name: string }> {
+  const request = resolveFetch(requestImpl);
+  const init = await request(DRIVE_RESUMABLE_INIT_URL, {
+    body: JSON.stringify({
+      name: input.name,
+      parents: [access.folderId],
+    }),
+    headers: {
+      Authorization: `Bearer ${access.token}`,
+      "Content-Type": "application/json; charset=UTF-8",
+      "X-Upload-Content-Length": String(input.bytes.byteLength),
+      "X-Upload-Content-Type": input.mimeType,
+    },
+    method: "POST",
+  });
+  if (!init.ok) {
+    throw new DriveWarehouseError(`Drive resumable init failed: ${init.status}`);
+  }
+  const location = init.headers.get("location");
+  if (!location) {
+    throw new DriveWarehouseError("Drive resumable init did not return a location");
+  }
+
+  const payload = Buffer.from(input.bytes);
+  const uploaded = await request(location, {
+    body: payload,
+    headers: {
+      "Content-Length": String(payload.byteLength),
+      "Content-Type": input.mimeType,
+    },
+    method: "PUT",
+  });
+  const record = (await readResponseJson(uploaded, "Drive resumable PUT")) as {
+    id?: unknown;
+    name?: unknown;
+  };
+  if (typeof record.id !== "string" || !record.id.trim()) {
+    throw new DriveWarehouseError("Drive resumable PUT did not return an id");
+  }
+  return {
+    id: record.id,
+    name: typeof record.name === "string" ? record.name : input.name,
+  };
+}
+
+export async function putVideoBinary(
+  input: {
+    bytes: Uint8Array;
+    mimeType: string;
+    name: string;
+  },
+  request?: DriveFetch,
+): Promise<{ id: string; name: string }> {
+  const access = await getDriveAccess(request);
+  if (!access) {
+    // Live Apps Script without op=drive-access can still take tiny clips on
+    // the photo JSON+base64 line. A 15s iPhone .mov will not fit that line.
+    return putBinary(input, request);
+  }
+  return putDriveResumable(input, access, request);
+}
+
+export async function getDriveMedia(
+  fileId: string,
+  request?: DriveFetch,
+): Promise<{
+  base64: string;
+  bytes: Uint8Array;
+  id: string;
+  mimeType: string | null;
+  name: string;
+} | null> {
+  const access = await getDriveAccess(request);
+  if (!access) {
+    return null;
+  }
+
+  const requestImpl = resolveFetch(request);
+  const response = await requestImpl(
+    `${DRIVE_FILE_MEDIA_URL}/${encodeURIComponent(fileId)}?alt=media`,
+    {
+      cache: "no-store",
+      headers: { Authorization: `Bearer ${access.token}` },
+      method: "GET",
+    },
+  );
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new DriveWarehouseError(`Drive media GET failed: ${response.status}`);
+  }
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  return {
+    base64: "",
+    bytes,
+    id: fileId,
+    mimeType: response.headers.get("content-type"),
+    name: fileId,
   };
 }
 

@@ -18,7 +18,7 @@ import { contentTypeForMomentMedia, makeMomentId, momentMediaKindFromFile } from
 import type { GeoPoint, MomentPhoto } from "@/lib/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 function cleanFilename(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-");

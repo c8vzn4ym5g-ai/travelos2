@@ -14,6 +14,7 @@ import {
   putBinary,
   putIndex,
   putItem,
+  putVideoBinary,
   resetDriveWarehouseForTests,
   scanWarehouseFiles,
   type DriveWarehouseFile,
@@ -44,6 +45,7 @@ import {
   MOMENTS_BLOB_PATH,
   MOMENTS_SCHEMA_VERSION,
   applyMomentPhotoAppends,
+  isCaptureVideoFile,
   mergeMomentPhotos,
   momentItemBlobPath,
   normalizeTravelJob,
@@ -559,11 +561,18 @@ export async function storeMomentBinary(pathname: string, file: Blob) {
   if (shouldUseDriveWarehouse()) {
     const bytes = new Uint8Array(await file.arrayBuffer());
     const mime = file.type || "application/octet-stream";
-    const stored = await putBinary({
-      bytes,
-      mimeType: mime,
-      name: driveObjectName(pathname),
-    });
+    const name = driveObjectName(pathname);
+    const stored = isCaptureVideoFile({ name, type: mime })
+      ? await putVideoBinary({
+          bytes,
+          mimeType: mime,
+          name,
+        })
+      : await putBinary({
+          bytes,
+          mimeType: mime,
+          name,
+        });
     return { url: driveStorageKey(stored.id) };
   }
 

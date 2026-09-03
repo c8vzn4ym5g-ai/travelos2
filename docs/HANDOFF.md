@@ -1,5 +1,21 @@
 # TravelOS Handoff
 
+## 2026-09-03 Capture 15s iPhone video
+
+- Owner: 15s `IMG_1504.MOV` on Capture is a normal dump. The old 28MB
+  client gate (`換一段短一點的`) is gone. Ceiling is the Worker/Drive
+  ~100MB body, documented in code, not as a length lecture.
+- Videos go Worker → Drive resumable (`putVideoBinary`). Photos keep
+  the JPEG Apps Script JSON+base64 line. Same album picker, same 40
+  parallel POSTs, play in place on 工作台.
+- Family card fallback is `上傳失敗。` (Chinese), not
+  "Photo upload failed."
+- Paste `scripts/drive-warehouse-apps-script.js` into the existing
+  warehouse Apps Script and deploy a new web-app version (same `/exec`
+  URL) so `op=drive-access` can mint `ScriptApp.getOAuthToken()` for
+  resumable PUTs. Without that paste, tiny clips still ride JSON+base64;
+  a 15s iPhone .mov needs the mint. Do not ask Owner to re-dump as porter.
+
 ## 2026-08-31 說說 pill on family 入口
 
 - `/family` 入口 keeps the framed 行程 pill and adds 說說 next to it,

@@ -242,6 +242,7 @@ test("live warehouse reader lists then fetches, keeps parallel Capture POSTs, an
   assert.match(store, /listMomentBlobs/);
   assert.match(store, /momentsFromListedItemBlobs/);
   assert.match(store, /putBinary/);
+  assert.match(store, /putVideoBinary/);
   assert.match(store, /access: "private"/);
   assert.doesNotMatch(store, /import \{[^}]*\blist\b/);
   assert.doesNotMatch(store, /list\(/);

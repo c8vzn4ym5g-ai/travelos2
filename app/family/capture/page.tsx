@@ -385,7 +385,7 @@ export default function CapturePage() {
         if (photo.abort.signal.aborted || !photoIsOnScreen(photo.id)) {
           return;
         }
-        const detail = captureErrorMessage(error, "Photo upload failed.");
+        const detail = captureErrorMessage(error, "上傳失敗。");
         patchPhoto(photo.id, { errorMessage: detail, status: "failed" });
         setMessage(detail);
         throw error;
@@ -441,7 +441,7 @@ export default function CapturePage() {
         if (staged.abort.signal.aborted) {
           return;
         }
-        const detail = captureErrorMessage(error, "Audio upload failed.");
+        const detail = captureErrorMessage(error, "上傳失敗。");
         setAudio((current) => {
           if (current?.previewUrl !== staged.previewUrl) {
             return current;
