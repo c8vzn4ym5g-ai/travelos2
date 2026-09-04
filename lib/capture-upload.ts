@@ -44,7 +44,7 @@ export function captureVideoPutChunkBytes(fileSize: number) {
   return Math.min(CAPTURE_VIDEO_CHUNK_BYTES, fileSize);
 }
 
-function mergeAbortSignals(signals: Array<AbortSignal | undefined>) {
+function mergeAbortSignals(signals: Array<AbortSignal | null | undefined>) {
   const present = signals.filter((signal): signal is AbortSignal => Boolean(signal));
   if (present.length === 0) {
     return undefined;
@@ -80,7 +80,7 @@ export function isCaptureUploadAbortError(error: unknown) {
 export async function captureFetch(input: RequestInfo | URL, init: RequestInit, timeoutMs: number) {
   const controller = new AbortController();
   const timer = globalThis.setTimeout(() => controller.abort(), timeoutMs);
-  const signal = mergeAbortSignals([init.signal, controller.signal]);
+  const signal = mergeAbortSignals([init.signal ?? undefined, controller.signal]);
   if (signal?.aborted) {
     globalThis.clearTimeout(timer);
     throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
