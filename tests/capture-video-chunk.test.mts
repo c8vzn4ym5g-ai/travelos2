@@ -217,7 +217,14 @@ test("10MB and 46MB watchdogs stay under minutes and hops stay 8MiB", () => {
 
 test("hung capture fetch becomes 上傳失敗 and does not wait minutes", async () => {
   const original = globalThis.fetch;
-  globalThis.fetch = (() => new Promise(() => {})) as typeof fetch;
+  globalThis.fetch = ((input, init) =>
+    new Promise((_, reject) => {
+      init?.signal?.addEventListener(
+        "abort",
+        () => reject(Object.assign(new Error("The user aborted a request."), { name: "AbortError" })),
+        { once: true },
+      );
+    })) as typeof fetch;
   const started = Date.now();
   try {
     await assert.rejects(
@@ -739,7 +746,7 @@ test("Capture card fallback and album accept stay family Chinese / one door", as
   assert.match(videoUpload, /CAPTURE_VIDEO_HOP_TIMEOUT_MS/);
   assert.match(videoUpload, /CAPTURE_VIDEO_INIT_TIMEOUT_MS/);
   assert.match(upload, /export async function captureFetch/);
-  assert.match(upload, /AbortSignal\.timeout/);
+  assert.match(upload, /setTimeout\(\(\) => controller\.abort\(\), timeoutMs\)/);
   assert.match(upload, /createCaptureMoment[\s\S]*CAPTURE_MOMENT_FETCH_TIMEOUT_MS/);
   assert.match(capture, /captureUploadWatchdogMs/);
   assert.match(capture, /CAPTURE_UPLOAD_FAILED_MESSAGE/);

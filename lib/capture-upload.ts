@@ -78,27 +78,30 @@ export function isCaptureUploadAbortError(error: unknown) {
 }
 
 export async function captureFetch(input: RequestInfo | URL, init: RequestInit, timeoutMs: number) {
-  const timeout = AbortSignal.timeout(timeoutMs);
-  const signal = mergeAbortSignals([init.signal, timeout]);
+  const controller = new AbortController();
+  const timer = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  const signal = mergeAbortSignals([init.signal, controller.signal]);
   if (signal?.aborted) {
+    globalThis.clearTimeout(timer);
     throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
   }
 
-  const aborted = new Promise<Response>((_, reject) => {
-    signal?.addEventListener(
-      "abort",
-      () => reject(new Error(CAPTURE_UPLOAD_FAILED_MESSAGE)),
-      { once: true },
-    );
-  });
-
   try {
+    const aborted = new Promise<Response>((_, reject) => {
+      signal?.addEventListener(
+        "abort",
+        () => reject(new Error(CAPTURE_UPLOAD_FAILED_MESSAGE)),
+        { once: true },
+      );
+    });
     return await Promise.race([fetch(input, { ...init, signal }), aborted]);
   } catch (error) {
     if (isCaptureUploadAbortError(error) || (error instanceof Error && error.message === CAPTURE_UPLOAD_FAILED_MESSAGE)) {
       throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
     }
     throw error;
+  } finally {
+    globalThis.clearTimeout(timer);
   }
 }
 
@@ -576,15 +579,15 @@ export async function uploadCaptureVideo(input: {
   }
 
   const total = source.size;
+  if (total > 0 && (slices.length === 0 || slices[0]?.size === 0)) {
+    throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
+  }
   const chunkSize = captureVideoPutChunkBytes(total);
   let offset = 0;
   for (const chunk of slices) {
     const end = Math.min(offset + chunkSize, total);
     const contentRange = `bytes ${offset}-${end - 1}/${total}`;
     const body = chunk.size > 0 ? chunk : source.slice(offset, end);
-    if (body.size <= 0 && total > 0) {
-      throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
-    }
     const response = await captureFetch(
       "/api/moments/photos/video",
       {
