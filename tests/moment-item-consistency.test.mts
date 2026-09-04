@@ -197,8 +197,9 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
     resetMomentStoreForTests();
   });
 
-  test.afterEach(() => {
+  test.afterEach(async () => {
     resetMomentStoreForTests();
+    await new Promise((resolve) => setTimeout(resolve, 25));
   });
 
   test("in-process store: create then immediate photo and audio attach", async () => {
@@ -535,13 +536,15 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
           return { pathname, url: `https://blob.local/${pathname}` };
         },
       });
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      puts.length = 0;
 
       const { GET, POST } = await import("../app/api/moments/route.ts");
       const listed = await GET(new Request("http://travelos.local/api/moments"));
       assert.equal(listed.status, 200);
       const listedBody = (await listed.json()) as { content: { moments: unknown[] } };
       assert.deepEqual(listedBody.content.moments, []);
-      assert.equal(puts.length, 0);
+      assert.equal(puts.length, 0, `GET wrote ${puts.join(",")}`);
 
       const createdResponse = await POST(
         new Request("http://travelos.local/api/moments", {
@@ -999,6 +1002,7 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
     });
   });
 
+  test("photo GET hydrates Drive files so rebuilt photo ids are not 404", async () => {
     await withPinEnv(undefined, async () => {
       const momentId = "moment_1787928443329_3823s1";
       const fileId = "1dQ9zJGeuGtkMSDsnTPcvQrL4ac4IJhk6";
