@@ -420,10 +420,27 @@ export async function getDriveAccess(request?: DriveFetch): Promise<DriveAccess 
   return parseDriveAccess(raw);
 }
 
+export function safeBrowserOrigin(origin: string | null | undefined) {
+  const value = (origin ?? "").trim();
+  if (!value) {
+    return undefined;
+  }
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return undefined;
+    }
+    return parsed.origin;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function initDriveResumableUpload(
   input: {
     mimeType: string;
     name: string;
+    origin?: string;
     size: number;
   },
   requestImpl?: DriveFetch,
@@ -433,6 +450,7 @@ export async function initDriveResumableUpload(
     throw new DriveWarehouseError("Drive access is not available");
   }
   const request = resolveFetch(requestImpl);
+  const origin = safeBrowserOrigin(input.origin);
   const init = await request(DRIVE_RESUMABLE_INIT_URL, {
     body: JSON.stringify({
       name: input.name,
@@ -443,6 +461,7 @@ export async function initDriveResumableUpload(
       "Content-Type": "application/json; charset=UTF-8",
       "X-Upload-Content-Length": String(input.size),
       "X-Upload-Content-Type": input.mimeType,
+      ...(origin ? { Origin: origin } : {}),
     },
     method: "POST",
     redirect: "manual",
@@ -457,9 +476,89 @@ export async function initDriveResumableUpload(
   return { folderId: access.folderId, location };
 }
 
+export async function getDriveFileMeta(
+  fileId: string,
+  requestImpl?: DriveFetch,
+): Promise<{
+  id: string;
+  mimeType: string;
+  name: string;
+  parents: string[];
+  size: number;
+} | null> {
+  const access = await getDriveAccess(requestImpl);
+  if (!access) {
+    return null;
+  }
+  const request = resolveFetch(requestImpl);
+  const response = await request(
+    `${DRIVE_FILE_MEDIA_URL}/${encodeURIComponent(fileId)}?fields=id,name,mimeType,size,parents&supportsAllDrives=true`,
+    {
+      cache: "no-store",
+      headers: { Authorization: `Bearer ${access.token}` },
+      method: "GET",
+    },
+  );
+  if (response.status === 404) {
+    return null;
+  }
+  const record = (await readResponseJson(response, "Drive file GET")) as {
+    id?: unknown;
+    mimeType?: unknown;
+    name?: unknown;
+    parents?: unknown;
+    size?: unknown;
+  };
+  if (typeof record.id !== "string" || !record.id.trim()) {
+    return null;
+  }
+  const size = typeof record.size === "number" ? record.size : Number(record.size);
+  return {
+    id: record.id,
+    mimeType: typeof record.mimeType === "string" ? record.mimeType : "",
+    name: typeof record.name === "string" ? record.name : "",
+    parents: Array.isArray(record.parents)
+      ? record.parents.filter((parent): parent is string => typeof parent === "string")
+      : [],
+    size: Number.isFinite(size) ? size : 0,
+  };
+}
+
+export async function queryDriveResumableStatus(
+  location: string,
+  total: number,
+  requestImpl?: DriveFetch,
+): Promise<DriveResumableChunkResult> {
+  if (!Number.isInteger(total) || total <= 0) {
+    throw new DriveWarehouseError("Drive resumable status has an invalid size");
+  }
+  const request = resolveFetch(requestImpl);
+  const uploaded = await request(location, {
+    headers: {
+      "Content-Range": `bytes */${total}`,
+    },
+    method: "PUT",
+    redirect: "manual",
+  });
+  if (uploaded.status === 308) {
+    return { incomplete: true };
+  }
+  const record = (await readResponseJson(uploaded, "Drive resumable status")) as {
+    id?: unknown;
+    name?: unknown;
+  };
+  if (typeof record.id !== "string" || !record.id.trim()) {
+    throw new DriveWarehouseError("Drive resumable status did not return an id");
+  }
+  return {
+    id: record.id,
+    name: typeof record.name === "string" ? record.name : "",
+  };
+}
+
 export async function putDriveResumableChunk(
   input: {
-    body: Uint8Array | Blob | Buffer;
+    body: Uint8Array | Blob | Buffer | ReadableStream<Uint8Array>;
     contentRange: string;
     location: string;
     mimeType: string;

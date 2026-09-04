@@ -21,6 +21,7 @@ export const CAPTURE_MOMENT_FETCH_TIMEOUT_MS = 30_000;
 export const CAPTURE_VIDEO_INIT_TIMEOUT_MS = 45_000;
 // 8MiB on iPhone 4G often exceeds 20s. Desktop Wi-Fi hid this; Owner 4G did not.
 export const CAPTURE_VIDEO_HOP_TIMEOUT_MS = 90_000;
+export const CAPTURE_VIDEO_COMPLETE_TIMEOUT_MS = 30_000;
 export const CAPTURE_PHOTO_FETCH_TIMEOUT_MS = 30_000;
 
 export function captureVideoHopCount(fileSize: number) {
@@ -34,8 +35,44 @@ export function captureUploadWatchdogMs(fileSize: number) {
   return (
     CAPTURE_MOMENT_FETCH_TIMEOUT_MS +
     CAPTURE_VIDEO_INIT_TIMEOUT_MS +
-    captureVideoHopCount(fileSize) * CAPTURE_VIDEO_HOP_TIMEOUT_MS
+    captureVideoHopCount(fileSize) * CAPTURE_VIDEO_HOP_TIMEOUT_MS +
+    CAPTURE_VIDEO_COMPLETE_TIMEOUT_MS
   );
+}
+
+export function isDirectDriveUploadUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.protocol === "https:" &&
+      (parsed.hostname === "www.googleapis.com" || parsed.hostname === "googleapis.com") &&
+      parsed.pathname.includes("/upload/drive/")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isDriveHopContinue(response: Response) {
+  return response.status === 308 || response.status === 0 || response.type === "opaqueredirect";
+}
+
+function isLikelyCorsOrNetworkError(error: unknown) {
+  if (isCaptureUploadAbortError(error)) {
+    return false;
+  }
+  if (error instanceof TypeError) {
+    return true;
+  }
+  return error instanceof Error && /failed to fetch|networkerror|load failed|cors/i.test(error.message);
+}
+
+function readDriveFileId(payload: unknown) {
+  if (!payload || typeof payload !== "object") {
+    return "";
+  }
+  const id = (payload as { id?: unknown }).id;
+  return typeof id === "string" ? id.trim() : "";
 }
 
 export function captureVideoPutChunkBytes(fileSize: number) {
@@ -605,22 +642,114 @@ export async function uploadCaptureVideo(input: {
     throw new Error(await readError(initResponse, CAPTURE_UPLOAD_FAILED_MESSAGE));
   }
 
-  const initPayload = (await initResponse.json()) as { session?: string };
+  const initPayload = (await initResponse.json()) as { session?: string; uploadUrl?: string };
   const session = initPayload.session?.trim() ?? "";
   if (!session) {
     throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
   }
+  const uploadUrl = initPayload.uploadUrl?.trim() ?? "";
+  let hopViaWorker = !isDirectDriveUploadUrl(uploadUrl);
 
   const total = source.size;
   if (total > 0 && (slices.length === 0 || slices[0]?.size === 0)) {
     throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
   }
   const chunkSize = captureVideoPutChunkBytes(total);
+  const mimeType = captureFileMime(source) || "video/quicktime";
   let offset = 0;
+  let fileId = "";
+
+  const completeDirectUpload = async (knownFileId = "") => {
+    const response = await captureFetch(
+      "/api/moments/photos/video",
+      {
+        body: JSON.stringify({
+          complete: true,
+          ...(knownFileId ? { fileId: knownFileId } : {}),
+          session,
+        }),
+        headers: {
+          "content-type": "application/json",
+          ...pinHeaders(input.pin),
+          "x-travelos-video-session": session,
+        },
+        method: "POST",
+        signal: input.signal,
+      },
+      CAPTURE_VIDEO_COMPLETE_TIMEOUT_MS,
+    );
+    if (!response.ok) {
+      throw new Error(await readError(response, CAPTURE_UPLOAD_FAILED_MESSAGE));
+    }
+    const payload = (await response.json()) as { photo?: MomentPhoto };
+    if (!payload.photo) {
+      throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
+    }
+    return { display: source, momentId, photo: payload.photo };
+  };
+
   for (const chunk of slices) {
     const end = Math.min(offset + chunkSize, total);
     const contentRange = `bytes ${offset}-${end - 1}/${total}`;
     const body = chunk.size > 0 ? chunk : source.slice(offset, end);
+    const lastHop = end === total || isLastVideoRange(contentRange, total);
+
+    if (!hopViaWorker) {
+      try {
+        const response = await captureFetch(
+          uploadUrl,
+          {
+            body,
+            headers: {
+              "content-range": contentRange,
+              "content-type": mimeType,
+            },
+            method: "PUT",
+            redirect: "manual",
+            signal: input.signal,
+          },
+          CAPTURE_VIDEO_HOP_TIMEOUT_MS,
+        );
+        if (isDriveHopContinue(response)) {
+          if (lastHop) {
+            return await completeDirectUpload(fileId);
+          }
+          offset = end;
+          continue;
+        }
+        if (!response.ok) {
+          throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
+        }
+        if (lastHop) {
+          try {
+            fileId = readDriveFileId(await response.json()) || fileId;
+          } catch {
+            // Worker complete probes the Location if the phone cannot read Drive JSON.
+          }
+          return await completeDirectUpload(fileId);
+        }
+        offset = end;
+        continue;
+      } catch (error) {
+        if (isCaptureUploadAbortError(error) || (error instanceof Error && error.message === CAPTURE_UPLOAD_FAILED_MESSAGE)) {
+          throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
+        }
+        if (lastHop) {
+          try {
+            return await completeDirectUpload(fileId);
+          } catch {
+            // Last-hop CORS can hide a finished Drive PUT; if complete also
+            // fails, drop through to Worker proxy only when nothing was sent.
+          }
+        }
+        if (offset === 0 && isLikelyCorsOrNetworkError(error)) {
+          hopViaWorker = true;
+        } else {
+          throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
+        }
+      }
+    }
+
     const response = await captureFetch(
       "/api/moments/photos/video",
       {
@@ -639,7 +768,7 @@ export async function uploadCaptureVideo(input: {
     if (!response.ok) {
       throw new Error(await readError(response, CAPTURE_UPLOAD_FAILED_MESSAGE));
     }
-    if (end === total || isLastVideoRange(contentRange, total)) {
+    if (lastHop) {
       const payload = (await response.json()) as { photo?: MomentPhoto };
       if (!payload.photo) {
         throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);

@@ -3,8 +3,11 @@ import {
   DriveWarehouseError,
   driveObjectName,
   driveStorageKey,
+  getDriveFileMeta,
   initDriveResumableUpload,
   parseDriveContentRange,
+  queryDriveResumableStatus,
+  safeBrowserOrigin,
   signDriveResumableSession,
   verifyDriveResumableSession,
   putDriveResumableChunk,
@@ -84,6 +87,45 @@ async function finishVideoPhoto(input: {
   return photo;
 }
 
+async function completeDirectVideoUpload(
+  request: Request,
+  body: { fileId?: unknown; session?: unknown },
+) {
+  const sessionToken =
+    (typeof body.session === "string" ? body.session.trim() : "") ||
+    request.headers.get("x-travelos-video-session")?.trim() ||
+    "";
+  if (!sessionToken) {
+    return failed();
+  }
+
+  const session = verifyDriveResumableSession(sessionToken);
+  const hintedId = typeof body.fileId === "string" ? body.fileId.trim() : "";
+  const status = await queryDriveResumableStatus(session.location, session.size);
+  let fileId = "id" in status ? status.id : "";
+
+  if (!fileId && hintedId) {
+    const meta = await getDriveFileMeta(hintedId);
+    if (meta?.id && (meta.size === 0 || meta.size === session.size)) {
+      fileId = meta.id;
+    }
+  }
+
+  if (!fileId) {
+    return failed(503);
+  }
+
+  const photo = await finishVideoPhoto({
+    coordinates: session.coordinates,
+    fileId,
+    filename: session.filename,
+    mimeType: session.mimeType,
+    momentId: session.momentId,
+    takenAt: session.takenAt,
+  });
+  return Response.json({ photo });
+}
+
 export async function POST(request: Request) {
   try {
     const pin = request.headers.get("x-travelos-admin-pin");
@@ -97,10 +139,13 @@ export async function POST(request: Request) {
     }
 
     let body: {
+      complete?: unknown;
       coordinates?: unknown;
+      fileId?: unknown;
       filename?: unknown;
       mimeType?: unknown;
       momentId?: unknown;
+      session?: unknown;
       size?: unknown;
       takenAt?: unknown;
     };
@@ -108,6 +153,10 @@ export async function POST(request: Request) {
       body = (await request.json()) as typeof body;
     } catch {
       return failed();
+    }
+
+    if (body.complete === true) {
+      return completeDirectVideoUpload(request, body);
     }
 
     const momentId = typeof body.momentId === "string" ? body.momentId.trim() : "";
@@ -129,6 +178,7 @@ export async function POST(request: Request) {
     const started = await initDriveResumableUpload({
       mimeType: mimeType || "video/quicktime",
       name: objectName,
+      origin: safeBrowserOrigin(request.headers.get("origin")),
       size,
     });
     const session = signDriveResumableSession({
@@ -141,7 +191,7 @@ export async function POST(request: Request) {
       size,
       takenAt,
     });
-    return Response.json({ session });
+    return Response.json({ session, uploadUrl: started.location });
   } catch (error) {
     if (error instanceof DriveWarehouseError) {
       return failed(503);
@@ -173,17 +223,33 @@ export async function PUT(request: Request) {
       return failed();
     }
 
-    const chunk = new Uint8Array(await request.arrayBuffer());
     const expected = range.end - range.start + 1;
-    if (chunk.byteLength !== expected || chunk.byteLength > VIDEO_CHUNK_MAX_BYTES) {
+    if (expected > VIDEO_CHUNK_MAX_BYTES) {
       return failed();
     }
     if (range.end !== range.total - 1 && expected % DRIVE_UPLOAD_CHUNK_BYTES !== 0) {
       return failed();
     }
 
+    const declared = Number(request.headers.get("content-length"));
+    const canStream =
+      Number.isInteger(declared) &&
+      declared === expected &&
+      declared <= VIDEO_CHUNK_MAX_BYTES &&
+      request.body != null;
+    let body: Uint8Array | ReadableStream<Uint8Array>;
+    if (canStream && request.body) {
+      body = request.body;
+    } else {
+      const chunk = new Uint8Array(await request.arrayBuffer());
+      if (chunk.byteLength !== expected || chunk.byteLength > VIDEO_CHUNK_MAX_BYTES) {
+        return failed();
+      }
+      body = chunk;
+    }
+
     const result = await putDriveResumableChunk({
-      body: chunk,
+      body,
       contentRange: `bytes ${range.start}-${range.end}/${range.total}`,
       location: session.location,
       mimeType: session.mimeType,
