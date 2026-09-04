@@ -17,10 +17,11 @@ export const CAPTURE_VIDEO_CHUNK_BYTES = 8 * 1024 * 1024;
 export const CAPTURE_VIDEO_SINGLE_PUT_MAX_BYTES = 80_000_000;
 export const CAPTURE_VIDEO_MAX_BYTES = 100_000_000;
 export const CAPTURE_UPLOAD_FAILED_MESSAGE = "上傳失敗。";
-export const CAPTURE_MOMENT_FETCH_TIMEOUT_MS = 15_000;
-export const CAPTURE_VIDEO_INIT_TIMEOUT_MS = 15_000;
-export const CAPTURE_VIDEO_HOP_TIMEOUT_MS = 20_000;
-export const CAPTURE_PHOTO_FETCH_TIMEOUT_MS = 20_000;
+export const CAPTURE_MOMENT_FETCH_TIMEOUT_MS = 30_000;
+export const CAPTURE_VIDEO_INIT_TIMEOUT_MS = 45_000;
+// 8MiB on iPhone 4G often exceeds 20s. Desktop Wi-Fi hid this; Owner 4G did not.
+export const CAPTURE_VIDEO_HOP_TIMEOUT_MS = 90_000;
+export const CAPTURE_PHOTO_FETCH_TIMEOUT_MS = 30_000;
 
 export function captureVideoHopCount(fileSize: number) {
   if (fileSize <= 0) {
@@ -106,6 +107,12 @@ export async function captureFetch(input: RequestInfo | URL, init: RequestInit, 
 }
 
 const captureVideoSliceCache = new WeakMap<File, Blob[]>();
+const captureVideoMaterialized = new WeakSet<File>();
+
+export async function materializeCaptureVideoHop(chunk: Blob) {
+  const bytes = new Uint8Array(await chunk.arrayBuffer());
+  return new Blob([bytes], { type: chunk.type || "application/octet-stream" });
+}
 
 export function sliceCaptureVideo(file: File) {
   const cached = captureVideoSliceCache.get(file);
@@ -120,6 +127,32 @@ export function sliceCaptureVideo(file: File) {
   }
   captureVideoSliceCache.set(file, slices);
   return slices;
+}
+
+export async function materializeCaptureVideoSlices(file: File) {
+  if (captureVideoMaterialized.has(file)) {
+    return sliceCaptureVideo(file);
+  }
+  const views = sliceCaptureVideo(file);
+  const durable: Blob[] = [];
+  for (const view of views) {
+    durable.push(view.size > 0 ? await materializeCaptureVideoHop(view) : view);
+  }
+  if (file.size > 0 && (durable.length === 0 || durable[0]?.size === 0)) {
+    throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
+  }
+  captureVideoSliceCache.set(file, durable);
+  captureVideoMaterialized.add(file);
+  return durable;
+}
+
+export function captureVideoPreviewUrl(file: File) {
+  const slices = sliceCaptureVideo(file);
+  const first = slices[0];
+  if (!first || first.size <= 0) {
+    return null;
+  }
+  return URL.createObjectURL(first);
 }
 
 export type CapturePhotoDraft = {
@@ -534,7 +567,7 @@ export async function uploadCaptureVideo(input: {
 }) {
   assertCaptureFileFits(input.file);
   const source = withCaptureFileMime(input.file);
-  const slices = sliceCaptureVideo(source);
+  const slices = await materializeCaptureVideoSlices(source);
 
   void Promise.resolve(input.onDisplayReady?.(source)).catch(() => {
     // Tiny previews are optional; they must never block the video init POST.

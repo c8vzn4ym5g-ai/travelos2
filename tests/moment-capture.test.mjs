@@ -271,11 +271,11 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   const addBlock = capture.slice(addIndex, capture.indexOf("function onTakePhoto"));
   assert.ok(addIndex !== -1 && saveIndex !== -1);
   assert.ok(addIndex < saveIndex);
-  assert.match(addBlock, /URL\.createObjectURL\(file\.slice\(0\)\)/);
+  assert.match(addBlock, /captureVideoPreviewUrl\(file\)/);
   assert.match(addBlock, /ingestCaptureFileList/);
   assert.match(capture, /createTinyPreviewUrl\(display\)/);
   assert.match(capture, /isCaptureVideoFile\(photo.file\)/);
-  assert.match(capture, /<video muted playsInline/);
+  assert.match(capture, /<video[\s\S]*playsInline/);
   assert.match(upload, /isCaptureDumpFile/);
   assert.match(upload, /CAPTURE_VIDEO_MAX_BYTES = 100_000_000/);
   assert.match(upload, /CAPTURE_VIDEO_CHUNK_BYTES = 8 \* 1024 \* 1024/);

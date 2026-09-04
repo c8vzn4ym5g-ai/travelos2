@@ -23,6 +23,8 @@ import {
   captureDumpProgressMessage,
   captureErrorMessage,
   captureUploadWatchdogMs,
+  captureVideoPreviewUrl,
+  materializeCaptureVideoSlices,
   clearMomentAudioInBackground,
   createCaptureMoment,
   createMomentSession,
@@ -350,6 +352,9 @@ export default function CapturePage() {
         }
       }, watchdogMs);
       try {
+        if (isCaptureVideoFile(photo.file)) {
+          await materializeCaptureVideoSlices(photo.file);
+        }
         const takenAt = Number.isFinite(photo.file.lastModified)
           ? new Date(photo.file.lastModified).toISOString()
           : new Date().toISOString();
@@ -509,14 +514,16 @@ export default function CapturePage() {
       ),
     );
 
-    const videoUploads: Promise<unknown>[] = [];
     await ingestCaptureFileList(fileList, {
       limit: CAPTURE_DUMP_LIMIT,
-      onCopied(file, progress) {
+      async onCopied(file, progress) {
+        if (isCaptureVideoFile(file)) {
+          await materializeCaptureVideoSlices(file);
+        }
         const incoming = createStagedCapturePhotos([file]).map((draft) => ({
           ...draft,
           abort: new AbortController(),
-          previewUrl: isCaptureVideoFile(file) ? URL.createObjectURL(file.slice(0)) : null,
+          previewUrl: isCaptureVideoFile(file) ? captureVideoPreviewUrl(file) : null,
         }));
         if (incoming.length === 0) {
           return;
@@ -530,10 +537,7 @@ export default function CapturePage() {
         });
 
         for (const photo of incoming) {
-          const started = startBackgroundPhotoUpload(photo);
-          if (isCaptureVideoFile(file)) {
-            videoUploads.push(started);
-          }
+          void startBackgroundPhotoUpload(photo);
         }
       },
       onReceived(received) {
@@ -547,12 +551,8 @@ export default function CapturePage() {
         }
       },
     });
-    if (videoUploads.length > 0 && input) {
-      void Promise.allSettled(videoUploads).then(() => {
-        if (input.files === fileList) {
-          input.value = "";
-        }
-      });
+    if (input && input.files === fileList) {
+      input.value = "";
     }
   }
 
@@ -844,7 +844,18 @@ export default function CapturePage() {
                 return (
                   <li className="fam-thumb" key={photo.id}>
                     {photo.previewUrl && isCaptureVideoFile(photo.file) ? (
-                      <video muted playsInline preload="metadata" src={`${photo.previewUrl}#t=0.001`} />
+                      <video
+                        muted
+                        onError={() => {
+                          if (photo.previewUrl) {
+                            URL.revokeObjectURL(photo.previewUrl);
+                          }
+                          patchPhoto(photo.id, { previewUrl: null });
+                        }}
+                        playsInline
+                        preload="metadata"
+                        src={`${photo.previewUrl}#t=0.001`}
+                      />
                     ) : photo.previewUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img alt="" src={photo.previewUrl} />
