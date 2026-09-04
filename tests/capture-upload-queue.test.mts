@@ -1067,14 +1067,14 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
   assert.match(addBlock, /limit: CAPTURE_DUMP_LIMIT/);
   assert.match(addBlock, /createStagedCapturePhotos\(\[file\]\)/);
   assert.match(addBlock, /startBackgroundPhotoUpload\(photo\)/);
-  assert.match(addBlock, /videoUploads/);
-  assert.match(addBlock, /Promise\.allSettled\(videoUploads\)/);
+  assert.match(addBlock, /materializeCaptureVideoSlices\(file\)/);
+  assert.match(addBlock, /captureVideoPreviewUrl\(file\)/);
   assert.match(addBlock, /shouldReplaceCaptureDumpRound\(source, photosRef\.current\.length\)/);
   assert.match(addBlock, /beginFreshDumpRound\(\)/);
   assert.match(addBlock, /captureDumpProgressMessage/);
   assert.match(addBlock, /resetInput/);
   assert.doesNotMatch(addBlock, /snapshotFileList/);
-  assert.match(addBlock, /URL\.createObjectURL\(file\.slice\(0\)\)/);
+  assert.match(addBlock, /captureVideoPreviewUrl\(file\)/);
   assert.match(chooseBlock, /"choose-photos"/);
   assert.doesNotMatch(chooseBlock, /"take-photo"/);
   assert.doesNotMatch(chooseBlock, /event\.target\.value = ""/);
@@ -1199,8 +1199,10 @@ test("a mixed 40-file dump still starts 40 POSTs in parallel", async () => {
         );
       },
     });
-    await Promise.resolve();
-    await Promise.resolve();
+    const started = Date.now();
+    while (posted < 40 && Date.now() - started < 500) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
     assert.equal(posted, 40);
     assert.equal(photoPosts, 32);
     assert.equal(videoInits, 8);

@@ -18,7 +18,10 @@ import {
   captureFetch,
   captureUploadWatchdogMs,
   captureVideoHopCount,
+  captureVideoPreviewUrl,
   captureVideoPutChunkBytes,
+  materializeCaptureVideoHop,
+  materializeCaptureVideoSlices,
   captureVideoTooLargeMessage,
   copyCaptureFile,
   isCaptureUploadAbortError,
@@ -184,8 +187,8 @@ test("46MB-class dummy uses 8MiB hops not 1 PUT and not 175; 8MiB boundary", () 
     captureUploadWatchdogMs(10_000_000),
     CAPTURE_MOMENT_FETCH_TIMEOUT_MS + CAPTURE_VIDEO_INIT_TIMEOUT_MS + 2 * CAPTURE_VIDEO_HOP_TIMEOUT_MS,
   );
-  assert.ok(captureUploadWatchdogMs(10_000_000) < 90_000);
-  assert.ok(captureUploadWatchdogMs(IMG_1504_BYTES) < 180_000);
+  assert.ok(captureUploadWatchdogMs(10_000_000) < 300_000);
+  assert.ok(captureUploadWatchdogMs(IMG_1504_BYTES) < 700_000);
   assert.notEqual(expectedPutCount(IMG_1504_BYTES), 1);
   assert.notEqual(expectedPutCount(IMG_1504_BYTES), 175);
   assert.equal(expectedPutCount(CAPTURE_VIDEO_CHUNK_BYTES), 1);
@@ -207,12 +210,60 @@ test("10MB and 46MB watchdogs stay under minutes and hops stay 8MiB", () => {
     captureUploadWatchdogMs(10_000_000),
     CAPTURE_MOMENT_FETCH_TIMEOUT_MS + CAPTURE_VIDEO_INIT_TIMEOUT_MS + 2 * CAPTURE_VIDEO_HOP_TIMEOUT_MS,
   );
-  assert.ok(captureUploadWatchdogMs(10_000_000) < 90_000);
-  assert.ok(captureUploadWatchdogMs(IMG_1504_BYTES) < 180_000);
-  assert.equal(CAPTURE_MOMENT_FETCH_TIMEOUT_MS, 15_000);
-  assert.equal(CAPTURE_VIDEO_INIT_TIMEOUT_MS, 15_000);
-  assert.equal(CAPTURE_VIDEO_HOP_TIMEOUT_MS, 20_000);
-  assert.equal(CAPTURE_PHOTO_FETCH_TIMEOUT_MS, 20_000);
+  assert.ok(captureUploadWatchdogMs(10_000_000) < 300_000);
+  assert.ok(captureUploadWatchdogMs(IMG_1504_BYTES) < 700_000);
+  assert.equal(CAPTURE_MOMENT_FETCH_TIMEOUT_MS, 30_000);
+  assert.equal(CAPTURE_VIDEO_INIT_TIMEOUT_MS, 45_000);
+  assert.equal(CAPTURE_VIDEO_HOP_TIMEOUT_MS, 90_000);
+  assert.ok(CAPTURE_VIDEO_HOP_TIMEOUT_MS > 20_000);
+  assert.equal(CAPTURE_PHOTO_FETCH_TIMEOUT_MS, 30_000);
+});
+
+test("materialized hops stay independent of the album File after reset", async () => {
+  const bytes = new Uint8Array(64);
+  bytes.fill(9);
+  const file = new File([bytes], "clip.MOV", { type: "video/quicktime" });
+  const views = sliceCaptureVideo(file);
+  const durable = await materializeCaptureVideoHop(views[0]!);
+  assert.notEqual(durable, views[0]);
+  assert.equal(durable.size, bytes.byteLength);
+  assert.deepEqual([...new Uint8Array(await durable.arrayBuffer())], [...bytes]);
+
+  const copies = await materializeCaptureVideoSlices(file);
+  assert.equal(copies[0]?.size, bytes.byteLength);
+  const preview = captureVideoPreviewUrl(file);
+  assert.ok(preview);
+  URL.revokeObjectURL(preview);
+});
+
+test("a hop that takes 25s still succeeds because the phone timeout is 90s", async () => {
+  assert.equal(CAPTURE_VIDEO_HOP_TIMEOUT_MS, 90_000);
+  assert.ok(CAPTURE_VIDEO_HOP_TIMEOUT_MS > 20_000);
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (_input, init) => {
+    await new Promise((resolve) => setTimeout(resolve, 25_000));
+    if (init?.signal?.aborted) {
+      throw Object.assign(new Error("aborted"), { name: "AbortError" });
+    }
+    return new Response(JSON.stringify({ photo: { id: "p1", kind: "video" } }), {
+      headers: { "content-type": "application/json" },
+      status: 200,
+    });
+  }) as typeof fetch;
+  const started = Date.now();
+  try {
+    const response = await captureFetch(
+      "/api/moments/photos/video",
+      { method: "PUT", body: new Uint8Array([1]) },
+      CAPTURE_VIDEO_HOP_TIMEOUT_MS,
+    );
+    const elapsed = Date.now() - started;
+    assert.equal(response.status, 200);
+    assert.ok(elapsed >= 25_000, `hop returned too fast (${elapsed}ms)`);
+    assert.ok(elapsed < CAPTURE_VIDEO_HOP_TIMEOUT_MS, `hop was aborted (${elapsed}ms)`);
+  } finally {
+    globalThis.fetch = original;
+  }
 });
 
 test("hung capture fetch becomes 上傳失敗 and does not wait minutes", async () => {
@@ -686,8 +737,10 @@ test("mixed 40-file dump still starts 40 photo POSTs; video chunks stay inside t
         );
       },
     });
-    await Promise.resolve();
-    await Promise.resolve();
+    const started = Date.now();
+    while (photoPosts + videoInits < 40 && Date.now() - started < 500) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
     assert.equal(photoPosts + videoInits, 40);
     assert.equal(photoPosts, 32);
     assert.equal(videoInits, 8);
@@ -727,10 +780,11 @@ test("Capture card fallback and album accept stay family Chinese / one door", as
   assert.doesNotMatch(capture, /photoQueue/);
 
   const addBlock = capture.slice(capture.indexOf("async function addIncomingFiles"), capture.indexOf("function onTakePhoto"));
-  assert.match(addBlock, /URL\.createObjectURL\(file\.slice\(0\)\)/);
+  assert.match(addBlock, /materializeCaptureVideoSlices\(file\)/);
+  assert.match(addBlock, /captureVideoPreviewUrl\(file\)/);
   assert.match(addBlock, /isCaptureVideoFile\(file\)/);
   assert.match(addBlock, /startBackgroundPhotoUpload\(photo\)/);
-  assert.match(addBlock, /videoUploads/);
+  assert.match(capture, /onError=/);
   assert.match(capture, />\s*移除\s*</);
   assert.doesNotMatch(capture.slice(capture.indexOf("fam-thumb-actions"), capture.indexOf("一次選好")), />\s*Remove\s*</);
 
@@ -739,7 +793,8 @@ test("Capture card fallback and album accept stay family Chinese / one door", as
   assert.doesNotMatch(videoUpload, /new FormData/);
   assert.doesNotMatch(videoUpload, /formData\.set\("file"/);
   assert.match(videoUpload, /captureVideoPutChunkBytes/);
-  assert.match(videoUpload, /sliceCaptureVideo/);
+  assert.match(videoUpload, /sliceCaptureVideo|materializeCaptureVideoSlices/);
+  assert.match(videoUpload, /materializeCaptureVideoSlices/);
   assert.match(videoUpload, /file\.slice\(|source\.slice\(/);
   assert.match(videoUpload, /content-range/i);
   assert.match(videoUpload, /captureFetch/);
