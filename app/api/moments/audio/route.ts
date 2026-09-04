@@ -1,3 +1,4 @@
+import { afterResponse } from "@/lib/after-response";
 import { isUploadBlob, uploadFilename } from "@/lib/form-upload";
 import { filenameForAudioMime, isTrustedMomentAudioUrl, resolveAudioMime } from "@/lib/moment-audio";
 import { readMomentBlobBytes } from "@/lib/moment-blob";
@@ -5,7 +6,7 @@ import {
   getMomentById,
   isAdminPinValid,
   momentApiErrorResponse,
-  momentExists,
+  rememberUploadedAudio,
   scheduleMomentTranscript,
   setMomentAudio,
   storeMomentBinary,
@@ -74,10 +75,6 @@ export async function POST(request: Request) {
       return Response.json({ error: "Moment and audio file are required" }, { status: 400 });
     }
 
-    if (!(await momentExists(momentId))) {
-      return Response.json({ error: "Moment not found" }, { status: 404 });
-    }
-
     const bytes = new Uint8Array(await file.arrayBuffer());
     const mime = resolveAudioMime(bytes, file.type) ?? file.type ?? "application/octet-stream";
     const audioName = uploadFilename(file, filenameForAudioMime(mime));
@@ -88,13 +85,25 @@ export async function POST(request: Request) {
     );
 
     const spoken = String(formData.get("transcript") ?? "").trim();
-    const saved = await setMomentAudio(momentId, blob.url, spoken ? { transcript: spoken } : undefined);
-    if (!saved) {
-      return Response.json({ error: "Moment not found" }, { status: 404 });
-    }
+    rememberUploadedAudio(momentId, blob.url, spoken ? { transcript: spoken } : undefined);
+    afterResponse(async () => {
+      try {
+        const saved = await setMomentAudio(momentId, blob.url, spoken ? { transcript: spoken } : undefined);
+        if (saved) {
+          scheduleMomentTranscript(momentId);
+        }
+      } catch {
+        // LockService index/item writes are best-effort after the binary POST.
+      }
+    });
 
-    scheduleMomentTranscript(momentId);
-    return Response.json({ content: saved.content, moment: saved.moment });
+    return Response.json({
+      moment: {
+        id: momentId,
+        originalAudioUrl: blob.url,
+        ...(spoken ? { transcript: spoken } : {}),
+      },
+    });
   } catch (error) {
     return momentApiErrorResponse(error);
   }

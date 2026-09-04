@@ -45,6 +45,7 @@ import {
   MOMENTS_BLOB_PATH,
   MOMENTS_SCHEMA_VERSION,
   applyMomentPhotoAppends,
+  createTravelMoment,
   isCaptureVideoFile,
   mergeMomentPhotos,
   momentItemBlobPath,
@@ -209,13 +210,33 @@ function rememberItem(moment: TravelMoment) {
 
 export function rememberUploadedDisplayPhoto(momentId: string, photo: MomentPhoto) {
   const current = getItemCache().get(momentId);
-  if (!current) {
-    return;
-  }
+  const base =
+    current ??
+    createTravelMoment({
+      id: momentId,
+      time: photo.takenAt || photo.createdAt,
+    });
 
   rememberItem({
-    ...current,
-    photos: mergeMomentPhotos(current.photos, [photo]),
+    ...base,
+    id: momentId,
+    photos: mergeMomentPhotos(base.photos, [photo]),
+  });
+}
+
+export function rememberUploadedAudio(
+  momentId: string,
+  originalAudioUrl: string,
+  options: { transcript?: string | null } = {},
+) {
+  const current = getItemCache().get(momentId);
+  const spoken = options.transcript?.trim() || null;
+  const base = current ?? createTravelMoment({ id: momentId });
+  rememberItem({
+    ...base,
+    id: momentId,
+    originalAudioUrl,
+    transcript: spoken ?? (originalAudioUrl === current?.originalAudioUrl ? current?.transcript ?? null : null),
   });
 }
 
@@ -312,10 +333,34 @@ async function persistHydratedMoments(moments: TravelMoment[], jobs: TravelJob[]
   return writeWarehouse(unique, jobs);
 }
 
-export async function rebuildDriveMomentIndex() {
+export async function rebuildDriveMomentIndex(options: { momentId?: string } = {}) {
   return withWarehouseLock(async () => {
     const { content } = await readMoments({ hydrate: false });
-    const hydrated = await hydrateDriveMoments(content.moments);
+    const momentId = options.momentId?.trim() ?? "";
+    const seed = momentId ? content.moments.filter((moment) => moment.id === momentId) : content.moments;
+    const hydrated = await hydrateDriveMoments(seed);
+    if (momentId) {
+      const next = hydrated.moments.find((moment) => moment.id === momentId) ?? seed[0] ?? null;
+      if (!next) {
+        return {
+          content,
+          displayJpegCount: countUniqueDisplayJpegs(content.moments),
+          fileCount: hydrated.files.length,
+          momentCount: content.moments.length,
+          rebuilt: false,
+        };
+      }
+      const savedMoment = await writeMomentItem(next);
+      const saved = await syncIndexBestEffort([savedMoment]);
+      return {
+        content: saved,
+        displayJpegCount: countUniqueDisplayJpegs(saved.moments),
+        fileCount: hydrated.files.length,
+        momentCount: saved.moments.length,
+        rebuilt: next.photos.length > (seed[0]?.photos.length ?? 0) || hydrated.changed,
+      };
+    }
+
     const saved = await persistHydratedMoments(hydrated.moments, content.jobs);
     return {
       content: saved,
@@ -444,6 +489,16 @@ async function readMomentItem(momentId: string): Promise<TravelMoment | null> {
   return null;
 }
 
+function driveContentFromItems(moments: TravelMoment[]): MomentContent {
+  const lastWrite = getLastIndexWrite();
+  return {
+    jobs: lastWrite?.jobs ?? [],
+    moments: overlayMoments(lastWrite?.moments ?? [], moments),
+    schemaVersion: MOMENTS_SCHEMA_VERSION,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 async function writeMomentItem(moment: TravelMoment) {
   const saved = rememberItem(moment);
   if (!isMomentWarehouseConfigured()) {
@@ -458,6 +513,35 @@ async function writeMomentItem(moment: TravelMoment) {
 
   await putMomentItemRecord(putMomentItemJson, saved);
   return saved;
+}
+
+async function writeDriveItemPhotoAppend(momentId: string, photos: MomentPhoto[]) {
+  const cached = getItemCache().get(momentId);
+  const mergedPhotos = mergeMomentPhotos(cached?.photos ?? [], photos);
+  const next = rememberItem({
+    ...(cached ??
+      createTravelMoment({
+        id: momentId,
+        time: photos[0]?.takenAt || photos[0]?.createdAt,
+      })),
+    id: momentId,
+    photos: mergedPhotos,
+  });
+
+  // Photos-only payload: Apps Script mergeMoment_ unions photos and keeps note/coords
+  // already on the item file. A full empty skeleton would wipe those fields.
+  await putItem(
+    driveObjectName(momentItemBlobPath(momentId)),
+    JSON.stringify(
+      {
+        moment: { id: momentId, photos: mergedPhotos },
+        updatedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    ),
+  );
+  return next;
 }
 
 async function syncIndexBestEffort(
@@ -602,15 +686,9 @@ export async function addMoment(moment: TravelMoment) {
     // Drive index GET/PUT can stall for minutes. Capture only needs the item
     // JSON + id so the video hops can start; index sync is after the response.
     afterResponse(() => syncIndexBestEffort([savedMoment]));
-    const lastWrite = getLastIndexWrite();
     return {
       conflict: false as const,
-      content: {
-        jobs: lastWrite?.jobs ?? [],
-        moments: overlayMoments(lastWrite?.moments ?? [], [savedMoment]),
-        schemaVersion: MOMENTS_SCHEMA_VERSION,
-        updatedAt: new Date().toISOString(),
-      },
+      content: driveContentFromItems([savedMoment]),
       moment: savedMoment,
     };
   });
@@ -633,8 +711,14 @@ export async function updateMoment(moment: Partial<TravelMoment> & { id: string 
         transcript: moment.transcript !== undefined ? moment.transcript : current.transcript,
       }),
     );
-    const content = await syncIndexBestEffort([next]);
-    return { content, moment: next };
+    if (!shouldUseDriveWarehouse()) {
+      const content = await syncIndexBestEffort([next]);
+      return { content, moment: next };
+    }
+
+    // Finalize/Save must not wait on moments.json LockService. Item file is enough.
+    afterResponse(() => syncIndexBestEffort([next]));
+    return { content: driveContentFromItems([next]), moment: next };
   });
 }
 
@@ -699,38 +783,56 @@ async function flushPhotoAppends() {
       const missing: PendingPhotoAppend[] = [];
 
       for (const [momentId, items] of grouped) {
+        const photos = items.map((item) => item.photo);
+        if (shouldUseDriveWarehouse()) {
+          const next = await writeDriveItemPhotoAppend(momentId, photos);
+          acceptedItems.push(next);
+          accepted.push(...items);
+          continue;
+        }
+
         const current = await readMomentItem(momentId);
         if (!current) {
           missing.push(...items);
           continue;
         }
-
         const next = await writeMomentItem({
           ...current,
-          photos: mergeMomentPhotos(
-            current.photos,
-            items.map((item) => item.photo),
-          ),
+          photos: mergeMomentPhotos(current.photos, photos),
         });
         acceptedItems.push(next);
         accepted.push(...items);
       }
 
-      let saved =
-        acceptedItems.length > 0
-          ? await syncIndexBestEffort(
-              acceptedItems,
-              accepted.map((item) => ({ momentId: item.momentId, photo: item.photo })),
-            )
-          : (await readMoments({ hydrate: false })).content;
-
-      if (shouldUseDriveWarehouse() && acceptedItems.length > 0) {
-        const hydrated = await hydrateDriveMoments(saved.moments);
-        if (hydrated.changed) {
-          saved = await persistHydratedMoments(hydrated.moments, saved.jobs);
+      if (!shouldUseDriveWarehouse()) {
+        const saved =
+          acceptedItems.length > 0
+            ? await syncIndexBestEffort(
+                acceptedItems,
+                accepted.map((item) => ({ momentId: item.momentId, photo: item.photo })),
+              )
+            : (await readMoments({ hydrate: false })).content;
+        for (const item of accepted) {
+          item.resolve(saved);
         }
+        for (const item of missing) {
+          item.resolve(null);
+        }
+        return;
       }
 
+      // Drive: never hydrate the whole warehouse or rewrite moments.json on the
+      // Capture photo path. That lock is why iPhone Save hung after binaries
+      // landed and why item files stayed photos: [].
+      if (acceptedItems.length > 0) {
+        afterResponse(() =>
+          syncIndexBestEffort(
+            acceptedItems,
+            accepted.map((item) => ({ momentId: item.momentId, photo: item.photo })),
+          ),
+        );
+      }
+      const saved = driveContentFromItems(acceptedItems);
       for (const item of accepted) {
         item.resolve(saved);
       }
@@ -759,11 +861,37 @@ export async function setMomentAudio(
 ) {
   return withWarehouseLock(async () => {
     const current = await readMomentItem(momentId);
+    const spoken = options.transcript?.trim() || null;
+
     if (!current) {
-      return null;
+      if (!shouldUseDriveWarehouse() || originalAudioUrl === null) {
+        return null;
+      }
+
+      const next = rememberItem({
+        ...createTravelMoment({ id: momentId }),
+        originalAudioUrl,
+        transcript: spoken,
+      });
+      await putItem(
+        driveObjectName(momentItemBlobPath(momentId)),
+        JSON.stringify(
+          {
+            moment: {
+              id: momentId,
+              originalAudioUrl,
+              ...(spoken ? { transcript: spoken } : {}),
+            },
+            updatedAt: new Date().toISOString(),
+          },
+          null,
+          2,
+        ),
+      );
+      afterResponse(() => syncIndexBestEffort([next]));
+      return { content: driveContentFromItems([next]), moment: next };
     }
 
-    const spoken = options.transcript?.trim() || null;
     const next = await writeMomentItem({
       ...current,
       originalAudioUrl,
@@ -772,8 +900,13 @@ export async function setMomentAudio(
           ? null
           : spoken ?? (originalAudioUrl === current.originalAudioUrl ? current.transcript : null),
     });
-    const content = await syncIndexBestEffort([next]);
-    return { content, moment: next };
+    if (!shouldUseDriveWarehouse()) {
+      const content = await syncIndexBestEffort([next]);
+      return { content, moment: next };
+    }
+
+    afterResponse(() => syncIndexBestEffort([next]));
+    return { content: driveContentFromItems([next]), moment: next };
   });
 }
 
