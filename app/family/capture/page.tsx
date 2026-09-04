@@ -81,7 +81,7 @@ function photoChip(photo: Pick<StagedPhoto, "hopDone" | "hopTotal" | "status">) 
   if (photo.status === "queued") {
     return { className: "fam-chip fam-chip-sky", label: "排隊中" };
   }
-  if (photo.hopTotal > 0) {
+  if (photo.hopTotal > 0 && photo.hopDone > 0) {
     return { className: "fam-chip fam-chip-honey", label: `上傳中 ${photo.hopDone}/${photo.hopTotal}` };
   }
   return { className: "fam-chip fam-chip-honey", label: "上傳中" };
@@ -394,9 +394,9 @@ export default function CapturePage() {
           ? new Date(photo.file.lastModified).toISOString()
           : new Date().toISOString();
         const momentId = session.allocate(takenAt);
-        const momentReady = session.ensure(takenAt);
-        if (!isCaptureVideoFile(photo.file)) {
-          await momentReady;
+        const video = isCaptureVideoFile(photo.file);
+        if (!video) {
+          await session.ensure(takenAt);
         }
         if (photo.abort.signal.aborted) {
           return;
@@ -406,12 +406,12 @@ export default function CapturePage() {
           coordinates: coordinatesRef.current,
           file: photo.file,
           momentId,
-          momentReady,
           onHopProgress: (hopDone, hopTotal) => {
             if (photoIsOnScreen(photo.id)) {
               patchPhoto(photo.id, { hopDone, hopTotal, status: "uploading" });
             }
           },
+          startMoment: video ? () => session.ensure(takenAt) : undefined,
           onDisplayReady: async (display) => {
             if (photo.abort.signal.aborted || isCaptureVideoFile(photo.file)) {
               return;
