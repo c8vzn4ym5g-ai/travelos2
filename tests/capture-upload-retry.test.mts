@@ -24,6 +24,23 @@ async function readSource(path: string) {
   return readFile(resolve(root, path), "utf8");
 }
 
+test("allocate mints an id without starting createMoment", async () => {
+  let creates = 0;
+  const session = createMomentSession(async () => {
+    creates += 1;
+    return { moment: { id: "moment_later" } };
+  });
+
+  const allocated = session.allocate("2026-09-04T05:00:00.000Z");
+  assert.match(allocated, /^moment_/);
+  assert.equal(session.momentId, allocated);
+  assert.equal(creates, 0);
+
+  const ensured = await session.ensure("2026-09-04T05:00:00.000Z");
+  assert.equal(ensured, "moment_later");
+  assert.equal(creates, 1);
+});
+
 test("rejected ensureMoment is retried on the next upload", async () => {
   let creates = 0;
   const session = createMomentSession(async () => {

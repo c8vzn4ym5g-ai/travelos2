@@ -28,6 +28,7 @@ import {
   copyCaptureFile,
   isCaptureUploadAbortError,
   sliceCaptureVideo,
+  createMomentSession,
   ingestCaptureFileList,
   uploadDisplayPhoto,
 } from "../lib/capture-upload.ts";
@@ -200,18 +201,14 @@ test("46MB-class dummy uses 16MiB hops not 1 PUT and not 175; 16MiB boundary", (
   assert.equal(sliceCaptureVideo(video).length, 1);
 });
 
-test("10MB and 46MB watchdogs stay under minutes and hops stay 16MiB", () => {
+test("10MB and 46MB watchdogs cover one silent retry and hops stay 16MiB", () => {
+  const oneHopPass =
+    CAPTURE_VIDEO_INIT_TIMEOUT_MS + CAPTURE_VIDEO_HOP_TIMEOUT_MS + CAPTURE_VIDEO_COMPLETE_TIMEOUT_MS;
   assert.equal(captureVideoHopCount(10_000_000), 1);
   assert.equal(captureVideoHopCount(IMG_1504_BYTES), 3);
-  assert.equal(
-    captureUploadWatchdogMs(10_000_000),
-    CAPTURE_MOMENT_FETCH_TIMEOUT_MS +
-      CAPTURE_VIDEO_INIT_TIMEOUT_MS +
-      1 * CAPTURE_VIDEO_HOP_TIMEOUT_MS +
-      CAPTURE_VIDEO_COMPLETE_TIMEOUT_MS,
-  );
-  assert.ok(captureUploadWatchdogMs(10_000_000) < 300_000);
-  assert.ok(captureUploadWatchdogMs(IMG_1504_BYTES) < 700_000);
+  assert.equal(captureUploadWatchdogMs(10_000_000), CAPTURE_MOMENT_FETCH_TIMEOUT_MS + oneHopPass * 2);
+  assert.ok(captureUploadWatchdogMs(10_000_000) < 400_000);
+  assert.ok(captureUploadWatchdogMs(IMG_1504_BYTES) < 800_000);
   assert.equal(CAPTURE_MOMENT_FETCH_TIMEOUT_MS, 30_000);
   assert.equal(CAPTURE_VIDEO_INIT_TIMEOUT_MS, 45_000);
   assert.equal(CAPTURE_VIDEO_COMPLETE_TIMEOUT_MS, 30_000);
@@ -505,6 +502,146 @@ test("16MiB-and-under is one whole-file PUT; 90MB dummy uses 16MiB chunks", asyn
       assert.ok(end - start + 1 <= CAPTURE_VIDEO_CHUNK_BYTES);
     }
   }
+});
+
+async function uploadVideoWithFetch(
+  file: File,
+  fetchImpl: typeof fetch,
+  options: {
+    onHopProgress?: (done: number, total: number) => void;
+    startMoment?: () => Promise<string>;
+    signal?: AbortSignal;
+  } = {},
+) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = fetchImpl;
+  try {
+    return await uploadDisplayPhoto({
+      coordinates: null,
+      file,
+      momentId: "moment_video",
+      onHopProgress: options.onHopProgress,
+      pin: "test-capture-pin",
+      signal: options.signal,
+      startMoment: options.startMoment,
+      takenAt: "2026-09-04T05:22:13.535Z",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+function driveVideoFetch(options: { failFirstInit?: boolean; events?: string[] } = {}) {
+  let inits = 0;
+  const events = options.events ?? [];
+  const impl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = (init?.method ?? "POST").toUpperCase();
+    const body = init?.body;
+    if (url.includes("/api/moments/photos/video") && method === "POST") {
+      const payload = JSON.parse(typeof body === "string" ? body : "{}") as { complete?: unknown };
+      if (payload.complete === true) {
+        events.push("complete");
+        return jsonResponse({ photo: { id: "photo_mov", momentId: "moment_video", kind: "video" } });
+      }
+      inits += 1;
+      events.push("init");
+      if (options.failFirstInit && inits === 1) {
+        return jsonResponse({ error: "上傳失敗。" }, { status: 503 });
+      }
+      return jsonResponse({ session: "opaque-test-session", uploadUrl: DIRECT_DRIVE_UPLOAD_URL });
+    }
+    if (url.includes("googleapis.com/upload/drive") && method === "PUT") {
+      events.push("hop");
+      return jsonResponse({ id: "file_mov" });
+    }
+    throw new Error(`unexpected fetch ${method} ${url}`);
+  }) as typeof fetch;
+  return { events, getInits: () => inits, impl };
+}
+
+test("16MiB-and-under hop chip starts at 1/1, not 0/1", async () => {
+  const file = videoFileWithSize(10_000_000, "IMG_1542.MOV");
+  const hops: Array<[number, number]> = [];
+  const { impl } = driveVideoFetch();
+  const uploaded = await uploadVideoWithFetch(file, impl, {
+    onHopProgress: (done, total) => hops.push([done, total]),
+  });
+  assert.equal(uploaded.photo.id, "photo_mov");
+  assert.deepEqual(hops, [[1, 1]]);
+  assert.notEqual(hops[0]?.[0], 0);
+});
+
+test("Drive init finishes before startMoment so warehouse work does not overlap", async () => {
+  const file = videoFileWithSize(10_000_000, "IMG_1542.MOV");
+  const events: string[] = [];
+  const { impl } = driveVideoFetch({ events });
+  const uploaded = await uploadVideoWithFetch(file, impl, {
+    startMoment: async () => {
+      events.push("moment");
+      return "moment_video";
+    },
+  });
+  assert.equal(uploaded.photo.id, "photo_mov");
+  assert.ok(events.indexOf("init") < events.indexOf("moment"));
+  assert.ok(events.indexOf("moment") < events.indexOf("hop") || events.indexOf("moment") < events.indexOf("complete"));
+  assert.equal(events[0], "init");
+});
+
+test("first init 503 retries invisibly without throwing 上傳失敗", async () => {
+  const file = videoFileWithSize(10_000_000, "IMG_1542.MOV");
+  const events: string[] = [];
+  let startMomentCalls = 0;
+  const { getInits, impl } = driveVideoFetch({ events, failFirstInit: true });
+  const uploaded = await uploadVideoWithFetch(file, impl, {
+    startMoment: async () => {
+      startMomentCalls += 1;
+      events.push("moment");
+      return "moment_video";
+    },
+  });
+  assert.equal(uploaded.photo.id, "photo_mov");
+  assert.equal(getInits(), 2);
+  assert.equal(startMomentCalls, 1);
+  assert.equal(events.filter((event) => event === "init").length, 2);
+  assert.equal(events.includes("moment"), true);
+  assert.ok(events.lastIndexOf("init") < events.indexOf("moment"));
+});
+
+test("rejected startMoment still completes the Drive file without surfacing 上傳失敗", async () => {
+  const file = videoFileWithSize(4_000_000, "short.MOV");
+  const { events, impl } = driveVideoFetch();
+  const uploaded = await uploadVideoWithFetch(file, impl, {
+    startMoment: async () => {
+      throw new Error("Could not save this moment.");
+    },
+  });
+  assert.equal(uploaded.photo.id, "photo_mov");
+  assert.equal(events.includes("complete"), true);
+});
+
+test("aborted video upload does not silent-retry", async () => {
+  const file = videoFileWithSize(4_000_000, "short.MOV");
+  const controller = new AbortController();
+  controller.abort();
+  let inits = 0;
+  await assert.rejects(
+    () =>
+      uploadVideoWithFetch(
+        file,
+        (async () => {
+          inits += 1;
+          return jsonResponse({ session: "opaque-test-session", uploadUrl: DIRECT_DRIVE_UPLOAD_URL });
+        }) as typeof fetch,
+        { signal: controller.signal },
+      ),
+    (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.equal(error.message, CAPTURE_UPLOAD_FAILED_MESSAGE);
+      return true;
+    },
+  );
+  assert.equal(inits, 0);
 });
 
 test("direct Drive upload URL is https googleapis upload, not OAuth", () => {
@@ -997,6 +1134,11 @@ test("Capture card fallback and album accept stay family Chinese / one door", as
   assert.doesNotMatch(capture, /previewUrl: null \}/);
 
   const videoUpload = upload.slice(upload.indexOf("export async function uploadCaptureVideo"), upload.indexOf("export async function uploadDisplayPhoto"));
+  assert.match(videoUpload, /startMoment/);
+  assert.match(videoUpload, /uploadCaptureVideoOnce/);
+  assert.doesNotMatch(videoUpload, /onHopProgress\?\.\(0,/);
+  assert.match(capture, /hopTotal > 0 && photo\.hopDone > 0/);
+  assert.match(capture, /startMoment: video \? \(\) => session\.ensure\(takenAt\)/);
   assert.match(videoUpload, /\/api\/moments\/photos\/video/);
   assert.doesNotMatch(videoUpload, /new FormData/);
   assert.doesNotMatch(videoUpload, /formData\.set\("file"/);

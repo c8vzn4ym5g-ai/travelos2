@@ -1085,6 +1085,7 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
   assert.match(capture, /const session = momentSession\(\)/);
   assert.match(uploadFn, /session\.allocate\(takenAt\)/);
   assert.match(uploadFn, /session\.ensure\(takenAt\)/);
+  assert.match(uploadFn, /startMoment: video \? \(\) => session\.ensure\(takenAt\)/);
   assert.match(uploadFn, /retryMoment\(takenAt, status, session\)/);
   const freshRoundFn = capture.slice(
     capture.indexOf("function beginFreshDumpRound"),

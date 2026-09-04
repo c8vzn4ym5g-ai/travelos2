@@ -30,13 +30,17 @@ export function captureVideoHopCount(fileSize: number) {
   return Math.ceil(fileSize / captureVideoPutChunkBytes(fileSize));
 }
 
-export function captureUploadWatchdogMs(fileSize: number) {
+function captureVideoPassMs(fileSize: number) {
   return (
-    CAPTURE_MOMENT_FETCH_TIMEOUT_MS +
     CAPTURE_VIDEO_INIT_TIMEOUT_MS +
     captureVideoHopCount(fileSize) * CAPTURE_VIDEO_HOP_TIMEOUT_MS +
     CAPTURE_VIDEO_COMPLETE_TIMEOUT_MS
   );
+}
+
+export function captureUploadWatchdogMs(fileSize: number) {
+  // One silent retry of init+hops+complete, plus the delayed moment create.
+  return CAPTURE_MOMENT_FETCH_TIMEOUT_MS + captureVideoPassMs(fileSize) * 2;
 }
 
 export function isDirectDriveUploadUrl(url: string) {
@@ -436,12 +440,25 @@ export function createMomentSession(
       momentId = null;
       momentPromise = null;
     },
-    allocate(time: string) {
+    allocate(_time?: string) {
       if (momentId) {
         return momentId;
       }
-      const allocated = makeMomentId("moment");
-      momentId = allocated;
+      momentId = makeMomentId("moment");
+      return momentId;
+    },
+    async ensure(time: string) {
+      if (momentPromise) {
+        try {
+          return await momentPromise;
+        } catch (error) {
+          momentPromise = null;
+          momentId = null;
+          throw error;
+        }
+      }
+
+      const allocated = this.allocate(time);
       momentPromise = createMoment(time, allocated).then(
         (created) => {
           momentId = created.moment.id;
@@ -453,15 +470,9 @@ export function createMomentSession(
           throw error;
         },
       );
-      return allocated;
-    },
-    async ensure(time: string) {
-      if (!momentPromise) {
-        this.allocate(time);
-      }
 
       try {
-        return await momentPromise!;
+        return await momentPromise;
       } catch (error) {
         momentPromise = null;
         momentId = null;
@@ -610,13 +621,39 @@ export async function uploadCaptureVideo(input: {
   pin: string;
   retryMoment?: (status: number) => Promise<string>;
   signal?: AbortSignal;
+  startMoment?: () => Promise<string>;
+  takenAt: string;
+}) {
+  try {
+    return await uploadCaptureVideoOnce(input);
+  } catch (error) {
+    if (
+      input.signal?.aborted ||
+      isCaptureUploadAbortError(error)
+    ) {
+      throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
+    }
+    return await uploadCaptureVideoOnce(input);
+  }
+}
+
+async function uploadCaptureVideoOnce(input: {
+  coordinates: GeoPoint | null;
+  file: File;
+  momentId: string;
+  momentReady?: Promise<string>;
+  onDisplayReady?: (display: File) => void | Promise<void>;
+  onHopProgress?: (done: number, total: number) => void;
+  pin: string;
+  retryMoment?: (status: number) => Promise<string>;
+  signal?: AbortSignal;
+  startMoment?: () => Promise<string>;
   takenAt: string;
 }) {
   assertCaptureFileFits(input.file);
   const source = withCaptureFileMime(input.file);
   const views = sliceCaptureVideo(source);
   const hopCount = Math.max(views.length, 1);
-  input.onHopProgress?.(0, hopCount);
 
   void Promise.resolve(input.onDisplayReady?.(source)).catch(() => {
     // Tiny previews are optional; they must never block the video init POST.
@@ -651,7 +688,6 @@ export async function uploadCaptureVideo(input: {
   const { momentId, response: initResponse } = await sendWithMomentRetry(
     sendInit,
     input.momentId,
-    input.retryMoment,
   );
 
   if (!initResponse.ok) {
@@ -675,10 +711,23 @@ export async function uploadCaptureVideo(input: {
   let offset = 0;
   let fileId = "";
   let nextBody: Promise<Blob> | null = firstHopP;
+  let momentReady = input.startMoment ? input.startMoment() : input.momentReady;
 
   const finishMoment = async () => {
-    if (input.momentReady) {
-      await input.momentReady;
+    try {
+      if (momentReady) {
+        await momentReady;
+      }
+    } catch {
+      if (!input.startMoment) {
+        return;
+      }
+      try {
+        momentReady = input.startMoment();
+        await momentReady;
+      } catch {
+        // Drive already has the bytes; complete still records the photo.
+      }
     }
   };
 
@@ -724,6 +773,7 @@ export async function uploadCaptureVideo(input: {
     const contentRange = `bytes ${offset}-${end - 1}/${total}`;
     const body = chunk.size > 0 ? chunk : source.slice(offset, end);
     const lastHop = end === total || isLastVideoRange(contentRange, total);
+    input.onHopProgress?.(index + 1, hopCount);
 
     if (!hopViaWorker) {
       try {
@@ -742,7 +792,6 @@ export async function uploadCaptureVideo(input: {
           CAPTURE_VIDEO_HOP_TIMEOUT_MS,
         );
         if (isDriveHopContinue(response)) {
-          input.onHopProgress?.(index + 1, hopCount);
           if (lastHop) {
             return await completeDirectUpload(fileId);
           }
@@ -752,7 +801,6 @@ export async function uploadCaptureVideo(input: {
         if (!response.ok) {
           throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
         }
-        input.onHopProgress?.(index + 1, hopCount);
         if (lastHop) {
           try {
             fileId = readDriveFileId(await response.json()) || fileId;
@@ -801,7 +849,6 @@ export async function uploadCaptureVideo(input: {
     if (!response.ok) {
       throw new Error(await readError(response, CAPTURE_UPLOAD_FAILED_MESSAGE));
     }
-    input.onHopProgress?.(index + 1, hopCount);
     if (lastHop) {
       await finishMoment();
       const payload = (await response.json()) as { photo?: MomentPhoto };
@@ -826,6 +873,7 @@ export async function uploadDisplayPhoto(input: {
   pin: string;
   retryMoment?: (status: number) => Promise<string>;
   signal?: AbortSignal;
+  startMoment?: () => Promise<string>;
   takenAt: string;
 }) {
   if (isCaptureVideoFile(input.file)) {
