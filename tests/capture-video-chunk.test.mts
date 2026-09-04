@@ -747,6 +747,8 @@ test("Capture card fallback and album accept stay family Chinese / one door", as
   assert.match(videoUpload, /CAPTURE_VIDEO_INIT_TIMEOUT_MS/);
   assert.match(upload, /export async function captureFetch/);
   assert.match(upload, /setTimeout\(\(\) => controller\.abort\(\), timeoutMs\)/);
+  assert.match(upload, /mergeAbortSignals\(signals: Array<AbortSignal \| null \| undefined>\)/);
+  assert.match(upload, /mergeAbortSignals\(\[init\.signal \?\? undefined, controller\.signal\]\)/);
   assert.match(upload, /createCaptureMoment[\s\S]*CAPTURE_MOMENT_FETCH_TIMEOUT_MS/);
   assert.match(capture, /captureUploadWatchdogMs/);
   assert.match(capture, /CAPTURE_UPLOAD_FAILED_MESSAGE/);
