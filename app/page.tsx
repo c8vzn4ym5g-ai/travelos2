@@ -10,13 +10,12 @@ import type { CoffeePhoto, CoffeeShop, CoffeeShopListItem, Photo, TripDetail } f
 
 export const dynamic = "force-dynamic";
 
-const FEATURED_JOURNAL_KICKER = "現在公開 / Now public";
+const FEATURED_JOURNAL_KICKER = "十二月 · 深冬 / December · midwinter";
 const FEATURED_JOURNAL_TITLE = "北極圈上的十二月 / December on the Arctic Circle";
-const FEATURED_JOURNAL_DEK_ZH = "廣場上有一條線。走過去，就是北極圈。十二月。深冬。白晝只剩兩三小時。";
-const FEATURED_JOURNAL_DEK_EN =
-  "A line in the square you can walk across. December. Midwinter. Two or three hours of daylight.";
+const FEATURED_JOURNAL_DEK_ZH = "廣場上有一條線。走過去，就是北極圈。";
+const FEATURED_JOURNAL_DEK_EN = "A line in the square you can walk across.";
 const FEATURED_JOURNAL_DEK = `${FEATURED_JOURNAL_DEK_ZH}\n${FEATURED_JOURNAL_DEK_EN}`;
-const FEATURED_JOURNAL_CTA = "打開遊記 / Open the journal";
+const FEATURED_JOURNAL_CTA = "打開這趟 / Open this trip";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { content } = await readContent();
