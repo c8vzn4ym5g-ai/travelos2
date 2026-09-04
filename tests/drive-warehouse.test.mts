@@ -3,6 +3,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
 import test from "node:test";
 import {
+  DRIVE_WAREHOUSE_FETCH_TIMEOUT_MS,
   DRIVE_WAREHOUSE_FOLDER_ID,
   TRAVELOS_DRIVE_WAREHOUSE_TOKEN,
   TRAVELOS_DRIVE_WAREHOUSE_URL,
@@ -328,6 +329,20 @@ test("POST JSON to /exec survives a Google 302 by sending the body before follow
   assert.equal(saved.ok, true);
   assert.ok(postedBody);
   assert.match(postedBody, /moment_redirect/);
+});
+
+test("Drive warehouse getJson and postJson use a hard timeout", async () => {
+  assert.equal(DRIVE_WAREHOUSE_FETCH_TIMEOUT_MS, 12_000);
+  const drive = await readSource("lib/drive-warehouse.ts");
+  assert.match(drive, /export const DRIVE_WAREHOUSE_FETCH_TIMEOUT_MS = 12_000/);
+  assert.match(drive, /function driveFetchSignal\(/);
+  assert.match(drive, /AbortSignal\.timeout/);
+  const follow = drive.slice(drive.indexOf("async function followRedirects"), drive.indexOf("async function getJson"));
+  const getJson = drive.slice(drive.indexOf("async function getJson"), drive.indexOf("async function postJson"));
+  const postJson = drive.slice(drive.indexOf("async function postJson"), drive.indexOf("function parseWarehouse"));
+  assert.match(getJson, /signal: driveFetchSignal\(\)/);
+  assert.match(postJson, /signal: driveFetchSignal\(\)/);
+  assert.match(follow, /signal: driveFetchSignal\(\)/);
 });
 
 test("Drive warehouse live fetch is not used from unit tests", async () => {
