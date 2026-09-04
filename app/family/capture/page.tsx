@@ -17,8 +17,12 @@ import {
 } from "@/lib/capture-speech";
 import {
   CAPTURE_DUMP_LIMIT,
+  CAPTURE_MOMENT_FETCH_TIMEOUT_MS,
+  CAPTURE_PHOTO_FETCH_TIMEOUT_MS,
+  CAPTURE_UPLOAD_FAILED_MESSAGE,
   captureDumpProgressMessage,
   captureErrorMessage,
+  captureUploadWatchdogMs,
   clearMomentAudioInBackground,
   createCaptureMoment,
   createMomentSession,
@@ -331,8 +335,24 @@ export default function CapturePage() {
       }
 
       patchPhoto(photo.id, { status: "uploading" });
-      const takenAt = new Date(photo.file.lastModified).toISOString();
+      let watchdogFired = false;
+      const watchdogMs = isCaptureVideoFile(photo.file)
+        ? captureUploadWatchdogMs(photo.file.size)
+        : CAPTURE_MOMENT_FETCH_TIMEOUT_MS + CAPTURE_PHOTO_FETCH_TIMEOUT_MS;
+      const watchdog = globalThis.setTimeout(() => {
+        watchdogFired = true;
+        if (photoIsOnScreen(photo.id)) {
+          patchPhoto(photo.id, { errorMessage: CAPTURE_UPLOAD_FAILED_MESSAGE, status: "failed" });
+          setMessage(CAPTURE_UPLOAD_FAILED_MESSAGE);
+        }
+        if (!photo.abort.signal.aborted) {
+          photo.abort.abort();
+        }
+      }, watchdogMs);
       try {
+        const takenAt = Number.isFinite(photo.file.lastModified)
+          ? new Date(photo.file.lastModified).toISOString()
+          : new Date().toISOString();
         const momentId = await session.ensure(takenAt);
         if (photo.abort.signal.aborted) {
           return;
@@ -380,13 +400,22 @@ export default function CapturePage() {
           pin: sessionPin(pinRef.current),
         });
       } catch (error) {
-        if (photo.abort.signal.aborted || !photoIsOnScreen(photo.id)) {
+        if (!photoIsOnScreen(photo.id)) {
           return;
         }
-        const detail = captureErrorMessage(error, "上傳失敗。");
+        if (photo.abort.signal.aborted && !watchdogFired) {
+          return;
+        }
+        const current = photosRef.current.find((item) => item.id === photo.id);
+        if (current?.status === "failed") {
+          return;
+        }
+        const detail = captureErrorMessage(error, CAPTURE_UPLOAD_FAILED_MESSAGE);
         patchPhoto(photo.id, { errorMessage: detail, status: "failed" });
         setMessage(detail);
         throw error;
+      } finally {
+        globalThis.clearTimeout(watchdog);
       }
     })();
 

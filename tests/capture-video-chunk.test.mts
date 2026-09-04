@@ -4,15 +4,24 @@ import { resolve } from "node:path";
 import test from "node:test";
 import {
   CAPTURE_DUMP_LIMIT,
+  CAPTURE_MOMENT_FETCH_TIMEOUT_MS,
+  CAPTURE_PHOTO_FETCH_TIMEOUT_MS,
   CAPTURE_UPLOAD_CONCURRENCY,
   CAPTURE_UPLOAD_FAILED_MESSAGE,
   CAPTURE_VIDEO_CHUNK_BYTES,
+  CAPTURE_VIDEO_HOP_TIMEOUT_MS,
+  CAPTURE_VIDEO_INIT_TIMEOUT_MS,
   CAPTURE_VIDEO_MAX_BYTES,
   CAPTURE_VIDEO_SINGLE_PUT_MAX_BYTES,
   assertCaptureFileFits,
+  captureErrorMessage,
+  captureFetch,
+  captureUploadWatchdogMs,
+  captureVideoHopCount,
   captureVideoPutChunkBytes,
   captureVideoTooLargeMessage,
   copyCaptureFile,
+  isCaptureUploadAbortError,
   sliceCaptureVideo,
   ingestCaptureFileList,
   uploadDisplayPhoto,
@@ -169,6 +178,14 @@ test("46MB-class dummy uses 8MiB hops not 1 PUT and not 175; 8MiB boundary", () 
 
   assert.equal(expectedPutCount(IMG_1504_BYTES), Math.ceil(IMG_1504_BYTES / CAPTURE_VIDEO_CHUNK_BYTES));
   assert.equal(expectedPutCount(IMG_1504_BYTES), 6);
+  assert.equal(captureVideoHopCount(10_000_000), 2);
+  assert.equal(captureVideoHopCount(IMG_1504_BYTES), 6);
+  assert.equal(
+    captureUploadWatchdogMs(10_000_000),
+    CAPTURE_MOMENT_FETCH_TIMEOUT_MS + CAPTURE_VIDEO_INIT_TIMEOUT_MS + 2 * CAPTURE_VIDEO_HOP_TIMEOUT_MS,
+  );
+  assert.ok(captureUploadWatchdogMs(10_000_000) < 90_000);
+  assert.ok(captureUploadWatchdogMs(IMG_1504_BYTES) < 180_000);
   assert.notEqual(expectedPutCount(IMG_1504_BYTES), 1);
   assert.notEqual(expectedPutCount(IMG_1504_BYTES), 175);
   assert.equal(expectedPutCount(CAPTURE_VIDEO_CHUNK_BYTES), 1);
@@ -181,6 +198,44 @@ test("46MB-class dummy uses 8MiB hops not 1 PUT and not 175; 8MiB boundary", () 
   const copied = copyCaptureFile(video);
   assert.equal(copied, video);
   assert.equal(sliceCaptureVideo(video).length, 1);
+});
+
+test("10MB and 46MB watchdogs stay under minutes and hops stay 8MiB", () => {
+  assert.equal(captureVideoHopCount(10_000_000), 2);
+  assert.equal(captureVideoHopCount(IMG_1504_BYTES), 6);
+  assert.equal(
+    captureUploadWatchdogMs(10_000_000),
+    CAPTURE_MOMENT_FETCH_TIMEOUT_MS + CAPTURE_VIDEO_INIT_TIMEOUT_MS + 2 * CAPTURE_VIDEO_HOP_TIMEOUT_MS,
+  );
+  assert.ok(captureUploadWatchdogMs(10_000_000) < 90_000);
+  assert.ok(captureUploadWatchdogMs(IMG_1504_BYTES) < 180_000);
+  assert.equal(CAPTURE_MOMENT_FETCH_TIMEOUT_MS, 15_000);
+  assert.equal(CAPTURE_VIDEO_INIT_TIMEOUT_MS, 15_000);
+  assert.equal(CAPTURE_VIDEO_HOP_TIMEOUT_MS, 20_000);
+  assert.equal(CAPTURE_PHOTO_FETCH_TIMEOUT_MS, 20_000);
+});
+
+test("hung capture fetch becomes 上傳失敗 and does not wait minutes", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (() => new Promise(() => {})) as typeof fetch;
+  const started = Date.now();
+  try {
+    await assert.rejects(
+      () => captureFetch("/api/moments", { method: "POST" }, 80),
+      (error: unknown) => error instanceof Error && error.message === CAPTURE_UPLOAD_FAILED_MESSAGE,
+    );
+    assert.ok(Date.now() - started < 1500, `hung fetch leaked (${Date.now() - started}ms)`);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("AbortError and timeout errors become 上傳失敗。", () => {
+  assert.equal(isCaptureUploadAbortError(new DOMException("The operation was aborted.", "AbortError")), true);
+  assert.equal(isCaptureUploadAbortError(Object.assign(new Error("signal timed out"), { name: "TimeoutError" })), true);
+  assert.equal(captureErrorMessage(new DOMException("The operation was aborted.", "AbortError"), CAPTURE_UPLOAD_FAILED_MESSAGE), CAPTURE_UPLOAD_FAILED_MESSAGE);
+  assert.equal(captureErrorMessage(new Error("network stall timeout"), CAPTURE_UPLOAD_FAILED_MESSAGE), CAPTURE_UPLOAD_FAILED_MESSAGE);
+  assert.doesNotMatch(captureErrorMessage(new Error("aborted"), CAPTURE_UPLOAD_FAILED_MESSAGE), /aborted/);
 });
 
 test("video ingest does not reset the album input before 8MiB hops start", async () => {
@@ -647,7 +702,7 @@ test("Capture card fallback and album accept stay family Chinese / one door", as
     readSource("app/api/moments/photos/route.ts"),
   ]);
 
-  assert.match(capture, /captureErrorMessage\(error, "上傳失敗。"\)/);
+  assert.match(capture, /captureErrorMessage\(error, CAPTURE_UPLOAD_FAILED_MESSAGE\)/);
   assert.match(upload, /CAPTURE_UPLOAD_FAILED_MESSAGE = "上傳失敗。"/);
   assert.doesNotMatch(capture, /換一段短一點的/);
   assert.doesNotMatch(upload, /換一段短一點的/);
@@ -680,6 +735,15 @@ test("Capture card fallback and album accept stay family Chinese / one door", as
   assert.match(videoUpload, /sliceCaptureVideo/);
   assert.match(videoUpload, /file\.slice\(|source\.slice\(/);
   assert.match(videoUpload, /content-range/i);
+  assert.match(videoUpload, /captureFetch/);
+  assert.match(videoUpload, /CAPTURE_VIDEO_HOP_TIMEOUT_MS/);
+  assert.match(videoUpload, /CAPTURE_VIDEO_INIT_TIMEOUT_MS/);
+  assert.match(upload, /export async function captureFetch/);
+  assert.match(upload, /AbortSignal\.timeout/);
+  assert.match(upload, /createCaptureMoment[\s\S]*CAPTURE_MOMENT_FETCH_TIMEOUT_MS/);
+  assert.match(capture, /captureUploadWatchdogMs/);
+  assert.match(capture, /CAPTURE_UPLOAD_FAILED_MESSAGE/);
+  assert.match(capture, /watchdogFired/);
   const copyFn = upload.slice(upload.indexOf("export function copyCaptureFile"), upload.indexOf("export async function ingestCaptureFileList"));
   const videoCopy = copyFn.slice(copyFn.indexOf("isCaptureVideoFile"), copyFn.indexOf("const blob"));
   assert.match(copyFn, /isCaptureVideoFile\(file\)/);

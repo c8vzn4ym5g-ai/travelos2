@@ -289,7 +289,7 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   assert.doesNotMatch(capture, /換一段短一點的/);
   assert.doesNotMatch(capture, /Photo upload failed/);
   assert.doesNotMatch(upload, /Photo upload failed/);
-  assert.match(capture, /captureErrorMessage\(error, "上傳失敗。"\)/);
+  assert.match(capture, /captureErrorMessage\(error, CAPTURE_UPLOAD_FAILED_MESSAGE\)/);
 });
 
 test("background upload starts on add and Save does not wait on originals", async () => {

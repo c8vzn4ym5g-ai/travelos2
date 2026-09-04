@@ -587,15 +587,32 @@ export async function momentExists(momentId: string) {
 
 export async function addMoment(moment: TravelMoment) {
   return withWarehouseLock(async () => {
-    const existing = await readMomentItem(moment.id);
-    if (existing) {
-      const { content } = await readMoments();
+    const cached = getItemCache().get(moment.id);
+    if (cached) {
+      const { content } = await readMoments({ hydrate: false });
       return { conflict: true as const, content };
     }
 
     const savedMoment = await writeMomentItem(moment);
-    const content = await syncIndexBestEffort([savedMoment]);
-    return { conflict: false as const, content, moment: savedMoment };
+    if (!shouldUseDriveWarehouse()) {
+      const content = await syncIndexBestEffort([savedMoment]);
+      return { conflict: false as const, content, moment: savedMoment };
+    }
+
+    // Drive index GET/PUT can stall for minutes. Capture only needs the item
+    // JSON + id so the video hops can start; index sync is after the response.
+    afterResponse(() => syncIndexBestEffort([savedMoment]));
+    const lastWrite = getLastIndexWrite();
+    return {
+      conflict: false as const,
+      content: {
+        jobs: lastWrite?.jobs ?? [],
+        moments: overlayMoments(lastWrite?.moments ?? [], [savedMoment]),
+        schemaVersion: MOMENTS_SCHEMA_VERSION,
+        updatedAt: new Date().toISOString(),
+      },
+      moment: savedMoment,
+    };
   });
 }
 
