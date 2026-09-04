@@ -1,5 +1,27 @@
 # TravelOS Codex Tasks
 
+## TASK-038: iPhone Capture Save hang after 3-photo dump
+
+Status: done
+
+Goal: Owner iPhone Capture hung on 正在存成 Moment… after a 3-photo
+(+staged audio) dump. Binaries (IMG_1566 / 1570 / 1571) landed in Drive
+folder `1Sk2TqgpF6NxoNYdUKO4h8t84UA7KxChN`. Moment shell
+`moment_1788531986180_d3gvhs` stayed `photos: []`. UI showed 已上傳.
+Save cannot hang forever. Parallel dump stays ≤40, not a 3-queue.
+Repair the empty shell so 工作台 shows the three photos.
+
+Result:
+
+- Drive photo append writes the item file as a photos-only merge and
+  does not wait on `moments.json` or a full warehouse hydrate. Missing
+  index/cache no longer drops photos.
+- Audio POST returns after the binary; index/item lock is afterResponse.
+  Client audio fetch and Save as Moment have hard timeouts and a clear
+  存檔逾時 fail.
+- `POST /api/moments/rebuild` accepts `{ momentId }` so the hung dump
+  can be relinked from Drive filenames without a re-dump.
+
 ## TASK-037: Capture 15s video in 256KiB Drive chunks
 
 Status: done

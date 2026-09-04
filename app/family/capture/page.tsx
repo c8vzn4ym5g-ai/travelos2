@@ -19,7 +19,10 @@ import {
   CAPTURE_DUMP_LIMIT,
   CAPTURE_MOMENT_FETCH_TIMEOUT_MS,
   CAPTURE_PHOTO_FETCH_TIMEOUT_MS,
+  CAPTURE_AUDIO_FETCH_TIMEOUT_MS,
+  CAPTURE_SAVE_FAILED_MESSAGE,
   CAPTURE_UPLOAD_FAILED_MESSAGE,
+  awaitCaptureSave,
   captureDumpProgressMessage,
   captureErrorMessage,
   captureUploadWatchdogMs,
@@ -476,6 +479,25 @@ export default function CapturePage() {
   async function startBackgroundAudioUpload(staged: StagedAudio) {
     const run = (async () => {
       const recordedAt = new Date().toISOString();
+      let watchdogFired = false;
+      const watchdog = globalThis.setTimeout(() => {
+        watchdogFired = true;
+        if (audioRef.current?.previewUrl === staged.previewUrl) {
+          const detail = CAPTURE_UPLOAD_FAILED_MESSAGE;
+          setAudio((current) => {
+            if (current?.previewUrl !== staged.previewUrl) {
+              return current;
+            }
+            const next = { ...current, errorMessage: detail, status: "failed" as const };
+            audioRef.current = next;
+            return next;
+          });
+          setMessage(detail);
+        }
+        if (!staged.abort.signal.aborted) {
+          staged.abort.abort();
+        }
+      }, CAPTURE_AUDIO_FETCH_TIMEOUT_MS + CAPTURE_MOMENT_FETCH_TIMEOUT_MS);
       try {
         const momentId = await ensureMoment(recordedAt);
         if (staged.abort.signal.aborted) {
@@ -515,7 +537,7 @@ export default function CapturePage() {
         });
         persistSpokenLine(spokenRef.current);
       } catch (error) {
-        if (staged.abort.signal.aborted) {
+        if (staged.abort.signal.aborted && !watchdogFired) {
           return;
         }
         const detail = captureErrorMessage(error, "上傳失敗。");
@@ -529,6 +551,8 @@ export default function CapturePage() {
         });
         setMessage(detail);
         throw error;
+      } finally {
+        globalThis.clearTimeout(watchdog);
       }
     })();
 
@@ -762,44 +786,56 @@ export default function CapturePage() {
         ? new Date(photos[0].file.lastModified).toISOString()
         : new Date().toISOString();
 
-      await Promise.all([...photoUploadsRef.current.values()]);
-      if (audioUploadRef.current) {
-        await audioUploadRef.current;
-      }
+      const saved = await awaitCaptureSave(
+        (async () => {
+          await Promise.all([...photoUploadsRef.current.values()]);
+          if (audioUploadRef.current) {
+            await audioUploadRef.current;
+          }
 
-      const failedPhoto = photosRef.current.find((photo) => photo.status === "failed");
-      if (failedPhoto) {
-        throw new Error("有照片或影片還沒傳上去，請再試一次。");
-      }
-      if (audioRef.current?.status === "failed") {
-        throw new Error("聲音還沒傳上去，請再試一次。");
-      }
+          const unfinishedPhoto = photosRef.current.find((photo) => photo.status !== "uploaded");
+          if (unfinishedPhoto) {
+            throw new Error(
+              unfinishedPhoto.status === "failed"
+                ? "有照片或影片還沒傳上去，請再試一次。"
+                : CAPTURE_SAVE_FAILED_MESSAGE,
+            );
+          }
+          if (audioRef.current && audioRef.current.status !== "uploaded") {
+            throw new Error(
+              audioRef.current.status === "failed" ? "聲音還沒傳上去，請再試一次。" : CAPTURE_SAVE_FAILED_MESSAGE,
+            );
+          }
 
-      let createdJob: TravelJob | null = null;
-      let keptMomentId = momentSession().momentId;
-      if (keptMomentId) {
-        const saved = await finalizeCaptureMoment({
-          command: classified.command,
-          coordinates: coordinatesRef.current,
-          momentId: keptMomentId,
-          note: classified.note,
-          pin: sessionPin(pinRef.current),
-          time,
-          transcript: spokenRef.current || audioRef.current?.transcript || null,
-        });
-        createdJob = saved.job;
-        keptMomentId = saved.moment?.id ?? keptMomentId;
-      } else {
-        const created = await createCaptureMoment({
-          command: classified.command,
-          coordinates: coordinatesRef.current,
-          note: classified.note,
-          pin: sessionPin(pinRef.current),
-          time,
-        });
-        createdJob = created.job;
-        keptMomentId = created.moment.id;
-      }
+          let createdJob: TravelJob | null = null;
+          let keptMomentId = momentSession().momentId;
+          if (keptMomentId) {
+            const finalized = await finalizeCaptureMoment({
+              command: classified.command,
+              coordinates: coordinatesRef.current,
+              momentId: keptMomentId,
+              note: classified.note,
+              pin: sessionPin(pinRef.current),
+              time,
+              transcript: spokenRef.current || audioRef.current?.transcript || null,
+            });
+            createdJob = finalized.job;
+            keptMomentId = finalized.moment?.id ?? keptMomentId;
+          } else {
+            const created = await createCaptureMoment({
+              command: classified.command,
+              coordinates: coordinatesRef.current,
+              note: classified.note,
+              pin: sessionPin(pinRef.current),
+              time,
+            });
+            createdJob = created.job;
+            keptMomentId = created.moment.id;
+          }
+
+          return { createdJob, keptMomentId };
+        })(),
+      );
 
       for (const photo of photosRef.current) {
         if (photo.previewUrl) {
@@ -814,11 +850,11 @@ export default function CapturePage() {
       setNote("");
       spokenRef.current = "";
       setSpoken("");
-      setSavedJobId(createdJob?.id ?? null);
-      setSavedMomentId(keptMomentId);
+      setSavedJobId(saved.createdJob?.id ?? null);
+      setSavedMomentId(saved.keptMomentId);
       resetDraft();
       setMessage(
-        createdJob
+        saved.createdJob
           ? "已存成工作。照片在倉庫裡，打開 Write 看那些照片自己寫。"
           : "已存成 Moment。可再拍一張補上。",
       );

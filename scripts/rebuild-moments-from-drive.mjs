@@ -6,7 +6,8 @@ import { scanWarehouseFiles } from "../lib/drive-warehouse.ts";
 resetMomentStoreForTests();
 setDriveWarehouseFetchForTests(null);
 
-const rebuilt = await rebuildDriveMomentIndex();
+const momentId = process.argv.slice(2).find((arg) => arg.startsWith("moment_")) ?? "";
+const rebuilt = await rebuildDriveMomentIndex(momentId ? { momentId } : {});
 let driveDisplay = 0;
 try {
   driveDisplay = countUniqueDriveDisplayJpegs(await scanWarehouseFiles());
@@ -23,6 +24,12 @@ console.log(
       momentCount: rebuilt.momentCount,
       rebuilt: rebuilt.rebuilt,
       indexDisplayJpegCount: countUniqueDisplayJpegs(rebuilt.content.moments),
+      ...(momentId
+        ? {
+            momentId,
+            photoCount: rebuilt.content.moments.find((moment) => moment.id === momentId)?.photos.length ?? 0,
+          }
+        : {}),
     },
     null,
     2,

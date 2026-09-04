@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 import test from "node:test";
 import {
   captureErrorMessage,
+  awaitCaptureSave,
+  CAPTURE_SAVE_FAILED_MESSAGE,
   createMomentSession,
   isRetryableUploadStatus,
   sendWithMomentRetry,
@@ -278,4 +280,28 @@ test("public Lapland poster and copy stay untouched by the capture retry slice",
   assert.match(seed, /laplandTitle: "北極圈上的十二月"/);
   assert.match(seed, /finland-lapland-winter-journal"/);
   assert.match(poster, /tile\.opentopomap\.org/);
+});
+
+test("Save as Moment fails clearly when uploads hang past the hard timeout", async () => {
+  const started = Date.now();
+  await assert.rejects(
+    () => awaitCaptureSave(new Promise(() => {}), 25),
+    (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.equal(error.message, CAPTURE_SAVE_FAILED_MESSAGE);
+      return true;
+    },
+  );
+  assert.ok(Date.now() - started < 1000);
+
+  const upload = await readSource("lib/capture-upload.ts");
+  const audioUpload = upload.slice(
+    upload.indexOf("export async function uploadMomentAudio"),
+    upload.indexOf("export function removeUploadedPhotoInBackground"),
+  );
+  assert.match(upload, /CAPTURE_SAVE_TIMEOUT_MS = 90_000/);
+  assert.match(upload, /CAPTURE_AUDIO_FETCH_TIMEOUT_MS = 30_000/);
+  assert.match(audioUpload, /captureFetch\(/);
+  assert.match(audioUpload, /\/api\/moments\/audio/);
+  assert.doesNotMatch(audioUpload, /return fetch\("\/api\/moments\/audio"/);
 });

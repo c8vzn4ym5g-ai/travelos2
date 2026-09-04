@@ -339,6 +339,8 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.doesNotMatch(saveBlock, /formData\.set\("original"/);
   assert.doesNotMatch(saveBlock, /for \(const \[index, staged\] of photos\.entries\(\)\)/);
   assert.match(saveBlock, /Promise\.all\(\[\.\.\.photoUploadsRef\.current\.values\(\)\]\)/);
+  assert.match(saveBlock, /awaitCaptureSave/);
+  assert.match(saveBlock, /CAPTURE_SAVE_FAILED_MESSAGE/);
   assert.doesNotMatch(saveBlock, /uploadOriginalPhotoInBackground/);
   assert.match(displayUpload, /formData\.set\("file", display\)/);
   assert.match(displayUpload, /await prepareDisplayPhoto\(source\)/);
@@ -358,7 +360,13 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(store, /withWarehouseLock/);
   assert.match(store, /flushPhotoAppends/);
   assert.match(store, /applyMomentPhotoAppends/);
+  assert.match(store, /writeDriveItemPhotoAppend/);
   assert.match(store, /writeMomentItem/);
+  assert.match(store, /rememberUploadedAudio/);
+  const flush = store.slice(store.indexOf("async function flushPhotoAppends"), store.indexOf("export function addPhotoToMoment"));
+  assert.match(flush, /writeDriveItemPhotoAppend/);
+  assert.doesNotMatch(flush, /hydrateDriveMoments/);
+  assert.match(flush, /afterResponse\(\(\) =>/);
   assert.match(store, /readMomentItem/);
   assert.match(store, /momentItemBlobPath/);
   assert.match(prepare, /prepareDisplayPhoto/);
@@ -433,6 +441,8 @@ test("capture and save paths are not blocked by indexing, geocoding, or transcri
   assert.doesNotMatch(capture, /createWorkQueue/);
   assert.match(audioApi, /scheduleMomentTranscript\(momentId\)/);
   assert.doesNotMatch(audioApi, /await scheduleMomentTranscript/);
+  assert.match(audioApi, /rememberUploadedAudio/);
+  assert.match(audioApi, /afterResponse\(async \(\) => \{/);
   assert.match(audioApi, /formData\.get\("transcript"\)/);
   assert.doesNotMatch(capture, /scheduleMomentIndex/);
   assert.doesNotMatch(capture, /indexTravelMoment/);

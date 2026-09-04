@@ -197,8 +197,9 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
     resetMomentStoreForTests();
   });
 
-  test.afterEach(() => {
+  test.afterEach(async () => {
     resetMomentStoreForTests();
+    await new Promise((resolve) => setTimeout(resolve, 25));
   });
 
   test("in-process store: create then immediate photo and audio attach", async () => {
@@ -535,13 +536,15 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
           return { pathname, url: `https://blob.local/${pathname}` };
         },
       });
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      puts.length = 0;
 
       const { GET, POST } = await import("../app/api/moments/route.ts");
       const listed = await GET(new Request("http://travelos.local/api/moments"));
       assert.equal(listed.status, 200);
       const listedBody = (await listed.json()) as { content: { moments: unknown[] } };
       assert.deepEqual(listedBody.content.moments, []);
-      assert.equal(puts.length, 0);
+      assert.equal(puts.length, 0, `GET wrote ${puts.join(",")}`);
 
       const createdResponse = await POST(
         new Request("http://travelos.local/api/moments", {
@@ -855,6 +858,145 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
         assert.match(created.moment.id, /^moment_/);
         assert.ok(elapsedMs < 2000, `moment POST waited on a hung Drive index (${elapsedMs}ms)`);
       } finally {
+        resetMomentStoreForTests();
+      }
+    });
+  });
+
+  test("Drive photo append writes item photos even when index and cache miss the moment", async () => {
+    await withPinEnv(undefined, async () => {
+      const items = new Map<string, string>();
+      setDriveWarehouseFetchForTests((async (_input, init) => {
+        const method = (init?.method ?? "GET").toUpperCase();
+        if (method === "GET") {
+          const parsed = new URL(String(_input));
+          if (parsed.searchParams.get("op") === "index") {
+            return new Response(
+              JSON.stringify({ jobs: [], moments: [], schemaVersion: 2, updatedAt: "2026-09-04T00:00:00.000Z" }),
+              { headers: { "content-type": "application/json" } },
+            );
+          }
+          if (parsed.searchParams.get("op") === "list") {
+            return Response.json({ files: [] });
+          }
+          return new Response("not found", { status: 404 });
+        }
+
+        const payload = JSON.parse(String(init?.body ?? "{}")) as { name?: string; op?: string; text?: string };
+        if (payload.op === "item") {
+          items.set(payload.name ?? "", payload.text ?? "");
+          return Response.json({ ok: true, name: payload.name });
+        }
+        if (payload.op === "index") {
+          return Response.json({ ok: true, name: "moments.json" });
+        }
+        return Response.json({ id: "drivefile_orphan", name: payload.name });
+      }) as typeof fetch);
+
+      try {
+        const momentId = "moment_1788531986180_d3gvhs";
+        const photo = testPhoto(momentId, "moment_photo_seafood");
+        photo.originalFilename = "IMG_1566.jpg";
+        photo.storageKey = "drive:1bWgVOHC06JFeX-eyuqhQeJX-vdKxPOrO";
+        const saved = await addPhotoToMoment(momentId, photo);
+        assert.ok(saved);
+        const itemName = [...items.keys()].find((name) => name.includes(momentId));
+        assert.ok(itemName);
+        const record = JSON.parse(items.get(itemName) ?? "{}") as {
+          moment?: { id?: string; photos?: Array<{ originalFilename?: string }> };
+        };
+        assert.equal(record.moment?.id, momentId);
+        assert.equal(record.moment?.photos?.[0]?.originalFilename, "IMG_1566.jpg");
+        assert.equal(saved.moments.find((moment) => moment.id === momentId)?.photos[0]?.originalFilename, "IMG_1566.jpg");
+      } finally {
+        resetMomentStoreForTests();
+      }
+    });
+  });
+
+  test("audio POST returns after Drive binary even if index/item lock hangs", async () => {
+    await withPinEnv(undefined, async () => {
+      const items = new Map<string, string>();
+      let indexText = JSON.stringify({
+        jobs: [],
+        moments: [],
+        schemaVersion: 1,
+        updatedAt: "2026-08-28T00:00:00.000Z",
+      });
+      let itemWrites = 0;
+      const releaseHang: Array<() => void> = [];
+
+      setDriveWarehouseFetchForTests((async (_input, init) => {
+        const method = (init?.method ?? "GET").toUpperCase();
+        if (method === "GET") {
+          const parsed = new URL(String(_input));
+          if (parsed.searchParams.get("op") === "index") {
+            return new Response(indexText, { headers: { "content-type": "application/json" } });
+          }
+          if (parsed.searchParams.get("op") === "list") {
+            return Response.json({ files: [] });
+          }
+          return new Response("not found", { status: 404 });
+        }
+
+        const payload = JSON.parse(String(init?.body ?? "{}")) as {
+          mimeType?: string;
+          name?: string;
+          op?: string;
+          text?: string;
+        };
+        if (payload.op === "index") {
+          await new Promise<void>((resolve) => {
+            releaseHang.push(resolve);
+          });
+          indexText = payload.text ?? indexText;
+          return Response.json({ ok: true, name: "moments.json" });
+        }
+        if (payload.op === "item") {
+          itemWrites += 1;
+          if (itemWrites > 1) {
+            await new Promise<void>((resolve) => {
+              releaseHang.push(resolve);
+            });
+          }
+          items.set(payload.name ?? "", payload.text ?? "");
+          return Response.json({ ok: true, name: payload.name });
+        }
+        return Response.json({ id: "drivefile_audio", name: payload.name ?? "voice.webm" });
+      }) as typeof fetch);
+
+      try {
+        const [{ POST }, audio] = await Promise.all([
+          import("../app/api/moments/route.ts"),
+          import("../app/api/moments/audio/route.ts"),
+        ]);
+
+        const createdResponse = await POST(
+          new Request("http://travelos.local/api/moments", {
+            body: JSON.stringify({ note: "audio-lock-hang", time: "2026-09-04T15:00:00.000Z" }),
+            headers: { "content-type": "application/json" },
+            method: "POST",
+          }),
+        );
+        assert.equal(createdResponse.status, 200);
+        const created = (await createdResponse.json()) as { moment: { id: string } };
+
+        const audioData = new FormData();
+        audioData.set("momentId", created.moment.id);
+        audioData.set("file", new File([Uint8Array.from([2, 2, 2, 2])], "voice.webm", { type: "audio/webm" }));
+        const started = Date.now();
+        const audioResponse = await audio.POST(
+          new Request("http://travelos.local/api/moments/audio", { body: audioData, method: "POST" }),
+        );
+        const elapsedMs = Date.now() - started;
+        assert.equal(audioResponse.status, 200);
+        assert.ok(elapsedMs < 2000, `audio POST waited on the index lock (${elapsedMs}ms)`);
+        const audioJson = (await audioResponse.json()) as { moment: { originalAudioUrl: string } };
+        assert.match(audioJson.moment.originalAudioUrl, /^drive:/);
+      } finally {
+        for (const resolve of releaseHang) {
+          resolve();
+        }
         resetMomentStoreForTests();
       }
     });
