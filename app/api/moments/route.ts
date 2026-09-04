@@ -19,6 +19,7 @@ type CreateMomentBody = {
   command?: string | null;
   coordinates?: GeoPoint | null;
   draft?: string;
+  id?: string;
   note?: string;
   time?: string | null;
   tripId?: string | null;
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
       command: body.command,
       coordinates: body.coordinates ?? null,
       draft: body.draft,
+      id: body.id,
       note: body.note,
       time: body.time,
       tripId: body.tripId,

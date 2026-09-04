@@ -1,7 +1,7 @@
 "use client";
 
 import { filenameForAudioMime, resolveAudioMime } from "./moment-audio.ts";
-import { captureFileMime, isCaptureVideoFile, isHeicPhoto } from "./moments.ts";
+import { captureFileMime, isCaptureVideoFile, isHeicPhoto, makeMomentId } from "./moments.ts";
 import { createTinyPreviewUrl, prepareDisplayPhoto, shouldKeepOriginal } from "./prepare-photo.ts";
 import type { GeoPoint, MomentPhoto, TravelJob, TravelMoment } from "./types.ts";
 
@@ -9,11 +9,10 @@ export { createTinyPreviewUrl };
 export const CAPTURE_UPLOAD_CONCURRENCY = 3;
 export const CAPTURE_DUMP_LIMIT = 40;
 // Google resumable requires multiples of 256KiB except the last chunk.
-// 8MiB is 32 × 256KiB. iPhone Safari aborts a 40–46MB one-shot PUT and
-// `new File([whole .mov])` on ingest can empty the preview, so the phone
-// always hops 8MiB (last chunk shorter). Worker still accepts a larger
+// 16MiB is 64 × 256KiB. Fewer hops than 8MiB on 5G; still not a 40–46MB
+// one-shot (that path aborted on iPhone). Worker still accepts a larger
 // single PUT from a datacenter.
-export const CAPTURE_VIDEO_CHUNK_BYTES = 8 * 1024 * 1024;
+export const CAPTURE_VIDEO_CHUNK_BYTES = 16 * 1024 * 1024;
 export const CAPTURE_VIDEO_SINGLE_PUT_MAX_BYTES = 80_000_000;
 export const CAPTURE_VIDEO_MAX_BYTES = 100_000_000;
 export const CAPTURE_UPLOAD_FAILED_MESSAGE = "上傳失敗。";
@@ -184,12 +183,10 @@ export async function materializeCaptureVideoSlices(file: File) {
 }
 
 export function captureVideoPreviewUrl(file: File) {
-  const slices = sliceCaptureVideo(file);
-  const first = slices[0];
-  if (!first || first.size <= 0) {
+  if (file.size <= 0) {
     return null;
   }
-  return URL.createObjectURL(first);
+  return URL.createObjectURL(file);
 }
 
 export type CapturePhotoDraft = {
@@ -425,7 +422,9 @@ export function isRetryableUploadStatus(status: number) {
   return status === 404 || status >= 500;
 }
 
-export function createMomentSession(createMoment: (time: string) => Promise<{ moment: { id: string } }>) {
+export function createMomentSession(
+  createMoment: (time: string, momentId?: string) => Promise<{ moment: { id: string } }>,
+) {
   let momentId: string | null = null;
   let momentPromise: Promise<string> | null = null;
 
@@ -437,12 +436,13 @@ export function createMomentSession(createMoment: (time: string) => Promise<{ mo
       momentId = null;
       momentPromise = null;
     },
-    async ensure(time: string) {
+    allocate(time: string) {
       if (momentId) {
         return momentId;
       }
-
-      momentPromise ??= createMoment(time).then(
+      const allocated = makeMomentId("moment");
+      momentId = allocated;
+      momentPromise = createMoment(time, allocated).then(
         (created) => {
           momentId = created.moment.id;
           return created.moment.id;
@@ -453,9 +453,15 @@ export function createMomentSession(createMoment: (time: string) => Promise<{ mo
           throw error;
         },
       );
+      return allocated;
+    },
+    async ensure(time: string) {
+      if (!momentPromise) {
+        this.allocate(time);
+      }
 
       try {
-        return await momentPromise;
+        return await momentPromise!;
       } catch (error) {
         momentPromise = null;
         momentId = null;
@@ -492,6 +498,7 @@ async function readError(response: Response, fallback: string) {
 export async function createCaptureMoment(input: {
   command?: string | null;
   coordinates: GeoPoint | null;
+  id?: string;
   note?: string;
   pin: string;
   time: string;
@@ -502,6 +509,7 @@ export async function createCaptureMoment(input: {
       body: JSON.stringify({
         command: input.command ?? null,
         coordinates: input.coordinates,
+        ...(input.id ? { id: input.id } : {}),
         note: input.note ?? "",
         time: input.time,
       }),
@@ -596,7 +604,9 @@ export async function uploadCaptureVideo(input: {
   coordinates: GeoPoint | null;
   file: File;
   momentId: string;
+  momentReady?: Promise<string>;
   onDisplayReady?: (display: File) => void | Promise<void>;
+  onHopProgress?: (done: number, total: number) => void;
   pin: string;
   retryMoment?: (status: number) => Promise<string>;
   signal?: AbortSignal;
@@ -604,7 +614,9 @@ export async function uploadCaptureVideo(input: {
 }) {
   assertCaptureFileFits(input.file);
   const source = withCaptureFileMime(input.file);
-  const slices = await materializeCaptureVideoSlices(source);
+  const views = sliceCaptureVideo(source);
+  const hopCount = Math.max(views.length, 1);
+  input.onHopProgress?.(0, hopCount);
 
   void Promise.resolve(input.onDisplayReady?.(source)).catch(() => {
     // Tiny previews are optional; they must never block the video init POST.
@@ -632,6 +644,10 @@ export async function uploadCaptureVideo(input: {
       CAPTURE_VIDEO_INIT_TIMEOUT_MS,
     );
 
+  const firstHopP =
+    views[0] && views[0].size > 0
+      ? materializeCaptureVideoHop(views[0])
+      : Promise.resolve(views[0] ?? new Blob());
   const { momentId, response: initResponse } = await sendWithMomentRetry(
     sendInit,
     input.momentId,
@@ -651,15 +667,23 @@ export async function uploadCaptureVideo(input: {
   let hopViaWorker = !isDirectDriveUploadUrl(uploadUrl);
 
   const total = source.size;
-  if (total > 0 && (slices.length === 0 || slices[0]?.size === 0)) {
+  if (total > 0 && (views.length === 0 || views[0]?.size === 0)) {
     throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
   }
   const chunkSize = captureVideoPutChunkBytes(total);
   const mimeType = captureFileMime(source) || "video/quicktime";
   let offset = 0;
   let fileId = "";
+  let nextBody: Promise<Blob> | null = firstHopP;
+
+  const finishMoment = async () => {
+    if (input.momentReady) {
+      await input.momentReady;
+    }
+  };
 
   const completeDirectUpload = async (knownFileId = "") => {
+    await finishMoment();
     const response = await captureFetch(
       "/api/moments/photos/video",
       {
@@ -688,7 +712,14 @@ export async function uploadCaptureVideo(input: {
     return { display: source, momentId, photo: payload.photo };
   };
 
-  for (const chunk of slices) {
+  for (let index = 0; index < views.length; index += 1) {
+    const chunk = (await nextBody) ?? views[index]!;
+    const upcoming = views[index + 1];
+    nextBody = upcoming
+      ? upcoming.size > 0
+        ? materializeCaptureVideoHop(upcoming)
+        : Promise.resolve(upcoming)
+      : null;
     const end = Math.min(offset + chunkSize, total);
     const contentRange = `bytes ${offset}-${end - 1}/${total}`;
     const body = chunk.size > 0 ? chunk : source.slice(offset, end);
@@ -711,6 +742,7 @@ export async function uploadCaptureVideo(input: {
           CAPTURE_VIDEO_HOP_TIMEOUT_MS,
         );
         if (isDriveHopContinue(response)) {
+          input.onHopProgress?.(index + 1, hopCount);
           if (lastHop) {
             return await completeDirectUpload(fileId);
           }
@@ -720,6 +752,7 @@ export async function uploadCaptureVideo(input: {
         if (!response.ok) {
           throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
         }
+        input.onHopProgress?.(index + 1, hopCount);
         if (lastHop) {
           try {
             fileId = readDriveFileId(await response.json()) || fileId;
@@ -768,7 +801,9 @@ export async function uploadCaptureVideo(input: {
     if (!response.ok) {
       throw new Error(await readError(response, CAPTURE_UPLOAD_FAILED_MESSAGE));
     }
+    input.onHopProgress?.(index + 1, hopCount);
     if (lastHop) {
+      await finishMoment();
       const payload = (await response.json()) as { photo?: MomentPhoto };
       if (!payload.photo) {
         throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
@@ -785,7 +820,9 @@ export async function uploadDisplayPhoto(input: {
   coordinates: GeoPoint | null;
   file: File;
   momentId: string;
+  momentReady?: Promise<string>;
   onDisplayReady?: (display: File) => void | Promise<void>;
+  onHopProgress?: (done: number, total: number) => void;
   pin: string;
   retryMoment?: (status: number) => Promise<string>;
   signal?: AbortSignal;

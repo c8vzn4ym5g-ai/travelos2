@@ -439,8 +439,18 @@
   padding: 7px;
 }
 
+[data-surface="family"] .fam-thumb-hit {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
 [data-surface="family"] .fam-thumb img,
 [data-surface="family"] .fam-thumb video,
+[data-surface="family"] .fam-thumb-hit video,
 [data-surface="family"] .fam-thumb-fallback {
   display: block;
   width: 100%;

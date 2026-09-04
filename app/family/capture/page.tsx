@@ -23,8 +23,8 @@ import {
   captureDumpProgressMessage,
   captureErrorMessage,
   captureUploadWatchdogMs,
+  captureVideoHopCount,
   captureVideoPreviewUrl,
-  materializeCaptureVideoSlices,
   clearMomentAudioInBackground,
   createCaptureMoment,
   createMomentSession,
@@ -52,6 +52,8 @@ type StagedPhoto = {
   abort: AbortController;
   errorMessage: string | null;
   file: File;
+  hopDone: number;
+  hopTotal: number;
   id: string;
   previewUrl: string | null;
   serverPhotoId: string | null;
@@ -69,17 +71,52 @@ type StagedAudio = {
   transcript: string;
 };
 
-function photoChip(status: UploadStatus) {
-  if (status === "uploaded") {
+function photoChip(photo: Pick<StagedPhoto, "hopDone" | "hopTotal" | "status">) {
+  if (photo.status === "uploaded") {
     return { className: "fam-chip fam-chip-mint", label: "已上傳" };
   }
-  if (status === "failed") {
+  if (photo.status === "failed") {
     return { className: "fam-chip fam-chip-blush", label: "上傳失敗" };
   }
-  if (status === "queued") {
+  if (photo.status === "queued") {
     return { className: "fam-chip fam-chip-sky", label: "排隊中" };
   }
+  if (photo.hopTotal > 0) {
+    return { className: "fam-chip fam-chip-honey", label: `上傳中 ${photo.hopDone}/${photo.hopTotal}` };
+  }
   return { className: "fam-chip fam-chip-honey", label: "上傳中" };
+}
+
+function CaptureVideoThumb({ file, previewUrl }: { file: File; previewUrl: string | null }) {
+  const [inlineFailed, setInlineFailed] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  if (open && previewUrl) {
+    return <video controls playsInline preload="auto" src={previewUrl} />;
+  }
+
+  if (previewUrl && !inlineFailed) {
+    return (
+      <button className="fam-thumb-hit" onClick={() => setOpen(true)} type="button">
+        <video
+          muted
+          onError={() => setInlineFailed(true)}
+          playsInline
+          preload="metadata"
+          src={`${previewUrl}#t=0.001`}
+        />
+        <span className="fam-sr">播放</span>
+      </button>
+    );
+  }
+
+  return (
+    <button className="fam-thumb-fallback fam-thumb-hit" onClick={() => previewUrl && setOpen(true)} type="button">
+      <FamGlyph name="play" />
+      <p className="line-clamp-3">{file.name}</p>
+      <span className="fam-sr">播放</span>
+    </button>
+  );
 }
 
 function sessionPin(fallback: string) {
@@ -205,9 +242,10 @@ export default function CapturePage() {
   }, []);
 
   function createLiveMomentSession() {
-    return createMomentSession((time) =>
+    return createMomentSession((time, momentId) =>
       createCaptureMoment({
         coordinates: coordinatesRef.current,
+        id: momentId,
         pin: sessionPin(pinRef.current),
         time,
       }),
@@ -352,13 +390,14 @@ export default function CapturePage() {
         }
       }, watchdogMs);
       try {
-        if (isCaptureVideoFile(photo.file)) {
-          await materializeCaptureVideoSlices(photo.file);
-        }
         const takenAt = Number.isFinite(photo.file.lastModified)
           ? new Date(photo.file.lastModified).toISOString()
           : new Date().toISOString();
-        const momentId = await session.ensure(takenAt);
+        const momentId = session.allocate(takenAt);
+        const momentReady = session.ensure(takenAt);
+        if (!isCaptureVideoFile(photo.file)) {
+          await momentReady;
+        }
         if (photo.abort.signal.aborted) {
           return;
         }
@@ -367,6 +406,12 @@ export default function CapturePage() {
           coordinates: coordinatesRef.current,
           file: photo.file,
           momentId,
+          momentReady,
+          onHopProgress: (hopDone, hopTotal) => {
+            if (photoIsOnScreen(photo.id)) {
+              patchPhoto(photo.id, { hopDone, hopTotal, status: "uploading" });
+            }
+          },
           onDisplayReady: async (display) => {
             if (photo.abort.signal.aborted || isCaptureVideoFile(photo.file)) {
               return;
@@ -517,12 +562,11 @@ export default function CapturePage() {
     await ingestCaptureFileList(fileList, {
       limit: CAPTURE_DUMP_LIMIT,
       async onCopied(file, progress) {
-        if (isCaptureVideoFile(file)) {
-          await materializeCaptureVideoSlices(file);
-        }
         const incoming = createStagedCapturePhotos([file]).map((draft) => ({
           ...draft,
           abort: new AbortController(),
+          hopDone: 0,
+          hopTotal: isCaptureVideoFile(file) ? captureVideoHopCount(file.size) : 0,
           previewUrl: isCaptureVideoFile(file) ? captureVideoPreviewUrl(file) : null,
         }));
         if (incoming.length === 0) {
@@ -840,22 +884,11 @@ export default function CapturePage() {
           <>
             <ul className="mt-5 grid grid-cols-2 gap-3">
               {photos.map((photo) => {
-                const chip = photoChip(photo.status);
+                const chip = photoChip(photo);
                 return (
                   <li className="fam-thumb" key={photo.id}>
-                    {photo.previewUrl && isCaptureVideoFile(photo.file) ? (
-                      <video
-                        muted
-                        onError={() => {
-                          if (photo.previewUrl) {
-                            URL.revokeObjectURL(photo.previewUrl);
-                          }
-                          patchPhoto(photo.id, { previewUrl: null });
-                        }}
-                        playsInline
-                        preload="metadata"
-                        src={`${photo.previewUrl}#t=0.001`}
-                      />
+                    {isCaptureVideoFile(photo.file) ? (
+                      <CaptureVideoThumb file={photo.file} previewUrl={photo.previewUrl} />
                     ) : photo.previewUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img alt="" src={photo.previewUrl} />
@@ -870,7 +903,7 @@ export default function CapturePage() {
                     {photo.errorMessage ? <p className="fam-ref">{photo.errorMessage}</p> : null}
                     <div className="fam-thumb-actions">
                       <button onClick={() => retakePhoto(photo.id)} type="button">
-                        Retake
+                        重拍
                       </button>
                       <button onClick={() => removePhoto(photo.id)} type="button">
                         移除
