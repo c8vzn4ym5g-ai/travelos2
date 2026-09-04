@@ -12,6 +12,8 @@ import {
   assertCaptureFileFits,
   captureVideoPutChunkBytes,
   captureVideoTooLargeMessage,
+  copyCaptureFile,
+  sliceCaptureVideo,
   ingestCaptureFileList,
   uploadDisplayPhoto,
 } from "../lib/capture-upload.ts";
@@ -19,7 +21,6 @@ import {
   DRIVE_UPLOAD_CHUNK_BYTES,
   DRIVE_UPLOAD_SINGLE_PUT_MAX_BYTES,
   DRIVE_WAREHOUSE_FOLDER_ID,
-  driveUploadPutChunkBytes,
   initDriveResumableUpload,
   putDriveResumableChunk,
   putVideoBinary,
@@ -62,10 +63,7 @@ const IMG_1504_BYTES = 45_901_603;
 const NINETY_MB = 90_000_000;
 
 function expectedPutCount(fileSize: number) {
-  if (fileSize <= CAPTURE_VIDEO_SINGLE_PUT_MAX_BYTES) {
-    return 1;
-  }
-  return Math.ceil(fileSize / CAPTURE_VIDEO_CHUNK_BYTES);
+  return Math.ceil(fileSize / captureVideoPutChunkBytes(fileSize));
 }
 
 function threeChunkMovieBytes() {
@@ -154,7 +152,7 @@ test("15s-class dummy IMG_1504.MOV at 60MB and 80MB is not rejected", () => {
   assert.doesNotThrow(() => assertCaptureFileFits(videoFileWithSize(80_000_000, "IMG_1504.MOV")));
 });
 
-test("46MB-class dummy uses 1 PUT not 175; 8MiB boundary; 90MB uses 8MiB chunks", () => {
+test("46MB-class dummy uses 8MiB hops not 1 PUT and not 175; 8MiB boundary", () => {
   assert.equal(CAPTURE_VIDEO_CHUNK_BYTES, 8 * 1024 * 1024);
   assert.equal(CAPTURE_VIDEO_CHUNK_BYTES, 8_388_608);
   assert.equal(CAPTURE_VIDEO_CHUNK_BYTES % (256 * 1024), 0);
@@ -164,21 +162,47 @@ test("46MB-class dummy uses 1 PUT not 175; 8MiB boundary; 90MB uses 8MiB chunks"
 
   assert.equal(captureVideoPutChunkBytes(1), 1);
   assert.equal(captureVideoPutChunkBytes(CAPTURE_VIDEO_CHUNK_BYTES), CAPTURE_VIDEO_CHUNK_BYTES);
-  assert.equal(captureVideoPutChunkBytes(CAPTURE_VIDEO_CHUNK_BYTES + 1), CAPTURE_VIDEO_CHUNK_BYTES + 1);
-  assert.equal(captureVideoPutChunkBytes(IMG_1504_BYTES), IMG_1504_BYTES);
-  assert.equal(captureVideoPutChunkBytes(80_000_000), 80_000_000);
-  assert.equal(captureVideoPutChunkBytes(80_000_001), CAPTURE_VIDEO_CHUNK_BYTES);
+  assert.equal(captureVideoPutChunkBytes(CAPTURE_VIDEO_CHUNK_BYTES + 1), CAPTURE_VIDEO_CHUNK_BYTES);
+  assert.equal(captureVideoPutChunkBytes(IMG_1504_BYTES), CAPTURE_VIDEO_CHUNK_BYTES);
+  assert.equal(captureVideoPutChunkBytes(80_000_000), CAPTURE_VIDEO_CHUNK_BYTES);
   assert.equal(captureVideoPutChunkBytes(NINETY_MB), CAPTURE_VIDEO_CHUNK_BYTES);
-  assert.equal(driveUploadPutChunkBytes(IMG_1504_BYTES), IMG_1504_BYTES);
-  assert.equal(driveUploadPutChunkBytes(NINETY_MB), DRIVE_UPLOAD_CHUNK_BYTES);
 
-  assert.equal(expectedPutCount(IMG_1504_BYTES), 1);
+  assert.equal(expectedPutCount(IMG_1504_BYTES), Math.ceil(IMG_1504_BYTES / CAPTURE_VIDEO_CHUNK_BYTES));
+  assert.equal(expectedPutCount(IMG_1504_BYTES), 6);
+  assert.notEqual(expectedPutCount(IMG_1504_BYTES), 1);
   assert.notEqual(expectedPutCount(IMG_1504_BYTES), 175);
   assert.equal(expectedPutCount(CAPTURE_VIDEO_CHUNK_BYTES), 1);
-  assert.equal(expectedPutCount(80_000_000), 1);
+  assert.equal(expectedPutCount(CAPTURE_VIDEO_CHUNK_BYTES + 1), 2);
   assert.equal(expectedPutCount(NINETY_MB), Math.ceil(NINETY_MB / CAPTURE_VIDEO_CHUNK_BYTES));
   assert.ok(expectedPutCount(NINETY_MB) > 1);
   assert.ok(expectedPutCount(NINETY_MB) < 20);
+
+  const video = new File([new Uint8Array([0, 0, 1, 2])], "IMG_1504.MOV", { type: "video/quicktime" });
+  const copied = copyCaptureFile(video);
+  assert.equal(copied, video);
+  assert.equal(sliceCaptureVideo(video).length, 1);
+});
+
+test("video ingest does not reset the album input before 8MiB hops start", async () => {
+  let reset = false;
+  const movie = new File([new Uint8Array([0, 0, 1, 2])], "IMG_1504.MOV", { type: "video/quicktime" });
+  const jpeg = new File([new Uint8Array([1, 2, 3, 4])], "IMG_1505.JPG", { type: "image/jpeg" });
+  await ingestCaptureFileList(fakeFileList([movie, jpeg]), {
+    onCopied() {},
+    resetInput() {
+      reset = true;
+    },
+  });
+  assert.equal(reset, false);
+
+  reset = false;
+  await ingestCaptureFileList(fakeFileList([jpeg]), {
+    onCopied() {},
+    resetInput() {
+      reset = true;
+    },
+  });
+  assert.equal(reset, true);
 });
 
 async function uploadVideoAndCollectPuts(file: File) {
@@ -254,14 +278,19 @@ test("video upload client does not send one multipart FormData of the whole .mov
   assert.equal(puts[0]?.contentRange, `bytes 0-${file.size - 1}/${file.size}`);
 });
 
-test("46MB IMG_1504-class dummy is one raw PUT after init, not 175 hops", async () => {
+test("46MB IMG_1504-class dummy is 8MiB hops after init, not 1 PUT and not 175", async () => {
   const file = videoFileWithSize(IMG_1504_BYTES);
   const { calls, uploaded } = await uploadVideoAndCollectPuts(file);
   assert.equal(uploaded.photo.id, "photo_mov");
   const puts = calls.filter((call) => call.method === "PUT");
-  assert.equal(puts.length, 1);
+  const expected = expectedPutCount(IMG_1504_BYTES);
+  assert.equal(puts.length, expected);
+  assert.equal(puts.length, 6);
+  assert.notEqual(puts.length, 1);
   assert.notEqual(puts.length, 175);
-  assert.equal(puts[0]?.contentRange, `bytes 0-${IMG_1504_BYTES - 1}/${IMG_1504_BYTES}`);
+  assert.equal(puts[0]?.contentRange, `bytes 0-${CAPTURE_VIDEO_CHUNK_BYTES - 1}/${IMG_1504_BYTES}`);
+  assert.equal(puts.at(-1)?.contentRange?.endsWith(`/${IMG_1504_BYTES}`), true);
+  assert.match(puts.at(-1)?.contentRange ?? "", new RegExp(`${IMG_1504_BYTES - 1}/${IMG_1504_BYTES}$`));
   assert.equal(
     calls.some((call) => call.form && call.url.includes("/api/moments/photos") && !call.url.includes("/video")),
     false,
@@ -636,17 +665,27 @@ test("Capture card fallback and album accept stay family Chinese / one door", as
   assert.doesNotMatch(capture, /photoQueue/);
 
   const addBlock = capture.slice(capture.indexOf("async function addIncomingFiles"), capture.indexOf("function onTakePhoto"));
-  assert.match(addBlock, /URL\.createObjectURL\(file\)/);
+  assert.match(addBlock, /URL\.createObjectURL\(file\.slice\(0\)\)/);
   assert.match(addBlock, /isCaptureVideoFile\(file\)/);
-  assert.match(addBlock, /void startBackgroundPhotoUpload\(photo\)/);
+  assert.match(addBlock, /startBackgroundPhotoUpload\(photo\)/);
+  assert.match(addBlock, /videoUploads/);
+  assert.match(capture, />\s*移除\s*</);
+  assert.doesNotMatch(capture.slice(capture.indexOf("fam-thumb-actions"), capture.indexOf("一次選好")), />\s*Remove\s*</);
 
   const videoUpload = upload.slice(upload.indexOf("export async function uploadCaptureVideo"), upload.indexOf("export async function uploadDisplayPhoto"));
   assert.match(videoUpload, /\/api\/moments\/photos\/video/);
   assert.doesNotMatch(videoUpload, /new FormData/);
   assert.doesNotMatch(videoUpload, /formData\.set\("file"/);
   assert.match(videoUpload, /captureVideoPutChunkBytes/);
+  assert.match(videoUpload, /sliceCaptureVideo/);
   assert.match(videoUpload, /file\.slice\(|source\.slice\(/);
   assert.match(videoUpload, /content-range/i);
+  const copyFn = upload.slice(upload.indexOf("export function copyCaptureFile"), upload.indexOf("export async function ingestCaptureFileList"));
+  const videoCopy = copyFn.slice(copyFn.indexOf("isCaptureVideoFile"), copyFn.indexOf("const blob"));
+  assert.match(copyFn, /isCaptureVideoFile\(file\)/);
+  assert.match(copyFn, /sliceCaptureVideo\(file\)/);
+  assert.match(videoCopy, /return file;/);
+  assert.doesNotMatch(videoCopy, /new File\(/);
   assert.match(videoRoute, /VIDEO_CHUNK_MAX_BYTES = DRIVE_UPLOAD_SINGLE_PUT_MAX_BYTES/);
 
   assert.match(photosApi, /await request\.formData\(\)/);

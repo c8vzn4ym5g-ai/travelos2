@@ -47,7 +47,8 @@ test("capture keeps camera and library, with retake and remove", async () => {
   assert.match(capture, /capture="environment"/);
   assert.match(capture, /\smultiple\s/);
   assert.match(capture, />\s*Retake\s*</);
-  assert.match(capture, />\s*Remove\s*</);
+  assert.match(capture, />\s*移除\s*</);
+  assert.doesNotMatch(capture.slice(capture.indexOf("fam-thumb-actions"), capture.indexOf("一次選好")), />\s*Remove\s*</);
   assert.match(capture, /function retakePhoto/);
   assert.match(capture, /function removePhoto/);
   assert.notEqual(takePhotoIndex, -1);
@@ -270,7 +271,7 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   const addBlock = capture.slice(addIndex, capture.indexOf("function onTakePhoto"));
   assert.ok(addIndex !== -1 && saveIndex !== -1);
   assert.ok(addIndex < saveIndex);
-  assert.match(addBlock, /URL\.createObjectURL\(file\)/);
+  assert.match(addBlock, /URL\.createObjectURL\(file\.slice\(0\)\)/);
   assert.match(addBlock, /ingestCaptureFileList/);
   assert.match(capture, /createTinyPreviewUrl\(display\)/);
   assert.match(capture, /isCaptureVideoFile\(photo.file\)/);
@@ -315,7 +316,7 @@ test("background upload starts on add and Save does not wait on originals", asyn
     upload.indexOf("export function uploadOriginalPhotoInBackground"),
   );
 
-  assert.match(addBlock, /void startBackgroundPhotoUpload\(photo\)/);
+  assert.match(addBlock, /startBackgroundPhotoUpload\(photo\)/);
   assert.match(addBlock, /ingestCaptureFileList\(fileList/);
   assert.match(addBlock, /limit: CAPTURE_DUMP_LIMIT/);
   assert.match(addBlock, /createStagedCapturePhotos\(\[file\]\)/);
@@ -519,7 +520,7 @@ test("capture voice line is editable and language chips sit by the mic", async (
   assert.doesNotMatch(capture, /htmlFor="people"/);
   assert.doesNotMatch(capture, /settings page/i);
   assert.match(addBlock, /ingestCaptureFileList/);
-  assert.match(addBlock, /void startBackgroundPhotoUpload\(photo\)/);
+  assert.match(addBlock, /startBackgroundPhotoUpload\(photo\)/);
   assert.doesNotMatch(addBlock, /classifyCaptureNote/);
   assert.doesNotMatch(addBlock, /createWorkQueue/);
   assert.doesNotMatch(capture, /createWorkQueue/);
