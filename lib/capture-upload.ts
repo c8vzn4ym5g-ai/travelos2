@@ -17,12 +17,92 @@ export const CAPTURE_VIDEO_CHUNK_BYTES = 8 * 1024 * 1024;
 export const CAPTURE_VIDEO_SINGLE_PUT_MAX_BYTES = 80_000_000;
 export const CAPTURE_VIDEO_MAX_BYTES = 100_000_000;
 export const CAPTURE_UPLOAD_FAILED_MESSAGE = "上傳失敗。";
+export const CAPTURE_MOMENT_FETCH_TIMEOUT_MS = 15_000;
+export const CAPTURE_VIDEO_INIT_TIMEOUT_MS = 15_000;
+export const CAPTURE_VIDEO_HOP_TIMEOUT_MS = 20_000;
+export const CAPTURE_PHOTO_FETCH_TIMEOUT_MS = 20_000;
+
+export function captureVideoHopCount(fileSize: number) {
+  if (fileSize <= 0) {
+    return 1;
+  }
+  return Math.ceil(fileSize / captureVideoPutChunkBytes(fileSize));
+}
+
+export function captureUploadWatchdogMs(fileSize: number) {
+  return (
+    CAPTURE_MOMENT_FETCH_TIMEOUT_MS +
+    CAPTURE_VIDEO_INIT_TIMEOUT_MS +
+    captureVideoHopCount(fileSize) * CAPTURE_VIDEO_HOP_TIMEOUT_MS
+  );
+}
 
 export function captureVideoPutChunkBytes(fileSize: number) {
   if (fileSize <= 0) {
     return CAPTURE_VIDEO_CHUNK_BYTES;
   }
   return Math.min(CAPTURE_VIDEO_CHUNK_BYTES, fileSize);
+}
+
+function mergeAbortSignals(signals: Array<AbortSignal | undefined>) {
+  const present = signals.filter((signal): signal is AbortSignal => Boolean(signal));
+  if (present.length === 0) {
+    return undefined;
+  }
+  if (present.length === 1) {
+    return present[0];
+  }
+  if (typeof AbortSignal.any === "function") {
+    return AbortSignal.any(present);
+  }
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  for (const signal of present) {
+    if (signal.aborted) {
+      controller.abort();
+      return controller.signal;
+    }
+    signal.addEventListener("abort", onAbort, { once: true });
+  }
+  return controller.signal;
+}
+
+export function isCaptureUploadAbortError(error: unknown) {
+  if (typeof DOMException !== "undefined" && error instanceof DOMException && error.name === "AbortError") {
+    return true;
+  }
+  if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")) {
+    return true;
+  }
+  return error instanceof Error && /aborted|timeout/i.test(error.message);
+}
+
+export async function captureFetch(input: RequestInfo | URL, init: RequestInit, timeoutMs: number) {
+  const controller = new AbortController();
+  const timer = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  const signal = mergeAbortSignals([init.signal, controller.signal]);
+  if (signal?.aborted) {
+    globalThis.clearTimeout(timer);
+    throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
+  }
+
+  try {
+    const aborted = new Promise<Response>((_, reject) => {
+      signal?.addEventListener(
+        "abort",
+        () => reject(new Error(CAPTURE_UPLOAD_FAILED_MESSAGE)),
+        { once: true },
+      );
+    });
+    return await Promise.race([fetch(input, { ...init, signal }), aborted]);
+  } catch (error) {
+    if (isCaptureUploadAbortError(error) || (error instanceof Error && error.message === CAPTURE_UPLOAD_FAILED_MESSAGE)) {
+      throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
+    }
+    throw error;
+  } finally {
+    globalThis.clearTimeout(timer);
+  }
 }
 
 const captureVideoSliceCache = new WeakMap<File, Blob[]>();
@@ -265,6 +345,9 @@ export function pinHeaders(pin: string): Record<string, string> {
 }
 
 export function captureErrorMessage(error: unknown, fallback: string) {
+  if (isCaptureUploadAbortError(error)) {
+    return fallback;
+  }
   return error instanceof Error && error.message.trim() ? error.message : fallback;
 }
 
@@ -343,19 +426,23 @@ export async function createCaptureMoment(input: {
   pin: string;
   time: string;
 }) {
-  const response = await fetch("/api/moments", {
-    body: JSON.stringify({
-      command: input.command ?? null,
-      coordinates: input.coordinates,
-      note: input.note ?? "",
-      time: input.time,
-    }),
-    headers: {
-      "content-type": "application/json",
-      ...pinHeaders(input.pin),
+  const response = await captureFetch(
+    "/api/moments",
+    {
+      body: JSON.stringify({
+        command: input.command ?? null,
+        coordinates: input.coordinates,
+        note: input.note ?? "",
+        time: input.time,
+      }),
+      headers: {
+        "content-type": "application/json",
+        ...pinHeaders(input.pin),
+      },
+      method: "POST",
     },
-    method: "POST",
-  });
+    CAPTURE_MOMENT_FETCH_TIMEOUT_MS,
+  );
 
   if (!response.ok) {
     throw new Error(await readError(response, "Could not save this moment."));
@@ -373,23 +460,27 @@ export async function finalizeCaptureMoment(input: {
   time: string;
   transcript?: string | null;
 }) {
-  const response = await fetch("/api/moments", {
-    body: JSON.stringify({
-      moment: {
-        command: input.command,
-        coordinates: input.coordinates,
-        id: input.momentId,
-        note: input.note,
-        time: input.time,
-        ...(input.transcript?.trim() ? { transcript: input.transcript.trim() } : {}),
+  const response = await captureFetch(
+    "/api/moments",
+    {
+      body: JSON.stringify({
+        moment: {
+          command: input.command,
+          coordinates: input.coordinates,
+          id: input.momentId,
+          note: input.note,
+          time: input.time,
+          ...(input.transcript?.trim() ? { transcript: input.transcript.trim() } : {}),
+        },
+      }),
+      headers: {
+        "content-type": "application/json",
+        ...pinHeaders(input.pin),
       },
-    }),
-    headers: {
-      "content-type": "application/json",
-      ...pinHeaders(input.pin),
+      method: "PUT",
     },
-    method: "PUT",
-  });
+    CAPTURE_MOMENT_FETCH_TIMEOUT_MS,
+  );
 
   if (!response.ok) {
     throw new Error(await readError(response, "Could not save this moment."));
@@ -450,22 +541,26 @@ export async function uploadCaptureVideo(input: {
   });
 
   const sendInit = async (momentId: string) =>
-    fetch("/api/moments/photos/video", {
-      body: JSON.stringify({
-        coordinates: input.coordinates,
-        filename: source.name,
-        mimeType: captureFileMime(source),
-        momentId,
-        size: source.size,
-        takenAt: input.takenAt,
-      }),
-      headers: {
-        "content-type": "application/json",
-        ...pinHeaders(input.pin),
+    captureFetch(
+      "/api/moments/photos/video",
+      {
+        body: JSON.stringify({
+          coordinates: input.coordinates,
+          filename: source.name,
+          mimeType: captureFileMime(source),
+          momentId,
+          size: source.size,
+          takenAt: input.takenAt,
+        }),
+        headers: {
+          "content-type": "application/json",
+          ...pinHeaders(input.pin),
+        },
+        method: "POST",
+        signal: input.signal,
       },
-      method: "POST",
-      signal: input.signal,
-    });
+      CAPTURE_VIDEO_INIT_TIMEOUT_MS,
+    );
 
   const { momentId, response: initResponse } = await sendWithMomentRetry(
     sendInit,
@@ -484,23 +579,30 @@ export async function uploadCaptureVideo(input: {
   }
 
   const total = source.size;
+  if (total > 0 && (slices.length === 0 || slices[0]?.size === 0)) {
+    throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
+  }
   const chunkSize = captureVideoPutChunkBytes(total);
   let offset = 0;
   for (const chunk of slices) {
     const end = Math.min(offset + chunkSize, total);
     const contentRange = `bytes ${offset}-${end - 1}/${total}`;
     const body = chunk.size > 0 ? chunk : source.slice(offset, end);
-    const response = await fetch("/api/moments/photos/video", {
-      body,
-      headers: {
-        ...pinHeaders(input.pin),
-        "content-range": contentRange,
-        "content-type": "application/octet-stream",
-        "x-travelos-video-session": session,
+    const response = await captureFetch(
+      "/api/moments/photos/video",
+      {
+        body,
+        headers: {
+          ...pinHeaders(input.pin),
+          "content-range": contentRange,
+          "content-type": "application/octet-stream",
+          "x-travelos-video-session": session,
+        },
+        method: "PUT",
+        signal: input.signal,
       },
-      method: "PUT",
-      signal: input.signal,
-    });
+      CAPTURE_VIDEO_HOP_TIMEOUT_MS,
+    );
     if (!response.ok) {
       throw new Error(await readError(response, CAPTURE_UPLOAD_FAILED_MESSAGE));
     }
@@ -555,12 +657,16 @@ export async function uploadDisplayPhoto(input: {
       formData.set("longitude", String(input.coordinates.longitude));
     }
 
-    return fetch("/api/moments/photos", {
-      body: formData,
-      headers: pinHeaders(input.pin),
-      method: "POST",
-      signal: input.signal,
-    });
+    return captureFetch(
+      "/api/moments/photos",
+      {
+        body: formData,
+        headers: pinHeaders(input.pin),
+        method: "POST",
+        signal: input.signal,
+      },
+      CAPTURE_PHOTO_FETCH_TIMEOUT_MS,
+    );
   };
 
   const { momentId, response } = await sendWithMomentRetry(send, input.momentId, input.retryMoment);

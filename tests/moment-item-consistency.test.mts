@@ -140,6 +140,15 @@ function withPinEnv(required: string | undefined, run: () => Promise<void>) {
   });
 }
 
+test("Drive addMoment does not wait on index sync before returning the item", async () => {
+  const store = await readSource("lib/moment-store.ts");
+  const addBlock = store.slice(store.indexOf("export async function addMoment"), store.indexOf("export async function updateMoment"));
+  assert.match(addBlock, /writeMomentItem\(moment\)/);
+  assert.match(addBlock, /afterResponse\(\(\) => syncIndexBestEffort\(\[savedMoment\]\)\)/);
+  assert.match(addBlock, /shouldUseDriveWarehouse\(\)/);
+  assert.ok(addBlock.indexOf("writeMomentItem") < addBlock.indexOf("afterResponse"));
+});
+
 test("unique moment item path is the id and does not add a random suffix", () => {
   assert.equal(momentItemBlobPath("moment_123_abc"), "travelos/moments/items/moment_123_abc.json");
   assert.equal(storeItemPath("moment_123_abc"), "travelos/moments/items/moment_123_abc.json");
@@ -804,6 +813,49 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
         for (const resolve of releaseHang) {
           resolve();
         }
+      }
+    });
+  });
+
+  test("moment POST returns after item write even if Drive index GET hangs", async () => {
+    await withPinEnv(undefined, async () => {
+      setDriveWarehouseFetchForTests((async (_input, init) => {
+        const method = (init?.method ?? "GET").toUpperCase();
+        if (method === "GET") {
+          const parsed = new URL(String(_input));
+          if (parsed.searchParams.get("op") === "index") {
+            return new Promise<Response>(() => {});
+          }
+          return new Response("not found", { status: 404 });
+        }
+
+        const payload = JSON.parse(String(init?.body ?? "{}")) as { name?: string; op?: string };
+        if (payload.op === "item") {
+          return Response.json({ ok: true, name: payload.name ?? "item.json" });
+        }
+        if (payload.op === "index") {
+          return Response.json({ ok: true, name: "moments.json" });
+        }
+        throw new Error(`unexpected drive op ${payload.op ?? method}`);
+      }) as typeof fetch);
+
+      try {
+        const { POST } = await import("../app/api/moments/route.ts");
+        const started = Date.now();
+        const response = await POST(
+          new Request("http://travelos.local/api/moments", {
+            body: JSON.stringify({ note: "index-hang", time: "2026-09-04T01:20:00.000Z" }),
+            headers: { "content-type": "application/json" },
+            method: "POST",
+          }),
+        );
+        const elapsedMs = Date.now() - started;
+        assert.equal(response.status, 200);
+        const created = (await response.json()) as { moment: { id: string } };
+        assert.match(created.moment.id, /^moment_/);
+        assert.ok(elapsedMs < 2000, `moment POST waited on a hung Drive index (${elapsedMs}ms)`);
+      } finally {
+        resetMomentStoreForTests();
       }
     });
   });
