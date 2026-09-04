@@ -9,10 +9,12 @@ import {
   CAPTURE_UPLOAD_CONCURRENCY,
   CAPTURE_UPLOAD_FAILED_MESSAGE,
   CAPTURE_VIDEO_CHUNK_BYTES,
+  CAPTURE_VIDEO_COMPLETE_TIMEOUT_MS,
   CAPTURE_VIDEO_HOP_TIMEOUT_MS,
   CAPTURE_VIDEO_INIT_TIMEOUT_MS,
   CAPTURE_VIDEO_MAX_BYTES,
   CAPTURE_VIDEO_SINGLE_PUT_MAX_BYTES,
+  isDirectDriveUploadUrl,
   assertCaptureFileFits,
   captureErrorMessage,
   captureFetch,
@@ -36,6 +38,7 @@ import {
   initDriveResumableUpload,
   putDriveResumableChunk,
   putVideoBinary,
+  queryDriveResumableStatus,
   resetDriveWarehouseForTests,
   setDriveWarehouseFetchForTests,
   signDriveResumableSession,
@@ -185,7 +188,10 @@ test("46MB-class dummy uses 8MiB hops not 1 PUT and not 175; 8MiB boundary", () 
   assert.equal(captureVideoHopCount(IMG_1504_BYTES), 6);
   assert.equal(
     captureUploadWatchdogMs(10_000_000),
-    CAPTURE_MOMENT_FETCH_TIMEOUT_MS + CAPTURE_VIDEO_INIT_TIMEOUT_MS + 2 * CAPTURE_VIDEO_HOP_TIMEOUT_MS,
+    CAPTURE_MOMENT_FETCH_TIMEOUT_MS +
+      CAPTURE_VIDEO_INIT_TIMEOUT_MS +
+      2 * CAPTURE_VIDEO_HOP_TIMEOUT_MS +
+      CAPTURE_VIDEO_COMPLETE_TIMEOUT_MS,
   );
   assert.ok(captureUploadWatchdogMs(10_000_000) < 300_000);
   assert.ok(captureUploadWatchdogMs(IMG_1504_BYTES) < 700_000);
@@ -208,12 +214,16 @@ test("10MB and 46MB watchdogs stay under minutes and hops stay 8MiB", () => {
   assert.equal(captureVideoHopCount(IMG_1504_BYTES), 6);
   assert.equal(
     captureUploadWatchdogMs(10_000_000),
-    CAPTURE_MOMENT_FETCH_TIMEOUT_MS + CAPTURE_VIDEO_INIT_TIMEOUT_MS + 2 * CAPTURE_VIDEO_HOP_TIMEOUT_MS,
+    CAPTURE_MOMENT_FETCH_TIMEOUT_MS +
+      CAPTURE_VIDEO_INIT_TIMEOUT_MS +
+      2 * CAPTURE_VIDEO_HOP_TIMEOUT_MS +
+      CAPTURE_VIDEO_COMPLETE_TIMEOUT_MS,
   );
   assert.ok(captureUploadWatchdogMs(10_000_000) < 300_000);
   assert.ok(captureUploadWatchdogMs(IMG_1504_BYTES) < 700_000);
   assert.equal(CAPTURE_MOMENT_FETCH_TIMEOUT_MS, 30_000);
   assert.equal(CAPTURE_VIDEO_INIT_TIMEOUT_MS, 45_000);
+  assert.equal(CAPTURE_VIDEO_COMPLETE_TIMEOUT_MS, 30_000);
   assert.equal(CAPTURE_VIDEO_HOP_TIMEOUT_MS, 90_000);
   assert.ok(CAPTURE_VIDEO_HOP_TIMEOUT_MS > 20_000);
   assert.equal(CAPTURE_PHOTO_FETCH_TIMEOUT_MS, 30_000);
@@ -318,12 +328,18 @@ test("video ingest does not reset the album input before 8MiB hops start", async
   assert.equal(reset, true);
 });
 
-async function uploadVideoAndCollectPuts(file: File) {
+const DIRECT_DRIVE_UPLOAD_URL =
+  "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=client-direct";
+
+async function uploadVideoAndCollectPuts(file: File, options: { uploadUrl?: string | null } = {}) {
+  const uploadUrl = options.uploadUrl === undefined ? DIRECT_DRIVE_UPLOAD_URL : options.uploadUrl;
   const calls: Array<{
     byteLength: number;
     contentRange: string | null;
     form: boolean;
     method: string;
+    pin: string | null;
+    session: string | null;
     url: string;
   }> = [];
   const originalFetch = globalThis.fetch;
@@ -340,15 +356,40 @@ async function uploadVideoAndCollectPuts(file: File) {
       contentRange: headerValue(init?.headers, "content-range"),
       form,
       method,
+      pin: headerValue(init?.headers, "x-travelos-admin-pin"),
+      session: headerValue(init?.headers, "x-travelos-video-session"),
       url,
     });
     if (form && url.includes("/api/moments/photos") && !url.includes("/video")) {
       throw new Error("video must not POST whole-file FormData to /api/moments/photos");
     }
     if (url.includes("/api/moments/photos/video") && method === "POST") {
-      return jsonResponse({ session: "opaque-test-session" });
+      const payload = JSON.parse(typeof body === "string" ? body : "{}") as {
+        complete?: unknown;
+        fileId?: unknown;
+      };
+      if (payload.complete === true || typeof payload.fileId === "string") {
+        return jsonResponse({ photo: { id: "photo_mov", momentId: "moment_video", kind: "video" } });
+      }
+      return jsonResponse({
+        session: "opaque-test-session",
+        ...(uploadUrl ? { uploadUrl } : {}),
+      });
+    }
+    if (url.includes("googleapis.com/upload/drive") && method === "PUT") {
+      assert.equal(headerValue(init?.headers, "x-travelos-admin-pin"), null);
+      assert.equal(headerValue(init?.headers, "x-travelos-video-session"), null);
+      const range = headerValue(init?.headers, "content-range") ?? "";
+      const total = file.size;
+      if (range.endsWith(`/${total}`) && range.includes(`${total - 1}/`)) {
+        return jsonResponse({ id: "file_mov" });
+      }
+      return new Response(null, { status: 308 });
     }
     if (url.includes("/api/moments/photos/video") && method === "PUT") {
+      if (uploadUrl) {
+        throw new Error("phone must not proxy hops through the Worker when uploadUrl is present");
+      }
       const range = headerValue(init?.headers, "content-range") ?? "";
       const total = file.size;
       if (range.endsWith(`/${total}`) && range.includes(`${total - 1}/`)) {
@@ -389,6 +430,21 @@ test("video upload client does not send one multipart FormData of the whole .mov
   const puts = calls.filter((call) => call.method === "PUT");
   assert.equal(puts.length, 1);
   assert.equal(puts[0]?.contentRange, `bytes 0-${file.size - 1}/${file.size}`);
+  assert.equal(puts[0]?.url, DIRECT_DRIVE_UPLOAD_URL);
+  assert.equal(
+    calls.some((call) => call.url.includes("/api/moments/photos/video") && call.method === "PUT"),
+    false,
+  );
+  assert.equal(
+    calls.some(
+      (call) =>
+        call.url.includes("/api/moments/photos/video") &&
+        call.method === "POST" &&
+        call.byteLength > 0 &&
+        call.byteLength < 200,
+    ),
+    true,
+  );
 });
 
 test("46MB IMG_1504-class dummy is 8MiB hops after init, not 1 PUT and not 175", async () => {
@@ -404,6 +460,18 @@ test("46MB IMG_1504-class dummy is 8MiB hops after init, not 1 PUT and not 175",
   assert.equal(puts[0]?.contentRange, `bytes 0-${CAPTURE_VIDEO_CHUNK_BYTES - 1}/${IMG_1504_BYTES}`);
   assert.equal(puts.at(-1)?.contentRange?.endsWith(`/${IMG_1504_BYTES}`), true);
   assert.match(puts.at(-1)?.contentRange ?? "", new RegExp(`${IMG_1504_BYTES - 1}/${IMG_1504_BYTES}$`));
+  assert.equal(
+    puts.every((call) => call.url === DIRECT_DRIVE_UPLOAD_URL && call.pin == null && call.session == null),
+    true,
+  );
+  assert.equal(
+    calls.some((call) => call.url.includes("/api/moments/photos/video") && call.method === "PUT"),
+    false,
+  );
+  assert.equal(
+    calls.filter((call) => call.url.includes("/api/moments/photos/video") && call.method === "POST").length,
+    2,
+  );
   assert.equal(
     calls.some((call) => call.form && call.url.includes("/api/moments/photos") && !call.url.includes("/video")),
     false,
@@ -439,6 +507,91 @@ test("8MiB boundary is one whole-file PUT; 90MB dummy uses 8MiB chunks", async (
       assert.ok(end - start + 1 <= CAPTURE_VIDEO_CHUNK_BYTES);
     }
   }
+});
+
+test("direct Drive upload URL is https googleapis upload, not OAuth", () => {
+  assert.equal(isDirectDriveUploadUrl(DIRECT_DRIVE_UPLOAD_URL), true);
+  assert.equal(isDirectDriveUploadUrl("https://www.googleapis.com/upload/drive/v3/files?upload_id=x"), true);
+  assert.equal(isDirectDriveUploadUrl("https://travelos2.chao-jason.workers.dev/api/moments/photos/video"), false);
+  assert.equal(isDirectDriveUploadUrl("https://example.com/upload/drive/v3/files"), false);
+  assert.equal(isDirectDriveUploadUrl("ya29.not-a-url"), false);
+});
+
+test("missing uploadUrl falls back to Worker hops", async () => {
+  const file = new File([new Uint8Array([0, 0, 1, 2])], "clip.MOV", { type: "video/quicktime" });
+  const { calls, uploaded } = await uploadVideoAndCollectPuts(file, { uploadUrl: null });
+  assert.equal(uploaded.photo.id, "photo_mov");
+  const workerPuts = calls.filter((call) => call.url.includes("/api/moments/photos/video") && call.method === "PUT");
+  assert.equal(workerPuts.length, 1);
+  assert.equal(
+    calls.some((call) => call.url.includes("googleapis.com/upload/drive")),
+    false,
+  );
+});
+
+test("first-hop CORS TypeError falls back to Worker hops", async () => {
+  const file = new File([new Uint8Array([9, 8, 7, 6])], "clip.MOV", { type: "video/quicktime" });
+  const calls: string[] = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = (init?.method ?? "POST").toUpperCase();
+    const body = init?.body;
+    calls.push(`${method} ${url}`);
+    if (url.includes("/api/moments/photos/video") && method === "POST") {
+      const payload = JSON.parse(typeof body === "string" ? body : "{}") as { complete?: unknown };
+      if (payload.complete === true) {
+        throw new Error("complete should not run when falling back to Worker PUT");
+      }
+      return jsonResponse({ session: "opaque-test-session", uploadUrl: DIRECT_DRIVE_UPLOAD_URL });
+    }
+    if (url.includes("googleapis.com/upload/drive") && method === "PUT") {
+      throw new TypeError("Failed to fetch");
+    }
+    if (url.includes("/api/moments/photos/video") && method === "PUT") {
+      return jsonResponse({ photo: { id: "photo_fallback", momentId: "moment_video", kind: "video" } });
+    }
+    throw new Error(`unexpected fetch ${method} ${url}`);
+  }) as typeof fetch;
+  try {
+    const uploaded = await uploadDisplayPhoto({
+      coordinates: null,
+      file,
+      momentId: "moment_video",
+      pin: "test-capture-pin",
+      takenAt: "2026-09-03T01:10:00.000Z",
+    });
+    assert.equal(uploaded.photo.id, "photo_fallback");
+    assert.equal(
+      calls.some((call) => call.startsWith("PUT https://www.googleapis.com/upload/drive")),
+      true,
+    );
+    assert.equal(
+      calls.some((call) => call.includes("/api/moments/photos/video") && call.startsWith("PUT")),
+      true,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("queryDriveResumableStatus reads a finished Location without OAuth on the phone", async () => {
+  const fakeFetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+    const url = String(input);
+    const method = (init?.method ?? "GET").toUpperCase();
+    if (method === "PUT" && url.includes("upload_id=status1")) {
+      assert.equal(headerValue(init?.headers as HeadersInit, "Content-Range"), "bytes */524288");
+      assert.equal(headerValue(init?.headers as HeadersInit, "Authorization"), null);
+      return jsonResponse({ id: "file_status", name: "clip.MOV" });
+    }
+    throw new Error(`unexpected fetch ${method} ${url}`);
+  }) as typeof fetch;
+  const result = await queryDriveResumableStatus(
+    "https://www.googleapis.com/upload/drive/v3/files?upload_id=status1",
+    524288,
+    fakeFetch,
+  );
+  assert.equal("id" in result && result.id, "file_status");
 });
 
 test("init + raw Drive hops never json-base64 and never putBinary", async () => {
@@ -588,15 +741,26 @@ test("Worker video route accepts one whole-file PUT and 8MiB hops, returns a Dri
       });
     }
     if (method === "PUT" && url.includes("upload_id=route15s")) {
+      const range = headerValue(init?.headers as HeadersInit, "Content-Range") ?? "";
+      if (range === `bytes */${total}` || range.startsWith("bytes */")) {
+        return jsonResponse({ id: "file_route_complete", name: "IMG_1504.MOV" });
+      }
       const chunkBytes = await bodyBytes(init?.body as BodyInit);
       drivePuts.push(chunkBytes.byteLength);
       assert.ok(chunkBytes.byteLength <= DRIVE_UPLOAD_SINGLE_PUT_MAX_BYTES);
-      const range = headerValue(init?.headers as HeadersInit, "Content-Range") ?? "";
       if (range.endsWith(`/${total}`) && range.includes(`${total - 1}/`)) {
         assert.equal(chunkBytes.byteLength, total);
         return jsonResponse({ id: "file_route_15s", name: "IMG_1504.MOV" });
       }
       return new Response(null, { status: 308 });
+    }
+    if (method === "GET" && url.includes("/drive/v3/files/") && !url.includes("alt=media")) {
+      return jsonResponse({
+        id: "file_route_complete",
+        name: "IMG_1504.MOV",
+        parents: [DRIVE_WAREHOUSE_FOLDER_ID],
+        size: String(total),
+      });
     }
     throw new Error(`unexpected fetch ${method} ${url}`);
   }) as typeof fetch;
@@ -617,10 +781,17 @@ test("Worker video route accepts one whole-file PUT and 8MiB hops, returns a Dri
       }),
     );
     assert.equal(initResponse.ok, true);
-    const initPayload = (await initResponse.json()) as { photo?: unknown; session?: string; token?: string };
+    const initPayload = (await initResponse.json()) as {
+      photo?: unknown;
+      session?: string;
+      token?: string;
+      uploadUrl?: string;
+    };
     assert.equal(typeof initPayload.session, "string");
     assert.equal(initPayload.token, undefined);
     assert.equal(initPayload.photo, undefined);
+    assert.equal(isDirectDriveUploadUrl(initPayload.uploadUrl ?? ""), true);
+    assert.match(initPayload.uploadUrl ?? "", /upload_id=route15s/);
     assert.doesNotMatch(JSON.stringify(initPayload), /ya29/);
 
     const done = await PUT(
@@ -672,6 +843,26 @@ test("Worker video route accepts one whole-file PUT and 8MiB hops, returns a Dri
     );
     assert.equal(hop.ok, true);
     assert.equal((await hop.json() as { ok?: boolean }).ok, true);
+
+    const complete = await POST(
+      new Request("https://travelos2.test/api/moments/photos/video", {
+        body: JSON.stringify({
+          complete: true,
+          fileId: "file_route_complete",
+          session: initPayload.session,
+        }),
+        headers: {
+          "content-type": "application/json",
+          "x-travelos-admin-pin": "test-capture-pin",
+          "x-travelos-video-session": initPayload.session ?? "",
+        },
+        method: "POST",
+      }),
+    );
+    assert.equal(complete.ok, true);
+    const completed = (await complete.json()) as { photo?: { kind?: string; storageKey?: string } };
+    assert.equal(completed.photo?.kind, "video");
+    assert.equal(completed.photo?.storageKey, "drive:file_route_complete");
     await new Promise((resolve) => setTimeout(resolve, 30));
   } finally {
     setDriveWarehouseFetchForTests(null);
@@ -709,15 +900,28 @@ test("mixed 40-file dump still starts 40 photo POSTs; video chunks stay inside t
       return jsonResponse({ photo: { id: `photo_${photoPosts}`, momentId: "moment_mixed", kind: "photo" } });
     }
     if (url.includes("/api/moments/photos/video") && method === "POST") {
+      const payload = JSON.parse(typeof body === "string" ? body : "{}") as {
+        complete?: unknown;
+        fileId?: unknown;
+      };
+      if (payload.complete === true || typeof payload.fileId === "string") {
+        return jsonResponse({ photo: { id: "photo_video", momentId: "moment_mixed", kind: "video" } });
+      }
       videoInits += 1;
       await new Promise<void>((resolve) => {
         release.push(resolve);
       });
-      return jsonResponse({ session: `sess_${videoInits}` });
+      return jsonResponse({
+        session: `sess_${videoInits}`,
+        uploadUrl: `https://www.googleapis.com/upload/drive/v3/files?upload_id=mix_${videoInits}`,
+      });
+    }
+    if (url.includes("googleapis.com/upload/drive") && method === "PUT") {
+      assert.equal(body instanceof FormData, false);
+      return jsonResponse({ id: "file_mix" });
     }
     if (url.includes("/api/moments/photos/video") && method === "PUT") {
-      assert.equal(body instanceof FormData, false);
-      return jsonResponse({ photo: { id: "photo_video", momentId: "moment_mixed", kind: "video" } });
+      throw new Error("mixed dump must not proxy video hops through the Worker");
     }
     throw new Error(`unexpected fetch ${method} ${url}`);
   }) as typeof fetch;
@@ -800,6 +1004,16 @@ test("Capture card fallback and album accept stay family Chinese / one door", as
   assert.match(videoUpload, /captureFetch/);
   assert.match(videoUpload, /CAPTURE_VIDEO_HOP_TIMEOUT_MS/);
   assert.match(videoUpload, /CAPTURE_VIDEO_INIT_TIMEOUT_MS/);
+  assert.match(videoUpload, /CAPTURE_VIDEO_COMPLETE_TIMEOUT_MS/);
+  assert.match(videoUpload, /uploadUrl/);
+  assert.match(videoUpload, /complete: true/);
+  assert.match(videoUpload, /redirect: "manual"/);
+  assert.match(videoUpload, /isDirectDriveUploadUrl/);
+  assert.match(videoRoute, /uploadUrl: started\.location/);
+  assert.match(videoRoute, /complete === true/);
+  assert.match(videoRoute, /queryDriveResumableStatus/);
+  assert.match(videoRoute, /safeBrowserOrigin/);
+  assert.match(upload, /export function isDirectDriveUploadUrl/);
   assert.match(upload, /export async function captureFetch/);
   assert.match(upload, /setTimeout\(\(\) => controller\.abort\(\), timeoutMs\)/);
   assert.match(upload, /mergeAbortSignals\(signals: Array<AbortSignal \| null \| undefined>\)/);

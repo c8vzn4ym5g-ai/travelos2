@@ -1171,15 +1171,28 @@ test("a mixed 40-file dump still starts 40 POSTs in parallel", async () => {
       return Response.json({ photo: { id: `photo_${photoPosts}`, momentId: "moment_mixed", kind: "photo" } });
     }
     if (url.includes("/api/moments/photos/video") && method === "POST") {
+      const payload = JSON.parse(typeof body === "string" ? body : "{}") as {
+        complete?: unknown;
+        fileId?: unknown;
+      };
+      if (payload.complete === true || typeof payload.fileId === "string") {
+        return Response.json({ photo: { id: "photo_video", momentId: "moment_mixed", kind: "video" } });
+      }
       videoInits += 1;
       posted += 1;
       await new Promise<void>((resolve) => {
         release.push(resolve);
       });
-      return Response.json({ session: `sess_${videoInits}` });
+      return Response.json({
+        session: `sess_${videoInits}`,
+        uploadUrl: `https://www.googleapis.com/upload/drive/v3/files?upload_id=mix_${videoInits}`,
+      });
+    }
+    if (url.includes("googleapis.com/upload/drive") && method === "PUT") {
+      return Response.json({ id: "file_mix" });
     }
     if (url.includes("/api/moments/photos/video") && method === "PUT") {
-      return Response.json({ photo: { id: "photo_video", momentId: "moment_mixed", kind: "video" } });
+      throw new Error("mixed dump must not proxy video hops through the Worker");
     }
     throw new Error(`unexpected fetch ${method} ${url}`);
   }) as typeof fetch;
