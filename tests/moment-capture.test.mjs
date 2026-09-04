@@ -46,7 +46,7 @@ test("capture keeps camera and library, with retake and remove", async () => {
 
   assert.match(capture, /capture="environment"/);
   assert.match(capture, /\smultiple\s/);
-  assert.match(capture, />\s*Retake\s*</);
+  assert.match(capture, />\s*重拍\s*</);
   assert.match(capture, />\s*移除\s*</);
   assert.doesNotMatch(capture.slice(capture.indexOf("fam-thumb-actions"), capture.indexOf("一次選好")), />\s*Remove\s*</);
   assert.match(capture, /function retakePhoto/);
@@ -278,7 +278,7 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   assert.match(capture, /<video[\s\S]*playsInline/);
   assert.match(upload, /isCaptureDumpFile/);
   assert.match(upload, /CAPTURE_VIDEO_MAX_BYTES = 100_000_000/);
-  assert.match(upload, /CAPTURE_VIDEO_CHUNK_BYTES = 8 \* 1024 \* 1024/);
+  assert.match(upload, /CAPTURE_VIDEO_CHUNK_BYTES = 16 \* 1024 \* 1024/);
   assert.match(upload, /CAPTURE_VIDEO_SINGLE_PUT_MAX_BYTES = 80_000_000/);
   assert.match(upload, /captureVideoPutChunkBytes/);
   assert.match(upload, /assertCaptureFileFits/);

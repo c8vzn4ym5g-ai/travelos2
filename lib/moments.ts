@@ -387,6 +387,7 @@ export function createTravelMoment(
     coordinates?: GeoPoint | null;
     createdAt?: string;
     draft?: string;
+    id?: string;
     note?: string;
     originalAudioUrl?: string | null;
     time?: string | null;
@@ -395,6 +396,7 @@ export function createTravelMoment(
   } = {},
 ): TravelMoment {
   const createdAt = input.createdAt ?? new Date().toISOString();
+  const id = input.id?.trim();
 
   return {
     command: input.command?.trim() ? input.command.trim() : null,
@@ -402,7 +404,7 @@ export function createTravelMoment(
     createdAt,
     draft: input.draft ?? "",
     food: [],
-    id: makeMomentId("moment"),
+    id: id || makeMomentId("moment"),
     note: input.note ?? "",
     originalAudioUrl: input.originalAudioUrl ?? null,
     people: [],

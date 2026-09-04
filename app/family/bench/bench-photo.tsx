@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FamGlyph } from "@/app/family/family-icons";
 import { FAMILY_ADMIN_SESSION_KEY, familyPinHeaders } from "@/lib/family-session";
-import { driveFileIdFromStorageKey, isMomentVideo, momentPhotoPlayUrl } from "@/lib/moments";
+import { captureFileMime, driveFileIdFromStorageKey, isMomentVideo, momentPhotoPlayUrl } from "@/lib/moments";
 import type { MomentPhoto } from "@/lib/types";
 
 const THUMB_FETCH_MS = 55000;
@@ -157,7 +157,13 @@ export function BenchPhotoThumb({ momentId, photo }: { momentId: string; photo: 
         throw new Error("video missing");
       }
       const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
+      const mime =
+        photo.mimeType ||
+        captureFileMime({ name: photo.originalFilename || "clip.mov", type: blob.type }) ||
+        blob.type ||
+        "video/quicktime";
+      const playable = blob.type.startsWith("video/") ? blob : new Blob([blob], { type: mime });
+      const objectUrl = URL.createObjectURL(playable);
       setVideoSrc(objectUrl);
       setVideoStatus("ready");
     } catch {
