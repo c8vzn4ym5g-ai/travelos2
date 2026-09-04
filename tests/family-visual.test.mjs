@@ -51,7 +51,7 @@ test("family workshop wraps a family surface and does not restyle public Lapland
   assert.doesNotMatch(lapland, /data-surface="family"/);
   assert.doesNotMatch(lapland, /family-workshop/);
   assert.doesNotMatch(familyHome, /bg-emerald-800/);
-  assert.match(capture, /void startBackgroundPhotoUpload\(photo\)/);
+  assert.match(capture, /startBackgroundPhotoUpload\(photo\)/);
   assert.doesNotMatch(capture, /createWorkQueue/);
   assert.match(capture, /剛拍的會出現在這裡。/);
   assert.doesNotMatch(capture, /fam-empty-take/);

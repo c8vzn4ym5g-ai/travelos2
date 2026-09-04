@@ -1066,13 +1066,15 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
   assert.match(addBlock, /ingestCaptureFileList\(fileList/);
   assert.match(addBlock, /limit: CAPTURE_DUMP_LIMIT/);
   assert.match(addBlock, /createStagedCapturePhotos\(\[file\]\)/);
-  assert.match(addBlock, /void startBackgroundPhotoUpload\(photo\)/);
+  assert.match(addBlock, /startBackgroundPhotoUpload\(photo\)/);
+  assert.match(addBlock, /videoUploads/);
+  assert.match(addBlock, /Promise\.allSettled\(videoUploads\)/);
   assert.match(addBlock, /shouldReplaceCaptureDumpRound\(source, photosRef\.current\.length\)/);
   assert.match(addBlock, /beginFreshDumpRound\(\)/);
   assert.match(addBlock, /captureDumpProgressMessage/);
   assert.match(addBlock, /resetInput/);
   assert.doesNotMatch(addBlock, /snapshotFileList/);
-  assert.match(addBlock, /URL\.createObjectURL\(file\)/);
+  assert.match(addBlock, /URL\.createObjectURL\(file\.slice\(0\)\)/);
   assert.match(chooseBlock, /"choose-photos"/);
   assert.doesNotMatch(chooseBlock, /"take-photo"/);
   assert.doesNotMatch(chooseBlock, /event\.target\.value = ""/);

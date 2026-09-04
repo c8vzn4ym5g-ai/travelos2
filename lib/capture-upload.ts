@@ -9,19 +9,37 @@ export { createTinyPreviewUrl };
 export const CAPTURE_UPLOAD_CONCURRENCY = 3;
 export const CAPTURE_DUMP_LIMIT = 40;
 // Google resumable requires multiples of 256KiB except the last chunk.
-// 8MiB is 32 × 256KiB. Files at or under 80MB go as one PUT (Worker already
-// survived a 40MB body). Larger files split into 8MiB hops so a 46MB iPhone
-// clip is 1 request, not 175 phone round-trips.
+// 8MiB is 32 × 256KiB. iPhone Safari aborts a 40–46MB one-shot PUT and
+// `new File([whole .mov])` on ingest can empty the preview, so the phone
+// always hops 8MiB (last chunk shorter). Worker still accepts a larger
+// single PUT from a datacenter.
 export const CAPTURE_VIDEO_CHUNK_BYTES = 8 * 1024 * 1024;
 export const CAPTURE_VIDEO_SINGLE_PUT_MAX_BYTES = 80_000_000;
 export const CAPTURE_VIDEO_MAX_BYTES = 100_000_000;
 export const CAPTURE_UPLOAD_FAILED_MESSAGE = "上傳失敗。";
 
 export function captureVideoPutChunkBytes(fileSize: number) {
-  if (fileSize <= CAPTURE_VIDEO_SINGLE_PUT_MAX_BYTES) {
-    return fileSize;
+  if (fileSize <= 0) {
+    return CAPTURE_VIDEO_CHUNK_BYTES;
   }
-  return CAPTURE_VIDEO_CHUNK_BYTES;
+  return Math.min(CAPTURE_VIDEO_CHUNK_BYTES, fileSize);
+}
+
+const captureVideoSliceCache = new WeakMap<File, Blob[]>();
+
+export function sliceCaptureVideo(file: File) {
+  const cached = captureVideoSliceCache.get(file);
+  if (cached) {
+    return cached;
+  }
+  const total = file.size;
+  const chunkSize = captureVideoPutChunkBytes(total);
+  const slices: Blob[] = [];
+  for (let offset = 0; offset < total; offset += chunkSize) {
+    slices.push(file.slice(offset, Math.min(offset + chunkSize, total)));
+  }
+  captureVideoSliceCache.set(file, slices);
+  return slices;
 }
 
 export type CapturePhotoDraft = {
@@ -72,6 +90,9 @@ export function assertCaptureFileFits(file: File) {
 }
 
 export function withCaptureFileMime(file: File) {
+  if (isCaptureVideoFile(file)) {
+    return file;
+  }
   const mime = captureFileMime(file);
   if (mime === file.type) {
     return file;
@@ -83,6 +104,10 @@ export function withCaptureFileMime(file: File) {
 }
 
 export function copyCaptureFile(file: File) {
+  if (isCaptureVideoFile(file)) {
+    sliceCaptureVideo(file);
+    return file;
+  }
   const blob = file.slice(0);
   return new File([blob], file.name, {
     lastModified: file.lastModified,
@@ -125,7 +150,7 @@ export async function ingestCaptureFileList(
     }
   }
 
-  if (copied.length > 0) {
+  if (copied.length > 0 && !copied.some((file) => isCaptureVideoFile(file))) {
     options.resetInput?.();
   }
 
@@ -418,6 +443,7 @@ export async function uploadCaptureVideo(input: {
 }) {
   assertCaptureFileFits(input.file);
   const source = withCaptureFileMime(input.file);
+  const slices = sliceCaptureVideo(source);
 
   void Promise.resolve(input.onDisplayReady?.(source)).catch(() => {
     // Tiny previews are optional; they must never block the video init POST.
@@ -428,7 +454,7 @@ export async function uploadCaptureVideo(input: {
       body: JSON.stringify({
         coordinates: input.coordinates,
         filename: source.name,
-        mimeType: source.type,
+        mimeType: captureFileMime(source),
         momentId,
         size: source.size,
         takenAt: input.takenAt,
@@ -460,12 +486,12 @@ export async function uploadCaptureVideo(input: {
   const total = source.size;
   const chunkSize = captureVideoPutChunkBytes(total);
   let offset = 0;
-  while (offset < total) {
+  for (const chunk of slices) {
     const end = Math.min(offset + chunkSize, total);
-    const chunk = source.slice(offset, end);
     const contentRange = `bytes ${offset}-${end - 1}/${total}`;
+    const body = chunk.size > 0 ? chunk : source.slice(offset, end);
     const response = await fetch("/api/moments/photos/video", {
-      body: chunk,
+      body,
       headers: {
         ...pinHeaders(input.pin),
         "content-range": contentRange,

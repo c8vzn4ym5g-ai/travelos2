@@ -480,13 +480,14 @@ export default function CapturePage() {
       ),
     );
 
+    const videoUploads: Promise<unknown>[] = [];
     await ingestCaptureFileList(fileList, {
       limit: CAPTURE_DUMP_LIMIT,
       onCopied(file, progress) {
         const incoming = createStagedCapturePhotos([file]).map((draft) => ({
           ...draft,
           abort: new AbortController(),
-          previewUrl: isCaptureVideoFile(file) ? URL.createObjectURL(file) : null,
+          previewUrl: isCaptureVideoFile(file) ? URL.createObjectURL(file.slice(0)) : null,
         }));
         if (incoming.length === 0) {
           return;
@@ -500,7 +501,10 @@ export default function CapturePage() {
         });
 
         for (const photo of incoming) {
-          void startBackgroundPhotoUpload(photo);
+          const started = startBackgroundPhotoUpload(photo);
+          if (isCaptureVideoFile(file)) {
+            videoUploads.push(started);
+          }
         }
       },
       onReceived(received) {
@@ -514,6 +518,13 @@ export default function CapturePage() {
         }
       },
     });
+    if (videoUploads.length > 0 && input) {
+      void Promise.allSettled(videoUploads).then(() => {
+        if (input.files === fileList) {
+          input.value = "";
+        }
+      });
+    }
   }
 
   function onTakePhoto(event: React.ChangeEvent<HTMLInputElement>) {
@@ -822,7 +833,7 @@ export default function CapturePage() {
                         Retake
                       </button>
                       <button onClick={() => removePhoto(photo.id)} type="button">
-                        Remove
+                        移除
                       </button>
                     </div>
                   </li>
