@@ -7,9 +7,11 @@ import {
   awaitCaptureSave,
   CAPTURE_SAVE_FAILED_MESSAGE,
   createMomentSession,
+  finalizeCaptureMoment,
   isRetryableUploadStatus,
   sendWithMomentRetry,
   uploadDisplayPhoto,
+  uploadMomentAudio,
 } from "../lib/capture-upload.ts";
 import { isUploadBlob, uploadFilename } from "../lib/form-upload.ts";
 import { prepareDisplayPhoto } from "../lib/prepare-photo.ts";
@@ -21,6 +23,32 @@ import {
 } from "../lib/warehouse-read.ts";
 
 const root = resolve(import.meta.dirname, "..");
+
+test("uploaded audio URL travels in the final Save request", async () => {
+  const originalFetch = globalThis.fetch;
+  let finalized: { originalAudioUrl?: string } | undefined;
+  globalThis.fetch = (async (_input, init) => {
+    if (init?.method === "POST") {
+      return Response.json({ moment: { id: "moment_voice", originalAudioUrl: "drive:voice_file" } });
+    }
+    finalized = JSON.parse(String(init?.body)).moment;
+    return Response.json({ job: null, moment: finalized });
+  }) as typeof fetch;
+  try {
+    const uploaded = await uploadMomentAudio({
+      blob: new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm" }),
+      momentId: "moment_voice",
+      pin: "",
+    });
+    await finalizeCaptureMoment({
+      command: null, coordinates: null, momentId: "moment_voice", note: "three photos and voice",
+      originalAudioUrl: uploaded.moment.originalAudioUrl, pin: "", time: "2026-09-08T01:00:00.000Z",
+    });
+    assert.equal(finalized?.originalAudioUrl, "drive:voice_file");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 
 async function readSource(path: string) {
   return readFile(resolve(root, path), "utf8");

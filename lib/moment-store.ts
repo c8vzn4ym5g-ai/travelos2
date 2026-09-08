@@ -459,13 +459,14 @@ async function readMomentItem(momentId: string): Promise<TravelMoment | null> {
   const cached = getItemCache().get(momentId);
 
   if (isMomentWarehouseConfigured() && shouldUseDriveWarehouse()) {
+    if (cached) {
+      return cached;
+    }
     const index = await loadDriveIndex();
     const merged =
-      uniqueMomentsById([...index.moments, ...(cached ? [cached] : []), ...getItemCache().values()]).find(
+      uniqueMomentsById([...index.moments, ...getItemCache().values()]).find(
         (moment) => moment.id === momentId,
-      ) ??
-      cached ??
-      null;
+      ) ?? null;
     return merged ? rememberItem(merged) : null;
   }
 
@@ -696,9 +697,26 @@ export async function addMoment(moment: TravelMoment) {
 
 export async function updateMoment(moment: Partial<TravelMoment> & { id: string }) {
   return withWarehouseLock(async () => {
-    const current = await readMomentItem(moment.id);
+    // Same-isolate Capture has the item cache; another isolate may still be
+    // waiting on a hung Drive index GET. Do not 404 or stall finalize.
+    const cached = getItemCache().get(moment.id);
+    let current = cached ?? (!shouldUseDriveWarehouse() ? await readMomentItem(moment.id) : null);
     if (!current) {
-      return null;
+      if (!shouldUseDriveWarehouse()) {
+        return null;
+      }
+      current = createTravelMoment({
+        command: moment.command,
+        coordinates: moment.coordinates ?? null,
+        createdAt: moment.createdAt,
+        draft: moment.draft,
+        id: moment.id,
+        note: moment.note,
+        originalAudioUrl: moment.originalAudioUrl,
+        time: moment.time,
+        transcript: moment.transcript,
+        tripId: moment.tripId,
+      });
     }
 
     const next = await writeMomentItem(

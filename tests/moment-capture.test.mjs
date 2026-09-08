@@ -318,6 +318,7 @@ test("background upload starts on add and Save does not wait on originals", asyn
 
   assert.match(addBlock, /startBackgroundPhotoUpload\(photo\)/);
   assert.match(addBlock, /ingestCaptureFileList\(fileList/);
+  assert.match(addBlock, /dumpIngestRef\.current = ingest/);
   assert.match(addBlock, /limit: CAPTURE_DUMP_LIMIT/);
   assert.match(addBlock, /createStagedCapturePhotos\(\[file\]\)/);
   assert.match(capture, /void startBackgroundAudioUpload\(staged\)/);
@@ -340,6 +341,9 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.doesNotMatch(saveBlock, /for \(const \[index, staged\] of photos\.entries\(\)\)/);
   assert.match(saveBlock, /Promise\.all\(\[\.\.\.photoUploadsRef\.current\.values\(\)\]\)/);
   assert.match(saveBlock, /awaitCaptureSave/);
+  assert.ok(saveBlock.indexOf("await dumpIngestRef.current") < saveBlock.indexOf("await Promise.all"));
+  assert.match(capture, /rejectWhenAborted\(photo.abort.signal\)/);
+  assert.match(saveBlock, /originalAudioUrl: audioRef.current\?\.originalAudioUrl/);
   assert.match(saveBlock, /CAPTURE_SAVE_FAILED_MESSAGE/);
   assert.doesNotMatch(saveBlock, /uploadOriginalPhotoInBackground/);
   assert.match(displayUpload, /formData\.set\("file", display\)/);

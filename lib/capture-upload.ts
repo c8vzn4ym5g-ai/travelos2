@@ -564,6 +564,7 @@ export async function finalizeCaptureMoment(input: {
   coordinates: GeoPoint | null;
   momentId: string;
   note: string;
+  originalAudioUrl?: string;
   pin: string;
   time: string;
   transcript?: string | null;
@@ -578,6 +579,7 @@ export async function finalizeCaptureMoment(input: {
           id: input.momentId,
           note: input.note,
           time: input.time,
+          ...(input.originalAudioUrl ? { originalAudioUrl: input.originalAudioUrl } : {}),
           ...(input.transcript?.trim() ? { transcript: input.transcript.trim() } : {}),
         },
       }),
@@ -1004,6 +1006,7 @@ export async function uploadMomentAudio(input: {
   if (!response.ok) {
     throw new Error(await readError(response, "Audio upload failed."));
   }
+  return (await response.json()) as { moment: { id: string; originalAudioUrl: string } };
 }
 
 export function removeUploadedPhotoInBackground(input: {

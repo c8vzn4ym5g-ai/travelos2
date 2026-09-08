@@ -2,7 +2,7 @@
 
 ## TASK-038: iPhone Capture Save hang after 3-photo dump
 
-Status: done
+Status: integrated; automated checks passed; actual preview blocked; not deployed
 
 Goal: Owner iPhone Capture hung on 正在存成 Moment… after a 3-photo
 (+staged audio) dump. Binaries (IMG_1566 / 1570 / 1571) landed in Drive
@@ -11,7 +11,45 @@ folder `1Sk2TqgpF6NxoNYdUKO4h8t84UA7KxChN`. Moment shell
 Save cannot hang forever. Parallel dump stays ≤40, not a 3-queue.
 Repair the empty shell so 工作台 shows the three photos.
 
-Result:
+Current handoff (2026-09-08):
+
+- PR #86 is the integration line. PR #87's save-order and finalize
+  protections are incorporated. Keep #87 open until preview acceptance.
+- Acceptance is the complete journey: select three photos, Save finishes,
+  then 工作台 shows all three; a staged recording stays attached too.
+- Preserve the existing public journal, family layout and mixed 40-file picker.
+- No merge to main, production deployment or changes to real family records
+  are authorized by this continuation.
+- Implementation owner: Capture architect; independent reviewer: Capture UX;
+  final delivery owner: JDB GM. Integration work is on
+  `codex/capture-integrated-20260908`, for PR #86's existing branch.
+- Saved audio URL now travels with final Save, so the recording remains
+  associated even when finalization happens in another server instance.
+- Upload status is positioned over the media only, clear of Retake/Remove.
+  The existing approved homepage copy and its test are preserved.
+- GM full automated run: 232 passed, 0 failed, 1 served-HTML check skipped
+  because no preview origin was available. Typecheck passed. The additional
+  three-photo/audio cross-instance regression was subsequently added and
+  passes against the repository's real Apps Script merge logic with synthetic
+  Drive storage; this is not a real Drive or physical iPhone test.
+- Actual browser preview is blocked by a cancelled environment permission
+  request to start the local server. Source/tests may proceed; do not label
+  the mobile layout or real iPhone journey as verified.
+- Owner explicitly authorized preview startup in the next turn. The newly
+  authorized attempt still received a platform cancellation, and the browser
+  reported ERR_BLOCKED_BY_CLIENT. This is an environment blocker, not missing
+  Owner consent; do not ask for the same verbal authorization again.
+- Owner added travelos2 to the ChatGPT Codex Connector installation's selected
+  repositories. The installation already grants code read/write access;
+  the prior selection included only JDB-Runtime. Publish the integrated
+  revision to PR #86 after confirming write access; do not merge main.
+- Final independent rerun: 24/24 Capture, upload and cross-instance journey
+  checks passed after the last source change. The code is ready to publish
+  for preview, not accepted for production.
+- The earlier incident repair is reported in the original PR body; it is
+  not independent evidence of the current integrated version working live.
+
+Original PR #86 changes (not yet live):
 
 - Drive photo append writes the item file as a photos-only merge and
   does not wait on `moments.json` or a full warehouse hydrate. Missing
