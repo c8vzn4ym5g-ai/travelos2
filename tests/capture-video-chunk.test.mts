@@ -18,6 +18,7 @@ import {
   assertCaptureFileFits,
   captureErrorMessage,
   captureFetch,
+  capturePhotoWatchdogMs,
   captureUploadWatchdogMs,
   captureVideoHopCount,
   captureVideoPreviewUrl,
@@ -214,7 +215,8 @@ test("10MB and 46MB watchdogs cover one silent retry and hops stay 16MiB", () =>
   assert.equal(CAPTURE_VIDEO_COMPLETE_TIMEOUT_MS, 30_000);
   assert.equal(CAPTURE_VIDEO_HOP_TIMEOUT_MS, 90_000);
   assert.ok(CAPTURE_VIDEO_HOP_TIMEOUT_MS > 20_000);
-  assert.equal(CAPTURE_PHOTO_FETCH_TIMEOUT_MS, 30_000);
+  assert.equal(CAPTURE_PHOTO_FETCH_TIMEOUT_MS, 60_000);
+  assert.equal(capturePhotoWatchdogMs(), CAPTURE_MOMENT_FETCH_TIMEOUT_MS + CAPTURE_PHOTO_FETCH_TIMEOUT_MS * 2);
 });
 
 test("materialized hops stay independent of the album File after reset", async () => {
@@ -1170,11 +1172,12 @@ test("Capture card fallback and album accept stay family Chinese / one door", as
   assert.match(capture, /CAPTURE_UPLOAD_FAILED_MESSAGE/);
   assert.match(capture, /watchdogFired/);
   const copyFn = upload.slice(upload.indexOf("export function copyCaptureFile"), upload.indexOf("export async function ingestCaptureFileList"));
-  const videoCopy = copyFn.slice(copyFn.indexOf("isCaptureVideoFile"), copyFn.indexOf("const blob"));
   assert.match(copyFn, /isCaptureVideoFile\(file\)/);
   assert.match(copyFn, /sliceCaptureVideo\(file\)/);
-  assert.match(videoCopy, /return file;/);
-  assert.doesNotMatch(videoCopy, /new File\(/);
+  assert.match(copyFn, /return file;/);
+  assert.match(copyFn, /materializeCapturePhoto\(file\)/);
+  assert.doesNotMatch(copyFn, /file\.slice\(0\)/);
+  assert.doesNotMatch(copyFn, /new File\(\[blob\]/);
   assert.match(videoRoute, /VIDEO_CHUNK_MAX_BYTES = DRIVE_UPLOAD_SINGLE_PUT_MAX_BYTES/);
 
   assert.match(photosApi, /await request\.formData\(\)/);

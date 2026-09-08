@@ -17,11 +17,10 @@ import {
 } from "@/lib/capture-speech";
 import {
   CAPTURE_DUMP_LIMIT,
-  CAPTURE_MOMENT_FETCH_TIMEOUT_MS,
-  CAPTURE_PHOTO_FETCH_TIMEOUT_MS,
   CAPTURE_UPLOAD_FAILED_MESSAGE,
   captureDumpProgressMessage,
   captureErrorMessage,
+  capturePhotoWatchdogMs,
   captureUploadWatchdogMs,
   captureVideoHopCount,
   captureVideoPreviewUrl,
@@ -378,7 +377,7 @@ export default function CapturePage() {
       let watchdogFired = false;
       const watchdogMs = isCaptureVideoFile(photo.file)
         ? captureUploadWatchdogMs(photo.file.size)
-        : CAPTURE_MOMENT_FETCH_TIMEOUT_MS + CAPTURE_PHOTO_FETCH_TIMEOUT_MS;
+        : capturePhotoWatchdogMs();
       const watchdog = globalThis.setTimeout(() => {
         watchdogFired = true;
         if (photoIsOnScreen(photo.id)) {

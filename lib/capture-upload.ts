@@ -21,7 +21,7 @@ export const CAPTURE_VIDEO_INIT_TIMEOUT_MS = 45_000;
 // 8MiB on iPhone 4G often exceeds 20s. Desktop Wi-Fi hid this; Owner 4G did not.
 export const CAPTURE_VIDEO_HOP_TIMEOUT_MS = 90_000;
 export const CAPTURE_VIDEO_COMPLETE_TIMEOUT_MS = 30_000;
-export const CAPTURE_PHOTO_FETCH_TIMEOUT_MS = 30_000;
+export const CAPTURE_PHOTO_FETCH_TIMEOUT_MS = 60_000;
 
 export function captureVideoHopCount(fileSize: number) {
   if (fileSize <= 0) {
@@ -41,6 +41,11 @@ function captureVideoPassMs(fileSize: number) {
 export function captureUploadWatchdogMs(fileSize: number) {
   // One silent retry of init+hops+complete, plus the delayed moment create.
   return CAPTURE_MOMENT_FETCH_TIMEOUT_MS + captureVideoPassMs(fileSize) * 2;
+}
+
+export function capturePhotoWatchdogMs() {
+  // One silent retry of the display POST, plus moment create.
+  return CAPTURE_MOMENT_FETCH_TIMEOUT_MS + CAPTURE_PHOTO_FETCH_TIMEOUT_MS * 2;
 }
 
 export function isDirectDriveUploadUrl(url: string) {
@@ -254,22 +259,40 @@ export function withCaptureFileMime(file: File) {
   });
 }
 
+const capturePhotoCopyCache = new WeakMap<File, Promise<File>>();
+
+export function materializeCapturePhoto(file: File) {
+  const cached = capturePhotoCopyCache.get(file);
+  if (cached) {
+    return cached;
+  }
+
+  const pending = (async () => {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (file.size > 0 && bytes.byteLength === 0) {
+      throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
+    }
+    return new File([bytes], file.name, {
+      lastModified: file.lastModified,
+      type: captureFileMime(file) || file.type,
+    });
+  })();
+  capturePhotoCopyCache.set(file, pending);
+  return pending;
+}
+
 export function copyCaptureFile(file: File) {
   if (isCaptureVideoFile(file)) {
     sliceCaptureVideo(file);
     return file;
   }
-  const blob = file.slice(0);
-  return new File([blob], file.name, {
-    lastModified: file.lastModified,
-    type: file.type,
-  });
+  return materializeCapturePhoto(file);
 }
 
 export async function ingestCaptureFileList(
   fileList: FileList | null | undefined,
   options: {
-    copyFile?: (file: File) => File;
+    copyFile?: (file: File) => File | Promise<File>;
     limit?: number;
     onCopied: (file: File, progress: CaptureFileIngestProgress) => void | Promise<void>;
     onReceived?: (fileListLength: number) => void;
@@ -284,16 +307,30 @@ export async function ingestCaptureFileList(
     return { copied: [] as File[], fileListLength, limited: false };
   }
 
+  const selected: File[] = [];
+  for (const file of snapshotFileList(fileList)) {
+    if (selected.length >= limit) {
+      break;
+    }
+    if (isCaptureDumpFile(file)) {
+      selected.push(file);
+    }
+  }
+
+  // Start iPhone album reads in this turn, before any await. file.slice(0) is a
+  // lazy view; returning from the change handler or resetting the input makes it
+  // unreadable, which shows as a grid of IMG_*.jpeg cards all 「上傳失敗。」.
+  for (const file of selected) {
+    if (!isCaptureVideoFile(file)) {
+      void materializeCapturePhoto(file);
+    }
+  }
+
   const copyFile = options.copyFile ?? copyCaptureFile;
   const copied: File[] = [];
 
-  for (let index = 0; index < fileListLength && copied.length < limit; index += 1) {
-    const file = fileList.item(index) ?? fileList[index];
-    if (!file || !isCaptureDumpFile(file)) {
-      continue;
-    }
-
-    const independent = copyFile(file);
+  for (const file of selected) {
+    const independent = await Promise.resolve(copyFile(file));
     copied.push(independent);
     const started = options.onCopied(independent, { copiedCount: copied.length, fileListLength });
     if (started) {
@@ -916,14 +953,23 @@ export async function uploadDisplayPhoto(input: {
     );
   };
 
-  const { momentId, response } = await sendWithMomentRetry(send, input.momentId, input.retryMoment);
+  const attempt = async () => {
+    const { momentId, response } = await sendWithMomentRetry(send, input.momentId, input.retryMoment);
+    if (!response.ok) {
+      throw new Error(await readError(response, CAPTURE_UPLOAD_FAILED_MESSAGE));
+    }
+    const payload = (await response.json()) as { photo: MomentPhoto };
+    return { display, momentId, photo: payload.photo };
+  };
 
-  if (!response.ok) {
-    throw new Error(await readError(response, CAPTURE_UPLOAD_FAILED_MESSAGE));
+  try {
+    return await attempt();
+  } catch (error) {
+    if (input.signal?.aborted || isCaptureUploadAbortError(error)) {
+      throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
+    }
+    return await attempt();
   }
-
-  const payload = (await response.json()) as { photo: MomentPhoto };
-  return { display, momentId, photo: payload.photo };
 }
 
 export function uploadOriginalPhotoInBackground(input: {
