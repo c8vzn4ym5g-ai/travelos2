@@ -19,7 +19,10 @@ import {
   CAPTURE_DUMP_LIMIT,
   CAPTURE_MOMENT_FETCH_TIMEOUT_MS,
   CAPTURE_PHOTO_FETCH_TIMEOUT_MS,
+  CAPTURE_AUDIO_FETCH_TIMEOUT_MS,
+  CAPTURE_SAVE_FAILED_MESSAGE,
   CAPTURE_UPLOAD_FAILED_MESSAGE,
+  awaitCaptureSave,
   captureDumpProgressMessage,
   captureErrorMessage,
   captureUploadWatchdogMs,
@@ -48,6 +51,19 @@ import type { GeoPoint, TravelJob } from "@/lib/types";
 
 type UploadStatus = "queued" | "uploading" | "uploaded" | "failed";
 
+function rejectWhenAborted(signal: AbortSignal): Promise<never> {
+  return new Promise((_, reject) => {
+    const fail = () => {
+      reject(signal.reason instanceof Error ? signal.reason : new DOMException("Aborted", "AbortError"));
+    };
+    if (signal.aborted) {
+      fail();
+      return;
+    }
+    signal.addEventListener("abort", fail, { once: true });
+  });
+}
+
 type StagedPhoto = {
   abort: AbortController;
   errorMessage: string | null;
@@ -67,6 +83,7 @@ type StagedAudio = {
   durationSeconds: number;
   errorMessage: string | null;
   previewUrl: string;
+  originalAudioUrl?: string;
   status: UploadStatus;
   transcript: string;
 };
@@ -138,6 +155,7 @@ export default function CapturePage() {
   const coordinatesRef = useRef<GeoPoint | null>(null);
   const momentSessionRef = useRef<ReturnType<typeof createMomentSession> | null>(null);
   const photoUploadsRef = useRef(new Map<string, Promise<void>>());
+  const dumpIngestRef = useRef<Promise<void> | null>(null);
   const audioUploadRef = useRef<Promise<void> | null>(null);
   const savingRef = useRef(false);
   const persistTimerRef = useRef<number>(0);
@@ -260,6 +278,7 @@ export default function CapturePage() {
   function resetDraft() {
     momentSession().reset();
     photoUploadsRef.current = new Map();
+    dumpIngestRef.current = null;
     audioUploadRef.current = null;
   }
 
@@ -396,41 +415,44 @@ export default function CapturePage() {
         const momentId = session.allocate(takenAt);
         const video = isCaptureVideoFile(photo.file);
         if (!video) {
-          await session.ensure(takenAt);
+          await Promise.race([session.ensure(takenAt), rejectWhenAborted(photo.abort.signal)]);
         }
         if (photo.abort.signal.aborted) {
           return;
         }
 
-        const uploaded = await uploadDisplayPhoto({
-          coordinates: coordinatesRef.current,
-          file: photo.file,
-          momentId,
-          onHopProgress: (hopDone, hopTotal) => {
-            if (photoIsOnScreen(photo.id)) {
-              patchPhoto(photo.id, { hopDone, hopTotal, status: "uploading" });
-            }
-          },
-          startMoment: video ? () => session.ensure(takenAt) : undefined,
-          onDisplayReady: async (display) => {
-            if (photo.abort.signal.aborted || isCaptureVideoFile(photo.file)) {
-              return;
-            }
-            const previewUrl = await createTinyPreviewUrl(display);
-            if (!previewUrl) {
-              return;
-            }
-            if (photo.abort.signal.aborted || !photoIsOnScreen(photo.id)) {
-              URL.revokeObjectURL(previewUrl);
-              return;
-            }
-            patchPhoto(photo.id, { previewUrl });
-          },
-          pin: sessionPin(pinRef.current),
-          retryMoment: (status) => retryMoment(takenAt, status, session),
-          signal: photo.abort.signal,
-          takenAt,
-        });
+        const uploaded = await Promise.race([
+          uploadDisplayPhoto({
+            coordinates: coordinatesRef.current,
+            file: photo.file,
+            momentId,
+            onHopProgress: (hopDone, hopTotal) => {
+              if (photoIsOnScreen(photo.id)) {
+                patchPhoto(photo.id, { hopDone, hopTotal, status: "uploading" });
+              }
+            },
+            startMoment: video ? () => session.ensure(takenAt) : undefined,
+            onDisplayReady: async (display) => {
+              if (photo.abort.signal.aborted || isCaptureVideoFile(photo.file)) {
+                return;
+              }
+              const previewUrl = await createTinyPreviewUrl(display);
+              if (!previewUrl) {
+                return;
+              }
+              if (photo.abort.signal.aborted || !photoIsOnScreen(photo.id)) {
+                URL.revokeObjectURL(previewUrl);
+                return;
+              }
+              patchPhoto(photo.id, { previewUrl });
+            },
+            pin: sessionPin(pinRef.current),
+            retryMoment: (status) => retryMoment(takenAt, status, session),
+            signal: photo.abort.signal,
+            takenAt,
+          }),
+          rejectWhenAborted(photo.abort.signal),
+        ]);
 
         if (photo.abort.signal.aborted) {
           removeUploadedPhotoInBackground({
@@ -476,6 +498,25 @@ export default function CapturePage() {
   async function startBackgroundAudioUpload(staged: StagedAudio) {
     const run = (async () => {
       const recordedAt = new Date().toISOString();
+      let watchdogFired = false;
+      const watchdog = globalThis.setTimeout(() => {
+        watchdogFired = true;
+        if (audioRef.current?.previewUrl === staged.previewUrl) {
+          const detail = CAPTURE_UPLOAD_FAILED_MESSAGE;
+          setAudio((current) => {
+            if (current?.previewUrl !== staged.previewUrl) {
+              return current;
+            }
+            const next = { ...current, errorMessage: detail, status: "failed" as const };
+            audioRef.current = next;
+            return next;
+          });
+          setMessage(detail);
+        }
+        if (!staged.abort.signal.aborted) {
+          staged.abort.abort();
+        }
+      }, CAPTURE_AUDIO_FETCH_TIMEOUT_MS + CAPTURE_MOMENT_FETCH_TIMEOUT_MS);
       try {
         const momentId = await ensureMoment(recordedAt);
         if (staged.abort.signal.aborted) {
@@ -483,7 +524,7 @@ export default function CapturePage() {
         }
 
         const sentTranscript = spokenRef.current || staged.transcript;
-        await uploadMomentAudio({
+        const uploaded = await uploadMomentAudio({
           blob: staged.blob,
           momentId,
           pin: sessionPin(pinRef.current),
@@ -507,6 +548,7 @@ export default function CapturePage() {
           const next = {
             ...current,
             errorMessage: null,
+            originalAudioUrl: uploaded.moment.originalAudioUrl,
             status: "uploaded" as const,
             transcript: spokenRef.current || current.transcript,
           };
@@ -515,7 +557,7 @@ export default function CapturePage() {
         });
         persistSpokenLine(spokenRef.current);
       } catch (error) {
-        if (staged.abort.signal.aborted) {
+        if (staged.abort.signal.aborted && !watchdogFired) {
           return;
         }
         const detail = captureErrorMessage(error, "上傳失敗。");
@@ -529,6 +571,8 @@ export default function CapturePage() {
         });
         setMessage(detail);
         throw error;
+      } finally {
+        globalThis.clearTimeout(watchdog);
       }
     })();
 
@@ -559,7 +603,7 @@ export default function CapturePage() {
       ),
     );
 
-    await ingestCaptureFileList(fileList, {
+    const ingest = ingestCaptureFileList(fileList, {
       limit: CAPTURE_DUMP_LIMIT,
       async onCopied(file, progress) {
         const incoming = createStagedCapturePhotos([file]).map((draft) => ({
@@ -595,6 +639,8 @@ export default function CapturePage() {
         }
       },
     });
+    dumpIngestRef.current = ingest.then(() => undefined, () => undefined);
+    await ingest;
     if (input && input.files === fileList) {
       input.value = "";
     }
@@ -762,44 +808,58 @@ export default function CapturePage() {
         ? new Date(photos[0].file.lastModified).toISOString()
         : new Date().toISOString();
 
-      await Promise.all([...photoUploadsRef.current.values()]);
-      if (audioUploadRef.current) {
-        await audioUploadRef.current;
-      }
+      const saved = await awaitCaptureSave(
+        (async () => {
+          await dumpIngestRef.current;
+          await Promise.all([...photoUploadsRef.current.values()]);
+          if (audioUploadRef.current) {
+            await audioUploadRef.current;
+          }
 
-      const failedPhoto = photosRef.current.find((photo) => photo.status === "failed");
-      if (failedPhoto) {
-        throw new Error("有照片或影片還沒傳上去，請再試一次。");
-      }
-      if (audioRef.current?.status === "failed") {
-        throw new Error("聲音還沒傳上去，請再試一次。");
-      }
+          const unfinishedPhoto = photosRef.current.find((photo) => photo.status !== "uploaded");
+          if (unfinishedPhoto) {
+            throw new Error(
+              unfinishedPhoto.status === "failed"
+                ? "有照片或影片還沒傳上去，請再試一次。"
+                : CAPTURE_SAVE_FAILED_MESSAGE,
+            );
+          }
+          if (audioRef.current && audioRef.current.status !== "uploaded") {
+            throw new Error(
+              audioRef.current.status === "failed" ? "聲音還沒傳上去，請再試一次。" : CAPTURE_SAVE_FAILED_MESSAGE,
+            );
+          }
 
-      let createdJob: TravelJob | null = null;
-      let keptMomentId = momentSession().momentId;
-      if (keptMomentId) {
-        const saved = await finalizeCaptureMoment({
-          command: classified.command,
-          coordinates: coordinatesRef.current,
-          momentId: keptMomentId,
-          note: classified.note,
-          pin: sessionPin(pinRef.current),
-          time,
-          transcript: spokenRef.current || audioRef.current?.transcript || null,
-        });
-        createdJob = saved.job;
-        keptMomentId = saved.moment?.id ?? keptMomentId;
-      } else {
-        const created = await createCaptureMoment({
-          command: classified.command,
-          coordinates: coordinatesRef.current,
-          note: classified.note,
-          pin: sessionPin(pinRef.current),
-          time,
-        });
-        createdJob = created.job;
-        keptMomentId = created.moment.id;
-      }
+          let createdJob: TravelJob | null = null;
+          let keptMomentId = momentSession().momentId;
+          if (keptMomentId) {
+            const finalized = await finalizeCaptureMoment({
+              command: classified.command,
+              coordinates: coordinatesRef.current,
+              momentId: keptMomentId,
+              note: classified.note,
+              originalAudioUrl: audioRef.current?.originalAudioUrl,
+              pin: sessionPin(pinRef.current),
+              time,
+              transcript: spokenRef.current || audioRef.current?.transcript || null,
+            });
+            createdJob = finalized.job;
+            keptMomentId = finalized.moment?.id ?? keptMomentId;
+          } else {
+            const created = await createCaptureMoment({
+              command: classified.command,
+              coordinates: coordinatesRef.current,
+              note: classified.note,
+              pin: sessionPin(pinRef.current),
+              time,
+            });
+            createdJob = created.job;
+            keptMomentId = created.moment.id;
+          }
+
+          return { createdJob, keptMomentId };
+        })(),
+      );
 
       for (const photo of photosRef.current) {
         if (photo.previewUrl) {
@@ -814,11 +874,11 @@ export default function CapturePage() {
       setNote("");
       spokenRef.current = "";
       setSpoken("");
-      setSavedJobId(createdJob?.id ?? null);
-      setSavedMomentId(keptMomentId);
+      setSavedJobId(saved.createdJob?.id ?? null);
+      setSavedMomentId(saved.keptMomentId);
       resetDraft();
       setMessage(
-        createdJob
+        saved.createdJob
           ? "已存成工作。照片在倉庫裡，打開 Write 看那些照片自己寫。"
           : "已存成 Moment。可再拍一張補上。",
       );
@@ -887,18 +947,20 @@ export default function CapturePage() {
                 const chip = photoChip(photo);
                 return (
                   <li className="fam-thumb" key={photo.id}>
-                    {isCaptureVideoFile(photo.file) ? (
-                      <CaptureVideoThumb file={photo.file} previewUrl={photo.previewUrl} />
-                    ) : photo.previewUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img alt="" src={photo.previewUrl} />
-                    ) : (
-                      <div className="fam-thumb-fallback">
-                        {isCaptureVideoFile(photo.file) ? <FamGlyph name="play" /> : null}
-                        <p className="line-clamp-3">{photo.file.name}</p>
-                      </div>
-                    )}
-                    <span className={chip.className}>{chip.label}</span>
+                    <div className="relative">
+                      {isCaptureVideoFile(photo.file) ? (
+                        <CaptureVideoThumb file={photo.file} previewUrl={photo.previewUrl} />
+                      ) : photo.previewUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img alt="" src={photo.previewUrl} />
+                      ) : (
+                        <div className="fam-thumb-fallback">
+                          {isCaptureVideoFile(photo.file) ? <FamGlyph name="play" /> : null}
+                          <p className="line-clamp-3">{photo.file.name}</p>
+                        </div>
+                      )}
+                      <span className={chip.className}>{chip.label}</span>
+                    </div>
                     {photo.status === "queued" ? <span className="fam-sr">接著會傳</span> : null}
                     {photo.errorMessage ? <p className="fam-ref">{photo.errorMessage}</p> : null}
                     <div className="fam-thumb-actions">

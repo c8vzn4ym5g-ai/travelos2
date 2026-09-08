@@ -32,13 +32,22 @@ export async function POST(request: Request) {
       return Response.json({ error: "Invalid admin PIN" }, { status: 401 });
     }
 
-    const rebuilt = await rebuildDriveMomentIndex();
+    let momentId = "";
+    try {
+      const body = (await request.json()) as { momentId?: unknown };
+      momentId = typeof body.momentId === "string" ? body.momentId.trim() : "";
+    } catch {
+      momentId = "";
+    }
+
+    const rebuilt = await rebuildDriveMomentIndex(momentId ? { momentId } : {});
     return Response.json({
       content: rebuilt.content,
       displayJpegCount: rebuilt.displayJpegCount,
       fileCount: rebuilt.fileCount,
       momentCount: rebuilt.momentCount,
       rebuilt: rebuilt.rebuilt,
+      ...(momentId ? { momentId } : {}),
     });
   } catch (error) {
     return momentApiErrorResponse(error);

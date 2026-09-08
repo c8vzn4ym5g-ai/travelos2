@@ -22,6 +22,9 @@ export const CAPTURE_VIDEO_INIT_TIMEOUT_MS = 45_000;
 export const CAPTURE_VIDEO_HOP_TIMEOUT_MS = 90_000;
 export const CAPTURE_VIDEO_COMPLETE_TIMEOUT_MS = 30_000;
 export const CAPTURE_PHOTO_FETCH_TIMEOUT_MS = 30_000;
+export const CAPTURE_AUDIO_FETCH_TIMEOUT_MS = 30_000;
+export const CAPTURE_SAVE_TIMEOUT_MS = 90_000;
+export const CAPTURE_SAVE_FAILED_MESSAGE = "存檔逾時。照片若已上傳，去工作台看看。";
 
 export function captureVideoHopCount(fileSize: number) {
   if (fileSize <= 0) {
@@ -422,6 +425,22 @@ export function captureErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message.trim() ? error.message : fallback;
 }
 
+export async function awaitCaptureSave<T>(work: Promise<T>, timeoutMs = CAPTURE_SAVE_TIMEOUT_MS) {
+  let timer: ReturnType<typeof globalThis.setTimeout> | 0 = 0;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<T>((_, reject) => {
+        timer = globalThis.setTimeout(() => reject(new Error(CAPTURE_SAVE_FAILED_MESSAGE)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      globalThis.clearTimeout(timer);
+    }
+  }
+}
+
 export function isRetryableUploadStatus(status: number) {
   return status === 404 || status >= 500;
 }
@@ -545,6 +564,7 @@ export async function finalizeCaptureMoment(input: {
   coordinates: GeoPoint | null;
   momentId: string;
   note: string;
+  originalAudioUrl?: string;
   pin: string;
   time: string;
   transcript?: string | null;
@@ -559,6 +579,7 @@ export async function finalizeCaptureMoment(input: {
           id: input.momentId,
           note: input.note,
           time: input.time,
+          ...(input.originalAudioUrl ? { originalAudioUrl: input.originalAudioUrl } : {}),
           ...(input.transcript?.trim() ? { transcript: input.transcript.trim() } : {}),
         },
       }),
@@ -969,18 +990,23 @@ export async function uploadMomentAudio(input: {
     if (input.transcript?.trim()) {
       audioData.set("transcript", input.transcript.trim());
     }
-    return fetch("/api/moments/audio", {
-      body: audioData,
-      headers: pinHeaders(input.pin),
-      method: "POST",
-      signal: input.signal,
-    });
+    return captureFetch(
+      "/api/moments/audio",
+      {
+        body: audioData,
+        headers: pinHeaders(input.pin),
+        method: "POST",
+        signal: input.signal,
+      },
+      CAPTURE_AUDIO_FETCH_TIMEOUT_MS,
+    );
   };
 
   const { response } = await sendWithMomentRetry(send, input.momentId, input.retryMoment);
   if (!response.ok) {
     throw new Error(await readError(response, "Audio upload failed."));
   }
+  return (await response.json()) as { moment: { id: string; originalAudioUrl: string } };
 }
 
 export function removeUploadedPhotoInBackground(input: {

@@ -119,7 +119,7 @@ test("family bench is a private workshop table for raw Capture dumps", async () 
   assert.match(capture, /去工作台看看/);
   assert.match(capture, /\/family\/bench\?moment=/);
   assert.match(capture, /已存成 Moment。可再拍一張補上。/);
-  assert.match(capture, /setSavedMomentId\(keptMomentId\)/);
+  assert.match(capture, /setSavedMomentId\(saved.keptMomentId\)/);
   assert.doesNotMatch(capture, /橱窗/);
 
   assert.match(robots, /\/family\/bench/);

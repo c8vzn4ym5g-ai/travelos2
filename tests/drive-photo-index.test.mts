@@ -94,6 +94,52 @@ test("partial moment records union photos instead of last-write-wins truncate", 
   assert.equal(unique[0]?.photos.length, 2);
 });
 
+test("rebuild from Drive restores the hung 3-photo Capture dump onto an empty item", () => {
+  const empty = createTravelMoment({ note: "", time: "2026-09-04T10:09:15.000Z" });
+  empty.id = "moment_1788531986180_d3gvhs";
+  empty.photos = [];
+  const rebuilt = rebuildMomentsFromDriveFiles(
+    [
+      {
+        id: "1bWgVOHC06JFeX-eyuqhQeJX-vdKxPOrO",
+        mimeType: "image/jpeg",
+        name: "travelos__moments__photos__moment_1788531986180_d3gvhs__1788531993999-IMG_1566.jpg",
+      },
+      {
+        id: "1pi6YMPwDMvQcrjSeoYZ0jp6pQEQw12vI",
+        mimeType: "image/jpeg",
+        name: "travelos__moments__photos__moment_1788531986180_d3gvhs__1788531994261-IMG_1570.jpg",
+      },
+      {
+        id: "1YUIAX5u3nXJJ5XJHthdYfaOsftYGFoSQ",
+        mimeType: "image/jpeg",
+        name: "travelos__moments__photos__moment_1788531986180_d3gvhs__1788531994298-IMG_1571.jpg",
+      },
+      {
+        id: "18SzoWnok6Hjx8U_WI25CwjPzGwvtLnf3",
+        mimeType: "image/jpeg",
+        name: "travelos__moments__photos__moment_1788531986180_d3gvhs__original-1788531999848-IMG_1566.jpeg",
+      },
+      {
+        id: "1gaw_yB-SCNDlvkC_rpLeynQPhm6nIU20",
+        mimeType: "image/jpeg",
+        name: "travelos__moments__photos__moment_1788531986180_d3gvhs__original-1788532000171-IMG_1570.jpeg",
+      },
+    ],
+    [empty],
+  );
+  const photos = rebuilt.find((moment) => moment.id === empty.id)?.photos ?? [];
+  assert.equal(photos.length, 3);
+  assert.deepEqual(
+    photos.map((photo) => photo.originalFilename).sort(),
+    ["IMG_1566.jpg", "IMG_1570.jpg", "IMG_1571.jpg"],
+  );
+  assert.equal(
+    photos.find((photo) => photo.originalFilename === "IMG_1566.jpg")?.originalStorageKey,
+    "drive:18SzoWnok6Hjx8U_WI25CwjPzGwvtLnf3",
+  );
+});
+
 test("rebuild from Drive photo files restores display jpegs dropped from moments.json", () => {
   const empty = createTravelMoment({ note: "", time: "2026-08-28T14:16:10.163Z" });
   empty.id = "moment_1787926570164_55omdg";
@@ -212,6 +258,7 @@ test("warehouse receiver and Capture store rebuild from Drive photo files, not B
   assert.match(store, /mergeMomentPhotos/);
   assert.match(store, /uniqueMomentsById/);
   assert.match(rebuildRoute, /rebuildDriveMomentIndex/);
+  assert.match(rebuildRoute, /momentId/);
   assert.match(script, /LockService\.getScriptLock/);
   assert.match(script, /op === "list"/);
   assert.match(script, /op === "thumb"/);
