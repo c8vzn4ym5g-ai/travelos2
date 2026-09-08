@@ -6,6 +6,7 @@ export const maxUploadBytes = 4_500_000;
 export const displayMaxEdge = 1600;
 export const displayJpegQuality = 0.72;
 export const skipCanvasMaxBytes = 400_000;
+export const photoDecodeTimeoutMs = 8_000;
 
 function waitWithTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
   return new Promise<T>((resolve, reject) => {
@@ -28,7 +29,7 @@ async function decodePhoto(file: File) {
     try {
       const bitmap = await waitWithTimeout(
         createImageBitmap(file),
-        1500,
+        photoDecodeTimeoutMs,
         "Photo preparation timed out. Try a smaller JPG photo.",
       );
       return {
@@ -46,7 +47,7 @@ async function decodePhoto(file: File) {
   try {
     const image = new Image();
     image.src = imageUrl;
-    await waitWithTimeout(image.decode(), 1500, "Photo preparation timed out. Try a smaller JPG photo.");
+    await waitWithTimeout(image.decode(), photoDecodeTimeoutMs, "Photo preparation timed out. Try a smaller JPG photo.");
     return {
       cleanup: () => URL.revokeObjectURL(imageUrl),
       height: image.naturalHeight,

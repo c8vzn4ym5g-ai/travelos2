@@ -21,6 +21,7 @@ import {
   detachStagedCapturePhotos,
   ingestCaptureFileList,
   isCaptureDumpFile,
+  materializeCapturePhoto,
   shouldReplaceCaptureDumpRound,
   snapshotFileList,
   uploadDisplayPhoto,
@@ -380,6 +381,84 @@ test("input may be reset only after copies exist", async () => {
   assert.ok(events.indexOf("copy") !== -1);
   assert.ok(events.indexOf("reset") > events.lastIndexOf("copy"));
   assert.ok(events.indexOf("reset") > events.lastIndexOf("staged"));
+});
+
+test("materialized photos stay readable after the album File handle is dropped", async () => {
+  const bytes = new Uint8Array([9, 4, 8, 7]);
+  const file = new File([bytes], "IMG_9487.jpeg", { type: "image/jpeg" });
+  const durable = await materializeCapturePhoto(file);
+  assert.notEqual(durable, file);
+  assert.equal(durable.name, "IMG_9487.jpeg");
+  assert.equal(durable.type, "image/jpeg");
+  assert.deepEqual([...new Uint8Array(await durable.arrayBuffer())], [...bytes]);
+  assert.equal(await materializeCapturePhoto(file), durable);
+});
+
+test("photo ingest starts album arrayBuffer reads before any copy resolves", async () => {
+  const started: string[] = [];
+  const files = Array.from({ length: 6 }, (_, index) => {
+    const file = new File([new Uint8Array([index, 1, 2, 3])], `IMG_${9487 + index}.jpeg`, {
+      type: "image/jpeg",
+    });
+    const original = file.arrayBuffer.bind(file);
+    Object.defineProperty(file, "arrayBuffer", {
+      configurable: true,
+      value: () => {
+        started.push(file.name);
+        return new Promise<ArrayBuffer>((resolve) => {
+          setTimeout(() => {
+            void original().then(resolve);
+          }, 40);
+        });
+      },
+    });
+    return file;
+  });
+
+  const copied: string[] = [];
+  const done = ingestCaptureFileList(fakeFileList(files), {
+    onCopied(file) {
+      copied.push(file.name);
+    },
+  });
+
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(started.length, 6);
+  assert.equal(copied.length, 0);
+
+  const result = await done;
+  assert.equal(copied.length, 6);
+  assert.equal(result.copied.length, 6);
+  assert.equal(result.copied[0]?.name, "IMG_9487.jpeg");
+  assert.deepEqual([...new Uint8Array(await result.copied[0]!.arrayBuffer())], [0, 1, 2, 3]);
+});
+
+test("display JPEG POST retries once after a 503", async () => {
+  const jpeg = new File([new Uint8Array([1, 2, 3])], "IMG_9487.jpeg", { type: "image/jpeg" });
+  let posts = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    posts += 1;
+    if (posts === 1) {
+      return new Response("upstream busy", { status: 503 });
+    }
+    return Response.json({ photo: { id: "moment_photo_retry", momentId: "moment_retry" } });
+  }) as typeof fetch;
+
+  try {
+    const result = await uploadDisplayPhoto({
+      coordinates: null,
+      file: jpeg,
+      momentId: "moment_retry",
+      pin: "test-capture-pin",
+      takenAt: "2026-09-08T15:31:00.000Z",
+    });
+    assert.equal(posts, 2);
+    assert.equal(result.photo.id, "moment_photo_retry");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("short FileList reports the received count honestly", async () => {
@@ -1063,6 +1142,12 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
   assert.doesNotMatch(ingestFn, /yieldToBrowser/);
   assert.doesNotMatch(ingestFn, /yieldTurn/);
   assert.doesNotMatch(ingestFn, /requestAnimationFrame/);
+  assert.match(ingestFn, /snapshotFileList\(fileList\)/);
+  assert.match(ingestFn, /materializeCapturePhoto\(file\)/);
+  assert.match(upload, /export function materializeCapturePhoto/);
+  assert.match(upload, /export function capturePhotoWatchdogMs/);
+  assert.match(capture, /capturePhotoWatchdogMs\(\)/);
+  assert.match(prepare, /photoDecodeTimeoutMs = 8_000/);
   assert.match(addBlock, /ingestCaptureFileList\(fileList/);
   assert.match(addBlock, /limit: CAPTURE_DUMP_LIMIT/);
   assert.match(addBlock, /createStagedCapturePhotos\(\[file\]\)/);
@@ -1106,6 +1191,7 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
     upload.indexOf("export function uploadOriginalPhotoInBackground"),
   );
   assert.match(displayUpload, /await prepareDisplayPhoto\(source\)/);
+  assert.match(displayUpload, /return await attempt\(\);/);
   assert.doesNotMatch(displayUpload, /createImageBitmap\(/);
   assert.doesNotMatch(displayUpload, /canvas\.toBlob/);
   assert.doesNotMatch(prepare, /withExclusivePhotoDecode/);

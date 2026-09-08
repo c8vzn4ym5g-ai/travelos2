@@ -17,6 +17,7 @@ import {
   putVideoBinary,
   resetDriveWarehouseForTests,
   scanWarehouseFiles,
+  APPS_SCRIPT_PUTBINARY_MAX_BYTES,
   type DriveWarehouseFile,
 } from "@/lib/drive-warehouse";
 import { isAdminPinValid } from "@/lib/editable-store";
@@ -562,17 +563,18 @@ export async function storeMomentBinary(pathname: string, file: Blob) {
     const bytes = new Uint8Array(await file.arrayBuffer());
     const mime = file.type || "application/octet-stream";
     const name = driveObjectName(pathname);
-    const stored = isCaptureVideoFile({ name, type: mime })
-      ? await putVideoBinary({
-          bytes,
-          mimeType: mime,
-          name,
-        })
-      : await putBinary({
-          bytes,
-          mimeType: mime,
-          name,
-        });
+    const stored =
+      isCaptureVideoFile({ name, type: mime }) || bytes.byteLength > APPS_SCRIPT_PUTBINARY_MAX_BYTES
+        ? await putVideoBinary({
+            bytes,
+            mimeType: mime,
+            name,
+          })
+        : await putBinary({
+            bytes,
+            mimeType: mime,
+            name,
+          });
     return { url: driveStorageKey(stored.id) };
   }
 

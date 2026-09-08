@@ -615,6 +615,8 @@ test("Drive adapter is server-only and Capture still dumps photos in parallel", 
   assert.match(store, /putIndex\(/);
   assert.match(store, /putBinary\(/);
   assert.match(store, /putVideoBinary\(/);
+  assert.match(store, /APPS_SCRIPT_PUTBINARY_MAX_BYTES/);
+  assert.match(store, /bytes.byteLength > APPS_SCRIPT_PUTBINARY_MAX_BYTES/);
   assert.match(store, /isCaptureVideoFile/);
   assert.match(store, /resolveMomentPhoto/);
   assert.match(store, /driveStorageKey/);
