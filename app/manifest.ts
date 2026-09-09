@@ -1,4 +1,7 @@
 import type { MetadataRoute } from "next";
+import { DEFAULT_PUBLIC_SITE_ORIGIN } from "@/lib/site-url";
+
+const origin = DEFAULT_PUBLIC_SITE_ORIGIN;
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -11,26 +14,26 @@ export default function manifest(): MetadataRoute.Manifest {
       {
         purpose: "any",
         sizes: "512x512",
-        src: "/travelos-icon.png",
+        src: `${origin}/travelos-icon.png`,
         type: "image/png",
       },
       {
         purpose: "maskable",
         sizes: "512x512",
-        src: "/travelos-icon.png",
+        src: `${origin}/travelos-icon.png`,
         type: "image/png",
       },
     ],
-    id: "/",
+    id: `${origin}/`,
     lang: "en",
     name: "TravelOS",
-    scope: "/",
+    scope: `${origin}/`,
     screenshots: [
       {
         form_factor: "wide",
         label: "TravelOS home",
         sizes: "512x512",
-        src: "/travelos-icon.png",
+        src: `${origin}/travelos-icon.png`,
         type: "image/png",
       },
     ],
@@ -38,34 +41,34 @@ export default function manifest(): MetadataRoute.Manifest {
     shortcuts: [
       {
         description: "Open Capture after the family session",
-        icons: [{ sizes: "512x512", src: "/travelos-icon.png", type: "image/png" }],
+        icons: [{ sizes: "512x512", src: `${origin}/travelos-icon.png`, type: "image/png" }],
         name: "Capture",
         short_name: "Capture",
-        url: "/family/capture",
+        url: `${origin}/family/capture`,
       },
       {
         description: "Browse, add, and edit our family travel memories",
-        icons: [{ sizes: "512x512", src: "/travelos-icon.png", type: "image/png" }],
+        icons: [{ sizes: "512x512", src: `${origin}/travelos-icon.png`, type: "image/png" }],
         name: "家庭編輯",
         short_name: "家庭",
-        url: "/family",
+        url: `${origin}/family`,
       },
       {
         description: "Open travel journals",
-        icons: [{ sizes: "512x512", src: "/travelos-icon.png", type: "image/png" }],
+        icons: [{ sizes: "512x512", src: `${origin}/travelos-icon.png`, type: "image/png" }],
         name: "Trips",
         short_name: "Trips",
-        url: "/trips",
+        url: `${origin}/trips`,
       },
       {
         description: "Open coffee map",
-        icons: [{ sizes: "512x512", src: "/travelos-icon.png", type: "image/png" }],
+        icons: [{ sizes: "512x512", src: `${origin}/travelos-icon.png`, type: "image/png" }],
         name: "Coffee Map",
         short_name: "Coffee",
-        url: "/coffee",
+        url: `${origin}/coffee`,
       },
     ],
-    start_url: "/family",
+    start_url: `${origin}/family`,
     theme_color: "#0f766e",
   };
 }

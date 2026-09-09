@@ -13,6 +13,7 @@ import {
   writeTripLocalDraft,
 } from "@/lib/editor-local-draft";
 import { FAMILY_ADMIN_SESSION_KEY, familyPinHeaders, resolveFamilySession } from "@/lib/family-session";
+import { canonicalSiteUrl, isSpareVercelHost } from "@/lib/site-url";
 import { getTripPromoVideos } from "@/lib/promo-videos";
 import { isTripPublic } from "@/lib/trip-visibility";
 import type { JournalEntry, Photo, TravelVisibility, TripDetail } from "@/lib/types";
@@ -184,6 +185,10 @@ export default function TravelAdminPage() {
   }, [router]);
 
   const loadContent = useCallback(async (options?: { silent?: boolean }) => {
+    if (isSpareVercelHost(window.location.host)) {
+      window.location.replace(canonicalSiteUrl(`${window.location.pathname}${window.location.search}`));
+      return;
+    }
     if (!options?.silent) {
       setLoading(true);
     }

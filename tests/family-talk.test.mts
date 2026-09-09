@@ -235,7 +235,7 @@ test("talk page is a cute family booklet door with framed back and PWA", async (
   assert.match(layout, /apple-touch-icon\.png/);
   assert.match(layout, /manifest\.webmanifest/);
   assert.match(layout, /themeColor: "#F0F6E4"/);
-  assert.match(manifest, /"start_url": "\/family\/talk"/);
+  assert.match(manifest, /"start_url": "https:\/\/travelos2\.chao-jason\.workers\.dev\/family\/talk"/);
   assert.match(manifest, /家庭說話/);
   assert.match(wrangler, /"binding": "AI"/);
   assert.match(familyHome, /href="\/family\/talk"/);

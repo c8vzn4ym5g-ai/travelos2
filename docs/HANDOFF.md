@@ -1,5 +1,41 @@
 # TravelOS Handoff
 
+## 2026-09-09 Phone 遊記編輯 was the Vercel seed list
+
+Owner reinstalled the iPhone app and the picker showed only:
+
+1. 北海道秋日札記
+2. 曼谷餐桌筆記
+3. 巴黎冬日博物館散步
+4. 倫敦轉乘週末
+5. 北極圈上的十二月
+
+That list is `seedTripDetails` (Vercel spare `source: seed`). Live CF
+`GET /api/trips/content` is `source: drive` and already has the maple
+journals. There is no service worker. Family PWA `start_url` /
+`id` / `scope` are absolute
+`https://travelos2.chao-jason.workers.dev/family`. Spare `*.vercel.app`
+308s to that origin. Drive reads no longer append leftover empty seed
+demos.
+
+Same door: `/family` → 編輯 → 旅行遊記 → `/trips/admin`. After this
+ships, that dropdown on CF Drive is:
+
+1. 九州家庭慢遊：福岡、小國町與阿蘇
+2. 巴黎盛夏：從傘街走進羅浮宮
+3. 爱慕虚荣团 · 东山朱色／清水候选（Day18）
+4. 爱慕虚荣团 · 银阁寺线（Day17）
+5. 爱慕虚荣团 · 岚山翠嵐：温泉饭店里的枫叶禁区
+6. 爱慕虚荣团 · 团主题：四个人怎么一起把京都玩开心
+7. 鹽水蜂炮：走進火光與煙霧
+8. 北極圈上的十二月 / December on the Arctic Circle
+9. 蘇格蘭冬日：愛丁堡與威士忌酒鄉
+10. 從巴黎走向萊茵河
+11. 亞得里亞海兩日：克羅埃西亞到威尼斯
+
+Held out: 东福寺 candidate, mega `trip_kyoto_maple`. Public `/trips`
+stays Lapland only.
+
 ## 2026-09-09 Capture dock: shown photo = received
 
 Owner UX lock. A clear thumbnail means the dump landed. Do not teach
@@ -27,7 +63,12 @@ do not publish them. Coffee drafts are not in the warehouse.
 
 ### Phone URLs (after merge to `main` / CF auto-deploy)
 
-Open in iPhone Safari, same PIN flow as `/family`:
+Open in iPhone Safari / Home Screen from
+`https://travelos2.chao-jason.workers.dev` only. Vercel spare
+(`travelos2-63r3.vercel.app`) is seed-only and is redirected to CF.
+PWA `start_url` is absolute workers.dev `/family`.
+
+Phone 遊記編輯 door: `/family` → 編輯 → 旅行遊記 → `/trips/admin` picker.
 
 - Family door: https://travelos2.chao-jason.workers.dev/family
 - Editor (all drafts): https://travelos2.chao-jason.workers.dev/trips/admin

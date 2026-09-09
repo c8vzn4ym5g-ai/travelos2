@@ -27,10 +27,15 @@ export { isAdminPinValid, isFamilyPinRequired };
 export async function readContent(): Promise<{ content: TravelOSContent; status: StoreStatus }> {
   if (!isBlobConfigured()) {
     const saved = await readDriveTrips();
-    const savedIds = new Set(saved.map(trip => trip.id));
+    if (saved.length > 0) {
+      return {
+        content: { ...createSeedContent(), trips: saved },
+        status: { configured: true, source: "drive" },
+      };
+    }
     return {
-      content: { ...createSeedContent(), trips: [...saved, ...seedTripDetails.filter(trip => !savedIds.has(trip.id))] },
-      status: { configured: true, source: "drive" },
+      content: createSeedContent(),
+      status: { configured: true, source: "seed" },
     };
   }
 

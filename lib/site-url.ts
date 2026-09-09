@@ -26,10 +26,22 @@ function parseHttpOrigin(raw: string | undefined) {
 
 function isVercelAppOrigin(origin: string) {
   try {
-    return new URL(origin).hostname.endsWith(".vercel.app");
+    return isSpareVercelHost(new URL(origin).hostname);
   } catch {
     return false;
   }
+}
+
+export function isSpareVercelHost(host: string) {
+  const hostname = host.split(":")[0]?.toLowerCase() ?? "";
+  return hostname.endsWith(".vercel.app") || hostname.endsWith(".vercel.sh");
+}
+
+export function canonicalSiteUrl(pathAndQuery = "/") {
+  if (!pathAndQuery || pathAndQuery === "/") {
+    return DEFAULT_PUBLIC_SITE_ORIGIN;
+  }
+  return `${DEFAULT_PUBLIC_SITE_ORIGIN}${pathAndQuery.startsWith("/") ? pathAndQuery : `/${pathAndQuery}`}`;
 }
 
 /**

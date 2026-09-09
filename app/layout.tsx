@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
+import { CanonicalHost } from "@/components/canonical-host";
 import { TravelpayoutsDrive } from "@/components/travelpayouts-drive";
 import { resolvePublicSiteOrigin } from "@/lib/site-url";
 import "./globals.css";
@@ -65,7 +66,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <TravelpayoutsDrive />
         </Suspense>
       </head>
-      <body>{children}</body>
+      <body>
+        <CanonicalHost />
+        {children}
+      </body>
     </html>
   );
 }

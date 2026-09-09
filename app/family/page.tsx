@@ -114,7 +114,7 @@ export default function FamilyWorkspacePage() {
         <article className="fam-sticker">
           <p className="fam-label">安裝到 iPhone</p>
           <ol>
-            <li>用 Safari 開啟 TravelOS。</li>
+            <li>用 Safari 開啟 travelos2.chao-jason.workers.dev。</li>
             <li>點分享按鈕。</li>
             <li>選「加入主畫面」。</li>
             <li>以後點 TravelOS 圖示直接進入。</li>

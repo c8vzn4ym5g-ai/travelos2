@@ -79,6 +79,7 @@ test("Travelpayouts Drive loads once at the public app boundary", async () => {
   assert.match(integration, /src=\{src\}/);
   assert.match(middleware, /TRAVELOS_PATHNAME_HEADER/);
   assert.match(middleware, /request\.nextUrl\.pathname/);
+  assert.match(middleware, /isSpareVercelHost/);
   assert.doesNotMatch(drivePage, /<Script/);
 });
 

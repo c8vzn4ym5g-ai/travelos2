@@ -12,7 +12,14 @@ export async function GET(request: Request) {
   }
 
   const { content, status } = await readContent();
-  return Response.json({ content, status });
+  return Response.json(
+    { content, status },
+    {
+      headers: {
+        "Cache-Control": "private, no-store, no-cache, must-revalidate",
+      },
+    },
+  );
 }
 
 export async function POST(request: Request) {
