@@ -1,6 +1,10 @@
+"use client";
+
+import { useState } from "react";
 import type { PromoVideo } from "@/lib/promo-videos";
 
 export function ShortVideoGallery({ videos }: { videos: PromoVideo[] }) {
+  const [unavailable, setUnavailable] = useState<Set<string>>(new Set());
   if (videos.length === 0) return null;
 
   return (
@@ -15,9 +19,9 @@ export function ShortVideoGallery({ videos }: { videos: PromoVideo[] }) {
       <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {videos.map((video) => (
           <article className="travel-soft-panel overflow-hidden rounded-3xl" key={video.src}>
-            <video className="aspect-[9/16] w-full bg-black object-cover" controls playsInline preload="metadata">
-              <source src={video.src} type="video/mp4" />
-            </video>
+            {unavailable.has(video.src) ? <p className="p-6 text-sm leading-7 text-zinc-600">這支短片尚未放上共用儲存。Google Drive 空間不足，照片與文字仍可繼續編輯。</p> : <video className="aspect-[9/16] w-full bg-black object-cover" controls playsInline preload="metadata" onError={() => setUnavailable(current => new Set(current).add(video.src))}>
+              <source src={video.src} type="video/mp4" onError={() => setUnavailable(current => new Set(current).add(video.src))} />
+            </video>}
             <div className="p-4">
               <h3 className="font-semibold text-[color:var(--ink)]">{video.title}</h3>
               <p className="travel-muted mt-2 text-sm leading-6">{video.caption}</p>
@@ -29,4 +33,3 @@ export function ShortVideoGallery({ videos }: { videos: PromoVideo[] }) {
     </section>
   );
 }
-
