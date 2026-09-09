@@ -3,7 +3,9 @@ import test from "node:test";
 import {
   VANITY_CREW_SERIES,
   prepareFamilyEditorTrips,
+  prepareReaderChinese,
   searchTripsBySeries,
+  toTraditional,
 } from "../lib/trip-series.ts";
 import { isTripPublic } from "../lib/trip-visibility.ts";
 import type { JournalEntry, Photo, TripDetail } from "../lib/types.ts";
@@ -124,4 +126,45 @@ test("maple journals keep place-only Traditional titles; series stays 愛慕虛�
   assert.equal(found.length, 4);
   assert.equal(found.some((trip) => trip.id === "trip_kyushu_family_2026"), false);
   assert.equal(searchTripsBySeries(prepared, "爱慕虚荣团").length, 4);
+});
+
+test("reader Chinese converts Simplified to Taiwan Traditional without 朱色/亞得里亞 over-conversion", () => {
+  assert.equal(toTraditional("东山朱色／清水候选"), "東山朱色／清水候選");
+  assert.equal(toTraditional("朱红与蓝天"), "朱紅與藍天");
+  assert.equal(toTraditional("哲学之道一带"), "哲學之道一帶");
+  assert.equal(toTraditional("饭店里的枫叶"), "飯店裡的楓葉");
+  assert.equal(toTraditional("亞得里亞海兩日"), "亞得里亞海兩日");
+  assert.equal(toTraditional("性價比很高"), "性價比很高");
+  assert.equal(toTraditional("局部：護具"), "局部：護具");
+  assert.equal(toTraditional("二月的台南鹽水"), "二月的臺南鹽水");
+
+  const kyushu = baseTrip("trip_kyushu_family_2026", "九州家庭慢遊：福岡、小國町與阿蘇");
+  kyushu.journalEntries = [journal("竹庵", "性價比很高。局部風景。")];
+  kyushu.places = [{
+    id: "place_1",
+    tripId: kyushu.id,
+    type: "restaurant",
+    name: "竹庵",
+    country: "Japan",
+    city: "Kumamoto",
+    address: null,
+    coordinates: null,
+    rating: null,
+    notes: "一带很挤",
+    createdAt: "2022-11-15T00:00:00.000Z",
+    updatedAt: "2022-11-15T00:00:00.000Z",
+  }];
+  const converted = prepareReaderChinese(kyushu);
+  assert.equal(converted.places[0]?.notes, "一帶很擠");
+  assert.equal(converted.places[0]?.city, "Kumamoto");
+  assert.match(converted.journalEntries[0]?.body ?? "", /性價比很高/);
+  assert.match(converted.journalEntries[0]?.body ?? "", /局部風景/);
+
+  const higashiyama = baseTrip("trip_kyoto_maple_higashiyama", "东山朱色／清水候选（Day18）");
+  higashiyama.journalEntries = [journal("朱红与蓝天", "东山。")];
+  (higashiyama as TripDetail & { crew?: { note: string } }).crew = { note: "嵐山→銀閣→東山朱色，同一團。" };
+  const maple = prepareFamilyEditorTrips([higashiyama])[0];
+  assert.equal(maple?.title, "東山朱色");
+  assert.equal(maple?.journalEntries[0]?.title, "朱紅與藍天");
+  assert.equal((maple as TripDetail & { crew?: { note: string } }).crew?.note, "嵐山→銀閣→東山朱色，同一團。");
 });

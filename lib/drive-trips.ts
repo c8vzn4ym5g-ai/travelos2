@@ -24,6 +24,10 @@ function newerDriveFile(candidate: DriveTripFile, current: DriveTripFile | undef
   return (candidate.modifiedTime ?? "") >= (current.modifiedTime ?? "");
 }
 
+export function duplicateDriveTripFileIds(files: DriveTripFile[], keepId: string) {
+  return files.filter((file) => file.id !== keepId).map((file) => file.id);
+}
+
 export function selectLatestDriveTripFiles(files: DriveTripFile[]) {
   const byName = new Map<string, DriveTripFile>();
   for (const file of files) {
@@ -94,7 +98,8 @@ export async function writeDriveTrip(trip: TripDetail) {
   const found = await fetch(`https://www.googleapis.com/drive/v3/files?${query}`, { headers, cache: "no-store" });
   if (!found.ok) throw new Error("尚未儲存，請再試一次。");
   const files = await found.json() as { files: DriveTripFile[] };
-  let id = selectLatestDriveTripFiles(files.files ?? [])[0]?.id;
+  const listed = files.files ?? [];
+  let id = selectLatestDriveTripFiles(listed)[0]?.id;
   if (!id) {
     const created = await fetch("https://www.googleapis.com/drive/v3/files", {
       method: "POST",
@@ -110,5 +115,13 @@ export async function writeDriveTrip(trip: TripDetail) {
     body: JSON.stringify(payload),
   });
   if (!saved.ok) throw new Error("尚未儲存，請再試一次。");
+  await Promise.all(duplicateDriveTripFileIds(listed, id).map((extraId) => fetch(
+    `https://www.googleapis.com/drive/v3/files/${extraId}`,
+    {
+      method: "PATCH",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ trashed: true }),
+    },
+  )));
   return payload;
 }

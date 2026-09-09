@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  duplicateDriveTripFileIds,
   preferLatestDriveTrips,
   selectDriveTripFilesForRead,
   selectLatestDriveTripFiles,
@@ -103,4 +104,19 @@ test("Drive trip reader holds unconfirmed maple files and prepares the series", 
   assert.match(source, /prepareFamilyEditorTrips/);
   assert.match(source, /selectDriveTripFilesForRead/);
   assert.match(source, /VANITY_CREW_HELD_TRIP_IDS/);
+  assert.match(source, /duplicateDriveTripFileIds/);
+  assert.match(source, /trashed: true/);
+});
+
+test("older same-name Drive trip files are marked for trash", () => {
+  assert.deepEqual(
+    duplicateDriveTripFileIds(
+      [
+        { id: "keep", name: "travelos__trip__trip_kyoto_maple_ginkaku.json", modifiedTime: "2026-09-09T12:00:00.000Z" },
+        { id: "old", name: "travelos__trip__trip_kyoto_maple_ginkaku.json", modifiedTime: "2026-09-09T10:00:00.000Z" },
+      ],
+      "keep",
+    ),
+    ["old"],
+  );
 });

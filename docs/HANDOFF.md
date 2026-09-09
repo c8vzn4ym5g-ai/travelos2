@@ -18,6 +18,12 @@ Locked maple titles:
 Day17 / Day18 stay on startDate/endDate only. Never in the reader title.
 `候選` is GM-only (Kiyomizu west-gate guess). Never in the reader title.
 
+All family/reader-facing Chinese on trips is Taiwan 繁體 (OpenCC s2tw
+characters). Keep 朱色 / 朱紅; keep 亞得里亞. Do not run phrase-layer
+s2twp (that turns 朱色→硃色, 性價比→價效比, 局部→區域性).
+`prepareReaderChinese` runs on every editor trip; maple still uses the
+locked titles. Drive writes trash older same-name JSON duplicates.
+
 Drive reads reattach leftover seed journals Owner still edits
 (北海道 / 曼谷 / 巴黎冬日 / 倫敦 / Lapland). PUT re-reads the full
 warehouse after one-trip save so maple save cannot shrink the picker.

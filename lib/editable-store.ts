@@ -2,6 +2,7 @@ import { list, put } from "@vercel/blob";
 import { readDriveTrips, writeDriveTrip } from "@/lib/drive-trips";
 import { isAdminPinValid, isFamilyPinRequired } from "./family-pin.ts";
 import { LAPLAND_WINTER_VILLAGE_CAPTION, LAPLAND_WINTER_VILLAGE_PHOTO_ID, seedTripDetails, withMissingSeedTrips } from "@/lib/trips";
+import { prepareFamilyEditorTrips } from "@/lib/trip-series";
 import type { MusicTrack, Photo, TripDetail } from "@/lib/types";
 
 const DATA_BLOB_PATH = "travelos/content.json";
@@ -29,7 +30,7 @@ export async function readContent(): Promise<{ content: TravelOSContent; status:
     const saved = await readDriveTrips();
     if (saved.length > 0) {
       return {
-        content: { ...createSeedContent(), trips: withMissingSeedTrips(saved) },
+        content: { ...createSeedContent(), trips: prepareFamilyEditorTrips(withMissingSeedTrips(saved)) },
         status: { configured: true, source: "drive" },
       };
     }
@@ -129,7 +130,7 @@ export async function addMusicTrackToTrip(tripId: string, musicTrack: MusicTrack
 function createSeedContent(): TravelOSContent {
   return {
     schemaVersion: CONTENT_SCHEMA_VERSION,
-    trips: seedTripDetails,
+    trips: prepareFamilyEditorTrips(seedTripDetails),
     updatedAt: new Date().toISOString(),
   };
 }
