@@ -30,6 +30,17 @@ export const DRIVE_INDEX_NAME = "moments.json";
 export const DRIVE_WAREHOUSE_FOLDER_ID = "1Sk2TqgpF6NxoNYdUKO4h8t84UA7KxChN";
 export const DRIVE_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
 export const DRIVE_UPLOAD_SINGLE_PUT_MAX_BYTES = 80_000_000;
+export const DRIVE_WAREHOUSE_FETCH_TIMEOUT_MS = 12_000;
+
+function driveFetchSignal() {
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    return AbortSignal.timeout(DRIVE_WAREHOUSE_FETCH_TIMEOUT_MS);
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), DRIVE_WAREHOUSE_FETCH_TIMEOUT_MS);
+  timer.unref?.();
+  return controller.signal;
+}
 
 export function driveUploadPutChunkBytes(fileSize: number) {
   if (fileSize <= DRIVE_UPLOAD_SINGLE_PUT_MAX_BYTES) {
@@ -156,10 +167,12 @@ async function followRedirects(
             headers: replay.headers,
             method: replay.method,
             redirect: hops >= MAX_REDIRECTS ? "follow" : "manual",
+            signal: driveFetchSignal(),
           }
         : {
             method: "GET",
             redirect: hops >= MAX_REDIRECTS ? "follow" : "manual",
+            signal: driveFetchSignal(),
           },
     );
   }
@@ -175,7 +188,12 @@ async function getJson(
 ): Promise<unknown> {
   const request = resolveFetch(requestImpl);
   const url = warehouseUrl(params);
-  const first = await request(url, { cache: "no-store", method: "GET", redirect: "manual" });
+  const first = await request(url, {
+    cache: "no-store",
+    method: "GET",
+    redirect: "manual",
+    signal: driveFetchSignal(),
+  });
   const response = await followRedirects(request, first, url.toString(), { method: "GET" });
   if (options.allowNotFound && response.status === 404) {
     return null;
@@ -197,6 +215,7 @@ async function postJson(
     headers,
     method: "POST",
     redirect: "manual",
+    signal: driveFetchSignal(),
   });
   const response = await followRedirects(request, first, endpoint, {
     body,

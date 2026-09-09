@@ -47,6 +47,19 @@ import type { GeoPoint, TravelJob } from "@/lib/types";
 
 type UploadStatus = "queued" | "uploading" | "uploaded" | "failed";
 
+function rejectWhenAborted(signal: AbortSignal): Promise<never> {
+  return new Promise((_, reject) => {
+    const fail = () => {
+      reject(signal.reason instanceof Error ? signal.reason : new DOMException("Aborted", "AbortError"));
+    };
+    if (signal.aborted) {
+      fail();
+      return;
+    }
+    signal.addEventListener("abort", fail, { once: true });
+  });
+}
+
 type StagedPhoto = {
   abort: AbortController;
   errorMessage: string | null;
@@ -137,6 +150,7 @@ export default function CapturePage() {
   const coordinatesRef = useRef<GeoPoint | null>(null);
   const momentSessionRef = useRef<ReturnType<typeof createMomentSession> | null>(null);
   const photoUploadsRef = useRef(new Map<string, Promise<void>>());
+  const dumpIngestRef = useRef<Promise<void> | null>(null);
   const audioUploadRef = useRef<Promise<void> | null>(null);
   const savingRef = useRef(false);
   const persistTimerRef = useRef<number>(0);
@@ -259,6 +273,7 @@ export default function CapturePage() {
   function resetDraft() {
     momentSession().reset();
     photoUploadsRef.current = new Map();
+    dumpIngestRef.current = null;
     audioUploadRef.current = null;
   }
 
@@ -395,41 +410,44 @@ export default function CapturePage() {
         const momentId = session.allocate(takenAt);
         const video = isCaptureVideoFile(photo.file);
         if (!video) {
-          await session.ensure(takenAt);
+          await Promise.race([session.ensure(takenAt), rejectWhenAborted(photo.abort.signal)]);
         }
         if (photo.abort.signal.aborted) {
           return;
         }
 
-        const uploaded = await uploadDisplayPhoto({
-          coordinates: coordinatesRef.current,
-          file: photo.file,
-          momentId,
-          onHopProgress: (hopDone, hopTotal) => {
-            if (photoIsOnScreen(photo.id)) {
-              patchPhoto(photo.id, { hopDone, hopTotal, status: "uploading" });
-            }
-          },
-          startMoment: video ? () => session.ensure(takenAt) : undefined,
-          onDisplayReady: async (display) => {
-            if (photo.abort.signal.aborted || isCaptureVideoFile(photo.file)) {
-              return;
-            }
-            const previewUrl = await createTinyPreviewUrl(display);
-            if (!previewUrl) {
-              return;
-            }
-            if (photo.abort.signal.aborted || !photoIsOnScreen(photo.id)) {
-              URL.revokeObjectURL(previewUrl);
-              return;
-            }
-            patchPhoto(photo.id, { previewUrl });
-          },
-          pin: sessionPin(pinRef.current),
-          retryMoment: (status) => retryMoment(takenAt, status, session),
-          signal: photo.abort.signal,
-          takenAt,
-        });
+        const uploaded = await Promise.race([
+          uploadDisplayPhoto({
+            coordinates: coordinatesRef.current,
+            file: photo.file,
+            momentId,
+            onHopProgress: (hopDone, hopTotal) => {
+              if (photoIsOnScreen(photo.id)) {
+                patchPhoto(photo.id, { hopDone, hopTotal, status: "uploading" });
+              }
+            },
+            startMoment: video ? () => session.ensure(takenAt) : undefined,
+            onDisplayReady: async (display) => {
+              if (photo.abort.signal.aborted || isCaptureVideoFile(photo.file)) {
+                return;
+              }
+              const previewUrl = await createTinyPreviewUrl(display);
+              if (!previewUrl) {
+                return;
+              }
+              if (photo.abort.signal.aborted || !photoIsOnScreen(photo.id)) {
+                URL.revokeObjectURL(previewUrl);
+                return;
+              }
+              patchPhoto(photo.id, { previewUrl });
+            },
+            pin: sessionPin(pinRef.current),
+            retryMoment: (status) => retryMoment(takenAt, status, session),
+            signal: photo.abort.signal,
+            takenAt,
+          }),
+          rejectWhenAborted(photo.abort.signal),
+        ]);
 
         if (photo.abort.signal.aborted) {
           removeUploadedPhotoInBackground({
@@ -558,7 +576,7 @@ export default function CapturePage() {
       ),
     );
 
-    await ingestCaptureFileList(fileList, {
+    const ingest = ingestCaptureFileList(fileList, {
       limit: CAPTURE_DUMP_LIMIT,
       async onCopied(file, progress) {
         const incoming = createStagedCapturePhotos([file]).map((draft) => ({
@@ -594,6 +612,8 @@ export default function CapturePage() {
         }
       },
     });
+    dumpIngestRef.current = ingest.then(() => undefined, () => undefined);
+    await ingest;
     if (input && input.files === fileList) {
       input.value = "";
     }
@@ -761,6 +781,7 @@ export default function CapturePage() {
         ? new Date(photos[0].file.lastModified).toISOString()
         : new Date().toISOString();
 
+      await dumpIngestRef.current;
       await Promise.all([...photoUploadsRef.current.values()]);
       if (audioUploadRef.current) {
         await audioUploadRef.current;

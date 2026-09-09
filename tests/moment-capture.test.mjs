@@ -318,6 +318,7 @@ test("background upload starts on add and Save does not wait on originals", asyn
 
   assert.match(addBlock, /startBackgroundPhotoUpload\(photo\)/);
   assert.match(addBlock, /ingestCaptureFileList\(fileList/);
+  assert.match(addBlock, /dumpIngestRef\.current = ingest/);
   assert.match(addBlock, /limit: CAPTURE_DUMP_LIMIT/);
   assert.match(addBlock, /createStagedCapturePhotos\(\[file\]\)/);
   assert.match(capture, /void startBackgroundAudioUpload\(staged\)/);
@@ -326,6 +327,9 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.doesNotMatch(capture, /createWorkQueue/);
   assert.doesNotMatch(capture, /photoQueue/);
   assert.match(capture, /retryMoment/);
+  assert.match(capture, /Promise\.race\(\[session\.ensure/);
+  assert.match(capture, /Promise\.race\(\[\s*uploadDisplayPhoto/);
+  assert.match(capture, /rejectWhenAborted\(photo\.abort\.signal\)/);
   assert.match(capture, /captureErrorMessage/);
   assert.match(capture, /captureDumpProgressMessage/);
   assert.match(capture, /排隊中/);
@@ -338,7 +342,12 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.doesNotMatch(saveBlock, /prepareDisplayPhoto/);
   assert.doesNotMatch(saveBlock, /formData\.set\("original"/);
   assert.doesNotMatch(saveBlock, /for \(const \[index, staged\] of photos\.entries\(\)\)/);
+  assert.match(saveBlock, /dumpIngestRef/);
   assert.match(saveBlock, /Promise\.all\(\[\.\.\.photoUploadsRef\.current\.values\(\)\]\)/);
+  assert.ok(
+    saveBlock.indexOf("dumpIngestRef") < saveBlock.indexOf("photoUploadsRef.current.values"),
+    "saveMoment must await dump ingest before photo uploads",
+  );
   assert.doesNotMatch(saveBlock, /uploadOriginalPhotoInBackground/);
   assert.match(displayUpload, /formData\.set\("file", display\)/);
   assert.match(displayUpload, /await prepareDisplayPhoto\(source\)/);
