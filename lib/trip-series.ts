@@ -13,8 +13,8 @@ export const VANITY_CREW_MAPLE_JOURNAL_IDS = [
 
 export const VANITY_CREW_JOURNAL_TITLES = {
   trip_kyoto_maple_arashiyama: "嵐山翠嵐：溫泉飯店裡的楓葉禁區",
-  trip_kyoto_maple_ginkaku: "銀閣寺線（Day17）",
-  trip_kyoto_maple_higashiyama: "東山朱色／清水候選（Day18）",
+  trip_kyoto_maple_ginkaku: "銀閣寺線",
+  trip_kyoto_maple_higashiyama: "東山朱色／清水候選",
   trip_kyoto_maple_crew_notes: "京都四人怎麼一起玩開心",
 } as const;
 
@@ -227,7 +227,7 @@ export function mapleJournalTitle(trip: Pick<TripDetail, "id" | "title">) {
   if (locked) {
     return locked;
   }
-  return toTraditional(stripSeriesFromTitle(trip.title));
+  return toTraditional(stripSeriesFromTitle(trip.title)).replace(/[（(]\s*Day\s*\d+\s*[）)]/gi, "").trim();
 }
 
 function convertJournalEntry(entry: JournalEntry, tripId: string, index: number): JournalEntry {

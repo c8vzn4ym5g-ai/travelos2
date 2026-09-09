@@ -75,8 +75,12 @@ test("maple journals keep place-only Traditional titles; series stays 愛慕虛�
   arashiyama.photos = [ingestPhoto("drive_suiran", "IMG_2718.jpg")];
   arashiyama.journalEntries = [journal("住进枫叶区里面的饭店", "翠嵐禁区竹林。回顾红枫西门，不写东福寺。")];
   const ginkaku = baseTrip("trip_kyoto_maple_ginkaku", "爱慕虚荣团 · 银阁寺线（Day17）");
+  ginkaku.startDate = "2022-11-17";
+  ginkaku.endDate = "2022-11-17";
   ginkaku.journalEntries = [journal("银阁寺确认：池中「北斗石」", "北斗石。")];
   const higashiyama = baseTrip("trip_kyoto_maple_higashiyama", "爱慕虚荣团 · 东山朱色／清水候选（Day18）");
+  higashiyama.startDate = "2022-11-18";
+  higashiyama.endDate = "2022-11-18";
   higashiyama.journalEntries = [journal("朱红与蓝天", "东山。")];
   const crew = baseTrip("trip_kyoto_maple_crew_notes", "爱慕虚荣团：四个人怎么一起把京都玩开心");
   crew.journalEntries = [journal("团名、分工、开心配额", "三位姐妹。")];
@@ -100,8 +104,11 @@ test("maple journals keep place-only Traditional titles; series stays 愛慕虛�
   assert.ok(maple.every((trip) => !trip.title.includes("爱慕虚荣团")));
   assert.ok(maple.every((trip) => !trip.title.includes("愛慕虛榮團")));
   assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_arashiyama")?.title, "嵐山翠嵐：溫泉飯店裡的楓葉禁區");
-  assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_ginkaku")?.title, "銀閣寺線（Day17）");
-  assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_higashiyama")?.title, "東山朱色／清水候選（Day18）");
+  assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_ginkaku")?.title, "銀閣寺線");
+  assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_higashiyama")?.title, "東山朱色／清水候選");
+  assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_ginkaku")?.startDate, "2022-11-17");
+  assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_higashiyama")?.startDate, "2022-11-18");
+  assert.ok(maple.every((trip) => !/Day\s*\d+/i.test(trip.title)));
   assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_crew_notes")?.title, "京都四人怎麼一起玩開心");
   assert.match(prepared.find((trip) => trip.id === "trip_kyoto_maple_arashiyama")?.journalEntries[0]?.body ?? "", /回顧紅楓西門，不寫東福寺/);
   assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_arashiyama")?.photos[0]?.storageKey, "/api/trips/media?id=drive_suiran");
