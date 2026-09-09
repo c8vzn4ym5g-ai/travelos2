@@ -41,8 +41,6 @@ import {
 } from "@/lib/capture-upload";
 import {
   CAPTURE_PHOTO_RETRY_LIMIT,
-  CAPTURE_RETRY_ALL_LABEL,
-  CAPTURE_RETRY_ONCE_LABEL,
   captureDockCountText,
   capturePhotoRetryDelayMs,
   clearCaptureRoundMeta,
@@ -704,7 +702,7 @@ export default function CapturePage() {
           status: "failed",
         });
         persistCaptureRound();
-        setMessage("還有幾張在這一輪。點再送一次就可以，不用重選相簿。");
+        setMessage("還有幾張在這一輪。點刷新就可以，不用重選相簿。");
       } finally {
         globalThis.clearTimeout(watchdog);
       }
@@ -1118,7 +1116,7 @@ export default function CapturePage() {
           <p className="fam-script">one capture door</p>
           <h1 className="fam-title">Capture</h1>
           <p className="fam-lede">
-            打開就能拍或選。清楚看見的就是已經收到，會進工作台。傳的時候轉圈。還沒好的點再送一次就可以，不用重選相簿。這一輪最多 40 張。再選一次相簿是新的一輪。一句話可以補心情，也可以交代工作，可不用按。
+            打開就能拍或選。清楚看見的就是已經收到，會進工作台。傳的時候轉圈。還沒好的點刷新就可以，不用重選相簿。這一輪最多 40 張。再選一次相簿是新的一輪。一句話可以補心情，也可以交代工作，可不用按。
           </p>
         </div>
       </header>
@@ -1146,12 +1144,13 @@ export default function CapturePage() {
             <p>{captureDockCountText(photos)}</p>
             {photos.some((photo) => photo.status === "failed") ? (
                 <button
+                  aria-label="再送"
                   className="fam-dock-retry"
                   data-capture-retry-failed=""
                   onClick={retryFailedPhotos}
                   type="button"
                 >
-                  {CAPTURE_RETRY_ALL_LABEL}
+                  <FamGlyph name="refresh" size={22} />
                 </button>
             ) : null}
           </div>
@@ -1166,14 +1165,12 @@ export default function CapturePage() {
                   return (
                     <li className="fam-thumb fam-thumb-fail" key={photo.id}>
                       <button
+                        aria-label="再送"
                         className="fam-thumb-fail-hit"
                         onClick={() => retryPhoto(photo.id)}
                         type="button"
                       >
-                        <span className="fam-thumb-fail-mark" aria-hidden="true">
-                          <FamGlyph name="x" size={28} />
-                        </span>
-                        <span>{CAPTURE_RETRY_ONCE_LABEL}</span>
+                        <FamGlyph name="refresh" size={36} />
                       </button>
                       <div className="fam-thumb-actions">
                         <button onClick={() => retakePhoto(photo.id)} type="button">
