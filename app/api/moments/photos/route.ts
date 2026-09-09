@@ -4,6 +4,7 @@ import { isUploadBlob, uploadFilename } from "@/lib/form-upload";
 import { readMomentBlobBytes, readMomentThumbBytes } from "@/lib/moment-blob";
 import {
   addPhotoToMoment,
+  findWarehousePhotoByContentHash,
   isAdminPinValid,
   momentApiErrorResponse,
   rememberUploadedDisplayPhoto,
@@ -15,6 +16,7 @@ import {
   storeMomentBinary,
 } from "@/lib/moment-store";
 import { contentTypeForMomentMedia, makeMomentId, momentMediaKindFromFile } from "@/lib/moments";
+import { hashPhotoBytes } from "@/lib/photo-dedupe";
 import type { GeoPoint, MomentPhoto } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -116,6 +118,18 @@ export async function POST(request: Request) {
     }
 
     if (photoId && isUploadBlob(original)) {
+      const existing = await resolveMomentPhoto(momentId, photoId);
+      if (existing?.originalStorageKey) {
+        return Response.json({
+          duplicate: true,
+          photo: {
+            id: photoId,
+            momentId,
+            originalStorageKey: existing.originalStorageKey,
+          },
+        });
+      }
+
       const originalName = uploadFilename(original, "original.bin");
       const originalBlob = await storeMomentBinary(
         `travelos/moments/photos/${momentId}/original-${Date.now()}-${cleanFilename(originalName)}`,
@@ -142,16 +156,25 @@ export async function POST(request: Request) {
       return Response.json({ error: "Moment and photo file are required" }, { status: 400 });
     }
 
+    const displayBytes = new Uint8Array(await file.arrayBuffer());
+    const contentHash = hashPhotoBytes(displayBytes);
+    const existing = await findWarehousePhotoByContentHash(contentHash);
+    if (existing?.storageKey) {
+      rememberUploadedDisplayPhoto(existing.momentId, existing);
+      return Response.json({ duplicate: true, photo: existing });
+    }
+
     const displayName = uploadFilename(file, "photo.jpg");
     const displayBlob = await storeMomentBinary(
       `travelos/moments/photos/${momentId}/${Date.now()}-${cleanFilename(displayName)}`,
-      file,
+      new Blob([displayBytes], { type: file.type || "image/jpeg" }),
     );
 
     const now = new Date().toISOString();
     const mediaFile = { name: displayName, type: file.type };
     const photo: MomentPhoto = {
       coordinates: readCoordinates(formData),
+      contentHash,
       createdAt: now,
       id: makeMomentId("moment_photo"),
       kind: momentMediaKindFromFile(mediaFile),

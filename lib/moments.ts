@@ -82,12 +82,14 @@ export function mergeMomentPhoto(left: MomentPhoto, right: MomentPhoto): MomentP
     originalStorageKey: later.originalStorageKey || earlier.originalStorageKey,
     storageKey: later.storageKey || earlier.storageKey,
     takenAt: later.takenAt || earlier.takenAt,
+    contentHash: later.contentHash || earlier.contentHash || null,
   };
 }
 
 export function mergeMomentPhotos(...groups: MomentPhoto[][]) {
   const byStorage = new Map<string, MomentPhoto>();
   const byId = new Map<string, MomentPhoto>();
+  const byHash = new Map<string, MomentPhoto>();
   const byStem = new Map<string, MomentPhoto>();
   const order: MomentPhoto[] = [];
 
@@ -97,6 +99,10 @@ export function mergeMomentPhotos(...groups: MomentPhoto[][]) {
     }
     if (photo.id) {
       byId.set(photo.id, photo);
+    }
+    const hash = photo.contentHash?.trim().toLowerCase() ?? "";
+    if (hash) {
+      byHash.set(hash, photo);
     }
     const stem = displayPhotoStem(photo.originalFilename ?? "");
     if (stem) {
@@ -110,9 +116,11 @@ export function mergeMomentPhotos(...groups: MomentPhoto[][]) {
         continue;
       }
       const stem = displayPhotoStem(incoming.originalFilename ?? "");
+      const hash = incoming.contentHash?.trim().toLowerCase() ?? "";
       const existing =
         (incoming.storageKey ? byStorage.get(incoming.storageKey) : undefined) ??
         (incoming.id ? byId.get(incoming.id) : undefined) ??
+        (hash ? byHash.get(hash) : undefined) ??
         (stem ? byStem.get(stem) : undefined) ??
         null;
       if (!existing) {

@@ -54,6 +54,11 @@ import {
   sortMomentsNewestFirst,
   uniqueMomentsById,
 } from "@/lib/moments";
+import {
+  dropUnreferencedDuplicatePhotos,
+  findPhotoByContentHash,
+  normalizePhotoContentHash,
+} from "@/lib/photo-dedupe";
 import type { MomentPhoto, TravelJob, TravelMoment } from "@/lib/types";
 import {
   type MomentContent,
@@ -184,11 +189,81 @@ export function resetMomentStoreForTests() {
   listed.at = 0;
   listed.files = [];
   listed.inflight = null;
+  photoHashIndex.clear();
+  photoHashIndexReady = false;
+  photoHashIndexInflight = null;
   warehouseWriteQueue = Promise.resolve();
   pendingPhotoAppends.length = 0;
   photoAppendFlush = null;
   transcriptInFlight.clear();
   transcriptJobs.clear();
+}
+
+const photoHashIndex = new Map<string, MomentPhoto>();
+let photoHashIndexReady = false;
+let photoHashIndexInflight: Promise<void> | null = null;
+
+function rememberPhotoContentHash(photo: MomentPhoto) {
+  const hash = normalizePhotoContentHash(photo.contentHash);
+  if (hash) {
+    photoHashIndex.set(hash, photo);
+  }
+}
+
+function indexMomentPhotos(moments: Iterable<TravelMoment>) {
+  for (const moment of moments) {
+    for (const photo of moment.photos) {
+      rememberPhotoContentHash(photo);
+    }
+  }
+}
+
+async function ensurePhotoHashIndex() {
+  if (photoHashIndexReady) {
+    return;
+  }
+  if (photoHashIndexInflight) {
+    await photoHashIndexInflight;
+    return;
+  }
+
+  photoHashIndexInflight = (async () => {
+    try {
+      const { content } = await readMoments({ hydrate: false });
+      indexMomentPhotos(content.moments);
+      indexMomentPhotos(getItemCache().values());
+      photoHashIndexReady = true;
+    } finally {
+      photoHashIndexInflight = null;
+    }
+  })();
+  await photoHashIndexInflight;
+}
+
+export async function findWarehousePhotoByContentHash(contentHash: string): Promise<MomentPhoto | null> {
+  const hash = normalizePhotoContentHash(contentHash);
+  if (!hash) {
+    return null;
+  }
+
+  const indexed = photoHashIndex.get(hash);
+  if (indexed) {
+    return indexed;
+  }
+
+  await ensurePhotoHashIndex();
+  const fromIndex = photoHashIndex.get(hash);
+  if (fromIndex) {
+    return fromIndex;
+  }
+
+  const cached = findPhotoByContentHash([...getItemCache().values()], hash);
+  if (cached) {
+    rememberPhotoContentHash(cached);
+    return cached;
+  }
+
+  return null;
 }
 
 let warehouseWriteQueue: Promise<void> = Promise.resolve();
@@ -205,10 +280,12 @@ function withWarehouseLock<T>(work: () => Promise<T>): Promise<T> {
 function rememberItem(moment: TravelMoment) {
   const next = normalizeTravelMoment(moment);
   getItemCache().set(next.id, next);
+  indexMomentPhotos([next]);
   return next;
 }
 
 export function rememberUploadedDisplayPhoto(momentId: string, photo: MomentPhoto) {
+  rememberPhotoContentHash(photo);
   const current = getItemCache().get(momentId);
   if (!current) {
     return;
@@ -522,7 +599,11 @@ export async function readMoments(options: { hydrate?: boolean } = {}): Promise<
   };
 }
 
-export async function writeWarehouse(moments: TravelMoment[], jobs: TravelJob[]) {
+export async function writeWarehouse(
+  moments: TravelMoment[],
+  jobs: TravelJob[],
+  options: { replacePhotos?: boolean } = {},
+) {
   const content: MomentContent = {
     jobs: jobs.map(normalizeTravelJob),
     moments: moments.map(normalizeTravelMoment),
@@ -541,6 +622,13 @@ export async function writeWarehouse(moments: TravelMoment[], jobs: TravelJob[])
     try {
       const latest = await loadDriveIndex();
       content.moments = uniqueMomentsById(overlayMoments(latest.moments, content.moments));
+      if (options.replacePhotos) {
+        const photosByMoment = new Map(moments.map((moment) => [moment.id, moment.photos]));
+        content.moments = content.moments.map((moment) => {
+          const photos = photosByMoment.get(moment.id);
+          return photos ? { ...moment, photos } : moment;
+        });
+      }
     } catch {
       content.moments = uniqueMomentsById(content.moments);
     }
@@ -819,6 +907,48 @@ export async function removePhotoFromMoment(momentId: string, photoId: string) {
 
     const next = await writeMomentItem({ ...current, photos });
     return syncIndexBestEffort([next]);
+  });
+}
+
+export async function applyUnreferencedDuplicatePhotoCleanup(linkedPhotoIds: Iterable<string>) {
+  return withWarehouseLock(async () => {
+    const { content } = await readMoments({ hydrate: false });
+    const cleaned = dropUnreferencedDuplicatePhotos(content.moments, linkedPhotoIds);
+    if (cleaned.droppedIds.length === 0) {
+      return { content, dropped: 0 };
+    }
+
+    const keepKeys = new Set(
+      cleaned.moments.flatMap((moment) => moment.photos.map((photo) => `${moment.id}:${photo.id}`)),
+    );
+    const changed: TravelMoment[] = [];
+    for (const moment of content.moments) {
+      const current = await readMomentItem(moment.id);
+      if (!current) {
+        continue;
+      }
+      const nextPhotos = current.photos.filter((photo) => keepKeys.has(`${moment.id}:${photo.id}`));
+      if (nextPhotos.length === current.photos.length) {
+        continue;
+      }
+      changed.push(await writeMomentItem({ ...current, photos: nextPhotos }));
+    }
+
+    if (changed.length === 0) {
+      return { content, dropped: 0 };
+    }
+
+    const nextById = new Map(content.moments.map((moment) => [moment.id, moment]));
+    for (const moment of changed) {
+      nextById.set(moment.id, moment);
+    }
+    const nextMoments = content.moments.map((moment) => nextById.get(moment.id) ?? moment);
+    const saved = await writeWarehouse(nextMoments, content.jobs, { replacePhotos: true });
+    photoHashIndex.clear();
+    photoHashIndexReady = false;
+    indexMomentPhotos(saved.moments);
+    photoHashIndexReady = true;
+    return { content: saved, dropped: cleaned.droppedIds.length };
   });
 }
 

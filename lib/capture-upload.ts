@@ -852,7 +852,7 @@ async function uploadCaptureVideoOnce(input: {
     if (!payload.photo) {
       throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
     }
-    return { display: source, momentId, photo: payload.photo };
+    return { display: source, duplicate: false, momentId, photo: payload.photo };
   };
 
   for (let index = 0; index < views.length; index += 1) {
@@ -949,7 +949,7 @@ async function uploadCaptureVideoOnce(input: {
       if (!payload.photo) {
         throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
       }
-      return { display: source, momentId, photo: payload.photo };
+      return { display: source, duplicate: false, momentId, photo: payload.photo };
     }
     offset = end;
   }
@@ -1015,8 +1015,8 @@ export async function uploadDisplayPhoto(input: {
     if (!response.ok) {
       throw new Error(await readError(response, CAPTURE_UPLOAD_FAILED_MESSAGE));
     }
-    const payload = await readJsonWithTimeout(response, input.signal) as { photo: MomentPhoto };
-    return { display, momentId, photo: payload.photo };
+    const payload = await readJsonWithTimeout(response, input.signal) as { duplicate?: boolean; photo: MomentPhoto };
+    return { display, duplicate: Boolean(payload.duplicate), momentId, photo: payload.photo };
   };
 
   try {

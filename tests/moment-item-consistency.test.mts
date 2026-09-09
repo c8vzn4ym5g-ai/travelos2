@@ -14,6 +14,7 @@ import {
 import {
   addMoment,
   addPhotoToMoment,
+  applyUnreferencedDuplicatePhotoCleanup,
   momentExists,
   momentItemBlobPath as storeItemPath,
   readMoments,
@@ -393,6 +394,98 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
     });
   });
 
+  test("POST photo reuses an existing warehouse photo with the same content hash", async () => {
+    await withPinEnv(undefined, async () => {
+      const [{ POST }, photos] = await Promise.all([
+        import("../app/api/moments/route.ts"),
+        import("../app/api/moments/photos/route.ts"),
+      ]);
+
+      const firstMoment = await POST(
+        new Request("http://travelos.local/api/moments", {
+          body: JSON.stringify({ note: "dump-1", time: "2026-09-09T01:00:00.000Z" }),
+          headers: { "content-type": "application/json" },
+          method: "POST",
+        }),
+      );
+      const secondMoment = await POST(
+        new Request("http://travelos.local/api/moments", {
+          body: JSON.stringify({ note: "dump-2", time: "2026-09-09T01:01:00.000Z" }),
+          headers: { "content-type": "application/json" },
+          method: "POST",
+        }),
+      );
+      assert.equal(firstMoment.status, 200);
+      assert.equal(secondMoment.status, 200);
+      const first = (await firstMoment.json()) as { moment: { id: string } };
+      const second = (await secondMoment.json()) as { moment: { id: string } };
+
+      const bytes = Uint8Array.from([9, 8, 7, 6, 5, 4]);
+      const firstData = new FormData();
+      firstData.set("momentId", first.moment.id);
+      firstData.set("file", new File([bytes], "IMG_1001.jpg", { type: "image/jpeg" }));
+      const firstPhoto = await photos.POST(
+        new Request("http://travelos.local/api/moments/photos", { body: firstData, method: "POST" }),
+      );
+      assert.equal(firstPhoto.status, 200);
+      const firstBody = (await firstPhoto.json()) as { duplicate?: boolean; photo: { id: string; storageKey: string } };
+      assert.equal(firstBody.duplicate, undefined);
+      assert.ok(firstBody.photo.id);
+      assert.match(firstBody.photo.storageKey, /^data:image\/jpeg;base64,/);
+
+      const secondData = new FormData();
+      secondData.set("momentId", second.moment.id);
+      secondData.set("file", new File([bytes], "IMG_1001.jpg", { type: "image/jpeg" }));
+      const secondPhoto = await photos.POST(
+        new Request("http://travelos.local/api/moments/photos", { body: secondData, method: "POST" }),
+      );
+      assert.equal(secondPhoto.status, 200);
+      const secondBody = (await secondPhoto.json()) as { duplicate?: boolean; photo: { id: string; storageKey: string } };
+      assert.equal(secondBody.duplicate, true);
+      assert.equal(secondBody.photo.id, firstBody.photo.id);
+      assert.equal(secondBody.photo.storageKey, firstBody.photo.storageKey);
+    });
+  });
+
+  test("write cleanup drops unreferenced hash copies and keeps journal-linked photos", async () => {
+    const hash = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+    const first = createTravelMoment({ note: "old-dump", time: "2026-09-01T00:00:00.000Z" });
+    const second = createTravelMoment({ note: "new-dump", time: "2026-09-02T00:00:00.000Z" });
+    const createdFirst = await addMoment(first);
+    const createdSecond = await addMoment(second);
+    assert.equal(createdFirst.conflict, false);
+    assert.equal(createdSecond.conflict, false);
+    if (createdFirst.conflict || createdSecond.conflict) {
+      return;
+    }
+
+    await addPhotoToMoment(createdFirst.moment.id, {
+      ...testPhoto(createdFirst.moment.id, "photo_extra"),
+      contentHash: hash,
+      createdAt: "2026-09-01T00:00:00.000Z",
+      originalFilename: "extra.jpg",
+      storageKey: "https://blob.local/extra.jpg",
+    });
+    await addPhotoToMoment(createdSecond.moment.id, {
+      ...testPhoto(createdSecond.moment.id, "photo_journal"),
+      contentHash: hash,
+      createdAt: "2026-09-02T00:00:00.000Z",
+      originalFilename: "journal.jpg",
+      storageKey: "https://blob.local/journal.jpg",
+    });
+    await addPhotoToMoment(createdSecond.moment.id, {
+      ...testPhoto(createdSecond.moment.id, "photo_unique"),
+      contentHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      originalFilename: "unique.jpg",
+      storageKey: "https://blob.local/unique.jpg",
+    });
+
+    const cleaned = await applyUnreferencedDuplicatePhotoCleanup(["photo_journal"]);
+    assert.equal(cleaned.dropped, 1);
+    const photos = cleaned.content.moments.flatMap((moment) => moment.photos.map((photo) => photo.id)).sort();
+    assert.deepEqual(photos, ["photo_journal", "photo_unique"]);
+  });
+
   test("POST /api/moments/transcript awaits fill and persists speech text", async () => {
     await withPinEnv(undefined, async () => {
       const [{ POST }, audio, transcript] = await Promise.all([
@@ -661,6 +754,29 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
       );
       assert.equal(photoGet.status, 200);
       assert.deepEqual([...new Uint8Array(await photoGet.arrayBuffer())], [9, 8, 7, 6]);
+      const driveFilesAfterFirst = files.size;
+
+      const secondMomentResponse = await POST(
+        new Request("http://travelos.local/api/moments", {
+          body: JSON.stringify({ note: "drive-dump-2", time: "2026-08-28T09:01:00.000Z" }),
+          headers: { "content-type": "application/json" },
+          method: "POST",
+        }),
+      );
+      assert.equal(secondMomentResponse.status, 200);
+      const secondMoment = (await secondMomentResponse.json()) as { moment: { id: string } };
+      const dupData = new FormData();
+      dupData.set("momentId", secondMoment.moment.id);
+      dupData.set("file", new File([Uint8Array.from([9, 8, 7, 6])], "lake.jpg", { type: "image/jpeg" }));
+      const dupResponse = await photos.POST(
+        new Request("http://travelos.local/api/moments/photos", { body: dupData, method: "POST" }),
+      );
+      assert.equal(dupResponse.status, 200);
+      const dupJson = (await dupResponse.json()) as { duplicate?: boolean; photo: { id: string; storageKey: string } };
+      assert.equal(dupJson.duplicate, true);
+      assert.equal(dupJson.photo.id, photoJson.photo.id);
+      assert.equal(dupJson.photo.storageKey, photoJson.photo.storageKey);
+      assert.equal(files.size, driveFilesAfterFirst);
 
       const audioData = new FormData();
       audioData.set("momentId", created.moment.id);

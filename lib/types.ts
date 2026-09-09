@@ -230,6 +230,7 @@ export interface MomentPhoto {
   createdAt: string;
   kind?: MomentMediaKind;
   mimeType?: string | null;
+  contentHash?: string | null;
 }
 
 export interface TravelMoment {

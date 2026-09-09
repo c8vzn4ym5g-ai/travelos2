@@ -53,6 +53,20 @@ function pinHeaders(pin: string) {
   return familyPinHeaders(pin);
 }
 
+type DedupeResponse = MomentsResponse & { dropped?: number };
+
+async function cleanWriteWarehouseDuplicates(sessionPin: string) {
+  const response = await fetch("/api/moments/dedupe", {
+    cache: "no-store",
+    headers: pinHeaders(sessionPin),
+    method: "POST",
+  });
+  if (!response.ok) {
+    return null;
+  }
+  return (await response.json()) as DedupeResponse;
+}
+
 export default function SitAndWritePage() {
   const router = useRouter();
   const [pin, setPin] = useState("");
@@ -97,16 +111,19 @@ export default function SitAndWritePage() {
 
   const load = useCallback(async () => {
     const sessionPin = window.sessionStorage.getItem(FAMILY_ADMIN_SESSION_KEY) ?? pin;
-    const [momentsResponse, tripsResponse] = await Promise.all([
+    const [momentsResponse, tripsResponse, cleaned] = await Promise.all([
       fetch("/api/moments", { cache: "no-store", headers: pinHeaders(sessionPin) }),
       fetch("/api/trips/content", { cache: "no-store", headers: pinHeaders(sessionPin) }),
+      cleanWriteWarehouseDuplicates(sessionPin),
     ]);
 
-    if (!momentsResponse.ok) {
+    if (!momentsResponse.ok && !cleaned?.content) {
       throw new Error("Could not load moments.");
     }
 
-    const momentData = (await momentsResponse.json()) as MomentsResponse;
+    const momentData = (cleaned?.content
+      ? cleaned
+      : ((await momentsResponse.json()) as MomentsResponse)) as MomentsResponse;
     const requestedJobId = new URLSearchParams(window.location.search).get("job");
     setMoments(momentData.content.moments);
     setJobs(momentData.content.jobs ?? []);
@@ -400,6 +417,13 @@ export default function SitAndWritePage() {
 
     try {
       const sessionPin = window.sessionStorage.getItem(FAMILY_ADMIN_SESSION_KEY) ?? pin;
+      if (attachTripId) {
+        const cleaned = await cleanWriteWarehouseDuplicates(sessionPin);
+        if (cleaned?.content) {
+          setMoments(cleaned.content.moments);
+          setJobs(cleaned.content.jobs ?? jobs);
+        }
+      }
 
       if (activeJob) {
         const nextJob: TravelJob = {

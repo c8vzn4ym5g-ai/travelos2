@@ -37,6 +37,9 @@ test("capture does not create trips and photos append to a moment", async () => 
   assert.match(capture, /trips\/write\?job=/);
   assert.match(photosApi, /addPhotoToMoment\(momentId, photo\)/);
   assert.match(photosApi, /storeMomentBinary/);
+  assert.match(photosApi, /findWarehousePhotoByContentHash/);
+  assert.match(photosApi, /hashPhotoBytes/);
+  assert.match(photosApi, /duplicate: true/);
   assert.match(photosApi, /kind: momentMediaKindFromFile/);
   assert.match(photosApi, /mimeType: file.type/);
   assert.match(photosApi, /afterResponse\(async \(\) => \{/);
@@ -204,13 +207,19 @@ test("family home lists live Drive trip drafts for iPhone edit", async () => {
   assert.match(write, /轉成遊記/);
   assert.match(write, /writeWriteLocalDraft/);
   assert.match(write, /有未保存草稿/);
+  assert.match(write, /\/api\/moments\/dedupe/);
+  assert.match(write, /cleanWriteWarehouseDuplicates/);
 });
 
 test("sit-and-write has no generated story and lists warehouse photos", async () => {
   const write = await readSource("app/trips/write/page.tsx");
+  const dedupeApi = await readSource("app/api/moments/dedupe/route.ts");
 
   assert.match(write, /Moment assets/);
   assert.match(write, /轉成遊記/);
+  assert.match(dedupeApi, /journalLinkedPhotoIds/);
+  assert.match(dedupeApi, /applyUnreferencedDuplicatePhotoCleanup/);
+  assert.match(dedupeApi, /isAdminPinValid/);
   assert.match(write, /<h1 className="travel-display mt-2 text-4xl font-semibold">Write<\/h1>/);
   assert.match(write, /value=\{draft\}/);
   assert.match(write, /method: "PUT"/);
@@ -408,6 +417,8 @@ test("background upload starts on add and Save does not wait on originals", asyn
   );
   assert.match(uploadFn, /applyGeneration/);
   assert.match(uploadFn, /uploadGeneration: generation/);
+  assert.match(uploadFn, /if \(!uploaded\.duplicate\)/);
+  assert.match(uploadFn, /uploadOriginalPhotoInBackground/);
   const retryHeld = capture.slice(
     capture.indexOf("function beginStagedPhotoRetry"),
     capture.indexOf("function retakePhoto"),
@@ -464,6 +475,10 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(displayPost, /addPhotoToMoment\(momentId, photo\)/);
   assert.doesNotMatch(displayPost, /if \(!content\) \{\s*return Response\.json\(\{ error: "Moment not found" \}/);
   assert.match(displayPost, /return Response\.json\(\{ photo \}\)/);
+  assert.match(displayPost, /findWarehousePhotoByContentHash\(contentHash\)/);
+  assert.match(displayPost, /hashPhotoBytes\(displayBytes\)/);
+  assert.ok(displayPost.indexOf("hashPhotoBytes") < displayPost.indexOf("storeMomentBinary"));
+  assert.ok(displayPost.indexOf("findWarehousePhotoByContentHash") < displayPost.indexOf("storeMomentBinary"));
   assert.ok(displayPost.indexOf("storeMomentBinary") < displayPost.indexOf("return Response.json({ photo })"));
   assert.ok(displayPost.indexOf("afterResponse") < displayPost.indexOf("return Response.json({ photo })"));
   assert.match(photosApi, /setPhotoOriginal/);
@@ -572,12 +587,14 @@ test("write uses a found set for photos and does not fill the writing area", asy
   assert.match(write, /createTravelJob\(\{/);
   assert.match(write, /JSON.stringify\(\{ job: nextJob \}\)/);
   assert.match(write, /method: "PUT"/);
+  assert.match(write, /\/api\/moments\/dedupe/);
+  assert.match(write, /if \(attachTripId\) \{/);
+  assert.match(write, /cleanWriteWarehouseDuplicates/);
   assert.match(momentsApi, /const created = await addJob\(nextJob\)/);
   assert.doesNotMatch(write, /foundSetDraftsRef/);
   assert.doesNotMatch(write, /setDraft\(foundSetJob.command\)/);
   assert.doesNotMatch(write, /setDraft\(foundSetCommand/);
   assert.doesNotMatch(write, /\/api\/trips\/photos/);
-  assert.doesNotMatch(write, /method: "POST"/);
   assert.doesNotMatch(write, /placeholder=/);
   assert.doesNotMatch(write, /\/api\/trips\/content[\s\S]*method: "POST"/);
   assert.doesNotMatch(capture, /usingFoundSet/);
