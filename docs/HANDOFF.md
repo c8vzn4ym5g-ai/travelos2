@@ -37,13 +37,18 @@ Open in iPhone Safari, same PIN flow as `/family`:
 - 巴黎→萊茵: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_paris-rhine_2013
 - 羅浮宮: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_paris-louvre_2023
 - 克羅埃西亞→威尼斯: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_croatia-venice_2011
-- 爱慕虚荣团 · 京都枫叶: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_kyoto_maple
+- 爱慕虚荣团 · 岚山翠嵐: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_kyoto_maple_arashiyama
+- 爱慕虚荣团 · 银阁寺线: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_kyoto_maple_ginkaku
+- 爱慕虚荣团 · 东山朱色: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_kyoto_maple_higashiyama
+- 爱慕虚荣团 · 团主题: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_kyoto_maple_crew_notes
 - Write / 轉成遊記: https://travelos2.chao-jason.workers.dev/trips/write
 
 `/family` 編輯 → 旅行遊記 opens the same `/trips/admin` picker the six
-journeys already use. Kyoto maple chapters fold into **one** private
-trip `trip_kyoto_maple` (爱慕虚荣团 · 京都枫叶). Do not add maple-only
-pills or a second editor door. Public `/trips` still only lists Lapland.
+journeys already use. 爱慕虚荣团 is a **series**, not one mega trip:
+Kyoto maple stays as place journals (岚山翠嵐 / 银阁 / 东山 / 团主题).
+The unconfirmed 东福寺 candidate is held out of the editor. Search
+`爱慕虚荣团` can collect the line later; with no search each journal
+is a normal independent trip. Public `/trips` still only lists Lapland.
 
 Phone edits autosave to `localStorage` (`travelos-trip-draft:` /
 `travelos-write-draft:`), flushed on debounce, interval, blur,

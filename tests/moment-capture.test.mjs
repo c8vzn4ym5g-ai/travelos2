@@ -160,7 +160,8 @@ test("family session is required and capture does not add a PIN form", async () 
   assert.match(family, /href="\/family\/capture"/);
   assert.match(family, /href="\/trips\/write"/);
   assert.match(family, /href="\/family\/bench"/);
-  assert.match(family, /FamilyEditableTrips/);
+  assert.match(family, /FamilyUnlockPanel/);
+  assert.doesNotMatch(family, /FamilyEditableTrips/);
   assert.match(capture, /FAMILY_ADMIN_SESSION_KEY/);
   assert.match(capture, /resolveFamilySession/);
   assert.match(capture, /router\.replace\("\/family"\)/);
@@ -180,20 +181,17 @@ test("family session is required and capture does not add a PIN form", async () 
   }
 });
 
-test("family home lists live Drive trip drafts for iPhone edit", async () => {
-  const [family, list, admin, write] = await Promise.all([
+test("family home opens the same travel editor door without extra trip pills", async () => {
+  const [family, admin, write] = await Promise.all([
     readSource("app/family/page.tsx"),
-    readSource("app/family/family-editable-trips.tsx"),
     readSource("app/trips/admin/page.tsx"),
     readSource("app/trips/write/page.tsx"),
   ]);
 
-  assert.match(family, /FamilyEditableTrips/);
-  assert.match(list, /readContent/);
-  assert.match(list, /\/trips\/admin\?trip=/);
-  assert.doesNotMatch(list, /trip_kyoto_maple_/);
-  assert.match(list, /data-family-editable-trips=""/);
-  assert.match(list, />編輯</);
+  assert.doesNotMatch(family, /FamilyEditableTrips/);
+  assert.doesNotMatch(family, /\/trips\/admin\?trip=/);
+  assert.match(family, /editHref: "\/trips\/admin"/);
+  assert.match(family, />編輯</);
   assert.match(admin, /resolveFamilySession/);
   assert.match(admin, /requestedTripId/);
   assert.match(admin, /applyTripLocalDrafts/);

@@ -1,10 +1,9 @@
 import { getDriveAccess } from "@/lib/drive-warehouse";
-import { KYOTO_MAPLE_CHAPTER_IDS, KYOTO_MAPLE_TRIP_ID, foldKyotoMapleTrips } from "@/lib/kyoto-maple-merge";
+import { VANITY_CREW_HELD_TRIP_IDS, prepareFamilyEditorTrips } from "@/lib/trip-series";
 import type { TripDetail } from "@/lib/types";
 
 const prefix = "travelos__trip__";
-const mapleCanonicalFileName = `${prefix}${KYOTO_MAPLE_TRIP_ID}.json`;
-const mapleChapterFileNames = new Set(KYOTO_MAPLE_CHAPTER_IDS.map((id) => `${prefix}${id}.json`));
+const heldTripFileNames = new Set(VANITY_CREW_HELD_TRIP_IDS.map((id) => `${prefix}${id}.json`));
 
 export type DriveTripFile = {
   id: string;
@@ -40,12 +39,7 @@ export function selectLatestDriveTripFiles(files: DriveTripFile[]) {
 }
 
 export function selectDriveTripFilesForRead(files: DriveTripFile[]) {
-  const latest = selectLatestDriveTripFiles(files);
-  const hasCanonical = latest.some((file) => file.name === mapleCanonicalFileName);
-  if (!hasCanonical) {
-    return latest;
-  }
-  return latest.filter((file) => !mapleChapterFileNames.has(file.name));
+  return selectLatestDriveTripFiles(files).filter((file) => !heldTripFileNames.has(file.name));
 }
 
 export function preferLatestDriveTrips(
@@ -84,7 +78,7 @@ export async function readDriveTrips(): Promise<TripDetail[]> {
     const trip = await result.json() as TripDetail;
     return { modifiedTime: file.modifiedTime, trip };
   }));
-  return foldKyotoMapleTrips(preferLatestDriveTrips(loaded));
+  return prepareFamilyEditorTrips(preferLatestDriveTrips(loaded));
 }
 
 export async function writeDriveTrip(trip: TripDetail) {

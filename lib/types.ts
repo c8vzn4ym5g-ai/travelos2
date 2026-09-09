@@ -50,6 +50,8 @@ export interface Trip extends TimestampedRecord {
   endDate: string;
   coverPhotoId: string | null;
   visibility: TravelVisibility;
+  series?: string | null;
+  seriesAliases?: string[];
   rating: number | null;
   totalCost: Money | null;
   coordinates: GeoPoint | null;

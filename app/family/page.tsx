@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { FamIconWell } from "./family-icons";
 import { FamilyBackLink } from "./family-back";
-import { FamilyEditableTrips } from "./family-editable-trips";
 import { FamilyUnlockPanel } from "./family-unlock-panel";
 
 const departments = [
@@ -110,8 +109,6 @@ export default function FamilyWorkspacePage() {
           ))}
         </div>
       </section>
-
-      <FamilyEditableTrips />
 
       <section className="fam-sheet">
         <article className="fam-sticker">

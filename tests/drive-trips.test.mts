@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   preferLatestDriveTrips,
+  selectDriveTripFilesForRead,
   selectLatestDriveTripFiles,
 } from "../lib/drive-trips.ts";
 import type { TripDetail } from "../lib/types.ts";
@@ -82,10 +83,24 @@ test("parsed Drive trips keep the latest copy per trip id", () => {
   assert.equal(trips[0]?.visibility, "private");
 });
 
-test("Drive trip reader folds maple chapters after keeping the latest file", async () => {
+test("Drive listing holds the mega maple trip and unconfirmed tofukuji candidate", () => {
+  const files = selectDriveTripFilesForRead([
+    { id: "canonical", name: "travelos__trip__trip_kyoto_maple.json", modifiedTime: "2026-09-09T12:00:00.000Z" },
+    { id: "tofuku", name: "travelos__trip__trip_kyoto_maple_tofukuji_path.json", modifiedTime: "2026-09-09T10:08:00.000Z" },
+    { id: "ara", name: "travelos__trip__trip_kyoto_maple_arashiyama.json", modifiedTime: "2026-09-09T10:12:00.000Z" },
+    { id: "kyushu", name: "travelos__trip__trip_kyushu_family_2026.json", modifiedTime: "2026-09-09T10:00:00.000Z" },
+  ]);
+  assert.deepEqual(
+    files.map((file) => file.id).sort(),
+    ["ara", "kyushu"],
+  );
+});
+
+test("Drive trip reader holds unconfirmed maple files and prepares the series", async () => {
   const source = await import("node:fs/promises").then((fs) =>
     fs.readFile(new URL("../lib/drive-trips.ts", import.meta.url), "utf8"),
   );
-  assert.match(source, /foldKyotoMapleTrips/);
+  assert.match(source, /prepareFamilyEditorTrips/);
   assert.match(source, /selectDriveTripFilesForRead/);
+  assert.match(source, /VANITY_CREW_HELD_TRIP_IDS/);
 });
