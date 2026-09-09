@@ -153,6 +153,7 @@ test("family session is required and capture does not add a PIN form", async () 
   assert.match(family, /href="\/family\/capture"/);
   assert.match(family, /href="\/trips\/write"/);
   assert.match(family, /href="\/family\/bench"/);
+  assert.match(family, /FamilyEditableTrips/);
   assert.match(capture, /FAMILY_ADMIN_SESSION_KEY/);
   assert.match(capture, /resolveFamilySession/);
   assert.match(capture, /router\.replace\("\/family"\)/);
@@ -170,6 +171,24 @@ test("family session is required and capture does not add a PIN form", async () 
     assert.match(editor, /resolveFamilySession/);
     assert.doesNotMatch(editor, /type="password"/);
   }
+});
+
+test("family home lists live Drive trip drafts for iPhone edit", async () => {
+  const [family, list, admin, write] = await Promise.all([
+    readSource("app/family/page.tsx"),
+    readSource("app/family/family-editable-trips.tsx"),
+    readSource("app/trips/admin/page.tsx"),
+    readSource("app/trips/write/page.tsx"),
+  ]);
+
+  assert.match(family, /FamilyEditableTrips/);
+  assert.match(list, /readContent/);
+  assert.match(list, /\/trips\/admin\?trip=/);
+  assert.match(list, /data-family-editable-trips=""/);
+  assert.match(list, />編輯</);
+  assert.match(admin, /resolveFamilySession/);
+  assert.match(admin, /requestedTripId/);
+  assert.match(write, /轉成遊記/);
 });
 
 test("sit-and-write has no generated story and lists warehouse photos", async () => {
