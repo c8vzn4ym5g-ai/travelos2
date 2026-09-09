@@ -51,11 +51,16 @@ pnpm exec wrangler secret put TRAVELOS_DRIVE_WAREHOUSE_TOKEN
 ```
 
 The receiver source of truth in-repo is `scripts/drive-warehouse-apps-script.js`.
-It must list folder files (`op=list`), return Drive thumbnails (`op=thumb`),
+It must list folder files (`op=list`), return a single moment item
+(`GET op=item&name=`), return Drive thumbnails (`op=thumb`),
 merge `photos[]` under LockService on index/item writes, and keep binaries
-named `travelos__moments__photos__*`. Deploy a new version of the existing
-web app (do not change the `/exec` URL). Bench still serves a JPEG thumb
-from EXIF if `op=thumb` is not deployed yet.
+named `travelos__moments__photos__*`. Index POST is merge-on-write: a patch
+with only `{ moments: [oneMoment] }` (no `jobs`) updates that moment without
+the Worker downloading `moments.json`. Deploy a new version of the existing
+web app (do not change the `/exec` URL). Capture photo appends write the
+item shard only; they must not `op=list` or GET the fat index. Bench still
+serves a JPEG thumb from EXIF if `op=thumb` is not deployed yet. If GET
+`op=item` is not deployed yet, the Worker falls back to Drive API by filename.
 
 Wrangler vars/secrets show up on `process.env` because `wrangler.jsonc` uses `compatibility_date` ≥ `2025-04-01` and `nodejs_compat`.
 

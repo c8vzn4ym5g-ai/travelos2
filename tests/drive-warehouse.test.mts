@@ -14,6 +14,7 @@ import {
   getDriveWarehouseToken,
   getDriveWarehouseUrl,
   getIndex,
+  getItem,
   parseDriveFileId,
   putBinary,
   putIndex,
@@ -80,6 +81,14 @@ test("getIndex, putIndex, putItem, putBinary, and getBinary use a fake fetch", a
       if (parsed.searchParams.get("op") === "index") {
         return jsonResponse(JSON.parse(indexText));
       }
+      if (parsed.searchParams.get("op") === "item") {
+        const name = parsed.searchParams.get("name") ?? "";
+        const text = items.get(name);
+        if (!text) {
+          return jsonResponse({ error: "not found", name });
+        }
+        return new Response(text, { headers: { "content-type": "application/json" } });
+      }
       if (parsed.searchParams.get("op") === "list") {
         return jsonResponse({
           files: [...files.entries()].map(([id, file]) => ({
@@ -133,6 +142,9 @@ test("getIndex, putIndex, putItem, putBinary, and getBinary use a fake fetch", a
   const itemSaved = await putItem(itemName, JSON.stringify({ moment }), fakeFetch);
   assert.equal(itemSaved.ok, true);
   assert.equal(JSON.parse(items.get(itemName) ?? "{}").moment.id, moment.id);
+  const loadedItem = await getItem(itemName, fakeFetch);
+  assert.equal(loadedItem?.id, moment.id);
+  assert.equal(loadedItem?.note, "drive-item");
 
   const indexBody = JSON.stringify({
     jobs: [],
@@ -441,8 +453,11 @@ test("Apps Script locks only index/item writes so photo binaries stay parallel",
 
   const doGet = extractNamedFunction(script, "doGet");
   assert.match(doGet, /op === "drive-access"/);
+  assert.match(doGet, /op === "item"/);
+  assert.match(doGet, /getFilesByName\(itemName\)/);
   assert.match(doGet, /ScriptApp\.getOAuthToken/);
   assert.match(doGet, /folderId: FOLDER_ID/);
+  assert.ok(doGet.indexOf('op === "item"') < doGet.indexOf('error: "missing id"'));
   assert.ok(doGet.indexOf('op === "drive-access"') < doGet.indexOf('error: "missing id"'));
 
   const unlocked = stripWithLockCalls(doPost);

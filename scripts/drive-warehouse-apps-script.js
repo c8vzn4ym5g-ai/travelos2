@@ -155,7 +155,8 @@ function writeIndex_(body) {
   var incoming = JSON.parse(body.text || "{}");
   var existing = readIndexObject_();
   var merged = {
-    jobs: incoming.jobs || existing.jobs || [],
+    // Omit jobs on a photo/item patch so the fat catalog does not wipe jobs.
+    jobs: Object.prototype.hasOwnProperty.call(incoming, "jobs") ? incoming.jobs : existing.jobs || [],
     moments: mergeMomentLists_(existing.moments, incoming.moments),
     schemaVersion: incoming.schemaVersion || existing.schemaVersion || 2,
     updatedAt: new Date().toISOString(),
@@ -207,6 +208,21 @@ function doGet(e) {
   }
   if (op === "index") {
     return json_(readIndexObject_());
+  }
+  if (op === "item") {
+    var itemName = String((e.parameter && e.parameter.name) || "");
+    if (!itemName) {
+      return json_({ error: "missing name" });
+    }
+    var itemFiles = folder_().getFilesByName(itemName);
+    if (!itemFiles.hasNext()) {
+      return json_({ error: "not found", name: itemName });
+    }
+    try {
+      return json_(JSON.parse(itemFiles.next().getBlob().getDataAsString()));
+    } catch (err) {
+      return json_({ error: "invalid item", name: itemName });
+    }
   }
   if (op === "list") {
     return json_({ files: listFiles_() });

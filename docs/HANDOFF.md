@@ -1,5 +1,30 @@
 # TravelOS Handoff
 
+## 2026-09-09 Capture photo path no longer rewrites the fat catalog
+
+Live CF was still slow after concurrency=3: full GET `/api/moments` ~70s
+(122 moments / ~1353 photos), and a 38-photo round took ~27 min because
+each photo's afterResponse `addPhotoToMoment` did `getIndex` +
+`hydrateDriveMoments` (`op=list` over the whole folder) + `putIndex` of
+`moments.json`. Apps Script LockService then serialized those writes, so
+binary POSTs queued behind catalog RMW.
+
+Now:
+
+- Photo flush reads/writes **one item shard** (`GET/POST op=item`). It
+  does not GET `moments.json` and does not `op=list` / hydrate.
+- Drive index sync is a **patch PUT** (one moment, no prior GET). Apps
+  Script merge-on-write keeps the rest of the catalog.
+- Full GET `/api/moments` no longer hydrates from a Drive file list.
+  Use `/api/moments/rebuild` or `?hydrate=1` when you need a file scan.
+- GET `/api/moments?id=` is shard-first.
+
+Paste `scripts/drive-warehouse-apps-script.js` into the existing web app
+(same `/exec` URL) so `GET op=item&name=` is live. Until then the Worker
+falls back to Drive API by filename. No Capture-entry dedupe. Caps stay
+40/round and POST concurrency 3. Sole live door:
+`https://travelos2.chao-jason.workers.dev`.
+
 ## 2026-09-09 Capture caps concurrent POSTs; photo hang is not 28s
 
 `/family/capture` still lets Owner pick up to 40 in one round (no album

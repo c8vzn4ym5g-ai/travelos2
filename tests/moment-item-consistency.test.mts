@@ -40,6 +40,18 @@ function jsonStream(value: unknown) {
   return { statusCode: 200, stream: new Blob([JSON.stringify(value)]).stream() };
 }
 
+function driveItemGetResponse(parsed: URL, items: Map<string, string>) {
+  if (parsed.searchParams.get("op") !== "item") {
+    return null;
+  }
+  const name = parsed.searchParams.get("name") ?? "";
+  const text = items.get(name);
+  if (!text) {
+    return Response.json({ error: "not found", name });
+  }
+  return new Response(text, { headers: { "content-type": "application/json" } });
+}
+
 function createStaleIndexBlob() {
   const origin = new Map<string, string>();
   const indexCdn = new Map<string, string>();
@@ -147,6 +159,102 @@ test("Drive addMoment does not wait on index sync before returning the item", as
   assert.match(addBlock, /afterResponse\(\(\) => syncIndexBestEffort\(\[savedMoment\]\)\)/);
   assert.match(addBlock, /shouldUseDriveWarehouse\(\)/);
   assert.ok(addBlock.indexOf("writeMomentItem") < addBlock.indexOf("afterResponse"));
+});
+
+test("Drive addPhotoToMoment does not GET the catalog or list Drive files", async () => {
+  const calls: string[] = [];
+  const items = new Map<string, string>();
+  const moment = createTravelMoment({ note: "shard-photo", time: "2026-09-09T13:27:00.000Z" });
+  items.set(
+    `travelos__moments__items__${moment.id}.json`,
+    JSON.stringify({ moment, updatedAt: moment.createdAt }),
+  );
+
+  resetMomentStoreForTests();
+  setDriveWarehouseFetchForTests((async (input, init) => {
+    const url = String(input);
+    const method = (init?.method ?? "GET").toUpperCase();
+    calls.push(`${method} ${url}`);
+    if (method === "GET") {
+      const parsed = new URL(url);
+      const itemGet = driveItemGetResponse(parsed, items);
+      if (itemGet) {
+        return itemGet;
+      }
+      const op = parsed.searchParams.get("op") ?? "";
+      if (op === "index" || op === "list") {
+        throw new Error(`photo flush must not GET ${op}`);
+      }
+      return Response.json({ error: "not found" }, { status: 404 });
+    }
+
+    const payload = JSON.parse(String(init?.body ?? "{}")) as { name?: string; op?: string; text?: string };
+    if (payload.op === "item") {
+      items.set(payload.name ?? "", payload.text ?? "");
+      return Response.json({ ok: true, name: payload.name });
+    }
+    if (payload.op === "index") {
+      return Response.json({ ok: true, name: "moments.json" });
+    }
+    throw new Error(`unexpected drive op ${payload.op ?? method}`);
+  }) as typeof fetch);
+
+  try {
+    const photo = testPhoto(moment.id, "moment_photo_shard_1");
+    const saved = await addPhotoToMoment(moment.id, photo);
+    assert.ok(saved);
+    assert.equal(saved?.moments.find((item) => item.id === moment.id)?.photos[0]?.id, photo.id);
+    assert.equal(
+      calls.some((call) => call.startsWith("GET ") && call.includes("op=index")),
+      false,
+    );
+    assert.equal(
+      calls.some((call) => call.includes("op=list")),
+      false,
+    );
+    assert.equal(
+      calls.some((call) => call.startsWith("GET ") && call.includes("op=item")),
+      true,
+    );
+    const itemBody = [...items.values()].find((text) => text.includes(photo.id));
+    assert.ok(itemBody);
+  } finally {
+    resetMomentStoreForTests();
+  }
+});
+
+test("Drive photo flush writes the item shard and never loads the fat catalog", async () => {
+  const store = await readSource("lib/moment-store.ts");
+  const flushStart = store.indexOf("async function flushPhotoAppends");
+  const flushEnd = store.indexOf("export function addPhotoToMoment");
+  const flushBlock = store.slice(flushStart, flushEnd);
+  assert.match(flushBlock, /readMomentItem\(momentId, \{ allowIndex: false \}\)/);
+  assert.match(flushBlock, /writeMomentItem/);
+  assert.match(flushBlock, /afterResponse\(\(\) => syncIndexBestEffort\(acceptedItems\)\)/);
+  assert.doesNotMatch(flushBlock, /hydrateDriveMoments/);
+  assert.doesNotMatch(flushBlock, /persistHydratedMoments/);
+  assert.doesNotMatch(flushBlock, /loadDriveIndex/);
+  assert.doesNotMatch(flushBlock, /scanWarehouseFiles/);
+
+  const readItemStart = store.indexOf("async function readMomentItem");
+  const readItemEnd = store.indexOf("async function writeMomentItem");
+  const readItemBlock = store.slice(readItemStart, readItemEnd);
+  assert.match(readItemBlock, /loadDriveMomentShard/);
+  assert.ok(readItemBlock.indexOf("loadDriveMomentShard") < readItemBlock.indexOf("loadDriveIndex"));
+
+  const shardFn = store.slice(
+    store.indexOf("async function loadDriveMomentShard"),
+    store.indexOf("export async function resolveMomentPhoto"),
+  );
+  assert.match(shardFn, /getItem\(/);
+
+  const route = await readSource("app/api/moments/route.ts");
+  assert.match(route, /searchParams.get\("hydrate"\)\?\.trim\(\) === "1"/);
+  assert.match(route, /readMoments\(\{ hydrate \}\)/);
+
+  const readMomentsStart = store.indexOf("export async function readMoments");
+  const readMomentsBlock = store.slice(readMomentsStart, store.indexOf("export async function writeWarehouse"));
+  assert.match(readMomentsBlock, /options.hydrate === true/);
 });
 
 test("unique moment item path is the id and does not add a random suffix", () => {
@@ -579,6 +687,10 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
           if (parsed.searchParams.get("op") === "index") {
             return new Response(indexText, { headers: { "content-type": "application/json" } });
           }
+          const itemGet = driveItemGetResponse(parsed, items);
+          if (itemGet) {
+            return itemGet;
+          }
           if (parsed.searchParams.get("op") === "list") {
             return Response.json({
               files: [...files.entries()].map(([id, file]) => ({
@@ -703,6 +815,10 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
           if (parsed.searchParams.get("op") === "index") {
             return new Response(indexText, { headers: { "content-type": "application/json" } });
           }
+          const itemGet = driveItemGetResponse(parsed, items);
+          if (itemGet) {
+            return itemGet;
+          }
           if (parsed.searchParams.get("op") === "list") {
             return Response.json({
               files: [...files.entries()].map(([id, file]) => ({
@@ -824,6 +940,12 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
         if (method === "GET") {
           const parsed = new URL(String(_input));
           if (parsed.searchParams.get("op") === "index") {
+            return new Promise<Response>(() => {});
+          }
+          if (parsed.searchParams.get("op") === "item") {
+            return Response.json({ error: "not found" });
+          }
+          if (parsed.searchParams.get("op") === "list") {
             return new Promise<Response>(() => {});
           }
           return new Response("not found", { status: 404 });

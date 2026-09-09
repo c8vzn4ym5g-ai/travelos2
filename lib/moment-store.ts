@@ -10,6 +10,7 @@ import {
   driveObjectName,
   driveStorageKey,
   getIndex,
+  getItem,
   isDriveWarehouseFetchOverridden,
   putBinary,
   putIndex,
@@ -48,6 +49,7 @@ import {
   applyMomentPhotoAppends,
   isCaptureVideoFile,
   mergeMomentPhotos,
+  mergeTravelMoment,
   momentItemBlobPath,
   normalizeTravelJob,
   normalizeTravelMoment,
@@ -394,6 +396,14 @@ export async function getMomentById(momentId: string) {
   return readMomentItem(momentId);
 }
 
+async function loadDriveMomentShard(momentId: string): Promise<TravelMoment | null> {
+  try {
+    return await getItem(driveObjectName(momentItemBlobPath(momentId)));
+  } catch {
+    return null;
+  }
+}
+
 export async function resolveMomentPhoto(momentId: string, photoId: string) {
   const moment = await getMomentById(momentId);
   const found = findMomentPhoto(moment, photoId);
@@ -411,18 +421,30 @@ export async function resolveMomentPhoto(momentId: string, photoId: string) {
   return findMomentPhoto(match, photoId);
 }
 
-async function readMomentItem(momentId: string): Promise<TravelMoment | null> {
+async function readMomentItem(
+  momentId: string,
+  options: { allowIndex?: boolean } = {},
+): Promise<TravelMoment | null> {
   const cached = getItemCache().get(momentId);
+  const allowIndex = options.allowIndex !== false;
 
   if (isMomentWarehouseConfigured() && shouldUseDriveWarehouse()) {
-    const index = await loadDriveIndex();
+    const fromItem = await loadDriveMomentShard(momentId);
     const merged =
-      uniqueMomentsById([...index.moments, ...(cached ? [cached] : []), ...getItemCache().values()]).find(
+      fromItem && cached ? mergeTravelMoment(fromItem, cached) : (fromItem ?? cached ?? null);
+    if (merged) {
+      return rememberItem(merged);
+    }
+    if (!allowIndex) {
+      return null;
+    }
+
+    const index = await loadDriveIndex();
+    const fromIndex =
+      uniqueMomentsById([...index.moments, ...getItemCache().values()]).find(
         (moment) => moment.id === momentId,
-      ) ??
-      cached ??
-      null;
-    return merged ? rememberItem(merged) : null;
+      ) ?? null;
+    return fromIndex ? rememberItem(fromIndex) : null;
   }
 
   if (cached) {
@@ -434,6 +456,10 @@ async function readMomentItem(momentId: string): Promise<TravelMoment | null> {
     if (fromBlob) {
       return rememberItem(fromBlob);
     }
+  }
+
+  if (!allowIndex) {
+    return null;
   }
 
   const index = await readIndexRaw();
@@ -469,6 +495,38 @@ async function syncIndexBestEffort(
     rememberItem(moment);
   }
 
+  if (shouldUseDriveWarehouse()) {
+    const patched =
+      photoAppends.length > 0
+        ? applyMomentPhotoAppends(
+            updatedMoments.length > 0 ? updatedMoments : [...getItemCache().values()],
+            photoAppends,
+          )
+        : updatedMoments;
+    const unique = uniqueMomentsById(patched);
+    try {
+      // Apps Script merge-on-write. Do not GET the fat catalog first.
+      await putIndex(
+        JSON.stringify({
+          moments: unique,
+          schemaVersion: MOMENTS_SCHEMA_VERSION,
+          updatedAt: new Date().toISOString(),
+        }),
+      );
+    } catch {
+      // Item shards stay the source of truth.
+    }
+    const lastWrite = getLastIndexWrite();
+    const content = {
+      jobs: lastWrite?.jobs ?? [],
+      moments: overlayMoments(lastWrite?.moments ?? [], unique),
+      schemaVersion: MOMENTS_SCHEMA_VERSION,
+      updatedAt: new Date().toISOString(),
+    };
+    setLastIndexWrite(content);
+    return content;
+  }
+
   try {
     const index = await readIndexRaw();
     const withPhotos = photoAppends.length > 0 ? applyMomentPhotoAppends(index.moments, photoAppends) : index.moments;
@@ -500,7 +558,7 @@ async function syncIndexBestEffort(
 export async function readMoments(options: { hydrate?: boolean } = {}): Promise<{ content: MomentContent; status: MomentStoreStatus }> {
   const content = await readIndexRaw();
   let moments = uniqueMomentsById(overlayMoments(content.moments, [...getItemCache().values()]));
-  const hydrate = options.hydrate !== false && shouldUseDriveWarehouse();
+  const hydrate = options.hydrate === true && shouldUseDriveWarehouse();
 
   if (hydrate) {
     const hydrated = await hydrateDriveMoments(moments);
@@ -538,12 +596,8 @@ export async function writeWarehouse(moments: TravelMoment[], jobs: TravelJob[])
   }
 
   if (shouldUseDriveWarehouse()) {
-    try {
-      const latest = await loadDriveIndex();
-      content.moments = uniqueMomentsById(overlayMoments(latest.moments, content.moments));
-    } catch {
-      content.moments = uniqueMomentsById(content.moments);
-    }
+    // Apps Script merge-on-write under LockService. A Worker GET of the fat
+    // catalog before PUT was the Capture stall (tens of minutes per round).
     await putIndex(JSON.stringify(content, null, 2));
     return content;
   }
@@ -701,8 +755,37 @@ async function flushPhotoAppends() {
       const missing: PendingPhotoAppend[] = [];
 
       for (const [momentId, items] of grouped) {
-        const current = await readMomentItem(momentId);
+        const current = await readMomentItem(momentId, { allowIndex: false });
         if (!current) {
+          if (shouldUseDriveWarehouse()) {
+            const photos = items.map((item) => item.photo);
+            await putItem(
+              driveObjectName(momentItemBlobPath(momentId)),
+              JSON.stringify({ moment: { id: momentId, photos }, updatedAt: new Date().toISOString() }),
+            );
+            const cached = getItemCache().get(momentId);
+            const next = rememberItem({
+              command: cached?.command ?? null,
+              coordinates: cached?.coordinates ?? null,
+              createdAt: cached?.createdAt ?? photos[0]?.createdAt ?? new Date().toISOString(),
+              draft: cached?.draft ?? "",
+              food: cached?.food ?? [],
+              id: momentId,
+              note: cached?.note ?? "",
+              originalAudioUrl: cached?.originalAudioUrl ?? null,
+              people: cached?.people ?? [],
+              photos: mergeMomentPhotos(cached?.photos ?? [], photos),
+              place: cached?.place ?? [],
+              scenery: cached?.scenery ?? [],
+              time: cached?.time ?? photos[0]?.takenAt ?? new Date().toISOString(),
+              topics: cached?.topics ?? [],
+              transcript: cached?.transcript ?? null,
+              tripId: cached?.tripId ?? null,
+            });
+            acceptedItems.push(next);
+            accepted.push(...items);
+            continue;
+          }
           missing.push(...items);
           continue;
         }
@@ -718,19 +801,26 @@ async function flushPhotoAppends() {
         accepted.push(...items);
       }
 
-      let saved =
-        acceptedItems.length > 0
-          ? await syncIndexBestEffort(
-              acceptedItems,
-              accepted.map((item) => ({ momentId: item.momentId, photo: item.photo })),
-            )
-          : (await readMoments({ hydrate: false })).content;
-
-      if (shouldUseDriveWarehouse() && acceptedItems.length > 0) {
-        const hydrated = await hydrateDriveMoments(saved.moments);
-        if (hydrated.changed) {
-          saved = await persistHydratedMoments(hydrated.moments, saved.jobs);
+      let saved: MomentContent;
+      if (acceptedItems.length > 0) {
+        if (shouldUseDriveWarehouse()) {
+          afterResponse(() => syncIndexBestEffort(acceptedItems));
+          const lastWrite = getLastIndexWrite();
+          saved = {
+            jobs: lastWrite?.jobs ?? [],
+            moments: overlayMoments(lastWrite?.moments ?? [], acceptedItems),
+            schemaVersion: MOMENTS_SCHEMA_VERSION,
+            updatedAt: new Date().toISOString(),
+          };
+          setLastIndexWrite(saved);
+        } else {
+          saved = await syncIndexBestEffort(
+            acceptedItems,
+            accepted.map((item) => ({ momentId: item.momentId, photo: item.photo })),
+          );
         }
+      } else {
+        saved = (await readMoments({ hydrate: false })).content;
       }
 
       for (const item of accepted) {

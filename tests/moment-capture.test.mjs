@@ -476,6 +476,8 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(store, /applyMomentPhotoAppends/);
   assert.match(store, /writeMomentItem/);
   assert.match(store, /readMomentItem/);
+  assert.match(store, /allowIndex: false/);
+  assert.match(store, /hydrate === true/);
   assert.match(store, /momentItemBlobPath/);
   assert.match(prepare, /prepareDisplayPhoto/);
   assert.match(upload, /createMomentSession/);

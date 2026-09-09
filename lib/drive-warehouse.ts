@@ -1,10 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { parseMomentItemRecord } from "@/lib/moment-item";
 import {
   createEmptyWarehouse,
   withNormalizedContent,
   type MomentContent,
 } from "@/lib/warehouse-read";
-import type { GeoPoint } from "@/lib/types";
+import type { GeoPoint, TravelMoment } from "@/lib/types";
 
 const DEFAULT_DRIVE_WAREHOUSE_URL =
   "https://script.google.com/macros/s/AKfycbyE4a9bahFmASEh6Dda_8udSlLLhnIIr70NggG5cSSAa8EB3pxxt4SoFZ96TgJLeozY/exec";
@@ -276,6 +277,99 @@ export async function putItem(name: string, text: string, request?: DriveFetch):
     throw new DriveWarehouseError("Drive warehouse item POST was rejected");
   }
   return { ok: true, name: typeof record?.name === "string" ? record.name : name };
+}
+
+function itemGetLooksLikeMiss(raw: unknown) {
+  if (!raw || typeof raw !== "object") {
+    return true;
+  }
+  const record = raw as { error?: unknown; moment?: unknown; id?: unknown };
+  if (typeof record.error === "string") {
+    return true;
+  }
+  return record.moment == null && typeof record.id !== "string";
+}
+
+async function loadItemViaDriveApi(name: string, request?: DriveFetch): Promise<TravelMoment | null> {
+  const access = await getDriveAccess(request);
+  if (!access) {
+    return null;
+  }
+
+  const escaped = name.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  const query = `'${access.folderId}' in parents and name='${escaped}' and trashed=false`;
+  const listUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&pageSize=1`;
+  const requestImpl = resolveFetch(request);
+  const listed = await requestImpl(listUrl, {
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${access.token}` },
+    method: "GET",
+  });
+  if (!listed.ok) {
+    return null;
+  }
+  let payload: { files?: Array<{ id?: unknown; name?: unknown }> };
+  try {
+    payload = (await listed.json()) as { files?: Array<{ id?: unknown; name?: unknown }> };
+  } catch {
+    return null;
+  }
+  const fileId = payload.files?.find((file) => typeof file.id === "string" && file.id.trim())?.id;
+  if (typeof fileId !== "string" || !fileId.trim()) {
+    return null;
+  }
+
+  const media = await requestImpl(`${DRIVE_FILE_MEDIA_URL}/${encodeURIComponent(fileId)}?alt=media`, {
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${access.token}` },
+    method: "GET",
+  });
+  if (!media.ok) {
+    return null;
+  }
+  try {
+    return parseMomentItemRecord(await media.json());
+  } catch {
+    return null;
+  }
+}
+
+export async function getItem(name: string, request?: DriveFetch): Promise<TravelMoment | null> {
+  let scriptError: string | null = null;
+  try {
+    const raw = await getJson(
+      { name, op: "item", token: getDriveWarehouseToken() },
+      "Drive warehouse item GET",
+      request,
+      { allowNotFound: true },
+    );
+    const parsed = parseMomentItemRecord(raw);
+    if (parsed) {
+      return parsed;
+    }
+    scriptError =
+      raw && typeof raw === "object" && typeof (raw as { error?: unknown }).error === "string"
+        ? String((raw as { error: string }).error)
+        : raw == null
+          ? "missing id"
+          : "";
+    if (scriptError === "not found" || scriptError === "invalid item" || scriptError === "missing name") {
+      return null;
+    }
+  } catch {
+    scriptError = "missing id";
+  }
+
+  // Old Apps Script answers GET op=item with `{ error: "missing id" }`.
+  if (scriptError !== "missing id") {
+    return null;
+  }
+
+  try {
+    return await loadItemViaDriveApi(name, request);
+  } catch {
+    return null;
+  }
 }
 
 export async function putBinary(

@@ -192,7 +192,7 @@ test("bench photo ids resolve by rebuilt Drive file id, not only the index photo
 });
 
 test("warehouse receiver and Capture store rebuild from Drive photo files, not Blob", async () => {
-  const [store, drive, script, rebuildRoute, bench, benchPhoto, family, photosApi] = await Promise.all([
+  const [store, drive, script, rebuildRoute, bench, benchPhoto, family, photosApi, momentsApi] = await Promise.all([
     readSource("lib/moment-store.ts"),
     readSource("lib/drive-warehouse.ts"),
     readSource("scripts/drive-warehouse-apps-script.js"),
@@ -201,9 +201,13 @@ test("warehouse receiver and Capture store rebuild from Drive photo files, not B
     readSource("app/family/bench/bench-photo.tsx"),
     readSource("app/family/page.tsx"),
     readSource("app/api/moments/photos/route.ts"),
+    readSource("app/api/moments/route.ts"),
   ]);
 
-  assert.match(drive, /export async function scanWarehouseFiles/);
+  assert.match(drive, /export async function getItem/);
+  assert.match(script, /op === "item"/);
+  assert.match(momentsApi, /searchParams.get\("hydrate"\)\?\.trim\(\) === "1"/);
+  assert.match(store, /options.hydrate === true/);
   assert.match(drive, /op: "list"/);
   assert.match(store, /rebuildMomentsFromDriveFiles/);
   assert.match(store, /hydrateDriveMoments/);
