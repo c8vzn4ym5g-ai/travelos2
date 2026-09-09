@@ -1,5 +1,21 @@
 # TravelOS Codex Tasks
 
+## TASK-038: Phone editor keeps unsaved drafts across Safari backgrounding
+
+Status: done
+
+Goal: Owner edited on iPhone, left without Save, came back, edits gone.
+React state was the only draft. iOS Safari kill / back must not drop it.
+
+Result:
+
+- `/trips/admin` and `/trips/write` autosave dirty text to `localStorage`
+  keyed by trip / write identity. Flush on debounce, interval, blur,
+  `visibilitychange`, and `pagehide`.
+- Return restores the local draft and shows 「有未保存草稿 · 已幫你找回」
+  with 放棄草稿. Explicit 儲存 still commits the live Drive store.
+- Same family PIN flow. No UI redesign. Vercel is not a ship gate.
+
 ## TASK-037: Capture 15s video in 256KiB Drive chunks
 
 Status: done

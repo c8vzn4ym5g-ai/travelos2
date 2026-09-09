@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ShortVideoGallery } from "@/components/short-video-gallery";
 import type { TravelOSContent } from "@/lib/editable-store";
+import {
+  applyTripLocalDrafts,
+  clearTripLocalDraft,
+  EDITOR_LOCAL_DRAFT_DEBOUNCE_MS,
+  EDITOR_LOCAL_DRAFT_INTERVAL_MS,
+  writeTripLocalDraft,
+} from "@/lib/editor-local-draft";
 import { FAMILY_ADMIN_SESSION_KEY, familyPinHeaders, resolveFamilySession } from "@/lib/family-session";
 import { getTripPromoVideos } from "@/lib/promo-videos";
 import { isTripPublic } from "@/lib/trip-visibility";
@@ -138,6 +145,7 @@ export default function TravelAdminPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirtyTripIds, setDirtyTripIds] = useState<Set<string>>(new Set());
+  const [recoveredTripIds, setRecoveredTripIds] = useState<string[]>([]);
   const [message, setMessage] = useState("正在打開家庭遊記編輯…");
   const [storeSource, setStoreSource] = useState<"blob" | "drive" | "seed">("seed");
   const [pickerTarget, setPickerTarget] = useState<PickerTarget>(null);
@@ -149,6 +157,8 @@ export default function TravelAdminPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const tripsRef = useRef<TripDetail[]>([]);
+  const dirtyTripIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -173,8 +183,10 @@ export default function TravelAdminPage() {
     };
   }, [router]);
 
-  const loadContent = useCallback(async () => {
-    setLoading(true);
+  const loadContent = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true);
+    }
     const response = await fetch("/api/trips/content", {
       cache: "no-store",
       headers: pinHeaders(sessionPin(pin)),
@@ -188,10 +200,17 @@ export default function TravelAdminPage() {
     const data = (await response.json()) as TravelContentResponse;
     const sorted = [...data.content.trips].sort((a, b) => b.startDate.localeCompare(a.startDate));
     const requested = requestedTripId();
-    setTrips(sorted);
-    setActiveTripId((current) => current ?? (requested && sorted.some((trip) => trip.id === requested) ? requested : sorted[0]?.id ?? null));
+    const applied = applyTripLocalDrafts(sorted);
+    setTrips(applied.trips);
+    setDirtyTripIds(new Set(applied.restoredIds));
+    setRecoveredTripIds(applied.restoredIds);
+    setActiveTripId((current) => current ?? (requested && applied.trips.some((trip) => trip.id === requested) ? requested : applied.trips[0]?.id ?? null));
     setStoreSource(data.status.source);
-    setMessage("草稿已經整理好。直接看、改一句，或錄一句話就可以。");
+    setMessage(
+      applied.restoredIds.length > 0
+        ? "有未保存草稿 · 已幫你找回。記得按儲存。"
+        : "草稿已經整理好。直接看、改一句，或錄一句話就可以。",
+    );
     setLoading(false);
   }, [pin, router]);
 
@@ -205,6 +224,61 @@ export default function TravelAdminPage() {
       setLoading(false);
     });
   }, [authenticated, loadContent]);
+
+  useEffect(() => {
+    tripsRef.current = trips;
+    dirtyTripIdsRef.current = dirtyTripIds;
+  }, [dirtyTripIds, trips]);
+
+  const flushLocalDrafts = useCallback(() => {
+    for (const trip of tripsRef.current) {
+      if (dirtyTripIdsRef.current.has(trip.id)) {
+        writeTripLocalDraft(trip);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (dirtyTripIds.size === 0) {
+      return;
+    }
+
+    const handle = window.setTimeout(flushLocalDrafts, EDITOR_LOCAL_DRAFT_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [dirtyTripIds, flushLocalDrafts, trips]);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        flushLocalDrafts();
+      }
+    };
+    const onPageHide = () => flushLocalDrafts();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("blur", flushLocalDrafts);
+    const interval = window.setInterval(flushLocalDrafts, EDITOR_LOCAL_DRAFT_INTERVAL_MS);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("blur", flushLocalDrafts);
+      window.clearInterval(interval);
+    };
+  }, [flushLocalDrafts]);
+
+  useEffect(() => {
+    if (dirtyTripIds.size === 0) {
+      return;
+    }
+
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      flushLocalDrafts();
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirtyTripIds.size, flushLocalDrafts]);
 
   useEffect(() => () => mediaStreamRef.current?.getTracks().forEach((track) => track.stop()), []);
 
@@ -309,7 +383,11 @@ export default function TravelAdminPage() {
     try {
       const latestContent = await persistTrips(drafts);
       if (latestContent) setTrips(latestContent.trips);
+      for (const trip of drafts) {
+        clearTripLocalDraft(trip.id);
+      }
       setDirtyTripIds(new Set());
+      setRecoveredTripIds([]);
       setStoreSource("drive");
       setMessage("全部變更已儲存。");
     } catch (error) {
@@ -336,7 +414,11 @@ export default function TravelAdminPage() {
       const data = await uploadTripPhotoWithProgress(formData, sessionPin(pin), setUploadProgress);
       setTrips(data.content.trips);
       setSelectedPhotoId(data.photo.id);
+      for (const trip of drafts) {
+        clearTripLocalDraft(trip.id);
+      }
       setDirtyTripIds(new Set());
+      setRecoveredTripIds((current) => current.filter((id) => !drafts.some((trip) => trip.id === id)));
       setStoreSource("drive");
       form.reset();
       setMessage("照片已保留原檔並放入這個行程。沒有壓縮或轉格式。");
@@ -409,6 +491,16 @@ export default function TravelAdminPage() {
     });
   }
 
+  function discardRecoveredDrafts() {
+    for (const tripId of recoveredTripIds) {
+      clearTripLocalDraft(tripId);
+    }
+    setRecoveredTripIds([]);
+    loadContent({ silent: true }).catch(() => {
+      setMessage("目前無法打開旅行內容。");
+    });
+  }
+
   function removePhoto(photoId: string) {
     if (!window.confirm("要從這個行程移除這張照片嗎？原始檔不會被修改。")) return;
     updateActiveTrip((trip) => ({
@@ -452,7 +544,7 @@ export default function TravelAdminPage() {
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <label className="min-w-0 flex-1">
             <span className="sr-only">選擇行程</span>
-            <select className="min-h-11 w-full rounded-2xl border border-sky-200 bg-white px-4 text-sm font-semibold text-zinc-900 lg:max-w-xl" onChange={(event) => setActiveTripId(event.target.value)} value={activeTrip?.id ?? ""}>
+            <select className="min-h-11 w-full rounded-2xl border border-sky-200 bg-white px-4 text-sm font-semibold text-zinc-900 lg:max-w-xl" onChange={(event) => { flushLocalDrafts(); setActiveTripId(event.target.value); }} value={activeTrip?.id ?? ""}>
               {sortedTrips.map((trip) => <option key={trip.id} value={trip.id}>{trip.title}｜{toDateInput(trip.startDate)}</option>)}
             </select>
           </label>
@@ -460,6 +552,12 @@ export default function TravelAdminPage() {
             <p aria-live="polite" className="text-sm font-semibold text-zinc-600">{dirtyTripIds.size > 0 ? `${dirtyTripIds.size} 個行程尚未儲存` : "全部已儲存"}</p>
             <button className={primaryButtonClass} disabled={saving || dirtyTripIds.size === 0} onClick={() => void saveAllChanges()} type="button">{saving ? "儲存中…" : "儲存全部變更"}</button>
           </div>
+          {recoveredTripIds.length > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-200 bg-white px-4 py-3" data-editor-recovered-draft="">
+              <p className="text-sm font-semibold text-sky-900">有未保存草稿 · 已幫你找回</p>
+              <button className={secondaryButtonClass} onClick={discardRecoveredDrafts} type="button">放棄草稿</button>
+            </div>
+          ) : null}
         </div>
       </div>
 

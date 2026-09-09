@@ -188,7 +188,15 @@ test("family home lists live Drive trip drafts for iPhone edit", async () => {
   assert.match(list, />編輯</);
   assert.match(admin, /resolveFamilySession/);
   assert.match(admin, /requestedTripId/);
+  assert.match(admin, /applyTripLocalDrafts/);
+  assert.match(admin, /writeTripLocalDraft/);
+  assert.match(admin, /pagehide/);
+  assert.match(admin, /visibilitychange/);
+  assert.match(admin, /有未保存草稿/);
+  assert.match(admin, /放棄草稿/);
   assert.match(write, /轉成遊記/);
+  assert.match(write, /writeWriteLocalDraft/);
+  assert.match(write, /有未保存草稿/);
 });
 
 test("sit-and-write has no generated story and lists warehouse photos", async () => {

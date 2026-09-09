@@ -27,6 +27,12 @@ Open in iPhone Safari, same PIN flow as `/family`:
 `/trips/admin` restores family session + PIN headers on content /
 photo / audio. Write’s attach control is labeled 轉成遊記.
 
+Phone edits autosave to `localStorage` (`travelos-trip-draft:` /
+`travelos-write-draft:`), flushed on debounce, interval, blur,
+`visibilitychange`, and `pagehide`. Coming back restores the draft
+and shows 「有未保存草稿 · 已幫你找回」. Explicit 儲存 still writes
+the live Drive store. 放棄草稿 drops the local stash.
+
 Until this PR is on `main`, live CF already has the six JSONs (PIN
 currently off), but the family list, admin session restore, and
 轉成遊記 labels are this branch (PR 91).

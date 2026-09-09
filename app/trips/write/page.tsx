@@ -2,8 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TravelOSContent } from "@/lib/editable-store";
+import {
+  clearWriteLocalDraft,
+  EDITOR_LOCAL_DRAFT_DEBOUNCE_MS,
+  EDITOR_LOCAL_DRAFT_INTERVAL_MS,
+  readWriteLocalDraft,
+  writeDraftIdentity,
+  writeDraftNeedsRestore,
+  writeWriteLocalDraft,
+} from "@/lib/editor-local-draft";
 import { FAMILY_ADMIN_SESSION_KEY, familyPinHeaders, resolveFamilySession } from "@/lib/family-session";
 import {
   filterMomentsByDayAndPlace,
@@ -57,6 +66,7 @@ export default function SitAndWritePage() {
   const [hiddenPhotoIds, setHiddenPhotoIds] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const [attachTripId, setAttachTripId] = useState("");
+  const [recoveredWrite, setRecoveredWrite] = useState(false);
   const [dayFilter, setDayFilter] = useState("");
   const [placeFilter, setPlaceFilter] = useState("");
   const [saving, setSaving] = useState(false);
@@ -153,12 +163,96 @@ export default function SitAndWritePage() {
   );
   const writingMoments = activeJob ? jobMoments : usingFoundSet ? visibleWarehouseMoments : activeMoment ? [activeMoment] : [];
   const writingPhotos = photosFromMoments(writingMoments);
+  const writeKey = useMemo(
+    () =>
+      writeDraftIdentity({
+        dayFilter,
+        jobId: activeJob?.id ?? null,
+        momentId: activeMoment?.id ?? null,
+        placeFilter,
+        usingFoundSet,
+      }),
+    [activeJob?.id, activeMoment?.id, dayFilter, placeFilter, usingFoundSet],
+  );
+  const writeKeyRef = useRef<string | null>(null);
+  const draftRef = useRef(draft);
+  const attachTripIdRef = useRef(attachTripId);
+  const hiddenPhotoIdsRef = useRef(hiddenPhotoIds);
+  const writeDirtyRef = useRef(false);
+  const recoveredWriteRef = useRef(false);
+  const writeReadyRef = useRef(false);
+  const [writeDirty, setWriteDirty] = useState(false);
+
+  useEffect(() => {
+    draftRef.current = draft;
+    attachTripIdRef.current = attachTripId;
+    hiddenPhotoIdsRef.current = hiddenPhotoIds;
+    writeKeyRef.current = writeKey;
+    writeDirtyRef.current = writeDirty;
+    recoveredWriteRef.current = recoveredWrite;
+  }, [attachTripId, draft, hiddenPhotoIds, recoveredWrite, writeDirty, writeKey]);
+
+  const flushWriteDraft = useCallback(() => {
+    const key = writeKeyRef.current;
+    if (!key || !writeReadyRef.current) {
+      return;
+    }
+    if (!writeDirtyRef.current && !recoveredWriteRef.current) {
+      return;
+    }
+    writeWriteLocalDraft({
+      attachTripId: attachTripIdRef.current,
+      draft: draftRef.current,
+      hiddenPhotoIds: hiddenPhotoIdsRef.current,
+      key,
+    });
+  }, []);
+
+  function markWriteDirty() {
+    setWriteDirty(true);
+    writeDirtyRef.current = true;
+  }
+
+  function overlayWriteDraft(key: string | null, server: { attachTripId: string; draft: string; hiddenPhotoIds: string[] }) {
+    if (!key) {
+      setDraft(server.draft);
+      setAttachTripId(server.attachTripId);
+      setHiddenPhotoIds(server.hiddenPhotoIds);
+      setRecoveredWrite(false);
+      setWriteDirty(false);
+      writeReadyRef.current = false;
+      return;
+    }
+
+    const local = readWriteLocalDraft(key);
+    if (local && writeDraftNeedsRestore(local, server)) {
+      setDraft(local.draft);
+      setAttachTripId(local.attachTripId);
+      setHiddenPhotoIds(local.hiddenPhotoIds);
+      setRecoveredWrite(true);
+      setWriteDirty(true);
+      writeReadyRef.current = true;
+      return;
+    }
+
+    if (local) {
+      clearWriteLocalDraft(key);
+    }
+    setDraft(server.draft);
+    setAttachTripId(server.attachTripId);
+    setHiddenPhotoIds(server.hiddenPhotoIds);
+    setRecoveredWrite(false);
+    setWriteDirty(false);
+    writeReadyRef.current = true;
+  }
 
   useEffect(() => {
     if (activeJob) {
-      setDraft(activeJob.draft);
-      setHiddenPhotoIds([]);
-      setAttachTripId("");
+      overlayWriteDraft(`job:${activeJob.id}`, {
+        attachTripId: "",
+        draft: activeJob.draft,
+        hiddenPhotoIds: [],
+      });
     }
   }, [activeJob]);
 
@@ -167,9 +261,11 @@ export default function SitAndWritePage() {
       return;
     }
 
-    setDraft(foundSetJob?.draft ?? "");
-    setHiddenPhotoIds([]);
-    setAttachTripId("");
+    overlayWriteDraft(writeDraftIdentity({ dayFilter, placeFilter, usingFoundSet: true }), {
+      attachTripId: "",
+      draft: foundSetJob?.draft ?? "",
+      hiddenPhotoIds: [],
+    });
   }, [activeJob, foundSetJob, foundSetKey, usingFoundSet]);
 
   useEffect(() => {
@@ -178,33 +274,70 @@ export default function SitAndWritePage() {
     }
 
     if (!activeMoment) {
-      setDraft("");
-      setHiddenPhotoIds([]);
+      overlayWriteDraft(null, { attachTripId: "", draft: "", hiddenPhotoIds: [] });
       return;
     }
 
-    setDraft(activeMoment.draft);
-    setHiddenPhotoIds([]);
-    setAttachTripId(activeMoment.tripId ?? "");
+    overlayWriteDraft(`moment:${activeMoment.id}`, {
+      attachTripId: activeMoment.tripId ?? "",
+      draft: activeMoment.draft,
+      hiddenPhotoIds: [],
+    });
   }, [activeJob, activeMoment, usingFoundSet]);
+
+  useEffect(() => {
+    if (!writeDirty && !recoveredWrite) {
+      return;
+    }
+
+    const handle = window.setTimeout(flushWriteDraft, EDITOR_LOCAL_DRAFT_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [attachTripId, draft, flushWriteDraft, hiddenPhotoIds, recoveredWrite, writeDirty]);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        flushWriteDraft();
+      }
+    };
+    const onPageHide = () => flushWriteDraft();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("blur", flushWriteDraft);
+    const interval = window.setInterval(flushWriteDraft, EDITOR_LOCAL_DRAFT_INTERVAL_MS);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("blur", flushWriteDraft);
+      window.clearInterval(interval);
+    };
+  }, [flushWriteDraft]);
+
+  useEffect(() => {
+    if (!writeDirty && !recoveredWrite) {
+      return;
+    }
+
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      flushWriteDraft();
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [flushWriteDraft, recoveredWrite, writeDirty]);
 
   const visiblePhotos = writingPhotos.filter((photo) => !hiddenPhotoIds.includes(photo.id));
 
-  function changeDayFilter(day: string) {
-    setDayFilter(day);
-  }
-
-  function changePlaceFilter(place: string) {
-    setPlaceFilter(place);
-  }
-
   function togglePhoto(photoId: string) {
+    markWriteDirty();
     setHiddenPhotoIds((current) =>
       current.includes(photoId) ? current.filter((id) => id !== photoId) : [...current, photoId],
     );
   }
 
   function openJob(jobId: string) {
+    flushWriteDraft();
     setActiveJobId(jobId);
     const job = jobs.find((item) => item.id === jobId);
     if (job) {
@@ -213,8 +346,42 @@ export default function SitAndWritePage() {
   }
 
   function openMoment(momentId: string) {
+    flushWriteDraft();
     setActiveJobId(null);
     setActiveMomentId(momentId);
+  }
+
+  function changeDayFilter(day: string) {
+    flushWriteDraft();
+    setDayFilter(day);
+  }
+
+  function changePlaceFilter(place: string) {
+    flushWriteDraft();
+    setPlaceFilter(place);
+  }
+
+  function discardWriteDraft() {
+    if (writeKey) {
+      clearWriteLocalDraft(writeKey);
+    }
+    setRecoveredWrite(false);
+    setWriteDirty(false);
+    if (activeJob) {
+      setDraft(activeJob.draft);
+      setAttachTripId("");
+      setHiddenPhotoIds([]);
+      return;
+    }
+    if (usingFoundSet) {
+      setDraft(foundSetJob?.draft ?? "");
+      setAttachTripId("");
+      setHiddenPhotoIds([]);
+      return;
+    }
+    setDraft(activeMoment?.draft ?? "");
+    setAttachTripId(activeMoment?.tripId ?? "");
+    setHiddenPhotoIds([]);
   }
 
   async function saveWriting() {
@@ -360,6 +527,11 @@ export default function SitAndWritePage() {
         setTrips(tripData.content.trips);
       }
 
+      if (writeKey) {
+        clearWriteLocalDraft(writeKey);
+      }
+      setRecoveredWrite(false);
+      setWriteDirty(false);
       setMessage(attachTripId ? "已保存你寫的字，並寫進選中的旅程。" : "已保存你寫的字。");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "儲存失敗，請再試一次。");
@@ -567,16 +739,35 @@ export default function SitAndWritePage() {
                 <span className="travel-label text-sm font-semibold text-zinc-700">Writing</span>
                 <textarea
                   className="mt-2 min-h-64 w-full rounded-2xl border border-sky-200 bg-[#fffdf8] px-4 py-3 text-base leading-7 text-zinc-950 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                  onChange={(event) => setDraft(event.target.value)}
+                  onChange={(event) => {
+                    markWriteDirty();
+                    setDraft(event.target.value);
+                  }}
                   value={draft}
                 />
               </label>
+
+              {recoveredWrite ? (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3" data-editor-recovered-draft="">
+                  <p className="text-sm font-semibold text-sky-900">有未保存草稿 · 已幫你找回</p>
+                  <button
+                    className="travel-label inline-flex min-h-11 items-center justify-center rounded-full border border-sky-200 bg-white px-4 py-2.5 text-sm font-semibold text-sky-900"
+                    onClick={discardWriteDraft}
+                    type="button"
+                  >
+                    放棄草稿
+                  </button>
+                </div>
+              ) : null}
 
               <label className="mt-4 block">
                 <span className="travel-label text-sm font-semibold text-zinc-700">轉成遊記 · 寫進已有行程</span>
                 <select
                   className="mt-2 min-h-12 w-full rounded-2xl border border-sky-200 bg-white px-4 py-3 text-sm text-zinc-950"
-                  onChange={(event) => setAttachTripId(event.target.value)}
+                  onChange={(event) => {
+                    markWriteDirty();
+                    setAttachTripId(event.target.value);
+                  }}
                   value={attachTripId}
                 >
                   <option value="">先只留在這裡</option>
