@@ -1,5 +1,46 @@
 # TravelOS Handoff
 
+## 2026-09-09 「TravelOS 手機可編輯版」
+
+Owner named this ship. Live primary is Cloudflare
+`https://travelos2.chao-jason.workers.dev`. Do not wait on Vercel.
+The six `travelos__trip__*.json` drafts are already in the live Drive
+store (`GET /api/trips/content` → `source: drive`). Public `/trips`
+only lists Lapland because those drafts are `visibility: private` —
+do not publish them. Coffee drafts are not in the warehouse.
+
+### Phone URLs (after merge to `main` / CF auto-deploy)
+
+Open in iPhone Safari, same PIN flow as `/family`:
+
+- Family door: https://travelos2.chao-jason.workers.dev/family
+- Editor (all drafts): https://travelos2.chao-jason.workers.dev/trips/admin
+- 九州: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_kyushu_family_2026
+- 蘇格蘭: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_scotland_edinburgh_2019
+- 鹽水蜂炮: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_tainan-yanshui-fireworks_2020
+- 巴黎→萊茵: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_paris-rhine_2013
+- 羅浮宮: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_paris-louvre_2023
+- 克羅埃西亞→威尼斯: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_croatia-venice_2011
+- Write / 轉成遊記: https://travelos2.chao-jason.workers.dev/trips/write
+
+`/family` lists live Drive titles as 編輯 pills into `?trip=`.
+`/trips/admin` restores family session + PIN headers on content /
+photo / audio. Write’s attach control is labeled 轉成遊記.
+
+Until this PR is on `main`, live CF already has the six JSONs (PIN
+currently off), but the family list, admin session restore, and
+轉成遊記 labels are this branch (PR 91).
+
+### Second: public Lapland mobile film-cut
+
+Same promote URL, does not replace the editable ship:
+
+https://travelos2.chao-jason.workers.dev/trips/finland-lapland-winter-journal
+
+Phone UA or viewport &lt; 640px: dedicated film-cut (full-bleed video
++ one still; Overview / Journal behind 更多). iPad and desktop keep
+the frozen notebook layout. Do not squash the notebook page.
+
 ## 2026-09-03 Capture 15s video is chunked, not one Worker body
 
 - Owner dumped a mixed album: one JPEG landed, one 15s-class video card
