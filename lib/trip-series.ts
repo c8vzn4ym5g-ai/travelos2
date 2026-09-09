@@ -14,7 +14,7 @@ export const VANITY_CREW_MAPLE_JOURNAL_IDS = [
 export const VANITY_CREW_JOURNAL_TITLES = {
   trip_kyoto_maple_arashiyama: "嵐山翠嵐：溫泉飯店裡的楓葉禁區",
   trip_kyoto_maple_ginkaku: "銀閣寺線",
-  trip_kyoto_maple_higashiyama: "東山朱色／清水候選",
+  trip_kyoto_maple_higashiyama: "東山朱色",
   trip_kyoto_maple_crew_notes: "京都四人怎麼一起玩開心",
 } as const;
 
