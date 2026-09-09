@@ -1,4 +1,5 @@
 import { S2TW } from "@/lib/s2tw-characters";
+import { withKyushuFamilyDates } from "@/lib/kyushu-family-journal";
 import type { JournalEntry, Photo, Place, TripDetail } from "@/lib/types";
 
 /** Specialty/series metadata only. Never prepend this onto a journal title. */
@@ -101,6 +102,7 @@ const SERIES_TITLE_PREFIX = /^\s*(爱慕虚荣团|愛慕虛榮團)\s*[·•:：]
 const KEEP_ZHU_SE = "\uE010\uE011";
 const KEEP_ZHU_HONG = "\uE012\uE013";
 const KEEP_ADRIATIC = "\uE014\uE015\uE016";
+const KEEP_ZHI_LI = "\uE017\uE018";
 
 type CrewFields = {
   name?: string;
@@ -122,12 +124,14 @@ export function toTraditional(value: string | null | undefined) {
   let next = value
     .split("朱色").join(KEEP_ZHU_SE)
     .split("朱紅").join(KEEP_ZHU_HONG)
-    .split("亞得里亞").join(KEEP_ADRIATIC);
+    .split("亞得里亞").join(KEEP_ADRIATIC)
+    .split("之里").join(KEEP_ZHI_LI);
   next = [...next].map((char) => S2TW[char] ?? char).join("");
   return next
     .split(KEEP_ZHU_SE).join("朱色")
     .split(KEEP_ZHU_HONG).join("朱紅")
     .split(KEEP_ADRIATIC).join("亞得里亞")
+    .split(KEEP_ZHI_LI).join("之里")
     .split("硃色").join("朱色")
     .split("硃紅").join("朱紅");
 }
@@ -245,7 +249,8 @@ export function prepareMapleJournal(trip: TripDetail): TripDetail {
 }
 
 export function prepareTripForWarehouse(trip: TripDetail) {
-  return MAPLE_JOURNAL_ID_SET.has(trip.id) ? prepareMapleJournal(trip) : prepareReaderChinese(trip);
+  const dated = withKyushuFamilyDates(trip);
+  return MAPLE_JOURNAL_ID_SET.has(dated.id) ? prepareMapleJournal(dated) : prepareReaderChinese(dated);
 }
 
 export function isHeldFamilyEditorTrip(tripId: string) {
@@ -267,5 +272,8 @@ export function searchTripsBySeries(trips: TripDetail[], query: string) {
 export function prepareFamilyEditorTrips(trips: TripDetail[]): TripDetail[] {
   return trips
     .filter((trip) => !isHeldFamilyEditorTrip(trip.id))
-    .map((trip) => (MAPLE_JOURNAL_ID_SET.has(trip.id) ? prepareMapleJournal(trip) : prepareReaderChinese(trip)));
+    .map((trip) => {
+      const dated = withKyushuFamilyDates(trip);
+      return MAPLE_JOURNAL_ID_SET.has(dated.id) ? prepareMapleJournal(dated) : prepareReaderChinese(dated);
+    });
 }

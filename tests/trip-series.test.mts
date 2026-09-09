@@ -134,6 +134,7 @@ test("reader Chinese converts Simplified to Taiwan Traditional without 朱色/�
   assert.equal(toTraditional("哲学之道一带"), "哲學之道一帶");
   assert.equal(toTraditional("饭店里的枫叶"), "飯店裡的楓葉");
   assert.equal(toTraditional("亞得里亞海兩日"), "亞得里亞海兩日");
+  assert.equal(toTraditional("小鹿田燒之里"), "小鹿田燒之里");
   assert.equal(toTraditional("性價比很高"), "性價比很高");
   assert.equal(toTraditional("局部：護具"), "局部：護具");
   assert.equal(toTraditional("二月的台南鹽水"), "二月的臺南鹽水");

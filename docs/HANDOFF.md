@@ -28,6 +28,11 @@ Drive reads reattach leftover seed journals Owner still edits
 (北海道 / 曼谷 / 巴黎冬日 / 倫敦 / Lapland). PUT re-reads the full
 warehouse after one-trip save so maple save cannot shrink the picker.
 
+Kyushu `trip_kyushu_family_2026` dates lock to 2026-08-30 → 2026-09-06.
+Stay spine: Solaria TF53AEFAC2A33, 界 KYIBNF266359, 梅響
+202608240003264.01, Flügel 1252, Solaria T032CA29B451B, KMJ return.
+Owner 梅響 journal body is never rewritten.
+
 Same door: `/family` → 編輯 → 旅行遊記 → `/trips/admin`.
 
 ## 2026-09-09 Phone 遊記編輯 was the Vercel seed list
