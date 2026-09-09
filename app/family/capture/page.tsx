@@ -679,7 +679,7 @@ export default function CapturePage() {
     });
   }
 
-  async function startBackgroundPhotoUpload(photo: StagedPhoto) {
+  async function startBackgroundPhotoUpload(photo: StagedPhoto): Promise<void> {
     if (uploadScheduledRef.current.has(photo.id) || liveUploadsRef.current.has(photo.id)) {
       return photoUploadsRef.current.get(photo.id) ?? Promise.resolve();
     }
@@ -708,7 +708,7 @@ export default function CapturePage() {
     return queued;
   }
 
-  async function runBackgroundPhotoUpload(photo: StagedPhoto) {
+  async function runBackgroundPhotoUpload(photo: StagedPhoto): Promise<void> {
     liveUploadsRef.current.add(photo.id);
     const session = momentSession();
     const generation =
