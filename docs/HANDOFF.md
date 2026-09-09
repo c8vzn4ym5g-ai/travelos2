@@ -15,8 +15,9 @@ That list is `seedTripDetails` (Vercel spare `source: seed`). Live CF
 journals. There is no service worker. Family PWA `start_url` /
 `id` / `scope` are absolute
 `https://travelos2.chao-jason.workers.dev/family`. Spare `*.vercel.app`
-308s to that origin. Drive reads no longer append leftover empty seed
-demos.
+308s to that origin. Drive reads keep the public Lapland seed if it is
+not a warehouse file, and drop leftover private demo seeds
+(北海道 / 曼谷 / 巴黎冬日 / 倫敦).
 
 Same door: `/family` → 編輯 → 旅行遊記 → `/trips/admin`. After this
 ships, that dropdown on CF Drive is:

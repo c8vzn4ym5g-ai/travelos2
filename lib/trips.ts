@@ -1,3 +1,4 @@
+import { isTripPublic } from "@/lib/trip-visibility";
 import type { TripDetail, TripListItem } from "@/lib/types";
 
 const zh = {
@@ -805,4 +806,10 @@ export function getTripDetailsByStartDate(): TripDetail[] {
 
 export function getTripDetailBySlug(slug: string): TripDetail | undefined {
   return seedTripDetails.find((trip) => trip.slug === slug);
+}
+
+/** Drive warehouse wins. Keep public seed storefronts (Lapland) if they are not a Drive file. Drop leftover private demo seeds. */
+export function withMissingPublicSeedTrips(saved: TripDetail[]): TripDetail[] {
+  const savedIds = new Set(saved.map((trip) => trip.id));
+  return [...saved, ...seedTripDetails.filter((trip) => !savedIds.has(trip.id) && isTripPublic(trip))];
 }
