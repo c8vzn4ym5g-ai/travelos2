@@ -176,6 +176,7 @@ test("sit-and-write has no generated story and lists warehouse photos", async ()
   const write = await readSource("app/trips/write/page.tsx");
 
   assert.match(write, /Moment assets/);
+  assert.match(write, /轉成遊記/);
   assert.match(write, /<h1 className="travel-display mt-2 text-4xl font-semibold">Write<\/h1>/);
   assert.match(write, /value=\{draft\}/);
   assert.match(write, /method: "PUT"/);

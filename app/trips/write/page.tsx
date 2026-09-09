@@ -573,13 +573,13 @@ export default function SitAndWritePage() {
               </label>
 
               <label className="mt-4 block">
-                <span className="travel-label text-sm font-semibold text-zinc-700">Also save onto an existing trip</span>
+                <span className="travel-label text-sm font-semibold text-zinc-700">轉成遊記 · 寫進已有行程</span>
                 <select
                   className="mt-2 min-h-12 w-full rounded-2xl border border-sky-200 bg-white px-4 py-3 text-sm text-zinc-950"
                   onChange={(event) => setAttachTripId(event.target.value)}
                   value={attachTripId}
                 >
-                  <option value="">Only keep the draft here</option>
+                  <option value="">先只留在這裡</option>
                   {trips.map((trip) => (
                     <option key={trip.id} value={trip.id}>
                       {trip.title}
@@ -598,7 +598,7 @@ export default function SitAndWritePage() {
                 onClick={() => void saveWriting()}
                 type="button"
               >
-                {saving ? "Saving…" : "Save writing"}
+                {saving ? "儲存中…" : attachTripId ? "儲存並轉成遊記" : "儲存"}
               </button>
             </>
           ) : (
