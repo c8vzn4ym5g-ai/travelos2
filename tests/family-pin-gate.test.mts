@@ -254,6 +254,8 @@ test("family and capture clients discover the PIN gate and do not add a Capture 
   assert.match(write, /resolveFamilySession/);
   assert.match(talk, /resolveFamilySession/);
   assert.match(tripsAdmin, /resolveFamilySession/);
+  assert.match(tripsAdmin, /router\.replace\("\/family"\)/);
+  assert.match(tripsAdmin, /familyPinHeaders/);
   assert.match(coffeeAdmin, /resolveFamilySession/);
   assert.match(capture, /router\.replace\("\/family"\)/);
   assert.match(bench, /router\.replace\("\/family"\)/);

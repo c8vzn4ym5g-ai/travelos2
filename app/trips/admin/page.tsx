@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ShortVideoGallery } from "@/components/short-video-gallery";
 import type { TravelOSContent } from "@/lib/editable-store";
+import { FAMILY_ADMIN_SESSION_KEY, familyPinHeaders, resolveFamilySession } from "@/lib/family-session";
 import { getTripPromoVideos } from "@/lib/promo-videos";
 import { isTripPublic } from "@/lib/trip-visibility";
 import type { JournalEntry, Photo, TravelVisibility, TripDetail } from "@/lib/types";
@@ -80,7 +82,19 @@ function Field({ label, onChange, type = "text", value }: { label: string; onCha
   );
 }
 
-function uploadTripPhotoWithProgress(formData: FormData, onProgress: (progress: number) => void) {
+function pinHeaders(pin: string) {
+  return familyPinHeaders(pin);
+}
+
+function sessionPin(fallback: string) {
+  return window.sessionStorage.getItem(FAMILY_ADMIN_SESSION_KEY) ?? fallback;
+}
+
+function requestedTripId() {
+  return new URLSearchParams(window.location.search).get("trip")?.trim() || null;
+}
+
+function uploadTripPhotoWithProgress(formData: FormData, pin: string, onProgress: (progress: number) => void) {
   return new Promise<{ content: TravelOSContent; photo: Photo }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const timeout = window.setTimeout(() => {
@@ -105,11 +119,19 @@ function uploadTripPhotoWithProgress(formData: FormData, onProgress: (progress: 
       reject(new Error("照片上傳失敗，請再試一次。"));
     };
     xhr.open("POST", "/api/trips/photos");
+    const headers = pinHeaders(pin);
+    for (const [key, value] of Object.entries(headers)) {
+      xhr.setRequestHeader(key, value);
+    }
     xhr.send(formData);
   });
 }
 
 export default function TravelAdminPage() {
+  const router = useRouter();
+  const [pin, setPin] = useState("");
+  const [authenticated, setAuthenticated] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [trips, setTrips] = useState<TripDetail[]>([]);
   const [activeTripId, setActiveTripId] = useState<string | null>(null);
   const [tab, setTab] = useState<EditorTab>("story");
@@ -128,25 +150,61 @@ export default function TravelAdminPage() {
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    void resolveFamilySession().then((session) => {
+      if (cancelled) {
+        return;
+      }
+
+      if (session.allowed) {
+        setPin(session.pin);
+        setAuthenticated(true);
+        return;
+      }
+
+      setRedirecting(true);
+      router.replace("/family");
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
   const loadContent = useCallback(async () => {
     setLoading(true);
-    const response = await fetch("/api/trips/content", { cache: "no-store" });
+    const response = await fetch("/api/trips/content", {
+      cache: "no-store",
+      headers: pinHeaders(sessionPin(pin)),
+    });
+    if (response.status === 401) {
+      setRedirecting(true);
+      router.replace("/family");
+      return;
+    }
     if (!response.ok) throw new Error("無法讀取旅行內容");
     const data = (await response.json()) as TravelContentResponse;
     const sorted = [...data.content.trips].sort((a, b) => b.startDate.localeCompare(a.startDate));
+    const requested = requestedTripId();
     setTrips(sorted);
-    setActiveTripId((current) => current ?? sorted[0]?.id ?? null);
+    setActiveTripId((current) => current ?? (requested && sorted.some((trip) => trip.id === requested) ? requested : sorted[0]?.id ?? null));
     setStoreSource(data.status.source);
     setMessage("草稿已經整理好。直接看、改一句，或錄一句話就可以。");
     setLoading(false);
-  }, []);
+  }, [pin, router]);
 
   useEffect(() => {
+    if (!authenticated) {
+      return;
+    }
+
     loadContent().catch(() => {
       setMessage("目前無法打開旅行內容。");
       setLoading(false);
     });
-  }, [loadContent]);
+  }, [authenticated, loadContent]);
 
   useEffect(() => () => mediaStreamRef.current?.getTracks().forEach((track) => track.stop()), []);
 
@@ -232,7 +290,9 @@ export default function TravelAdminPage() {
     let latestContent: TravelOSContent | null = null;
     for (const trip of drafts) {
       const response = await fetch("/api/trips/content", {
-        method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ trip }),
+        method: "PUT",
+        headers: { "content-type": "application/json", ...pinHeaders(sessionPin(pin)) },
+        body: JSON.stringify({ trip }),
       });
       const data = (await response.json()) as { content?: TravelOSContent; error?: string };
       if (!response.ok || !data.content) throw new Error(data.error ?? `「${trip.title}」儲存失敗`);
@@ -273,7 +333,7 @@ export default function TravelAdminPage() {
       const drafts = trips.filter((trip) => dirtyTripIds.has(trip.id));
       if (drafts.length > 0) await persistTrips(drafts);
       formData.set("tripId", activeTrip.id);
-      const data = await uploadTripPhotoWithProgress(formData, setUploadProgress);
+      const data = await uploadTripPhotoWithProgress(formData, sessionPin(pin), setUploadProgress);
       setTrips(data.content.trips);
       setSelectedPhotoId(data.photo.id);
       setDirtyTripIds(new Set());
@@ -319,7 +379,11 @@ export default function TravelAdminPage() {
     formData.set("tripId", activeTrip.id);
     formData.set("entryId", entryId);
     formData.set("file", new File([blob], `voice-${Date.now()}.webm`, { type: blob.type || "audio/webm" }));
-    const response = await fetch("/api/trips/journal-audio", { method: "POST", body: formData });
+    const response = await fetch("/api/trips/journal-audio", {
+      method: "POST",
+      headers: pinHeaders(sessionPin(pin)),
+      body: formData,
+    });
     const data = (await response.json()) as { audioUrl?: string; error?: string };
     if (!response.ok || !data.audioUrl) {
       setMessage(data.error ?? "錄音沒有放入，請再試一次。");
@@ -353,6 +417,16 @@ export default function TravelAdminPage() {
       journalEntries: trip.journalEntries.map((entry) => entry.storyPhotoId === photoId ? { ...entry, storyPhotoId: null, updatedAt: nowIso() } : entry),
     }));
     setSelectedPhotoId(null);
+  }
+
+  if (!authenticated) {
+    return (
+      <main className="travel-body grid min-h-screen place-items-center bg-[#f8f3ea] px-6 text-zinc-950">
+        <p className="travel-display text-2xl font-semibold">
+          {redirecting ? "正在返回家庭登入…" : "正在開啟遊記編輯…"}
+        </p>
+      </main>
+    );
   }
 
   if (loading) {
