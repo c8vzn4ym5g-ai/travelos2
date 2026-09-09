@@ -10,7 +10,13 @@ import {
 
 export const LAPLAND_TAP_FOR_SOUND_LABEL = "輕點開聲音 / Tap for sound";
 
-export function LaplandPublicCut({ bleed = false }: { bleed?: boolean }) {
+export function LaplandPublicCut({
+  bleed = false,
+  phoneFold = false,
+}: {
+  bleed?: boolean;
+  phoneFold?: boolean;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [needsTapForSound, setNeedsTapForSound] = useState(false);
 
@@ -71,7 +77,9 @@ export function LaplandPublicCut({ bleed = false }: { bleed?: boolean }) {
             autoPlay
             className={
               bleed
-                ? "aspect-[9/16] w-full bg-black object-cover"
+                ? phoneFold
+                  ? "h-[70vh] w-full bg-black object-cover"
+                  : "aspect-[9/16] w-full bg-black object-cover"
                 : "aspect-[9/16] w-full rounded-[1.25rem] bg-[color:var(--paper-soft)] object-contain"
             }
             controls={!bleed}

@@ -59,9 +59,10 @@ Same promote URL, does not replace the editable ship:
 
 https://travelos2.chao-jason.workers.dev/trips/finland-lapland-winter-journal
 
-Phone UA or viewport &lt; 640px: dedicated film-cut (full-bleed video
-+ one still; Overview / Journal behind 更多). iPad and desktop keep
-the frozen notebook layout. Do not squash the notebook page.
+Phone UA or viewport &lt; 640px: dedicated film-cut. Compact title overlay
+on the video (no tall soft-panel above it). Still, visual beats, and Photo
+memories follow immediately. Overview Trip memory and Journal sit behind
+更多. iPad and desktop keep the frozen notebook layout. Do not squash the notebook page.
 
 ## 2026-09-03 Capture 15s video is chunked, not one Worker body
 
