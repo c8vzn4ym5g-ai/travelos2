@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { startLaplandHeroPlayback, unmuteLaplandHero } from "@/lib/lapland-hero-playback";
 import {
+  LAPLAND_HERO_POSTER_SRC,
   LAPLAND_HERO_VIDEO_SRC,
   LAPLAND_SEASON_LABEL,
 } from "@/lib/lapland-storefront-copy";
@@ -67,6 +68,7 @@ export function LaplandPublicCut() {
             controls
             onVolumeChange={hideCueIfAudible}
             playsInline
+            poster={LAPLAND_HERO_POSTER_SRC}
             preload="metadata"
             ref={videoRef}
             src={LAPLAND_HERO_VIDEO_SRC}

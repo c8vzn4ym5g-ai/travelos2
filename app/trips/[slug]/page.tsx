@@ -339,26 +339,26 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </Link>
             <span className="travel-chip rounded-full px-4 py-2 text-sm font-semibold">{trip.visibility}</span>
           </div>
-          <div className="travel-soft-panel rounded-[1.5rem] p-4 sm:p-5">
-            <p className="travel-kicker text-sm">
-              {isLaplandStorefrontSlug(trip.slug) ? "Finland / Rovaniemi · Helsinki" : `${trip.country} / ${trip.city}`}
-            </p>
-            <h1 className="travel-hand mt-3 text-4xl font-semibold leading-tight sm:text-6xl">{trip.title}</h1>
-            {isLapland ? null : (
-              <>
-                <p className="travel-muted mt-4 max-w-4xl text-base leading-8 sm:text-lg">{heroSummary}</p>
-                <div className="mt-5">
-                  <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
-                </div>
-              </>
-            )}
-          </div>
           {isLapland ? <LaplandPublicCut /> : null}
           {isLapland && coverPhoto ? <LaplandCutStill photo={coverPhoto} /> : null}
+          {isLapland ? null : (
+          <div className="travel-soft-panel rounded-[1.5rem] p-4 sm:p-5">
+            <p className="travel-kicker text-sm">
+              {`${trip.country} / ${trip.city}`}
+            </p>
+            <h1 className="travel-hand mt-3 text-4xl font-semibold leading-tight sm:text-6xl">{trip.title}</h1>
+            <p className="travel-muted mt-4 max-w-4xl text-base leading-8 sm:text-lg">{heroSummary}</p>
+            <div className="mt-5">
+              <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
+            </div>
+          </div>
+          )}
           {isLapland ? (
             <LaplandMoreCut>
-              <div className="max-w-4xl">
-                <p className="travel-muted text-base leading-8 sm:text-lg">{heroSummary}</p>
+              <div className="travel-soft-panel rounded-[1.5rem] p-4 sm:p-5">
+                <p className="travel-kicker text-sm">Finland / Rovaniemi · Helsinki</p>
+                <h1 className="travel-hand mt-3 text-4xl font-semibold leading-tight sm:text-6xl">{trip.title}</h1>
+                <p className="travel-muted mt-4 max-w-4xl text-base leading-8 sm:text-lg">{heroSummary}</p>
                 <div className="mt-5">
                   <ShareActions description={trip.summary} path={`/trips/${trip.slug}`} title={trip.title} />
                 </div>
@@ -390,6 +390,85 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                   <MemoryChip label="Cost" tone="border-teal-100 bg-teal-50 text-teal-950" value="Not tracked" />
                 )}
               </div>
+              <section className="travel-panel rounded-2xl p-4 sm:p-5">
+                <SectionHeader kicker="Overview" title="Trip memory" />
+                <dl className="mt-4 grid gap-3 sm:grid-cols-4">
+                  {[
+                    ["Base city", trip.city],
+                    ["Coordinates", trip.coordinates ? `${trip.coordinates.latitude}, ${trip.coordinates.longitude}` : "Not mapped"],
+                    ["Journal entries", String(trip.journalEntries.length)],
+                    ["Saved places", String(savedStops.length)],
+                  ].map(([label, value]) => (
+                    <div key={label}>
+                      <dt className="travel-kicker text-[0.65rem]">{label}</dt>
+                      <dd className="mt-1 line-clamp-1 text-sm font-semibold text-[color:var(--ink)]">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+              <section className="travel-panel rounded-3xl p-5 sm:p-7">
+                <SectionHeader kicker="Journal" title="遊記 / Journal" />
+                <div className="mt-7 space-y-6">
+                  {trip.journalEntries.map((entry) => (
+                    <article className="border-b border-[color:var(--line)] pb-6 last:border-0 last:pb-0" data-music-zone={`${entry.title} ${entry.body}`} key={entry.id}>
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <h3 className="font-semibold text-[color:var(--ink)]">{entry.title}</h3>
+                        <p className="travel-muted text-sm">{LAPLAND_SEASON_LABEL}</p>
+                      </div>
+                      <NarrativeBody body={entry.body} />
+                      <p className="travel-kicker mt-4 text-xs">
+                        {entry.mood ?? "Mood not set"} / {entry.weatherSummary ?? "Weather not set"}
+                      </p>
+                    </article>
+                  ))}
+                </div>
+              </section>
+              <section className="travel-panel rounded-2xl p-4">
+                <SectionHeader kicker="Story contents" title="On this page" />
+                <div className="mt-4 grid gap-2">
+                  {pageMoments.map(({ entry, photo }, index) => (
+                    <article className="grid grid-cols-[3.25rem_1fr] gap-3 rounded-2xl border border-[color:var(--line)] bg-white/60 p-2" key={entry.id}>
+                      <div className="overflow-hidden rounded-xl bg-[color:var(--paper-soft)]">
+                        {photo && isRenderablePhoto(photo) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img alt={photo.caption ?? entry.title} className="h-14 w-full object-cover" src={photo.storageKey} />
+                        ) : (
+                          <div className="grid h-14 place-items-center text-xs text-[color:var(--muted)]">{index + 1}</div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="travel-kicker text-[0.65rem]">Moment {index + 1}</p>
+                        <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-[color:var(--ink)]">{entry.title}</p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+              <section className="travel-panel rounded-2xl p-4">
+                <SectionHeader kicker="Places" title="Saved stops" />
+                <div className="mt-4">
+                  {savedStops.map((place) => (
+                    <PlaceRow key={place.id} place={place} />
+                  ))}
+                </div>
+              </section>
+              <JournalSpendPanel costs={trip.costs} slug={trip.slug} startDate={trip.startDate} totalCost={trip.totalCost} />
+              <section className="travel-panel rounded-3xl p-5 sm:p-7">
+                <SectionHeader kicker="Album" title="Photo memories" />
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  {trip.photos.map((photo) => (
+                    <PhotoTile hideExactDate={isLaplandStorefrontSlug(trip.slug)} key={photo.id} photo={photo} />
+                  ))}
+                </div>
+              </section>
+              <footer className="travel-muted px-1 text-[0.7rem] leading-6" data-photo-credits="">
+                <p className="travel-kicker text-[0.65rem]">圖片出處 / Photo credits</p>
+                {LAPLAND_PHOTO_CREDITS.map((credit) => (
+                  <p key={credit.id}>
+                    {credit.lineZh} {credit.line}
+                  </p>
+                ))}
+              </footer>
             </LaplandMoreCut>
           ) : (
             <JourneyMap
@@ -443,6 +522,11 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
         </div>
       </section>
 
+      {isLapland ? (
+        <section className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-10 lg:px-10">
+          <BookingBand destination={getLaplandBooking()} />
+        </section>
+      ) : (
       <section className="mx-auto grid max-w-6xl gap-5 px-4 py-7 sm:px-6 sm:py-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:px-10">
         <div className="space-y-5">
           <section className="travel-panel rounded-2xl p-4 sm:p-5">
@@ -462,7 +546,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </dl>
           </section>
 
-          {trip.journalEntries.length > 0 && !isLaplandStorefrontSlug(trip.slug) ? (
+          {trip.journalEntries.length > 0 ? (
             <section className="travel-panel rounded-2xl p-4 sm:p-5">
               <SectionHeader kicker="Story route" title="Read the journey through its key moments" />
               <p className="travel-muted mt-3 line-clamp-2 text-sm leading-6">
@@ -477,15 +561,13 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           ) : null}
 
           <section className="travel-panel rounded-3xl p-5 sm:p-7">
-            <SectionHeader kicker="Journal" title={isLaplandStorefrontSlug(trip.slug) ? "遊記 / Journal" : "Narrative notes"} />
+            <SectionHeader kicker="Journal" title="Narrative notes" />
             <div className="mt-7 space-y-6">
               {trip.journalEntries.map((entry) => (
                 <article className="border-b border-[color:var(--line)] pb-6 last:border-0 last:pb-0" data-music-zone={`${entry.title} ${entry.body}`} key={entry.id}>
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <h3 className="font-semibold text-[color:var(--ink)]">{entry.title}</h3>
-                    <p className="travel-muted text-sm">
-                      {isLaplandStorefrontSlug(trip.slug) ? LAPLAND_SEASON_LABEL : formatDate(entry.entryDate)}
-                    </p>
+                    <p className="travel-muted text-sm">{formatDate(entry.entryDate)}</p>
                   </div>
                   <NarrativeBody body={entry.body} />
                   <p className="travel-kicker mt-4 text-xs">
@@ -496,27 +578,14 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </div>
           </section>
 
-          {isLaplandStorefrontSlug(trip.slug) ? <BookingBand destination={getLaplandBooking()} /> : null}
-
           <section className="travel-panel rounded-3xl p-5 sm:p-7">
             <SectionHeader kicker="Album" title="Photo memories" />
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {trip.photos.map((photo) => (
-                <PhotoTile hideExactDate={isLaplandStorefrontSlug(trip.slug)} key={photo.id} photo={photo} />
+                <PhotoTile key={photo.id} photo={photo} />
               ))}
             </div>
           </section>
-
-          {isLaplandStorefrontSlug(trip.slug) ? (
-            <footer className="travel-muted px-1 text-[0.7rem] leading-6" data-photo-credits="">
-              <p className="travel-kicker text-[0.65rem]">圖片出處 / Photo credits</p>
-              {LAPLAND_PHOTO_CREDITS.map((credit) => (
-                <p key={credit.id}>
-                  {credit.lineZh} {credit.line}
-                </p>
-              ))}
-            </footer>
-          ) : null}
         </div>
 
         <aside className="space-y-5 lg:sticky lg:top-5">
@@ -552,6 +621,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           <JournalSpendPanel costs={trip.costs} slug={trip.slug} startDate={trip.startDate} totalCost={trip.totalCost} />
         </aside>
       </section>
+      )}
     </main>
   );
 }

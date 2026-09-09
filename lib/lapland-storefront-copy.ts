@@ -30,6 +30,7 @@ export const LAPLAND_HERO_VIDEO_FILENAME = "Lapland_那年冬天_WinterWarm_Q.mp
 export const LAPLAND_HERO_VIDEO_SRC = encodeURI(`/travelos/lapland/${LAPLAND_HERO_VIDEO_FILENAME}`);
 export const LAPLAND_HERO_VIDEO_BYTES = 8940928;
 export const LAPLAND_HERO_VIDEO_SHA256 = "4c27e746a56e97100116541d14f082e1eb9d44b36cdc415e6b2e5ee8b060aa64";
+export const LAPLAND_HERO_POSTER_SRC = "/travelos/lapland/stills/cover_IMG_3619.jpeg";
 
 export const LAPLAND_STILLS_DIR = "/travelos/lapland/stills";
 
