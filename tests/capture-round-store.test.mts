@@ -48,9 +48,16 @@ test("sticky dock count stays on selected / received while the round is open", (
     ]),
     "已選 6 · 上傳中 2 · 已收到 2 · 還沒進倉 2",
   );
+  assert.equal(captureDockCountText([], 39), "已選 39 · 已收到 0");
   assert.equal(
-    captureDockCountText([{ status: "uploaded" }, { status: "uploaded" }]),
-    "已選 2 · 已收到 2",
+    captureDockCountText(
+      [
+        { status: "uploaded" },
+        { status: "uploading" },
+      ],
+      39,
+    ),
+    "已選 39 · 上傳中 1 · 已收到 1",
   );
   assert.doesNotMatch(captureDockCountText([{ status: "failed" }]), /失敗|失败/);
 });
@@ -70,7 +77,7 @@ test("dock status labels never call a local thumbnail received", () => {
       { id: "c", status: "uploading" },
       { id: "d", status: "failed" },
     ]),
-    ["b", "d"],
+    ["b", "c", "d"],
   );
 });
 

@@ -405,7 +405,13 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(capture, /previewUrl: null/);
   assert.match(capture, /fam-thumb-fail/);
   assert.match(capture, /data-capture-dock-count/);
-  assert.match(capture, /captureDockCountText\(photos\)/);
+  assert.match(capture, /captureDockCountText\(photos, ingestHint\)/);
+  assert.match(capture, /setIngestHint\(freshRound \? incomingCount : photosRef\.current\.length \+ incomingCount\)/);
+  assert.match(capture, /const incomingCount = fileListLength/);
+  assert.doesNotMatch(
+    capture.slice(capture.indexOf("data-capture-dock-count"), capture.indexOf("加入之後")),
+    /photo\.status === "failed"/,
+  );
   assert.match(capture, /maybeAutoFinalize/);
   assert.match(capture, /persistCaptureRound/);
   assert.match(capture, /pagehide/);

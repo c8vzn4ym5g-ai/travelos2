@@ -147,6 +147,7 @@ export default function CapturePage() {
   const [authenticated, setAuthenticated] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [photos, setPhotos] = useState<StagedPhoto[]>([]);
+  const [ingestHint, setIngestHint] = useState(0);
   const [note, setNote] = useState("");
   const [audio, setAudio] = useState<StagedAudio | null>(null);
   const [audioHold, setAudioHold] = useState<{ durationSeconds: number } | null>(null);
@@ -790,6 +791,8 @@ export default function CapturePage() {
       beginFreshDumpRound();
     }
 
+    const incomingCount = fileListLength;
+    setIngestHint(freshRound ? incomingCount : photosRef.current.length + incomingCount);
     setMessage(
       captureDumpProgressMessage(
         fileListLength,
@@ -798,7 +801,8 @@ export default function CapturePage() {
       ),
     );
 
-    await ingestCaptureFileList(fileList, {
+    try {
+      await ingestCaptureFileList(fileList, {
       limit: CAPTURE_DUMP_LIMIT,
       async onCopied(file, progress) {
         const incoming = createStagedCapturePhotos([file]).map((draft) => ({
@@ -846,8 +850,11 @@ export default function CapturePage() {
         }
       },
     });
-    if (input && input.files === fileList) {
-      input.value = "";
+    } finally {
+      if (input && input.files === fileList) {
+        input.value = "";
+      }
+      setIngestHint(0);
     }
   }
 
@@ -1122,7 +1129,21 @@ export default function CapturePage() {
       </header>
 
       <section className="fam-sheet">
-        <div className="grid grid-cols-2 gap-3">
+        {photos.length > 0 || ingestHint > 0 ? (
+          <div className="fam-dock-count" data-capture-dock-count="">
+            <p>{captureDockCountText(photos, ingestHint)}</p>
+            <button
+              aria-label="再送"
+              className="fam-dock-retry"
+              data-capture-retry-failed=""
+              onClick={retryFailedPhotos}
+              type="button"
+            >
+              <FamGlyph name="refresh" size={22} />
+            </button>
+          </div>
+        ) : null}
+        <div className="mt-3 grid grid-cols-2 gap-3">
           <label className="fam-file fam-pill fam-pill-blush-outline">
             <span>拍照</span>
             <span className="fam-en">Take Photo</span>
@@ -1139,22 +1160,6 @@ export default function CapturePage() {
             />
           </label>
         </div>
-        {photos.length > 0 ? (
-          <div className="fam-dock-count" data-capture-dock-count="">
-            <p>{captureDockCountText(photos)}</p>
-            {photos.some((photo) => photo.status === "failed") ? (
-                <button
-                  aria-label="再送"
-                  className="fam-dock-retry"
-                  data-capture-retry-failed=""
-                  onClick={retryFailedPhotos}
-                  type="button"
-                >
-                  <FamGlyph name="refresh" size={22} />
-                </button>
-            ) : null}
-          </div>
-        ) : null}
         <p className="fam-muted mt-3">加入之後兩個按鈕都還在。拍照會接在這一輪後面。再選一次相簿是新的一輪。</p>
 
         {photos.length > 0 ? (
@@ -1186,10 +1191,16 @@ export default function CapturePage() {
                 if (photo.status !== "uploaded") {
                   return (
                     <li className="fam-thumb fam-thumb-pending" key={photo.id}>
-                      <div className="fam-spin-wrap">
+                      <button
+                        aria-label="再送"
+                        className="fam-thumb-fail-hit"
+                        onClick={() => retryPhoto(photo.id)}
+                        type="button"
+                      >
                         <span className="fam-spin" />
                         <span className="fam-sr">上傳中</span>
-                      </div>
+                        <FamGlyph name="refresh" size={22} />
+                      </button>
                       {photo.hopTotal > 0 && photo.hopDone > 0 ? (
                         <span className="fam-chip fam-chip-honey">{photo.hopDone}/{photo.hopTotal}</span>
                       ) : null}

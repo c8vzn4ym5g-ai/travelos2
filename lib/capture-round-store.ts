@@ -42,8 +42,11 @@ export function capturePhotoStatusLabel(status: CaptureDockStatus) {
   return "上傳中";
 }
 
-export function captureDockCountText(photos: Array<{ status: CaptureDockStatus }>) {
-  const selected = photos.length;
+export function captureDockCountText(
+  photos: Array<{ status: CaptureDockStatus }>,
+  selectedHint = 0,
+) {
+  const selected = Math.max(photos.length, selectedHint);
   const uploaded = photos.filter((photo) => photo.status === "uploaded").length;
   const uploading = photos.filter((photo) => photo.status === "queued" || photo.status === "uploading").length;
   const held = photos.filter((photo) => photo.status === "failed").length;
@@ -69,7 +72,7 @@ export function captureRoundNeedsResume(photos: Array<{ status: CaptureDockStatu
 export function listRetryableCapturePhotoIds(
   photos: Array<{ id: string; status: CaptureDockStatus }>,
 ) {
-  return photos.filter((photo) => photo.status === "failed").map((photo) => photo.id);
+  return photos.filter((photo) => photo.status !== "uploaded").map((photo) => photo.id);
 }
 
 export function createMemoryCaptureFileStore(initial: Iterable<[string, File]> = []): CaptureRoundFileStore {
