@@ -547,20 +547,31 @@ export default function CapturePage() {
     const session = momentSession();
     const generation =
       (photosRef.current.find((item) => item.id === photo.id)?.uploadGeneration ?? photo.uploadGeneration ?? 0) + 1;
-    photosRef.current = photosRef.current.map((item) =>
-      item.id === photo.id
-        ? {
-            ...item,
-            abort: photo.abort,
-            errorMessage: null,
-            file: photo.file,
-            retryCount: photo.retryCount,
-            status: "uploading",
-            uploadGeneration: generation,
-          }
-        : item,
-    );
-    setPhotos(photosRef.current);
+    const applyGeneration = (list: StagedPhoto[]) =>
+      list.map((item) =>
+        item.id === photo.id
+          ? {
+              ...item,
+              abort: photo.abort,
+              errorMessage: null,
+              file: photo.file,
+              retryCount: photo.retryCount,
+              status: "uploading" as const,
+              uploadGeneration: generation,
+            }
+          : item,
+      );
+    if (photosRef.current.some((item) => item.id === photo.id)) {
+      photosRef.current = applyGeneration(photosRef.current);
+    }
+    setPhotos((current) => {
+      if (!current.some((item) => item.id === photo.id)) {
+        return current;
+      }
+      const next = applyGeneration(current);
+      photosRef.current = next;
+      return next;
+    });
     const stillThisRun = () =>
       photosRef.current.find((item) => item.id === photo.id)?.uploadGeneration === generation;
     const run = (async () => {
@@ -812,13 +823,11 @@ export default function CapturePage() {
           // Photo POST retries moment create if this first ensure is still in flight.
         });
 
-        setPhotos((current) => {
-          const next = appendMomentPhotos(current, incoming);
-          photosRef.current = next;
-          setMessage(captureDumpProgressMessage(progress.fileListLength, next.length, { freshRound }));
-          persistCaptureRound();
-          return next;
-        });
+        const next = appendMomentPhotos(photosRef.current, incoming);
+        photosRef.current = next;
+        setPhotos(next);
+        setMessage(captureDumpProgressMessage(progress.fileListLength, next.length, { freshRound }));
+        persistCaptureRound();
 
         for (const photo of incoming) {
           void persistCapturePhotoFile(photo);

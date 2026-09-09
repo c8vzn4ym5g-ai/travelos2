@@ -18,7 +18,7 @@ test("capture does not create trips and photos append to a moment", async () => 
     readSource("lib/moments.ts"),
   ]);
 
-  assert.match(capture, /appendMomentPhotos\(current, incoming\)/);
+  assert.match(capture, /appendMomentPhotos\(photosRef\.current, incoming\)/);
   assert.match(upload, /fetch\("\/api\/moments"/);
   assert.match(upload, /\/api\/moments\/photos/);
   assert.match(capture, /寫下一句/);
@@ -345,6 +345,8 @@ test("background upload starts on add and Save does not wait on originals", asyn
   );
 
   assert.match(addBlock, /startBackgroundPhotoUpload\(photo\)/);
+  assert.match(addBlock, /photosRef\.current = next/);
+  assert.match(addBlock, /setPhotos\(next\)/);
   assert.match(addBlock, /ingestCaptureFileList\(fileList/);
   assert.match(addBlock, /limit: CAPTURE_DUMP_LIMIT/);
   assert.match(addBlock, /createStagedCapturePhotos\(\[file\]\)/);
@@ -383,7 +385,7 @@ test("background upload starts on add and Save does not wait on originals", asyn
     capture.indexOf("async function startBackgroundPhotoUpload"),
     capture.indexOf("async function startBackgroundAudioUpload"),
   );
-  assert.match(uploadFn, /photosRef\.current = photosRef\.current\.map/);
+  assert.match(uploadFn, /applyGeneration/);
   assert.match(uploadFn, /uploadGeneration: generation/);
   const retryHeld = capture.slice(
     capture.indexOf("function beginStagedPhotoRetry"),
