@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  CAPTURE_RETRY_ALL_LABEL,
+  CAPTURE_RETRY_ONCE_LABEL,
   captureDockCountText,
   capturePhotoRetryDelayMs,
   capturePhotoStatusLabel,
@@ -57,7 +59,9 @@ test("sticky dock count stays on selected / received while the round is open", (
 
 test("dock status labels never call a local thumbnail received", () => {
   assert.equal(capturePhotoStatusLabel("uploaded"), "已收到");
-  assert.equal(capturePhotoStatusLabel("failed"), "再送");
+  assert.equal(capturePhotoStatusLabel("failed"), "再送一次");
+  assert.equal(CAPTURE_RETRY_ONCE_LABEL, "再送一次");
+  assert.equal(CAPTURE_RETRY_ALL_LABEL, "全部再送");
   assert.equal(capturePhotoStatusLabel("uploading"), "上傳中");
   assert.equal(capturePhotoStatusLabel("queued"), "上傳中");
   assert.equal(capturePhotoRetryDelayMs(1), 1200);

@@ -41,6 +41,8 @@ import {
 } from "@/lib/capture-upload";
 import {
   CAPTURE_PHOTO_RETRY_LIMIT,
+  CAPTURE_RETRY_ALL_LABEL,
+  CAPTURE_RETRY_ONCE_LABEL,
   captureDockCountText,
   capturePhotoRetryDelayMs,
   clearCaptureRoundMeta,
@@ -702,7 +704,7 @@ export default function CapturePage() {
           status: "failed",
         });
         persistCaptureRound();
-        setMessage("還有幾張在這一輪。點刷新就可以，不用重選相簿。");
+        setMessage("還有幾張在這一輪。點再送一次就可以，不用重選相簿。");
       } finally {
         globalThis.clearTimeout(watchdog);
       }
@@ -766,7 +768,7 @@ export default function CapturePage() {
           audioRef.current = next;
           return next;
         });
-        setMessage(detail);
+        setMessage("聲音還沒進倉。照片還在這一輪。");
         throw error;
       }
     })();
@@ -1116,7 +1118,7 @@ export default function CapturePage() {
           <p className="fam-script">one capture door</p>
           <h1 className="fam-title">Capture</h1>
           <p className="fam-lede">
-            打開就能拍或選。清楚看見的就是已經收到，會進工作台。傳的時候轉圈。還沒好的點刷新就可以，不用重選相簿。這一輪最多 40 張。再選一次相簿是新的一輪。一句話可以補心情，也可以交代工作，可不用按。
+            打開就能拍或選。清楚看見的就是已經收到，會進工作台。傳的時候轉圈。還沒好的點再送一次就可以，不用重選相簿。這一輪最多 40 張。再選一次相簿是新的一輪。一句話可以補心情，也可以交代工作，可不用按。
           </p>
         </div>
       </header>
@@ -1143,15 +1145,14 @@ export default function CapturePage() {
           <div className="fam-dock-count" data-capture-dock-count="">
             <p>{captureDockCountText(photos)}</p>
             {photos.some((photo) => photo.status === "failed") ? (
-              <button
-                aria-label="再送"
-                className="fam-dock-retry"
-                data-capture-retry-failed=""
-                onClick={retryFailedPhotos}
-                type="button"
-              >
-                <FamGlyph name="refresh" size={22} />
-              </button>
+                <button
+                  className="fam-dock-retry"
+                  data-capture-retry-failed=""
+                  onClick={retryFailedPhotos}
+                  type="button"
+                >
+                  {CAPTURE_RETRY_ALL_LABEL}
+                </button>
             ) : null}
           </div>
         ) : null}
@@ -1165,12 +1166,14 @@ export default function CapturePage() {
                   return (
                     <li className="fam-thumb fam-thumb-fail" key={photo.id}>
                       <button
-                        aria-label="再送"
                         className="fam-thumb-fail-hit"
                         onClick={() => retryPhoto(photo.id)}
                         type="button"
                       >
-                        <FamGlyph name="refresh" size={36} />
+                        <span className="fam-thumb-fail-mark" aria-hidden="true">
+                          <FamGlyph name="x" size={28} />
+                        </span>
+                        <span>{CAPTURE_RETRY_ONCE_LABEL}</span>
                       </button>
                       <div className="fam-thumb-actions">
                         <button onClick={() => retakePhoto(photo.id)} type="button">
@@ -1265,9 +1268,8 @@ export default function CapturePage() {
               value={spoken || audio.transcript}
             />
             <p className="fam-muted mt-2">
-              {audio.status === "uploaded" ? "已上傳" : audio.status === "failed" ? "上傳失敗" : "上傳中"}
+              {audio.status === "uploaded" ? "已上傳" : audio.status === "failed" ? "還沒進倉" : "上傳中"}
             </p>
-            {audio.errorMessage ? <p className="fam-ref">{audio.errorMessage}</p> : null}
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button className="fam-pill fam-pill-quiet min-h-11" onClick={() => void retakeAudio()} type="button">
                 Retake audio

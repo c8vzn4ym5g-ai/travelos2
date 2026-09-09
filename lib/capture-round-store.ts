@@ -37,10 +37,13 @@ export function capturePhotoStatusLabel(status: CaptureDockStatus) {
     return "已收到";
   }
   if (status === "failed") {
-    return "再送";
+    return "再送一次";
   }
   return "上傳中";
 }
+
+export const CAPTURE_RETRY_ONCE_LABEL = "再送一次";
+export const CAPTURE_RETRY_ALL_LABEL = "全部再送";
 
 export function captureDockCountText(photos: Array<{ status: CaptureDockStatus }>) {
   const selected = photos.length;

@@ -360,10 +360,10 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(capture, /captureDumpProgressMessage/);
   assert.match(capture, /fam-thumb-pending/);
   assert.match(capture, /fam-thumb-fail-hit/);
-  assert.match(capture, /name="refresh"/);
-  assert.match(capture, /aria-label="再送"/);
-  assert.match(capture, /data-capture-dock-count/);
-  assert.match(capture, /captureDockCountText\(photos\)/);
+  assert.match(capture, /fam-thumb-fail-mark/);
+  assert.match(capture, /name="x"/);
+  assert.match(capture, /CAPTURE_RETRY_ONCE_LABEL/);
+  assert.match(capture, /CAPTURE_RETRY_ALL_LABEL/);
   assert.doesNotMatch(
     capture.slice(capture.indexOf("{photos.length > 0 ? ("), capture.indexOf("fam-audio")),
     /上傳失敗/,
@@ -372,12 +372,14 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.doesNotMatch(capture, /preview ≠ uploaded/i);
   assert.match(capture, /清楚看見的就是已經收到/);
   assert.doesNotMatch(capture, /全部再傳/);
-  assert.doesNotMatch(capture, /全部再送/);
-  assert.doesNotMatch(capture, /再送一次/);
+  assert.doesNotMatch(capture, /失败再传/);
   assert.doesNotMatch(capture, /Refresh failed/);
   const retryUi = capture.slice(capture.indexOf("{photos.length > 0 ? ("), capture.indexOf("fam-audio"));
+  assert.match(retryUi, /CAPTURE_RETRY_ONCE_LABEL/);
+  assert.match(retryUi, /CAPTURE_RETRY_ALL_LABEL/);
   assert.doesNotMatch(retryUi, />\s*再傳\s*</);
-  assert.doesNotMatch(retryUi, />\s*再送\s*</);
+  assert.doesNotMatch(retryUi, /上傳失敗/);
+  assert.doesNotMatch(retryUi, /Retry failed/);
   assert.match(capture, /retryFailedPhotos/);
   assert.match(capture, /data-capture-retry-failed/);
   assert.match(capture, /beginStagedPhotoRetry/);
@@ -400,13 +402,14 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(capture, /previewUrl: null/);
   assert.match(capture, /fam-thumb-fail/);
   assert.match(capture, /data-capture-dock-count/);
+  assert.match(capture, /captureDockCountText\(photos\)/);
   assert.match(capture, /maybeAutoFinalize/);
   assert.match(capture, /persistCaptureRound/);
   assert.match(capture, /pagehide/);
   assert.match(capture, /retryPhoto/);
   assert.match(capture, /上傳中/);
   assert.match(capture, /已上傳/);
-  assert.match(capture, /audio\.errorMessage/);
+  assert.match(capture, /還沒進倉/);
   assert.match(capture, /寫下一句/);
   assert.doesNotMatch(saveBlock, /preparePhotoForUpload/);
   assert.doesNotMatch(saveBlock, /prepareDisplayPhoto/);

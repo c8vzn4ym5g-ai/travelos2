@@ -572,15 +572,18 @@
 
 [data-surface="family"] .fam-dock-retry {
   flex-shrink: 0;
-  display: grid;
-  width: 44px;
-  height: 44px;
-  place-items: center;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
   border: 0;
-  border-radius: 50%;
+  border-radius: 999px;
   background: var(--fam-paper);
   color: var(--fam-ink);
   cursor: pointer;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 [data-surface="family"] .fam-thumb-pending .fam-thumb-fallback,
@@ -591,7 +594,9 @@
 
 [data-surface="family"] .fam-thumb-fail-hit {
   display: grid;
+  gap: 8px;
   height: 132px;
+  place-content: center;
   place-items: center;
   width: 100%;
   border: 0;
@@ -599,6 +604,18 @@
   color: var(--fam-ink);
   background: color-mix(in srgb, var(--fam-paper-2) 88%, #c9c1b5);
   cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+[data-surface="family"] .fam-thumb-fail-mark {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--fam-paper) 80%, #d9d3c8);
+  color: var(--fam-muted);
 }
 
 [data-surface="family"] .fam-spin-wrap {
