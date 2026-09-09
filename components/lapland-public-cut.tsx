@@ -10,7 +10,7 @@ import {
 
 export const LAPLAND_TAP_FOR_SOUND_LABEL = "輕點開聲音 / Tap for sound";
 
-export function LaplandPublicCut() {
+export function LaplandPublicCut({ bleed = false }: { bleed?: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [needsTapForSound, setNeedsTapForSound] = useState(false);
 
@@ -58,14 +58,23 @@ export function LaplandPublicCut() {
   }
 
   return (
-    <section aria-label="那年冬天 / That winter" className="max-w-4xl" data-lapland-public-cut="">
-      <p className="travel-kicker text-xs">那年冬天 / That winter · {LAPLAND_SEASON_LABEL}</p>
-      <div className="mx-auto mt-3 max-w-[22rem] sm:max-w-[24rem]">
-        <div className="relative overflow-hidden rounded-[1.25rem]">
+    <section
+      aria-label="那年冬天 / That winter"
+      className={bleed ? "w-full" : "max-w-4xl"}
+      data-lapland-public-cut=""
+      data-lapland-cut-bleed={bleed ? "" : undefined}
+    >
+      {bleed ? null : <p className="travel-kicker text-xs">那年冬天 / That winter · {LAPLAND_SEASON_LABEL}</p>}
+      <div className={bleed ? "w-full" : "mx-auto mt-3 max-w-[22rem] sm:max-w-[24rem]"}>
+        <div className={bleed ? "relative overflow-hidden bg-black" : "relative overflow-hidden rounded-[1.25rem]"}>
           <video
             autoPlay
-            className="aspect-[9/16] w-full rounded-[1.25rem] bg-[color:var(--paper-soft)] object-contain"
-            controls
+            className={
+              bleed
+                ? "aspect-[9/16] w-full bg-black object-cover"
+                : "aspect-[9/16] w-full rounded-[1.25rem] bg-[color:var(--paper-soft)] object-contain"
+            }
+            controls={!bleed}
             onVolumeChange={hideCueIfAudible}
             playsInline
             poster={LAPLAND_HERO_POSTER_SRC}

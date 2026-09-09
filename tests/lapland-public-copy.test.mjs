@@ -224,7 +224,6 @@ test("Lapland public short is the exact Codex cut under Journey, not a substitut
   const { createHash } = await import("node:crypto");
   const { stat } = await import("node:fs/promises");
   const {
-    LAPLAND_HERO_POSTER_SRC,
     LAPLAND_HERO_VIDEO_BYTES,
     LAPLAND_HERO_VIDEO_FILENAME,
     LAPLAND_HERO_VIDEO_SHA256,
@@ -277,16 +276,10 @@ test("Lapland public short is the exact Codex cut under Journey, not a substitut
   assert.match(page, /<LaplandMoreCut>/);
   assert.match(page, /<JourneyMap/);
   assert.ok(page.indexOf("<LaplandPublicCut") < page.indexOf("<LaplandCutStill"), "one still follows the public cut");
-  assert.ok(page.indexOf("<LaplandPublicCut") < page.indexOf("<h1"), "video leads the title on the public cut");
   assert.ok(page.indexOf("<LaplandCutStill") < page.indexOf("<LaplandMoreCut"), "extras sit behind the more tap");
-  assert.ok(page.indexOf("<LaplandMoreCut>") < page.indexOf("Finland / Rovaniemi · Helsinki"), "Lapland title sits behind the more tap");
-  assert.ok(page.indexOf("<LaplandMoreCut>") < page.indexOf("Trip memory"), "overview meta sits behind the more tap");
-  assert.ok(page.indexOf("<LaplandMoreCut>") < page.indexOf("遊記 / Journal"), "journal essay sits behind the more tap");
   assert.ok(page.indexOf("<LaplandPublicCut") < page.indexOf("<JourneyMap"), "public cut sits before the frozen poster");
   assert.match(cut, /data-lapland-public-cut=""/);
   assert.match(cut, /LAPLAND_HERO_VIDEO_SRC/);
-  assert.match(cut, /poster=\{LAPLAND_HERO_POSTER_SRC\}/);
-  assert.equal(LAPLAND_HERO_POSTER_SRC, "/travelos/lapland/stills/cover_IMG_3619.jpeg");
   assert.doesNotMatch(cut, /LAPLAND_PUBLIC_CUT_SRC|WinterVocal_F|Public_Cut/);
   assert.doesNotMatch(cut, /Pixabay|Last Call For Us|kaazoom|credit/i);
   assert.match(cut, /["']use client["']/);

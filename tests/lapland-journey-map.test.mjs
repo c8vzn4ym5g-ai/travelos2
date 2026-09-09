@@ -77,11 +77,11 @@ test("JourneyMap hero is the generated itinerary poster, not a live tile collage
   assert.ok(hero.indexOf("LaplandPublicCut") < hero.indexOf("<JourneyMap"), "frozen poster sits after the public cut");
   assert.ok(hero.indexOf("LaplandMoreCut") < hero.indexOf("<JourneyMap"), "frozen poster sits behind the more tap");
   assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("LaplandStorefrontGlance"), "storefront glance sits under the map");
-  assert.ok(page.indexOf("<JourneyMap") < page.indexOf("{featurePhotos.length"), "map must sit above the photo strip");
+  assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("featurePhotos"), "map must sit above the photo strip");
   assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("JournalCostChip"), "map sits above the cost footnote");
   assert.match(hero, /<JournalCostChip/);
   assert.doesNotMatch(hero, /JournalCostHeroNote/);
-  assert.match(page, /coverPhoto\.caption/);
+  assert.match(hero, /coverPhoto\.caption/);
 });
 
 test("long-haul is a quiet label, not an equal-size second map", async () => {

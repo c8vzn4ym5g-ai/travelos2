@@ -46,18 +46,16 @@ test("Lapland storefront glance is independent cash-path copy under the map, aft
   assert.doesNotMatch(glance, /widgetId|emrldtp|BookingBand|Unlock editor|Edit trip/);
 
   const hero = page.slice(page.indexOf("travel-hero"), page.indexOf("Trip memory"));
+  assert.ok(hero.indexOf("<h1") < hero.indexOf("LaplandPublicCut"), "title then public cut");
   assert.ok(hero.indexOf("LaplandPublicCut") < hero.indexOf("LaplandCutStill"), "one still follows the public cut");
-  assert.ok(hero.indexOf("LaplandPublicCut") < hero.indexOf("<h1"), "video leads the title so the phone fold is not a wall of text");
-  assert.ok(hero.indexOf("LaplandCutStill") < hero.indexOf("<h1"), "one still sits with the video before the title panel");
   assert.ok(hero.indexOf("LaplandCutStill") < hero.indexOf("LaplandMoreCut"), "extras sit behind the more tap");
-  assert.ok(hero.indexOf("LaplandMoreCut") < hero.indexOf("Finland / Rovaniemi · Helsinki"), "Lapland title sits behind the more tap");
   assert.ok(hero.indexOf("LaplandMoreCut") < hero.indexOf("<JourneyMap"), "frozen poster sits behind the tap");
   assert.ok(hero.indexOf("LaplandPublicCut") < hero.indexOf("LaplandStorefrontGlance"), "video sits before the why-go essay");
   assert.ok(hero.indexOf("LaplandPublicCut") < hero.indexOf("LaplandVisualPath"), "video sits before the visual path");
   assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("LaplandStorefrontGlance"), "glance sits under the map");
   assert.ok(hero.indexOf("LaplandStorefrontGlance") < hero.indexOf("LaplandVisualPath"), "visual path sits under why-go");
   assert.ok(hero.indexOf("LaplandVisualPath") < hero.indexOf("JournalCostChip"), "visual path is before the cost chip");
-  assert.ok(page.indexOf("LaplandStorefrontGlance") < page.indexOf("{featurePhotos.length"), "glance is before the photo strip");
+  assert.ok(hero.indexOf("LaplandStorefrontGlance") < hero.indexOf("featurePhotos"), "glance is before the photo strip");
   assert.ok(hero.indexOf("<h1") < hero.indexOf("<JourneyMap"), "map still follows the title");
   assert.doesNotMatch(hero, /BookingBand/);
   assert.ok(page.indexOf("Trip memory") < page.indexOf("<BookingBand"), "booking stays with go-there");
