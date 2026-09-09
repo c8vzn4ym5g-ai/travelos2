@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  captureDockCountText,
   capturePhotoRetryDelayMs,
   capturePhotoStatusLabel,
   captureRoundNeedsResume,
@@ -26,6 +27,33 @@ class MemoryStorage {
     this.#map.delete(key);
   }
 }
+
+test("sticky dock count stays on selected / received while the round is open", () => {
+  assert.equal(
+    captureDockCountText([
+      { status: "queued" },
+      { status: "queued" },
+      { status: "uploading" },
+    ]),
+    "已選 3 · 上傳中 3 · 已收到 0",
+  );
+  assert.equal(
+    captureDockCountText([
+      { status: "uploaded" },
+      { status: "uploaded" },
+      { status: "uploading" },
+      { status: "failed" },
+      { status: "failed" },
+      { status: "queued" },
+    ]),
+    "已選 6 · 上傳中 2 · 已收到 2 · 還沒進倉 2",
+  );
+  assert.equal(
+    captureDockCountText([{ status: "uploaded" }, { status: "uploaded" }]),
+    "已選 2 · 已收到 2",
+  );
+  assert.doesNotMatch(captureDockCountText([{ status: "failed" }]), /失敗|失败/);
+});
 
 test("dock status labels never call a local thumbnail received", () => {
   assert.equal(capturePhotoStatusLabel("uploaded"), "已收到");

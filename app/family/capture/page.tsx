@@ -41,6 +41,7 @@ import {
 } from "@/lib/capture-upload";
 import {
   CAPTURE_PHOTO_RETRY_LIMIT,
+  captureDockCountText,
   capturePhotoRetryDelayMs,
   clearCaptureRoundMeta,
   createIndexedDbCaptureFileStore,
@@ -1138,26 +1139,26 @@ export default function CapturePage() {
             />
           </label>
         </div>
+        {photos.length > 0 ? (
+          <div className="fam-dock-count" data-capture-dock-count="">
+            <p>{captureDockCountText(photos)}</p>
+            {photos.some((photo) => photo.status === "failed") ? (
+              <button
+                aria-label="再送"
+                className="fam-dock-retry"
+                data-capture-retry-failed=""
+                onClick={retryFailedPhotos}
+                type="button"
+              >
+                <FamGlyph name="refresh" size={22} />
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         <p className="fam-muted mt-3">加入之後兩個按鈕都還在。拍照會接在這一輪後面。再選一次相簿是新的一輪。</p>
 
         {photos.length > 0 ? (
           <>
-            <div className="fam-dock-count" data-capture-dock-count="">
-              <p>
-                已收到 {photos.filter((photo) => photo.status === "uploaded").length} / {photos.length}
-              </p>
-              {photos.some((photo) => photo.status === "failed") ? (
-                <button
-                  aria-label="再送"
-                  className="fam-dock-retry"
-                  data-capture-retry-failed=""
-                  onClick={retryFailedPhotos}
-                  type="button"
-                >
-                  <FamGlyph name="refresh" size={22} />
-                </button>
-              ) : null}
-            </div>
             <ul className="mt-5 grid grid-cols-2 gap-3">
               {photos.map((photo) => {
                 if (photo.status === "failed") {

@@ -363,6 +363,7 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(capture, /name="refresh"/);
   assert.match(capture, /aria-label="再送"/);
   assert.match(capture, /data-capture-dock-count/);
+  assert.match(capture, /captureDockCountText\(photos\)/);
   assert.doesNotMatch(
     capture.slice(capture.indexOf("{photos.length > 0 ? ("), capture.indexOf("fam-audio")),
     /上傳失敗/,

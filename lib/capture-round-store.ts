@@ -42,6 +42,22 @@ export function capturePhotoStatusLabel(status: CaptureDockStatus) {
   return "上傳中";
 }
 
+export function captureDockCountText(photos: Array<{ status: CaptureDockStatus }>) {
+  const selected = photos.length;
+  const uploaded = photos.filter((photo) => photo.status === "uploaded").length;
+  const uploading = photos.filter((photo) => photo.status === "queued" || photo.status === "uploading").length;
+  const held = photos.filter((photo) => photo.status === "failed").length;
+  const parts = [`已選 ${selected}`];
+  if (uploading > 0) {
+    parts.push(`上傳中 ${uploading}`);
+  }
+  parts.push(`已收到 ${uploaded}`);
+  if (held > 0) {
+    parts.push(`還沒進倉 ${held}`);
+  }
+  return parts.join(" · ");
+}
+
 export function capturePhotoRetryDelayMs(attempt: number) {
   return CAPTURE_PHOTO_RETRY_BASE_MS * Math.max(1, attempt);
 }

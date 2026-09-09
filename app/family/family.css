@@ -559,8 +559,8 @@
   border-radius: 18px;
   background: var(--fam-white);
   box-shadow: var(--fam-shadow);
-  padding: 10px 12px 10px 14px;
-  font-size: 14px;
+  padding: 12px 12px 12px 14px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--fam-ink);
 }
