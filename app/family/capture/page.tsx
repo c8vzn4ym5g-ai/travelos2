@@ -18,10 +18,13 @@ import {
 } from "@/lib/capture-speech";
 import {
   CAPTURE_DUMP_LIMIT,
+  CAPTURE_UPLOAD_CONCURRENCY,
   CAPTURE_UPLOAD_FAILED_MESSAGE,
   captureDumpProgressMessage,
   captureErrorMessage,
+  capturePhotoHangMs,
   captureUploadWatchdogMs,
+  createWorkQueue,
   captureVideoHopCount,
   captureVideoPreviewUrl,
   clearMomentAudioInBackground,
@@ -43,7 +46,6 @@ import {
 import {
   CAPTURE_DOCK_RETRY_GUARD_MS,
   CAPTURE_HANG_SWEEP_MS,
-  CAPTURE_PHOTO_HANG_MS,
   CAPTURE_PHOTO_RETRY_LIMIT,
   captureDockCountText,
   captureDockRetryShouldRun,
@@ -146,6 +148,8 @@ export default function CapturePage() {
   const momentSessionRef = useRef<ReturnType<typeof createMomentSession> | null>(null);
   const photoUploadsRef = useRef(new Map<string, Promise<void>>());
   const liveUploadsRef = useRef(new Set<string>());
+  const uploadQueueRef = useRef(createWorkQueue(CAPTURE_UPLOAD_CONCURRENCY));
+  const uploadScheduledRef = useRef(new Set<string>());
   const audioUploadRef = useRef<Promise<void> | null>(null);
   const savingRef = useRef(false);
   const persistTimerRef = useRef<number>(0);
@@ -270,7 +274,7 @@ export default function CapturePage() {
         if (photo.status === "uploaded") {
           continue;
         }
-        if (liveUploadsRef.current.has(photo.id)) {
+        if (liveUploadsRef.current.has(photo.id) || uploadScheduledRef.current.has(photo.id)) {
           continue;
         }
         void startBackgroundPhotoUpload(photo);
@@ -366,6 +370,11 @@ export default function CapturePage() {
   }
 
   function beginFreshDumpRound() {
+    for (const photo of photosRef.current) {
+      photo.abort.abort();
+    }
+    liveUploadsRef.current.clear();
+    uploadScheduledRef.current.clear();
     photosRef.current = detachStagedCapturePhotos(photosRef.current);
     setPhotos(() => photosRef.current);
     photoUploadsRef.current = new Map();
@@ -447,6 +456,7 @@ export default function CapturePage() {
     }
     current.abort.abort();
     liveUploadsRef.current.delete(photoId);
+    uploadScheduledRef.current.delete(photoId);
     photoUploadsRef.current.delete(photoId);
     if (current.previewUrl) {
       URL.revokeObjectURL(current.previewUrl);
@@ -467,7 +477,7 @@ export default function CapturePage() {
     for (const photo of photosRef.current) {
       const hangMs = isCaptureVideoFile(photo.file)
         ? captureUploadWatchdogMs(photo.file.size)
-        : CAPTURE_PHOTO_HANG_MS;
+        : capturePhotoHangMs(photosRef.current.length);
       if (
         !captureUploadShouldForceFail({
           hasLiveUpload: liveUploadsRef.current.has(photo.id),
@@ -560,7 +570,7 @@ export default function CapturePage() {
           serverPhotoId: item.serverPhotoId,
           status: item.status === "uploaded" && item.serverPhotoId ? "uploaded" : file ? "queued" : "failed",
           uploadGeneration: 0,
-          uploadingSince: item.status === "uploaded" && item.serverPhotoId ? null : Date.now(),
+          uploadingSince: null,
         };
         restored.push(staged);
       }
@@ -670,6 +680,35 @@ export default function CapturePage() {
   }
 
   async function startBackgroundPhotoUpload(photo: StagedPhoto) {
+    if (uploadScheduledRef.current.has(photo.id) || liveUploadsRef.current.has(photo.id)) {
+      return photoUploadsRef.current.get(photo.id) ?? Promise.resolve();
+    }
+    uploadScheduledRef.current.add(photo.id);
+    const queued = uploadQueueRef.current.enqueue(async () => {
+      try {
+        if (photo.abort.signal.aborted) {
+          return;
+        }
+        const latest = photosRef.current.find((item) => item.id === photo.id);
+        if (!latest || latest.status === "uploaded") {
+          return;
+        }
+        await runBackgroundPhotoUpload(latest);
+      } finally {
+        uploadScheduledRef.current.delete(photo.id);
+      }
+    });
+    photoUploadsRef.current.set(
+      photo.id,
+      queued.then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    return queued;
+  }
+
+  async function runBackgroundPhotoUpload(photo: StagedPhoto) {
     liveUploadsRef.current.add(photo.id);
     const session = momentSession();
     const generation =
@@ -685,7 +724,7 @@ export default function CapturePage() {
               retryCount: photo.retryCount,
               status: "uploading" as const,
               uploadGeneration: generation,
-              uploadingSince: item.uploadingSince ?? Date.now(),
+              uploadingSince: Date.now(),
             }
           : item,
       );
@@ -712,7 +751,7 @@ export default function CapturePage() {
       let watchdogFired = false;
       const watchdogMs = isCaptureVideoFile(photo.file)
         ? captureUploadWatchdogMs(photo.file.size)
-        : CAPTURE_PHOTO_HANG_MS;
+        : capturePhotoHangMs(photosRef.current.length);
       const watchdog = globalThis.setTimeout(() => {
         watchdogFired = true;
         if (!photo.abort.signal.aborted) {
@@ -830,8 +869,7 @@ export default function CapturePage() {
           if (!latest || latest.status === "uploaded") {
             return;
           }
-          void startBackgroundPhotoUpload({ ...latest, abort: nextAbort, retryCount: attempt });
-          return;
+          return runBackgroundPhotoUpload({ ...latest, abort: nextAbort, retryCount: attempt });
         }
         const detail = captureErrorMessage(error, CAPTURE_UPLOAD_FAILED_MESSAGE);
         const currentPreview = photosRef.current.find((item) => item.id === photo.id)?.previewUrl;
@@ -971,7 +1009,7 @@ export default function CapturePage() {
           previewUrl: isCaptureVideoFile(file) ? captureVideoPreviewUrl(file) : null,
           retryCount: 0,
           uploadGeneration: 0,
-          uploadingSince: Date.now(),
+          uploadingSince: null,
         }));
         if (incoming.length === 0) {
           return;
@@ -1060,8 +1098,8 @@ export default function CapturePage() {
       abort: nextAbort,
       errorMessage: null,
       retryCount: 0,
-      status: "uploading",
-      uploadingSince: Date.now(),
+      status: "queued",
+      uploadingSince: null,
     };
     photosRef.current = photosRef.current.map((item) => (item.id === photo.id ? next : item));
     setPhotos(photosRef.current);
@@ -1147,6 +1185,7 @@ export default function CapturePage() {
           }
           photo.abort.abort();
           liveUploadsRef.current.delete(photo.id);
+          uploadScheduledRef.current.delete(photo.id);
           photoUploadsRef.current.delete(photo.id);
         }
         try {

@@ -48,6 +48,14 @@ export function capturePhotoWatchdogMs() {
   return CAPTURE_MOMENT_FETCH_TIMEOUT_MS + CAPTURE_PHOTO_FETCH_TIMEOUT_MS * 2;
 }
 
+export function capturePhotoHangMs(roundSize = 1) {
+  const watchdog = capturePhotoWatchdogMs();
+  if (roundSize > CAPTURE_UPLOAD_CONCURRENCY) {
+    return watchdog + CAPTURE_PHOTO_FETCH_TIMEOUT_MS;
+  }
+  return watchdog;
+}
+
 export function isDirectDriveUploadUrl(url: string) {
   try {
     const parsed = new URL(url);

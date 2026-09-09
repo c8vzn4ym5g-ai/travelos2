@@ -1,5 +1,14 @@
 # TravelOS Handoff
 
+## 2026-09-09 Capture caps concurrent POSTs; photo hang is not 28s
+
+`/family/capture` still lets Owner pick up to 40 in one round (no album
+re-pick). Display POSTs go through `createWorkQueue(3)`. Queued wait is
+`上傳中`, not `還沒進倉` (failed only). Photo hang uses
+`capturePhotoHangMs(roundSize)` (150s, or 210s when the round is larger
+than 3). Videos keep the size-based `captureUploadWatchdogMs`. No Capture
+dedupe. Dock count stays visible for n>0.
+
 ## 2026-09-09 Capture dock count stays on while the round is open
 
 `fam-dock-count` is always in the Capture DOM. Hide only with

@@ -348,7 +348,7 @@ test("companion page is family-only, matches the mock chrome, and keeps dump/Lap
   assert.match(family, /href="\/family\/trip"/);
   assert.match(family, /福岡・大分/);
   assert.match(robots, /\/family\/trip/);
-  assert.doesNotMatch(capture, /createWorkQueue/);
+  assert.match(capture, /createWorkQueue/);
   assert.match(capture, /CAPTURE_DUMP_LIMIT/);
 });
 

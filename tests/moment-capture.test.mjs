@@ -360,7 +360,7 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(capture, /void startBackgroundAudioUpload\(staged\)/);
   assert.match(capture, /ensureMoment/);
   assert.match(capture, /createMomentSession/);
-  assert.doesNotMatch(capture, /createWorkQueue/);
+  assert.match(capture, /createWorkQueue/);
   assert.doesNotMatch(capture, /photoQueue/);
   assert.match(capture, /retryMoment/);
   assert.match(capture, /captureErrorMessage/);
@@ -546,7 +546,7 @@ test("capture and save paths are not blocked by indexing, geocoding, or transcri
   assert.match(photosApi, /scheduleMomentIndex\(momentId\)/);
   assert.doesNotMatch(photosApi, /await scheduleMomentIndex/);
   assert.match(photosApi, /afterResponse\(async \(\) => \{/);
-  assert.doesNotMatch(capture, /createWorkQueue/);
+  assert.match(capture, /createWorkQueue/);
   assert.match(audioApi, /scheduleMomentTranscript\(momentId\)/);
   assert.doesNotMatch(audioApi, /await scheduleMomentTranscript/);
   assert.match(audioApi, /formData\.get\("transcript"\)/);
@@ -639,7 +639,7 @@ test("capture voice line is editable and language chips sit by the mic", async (
   assert.match(addBlock, /startBackgroundPhotoUpload\(photo\)/);
   assert.doesNotMatch(addBlock, /classifyCaptureNote/);
   assert.doesNotMatch(addBlock, /createWorkQueue/);
-  assert.doesNotMatch(capture, /createWorkQueue/);
+  assert.match(capture, /createWorkQueue/);
   assert.match(upload, /CAPTURE_DUMP_LIMIT = 40/);
   assert.doesNotMatch(lapland, /SpokenLine/);
   assert.doesNotMatch(lapland, /CaptureSpeechLangChips/);

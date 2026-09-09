@@ -121,6 +121,15 @@ test("hung uploading without a live worker is forced off 上傳中", () => {
     }),
     false,
   );
+  assert.equal(
+    captureUploadShouldForceFail({
+      hasLiveUpload: false,
+      now: 80_000,
+      status: "queued",
+      uploadingSince: null,
+    }),
+    false,
+  );
   assert.equal(CAPTURE_PHOTO_HANG_MS, 28_000);
   assert.equal(CAPTURE_DOCK_RETRY_GUARD_MS, 8_000);
   assert.equal(captureUploadIsHung("uploading", 1_000, 29_000), true);

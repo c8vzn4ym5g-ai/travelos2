@@ -243,5 +243,5 @@ test("talk page is a cute family booklet door with framed back and PWA", async (
   assert.doesNotMatch(capture, /family\/talk/);
   assert.doesNotMatch(trip, /family\/talk/);
   assert.doesNotMatch(lapland, /family\/talk/);
-  assert.doesNotMatch(capture, /createWorkQueue/);
+  assert.match(capture, /createWorkQueue/);
 });

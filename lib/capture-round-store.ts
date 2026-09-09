@@ -163,7 +163,10 @@ export function captureUploadShouldForceFail(options: {
   status: CaptureDockStatus;
   uploadingSince: number | null | undefined;
 }) {
-  if (options.status !== "queued" && options.status !== "uploading") {
+  if (options.status === "queued") {
+    return false;
+  }
+  if (options.status !== "uploading") {
     return false;
   }
   if (!options.hasLiveUpload) {

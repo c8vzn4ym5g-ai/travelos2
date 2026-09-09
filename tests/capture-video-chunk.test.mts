@@ -18,6 +18,7 @@ import {
   assertCaptureFileFits,
   captureErrorMessage,
   captureFetch,
+  capturePhotoHangMs,
   capturePhotoWatchdogMs,
   captureUploadWatchdogMs,
   captureVideoHopCount,
@@ -217,6 +218,13 @@ test("10MB and 46MB watchdogs cover one silent retry and hops stay 16MiB", () =>
   assert.ok(CAPTURE_VIDEO_HOP_TIMEOUT_MS > 20_000);
   assert.equal(CAPTURE_PHOTO_FETCH_TIMEOUT_MS, 60_000);
   assert.equal(capturePhotoWatchdogMs(), CAPTURE_MOMENT_FETCH_TIMEOUT_MS + CAPTURE_PHOTO_FETCH_TIMEOUT_MS * 2);
+  assert.equal(capturePhotoHangMs(1), capturePhotoWatchdogMs());
+  assert.equal(capturePhotoHangMs(3), capturePhotoWatchdogMs());
+  assert.equal(
+    capturePhotoHangMs(40),
+    capturePhotoWatchdogMs() + CAPTURE_PHOTO_FETCH_TIMEOUT_MS,
+  );
+  assert.ok(capturePhotoHangMs(40) > 28_000);
 });
 
 test("materialized hops stay independent of the album File after reset", async () => {
@@ -1117,7 +1125,7 @@ test("Capture card fallback and album accept stay family Chinese / one door", as
   assert.match(albumBlock, /accept="image\/\*,video\/\*,\.heic,\.heif,\.mov,\.mp4,\.m4v"/);
   assert.match(capture, /accept="image\/\*" capture="environment"/);
   assert.equal((capture.match(/type="file"/g) ?? []).length, 2);
-  assert.doesNotMatch(capture, /createWorkQueue/);
+  assert.match(capture, /createWorkQueue/);
   assert.doesNotMatch(capture, /photoQueue/);
 
   const addBlock = capture.slice(capture.indexOf("async function addIncomingFiles"), capture.indexOf("function onTakePhoto"));

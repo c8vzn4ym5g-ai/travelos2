@@ -1110,7 +1110,7 @@ test("a real iPhone-sized JPEG becomes a few hundred KB display JPEG", async () 
   }
 });
 
-test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
+test("capture page caps a dump at 40 and queues POSTs through createWorkQueue", async () => {
   const [capture, upload, prepare] = await Promise.all([
     readSource("app/family/capture/page.tsx"),
     readSource("lib/capture-upload.ts"),
@@ -1141,9 +1141,10 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
   assert.match(upload, /copyCaptureFile/);
   assert.match(upload, /captureDumpCapMessage/);
   assert.doesNotMatch(upload, /capturePrepareConcurrency/);
-  assert.doesNotMatch(capture, /createWorkQueue/);
+  assert.match(capture, /createWorkQueue\(CAPTURE_UPLOAD_CONCURRENCY\)/);
   assert.doesNotMatch(capture, /photoQueue/);
-  assert.doesNotMatch(uploadFn, /\.enqueue\(/);
+  assert.match(uploadFn, /\.enqueue\(/);
+  assert.match(uploadFn, /async function runBackgroundPhotoUpload/);
   assert.match(uploadFn, /const run = \(async \(\) => \{/);
   assert.match(uploadFn, /\}\)\(\);/);
   assert.doesNotMatch(ingestFn, /yieldToBrowser/);
@@ -1153,8 +1154,9 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
   assert.match(ingestFn, /materializeCapturePhoto\(file\)/);
   assert.match(upload, /export function materializeCapturePhoto/);
   assert.match(upload, /export function capturePhotoWatchdogMs/);
+  assert.match(upload, /export function capturePhotoHangMs/);
   assert.match(capture, /failHungPhoto/);
-  assert.match(capture, /CAPTURE_PHOTO_HANG_MS/);
+  assert.match(capture, /capturePhotoHangMs\(photosRef\.current\.length\)/);
   assert.match(capture, /sweepHungUploads/);
   assert.match(capture, /liveUploadsRef/);
   assert.match(capture, /reconcileCaptureRoundFromServer/);
@@ -1206,7 +1208,8 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
     capture.indexOf("function beginFreshDumpRound"),
     capture.indexOf("async function ensureMoment"),
   );
-  assert.doesNotMatch(freshRoundFn, /\.abort\(\)/);
+  assert.match(freshRoundFn, /photo\.abort\.abort\(\)/);
+  assert.match(freshRoundFn, /uploadScheduledRef\.current\.clear\(\)/);
   assert.doesNotMatch(freshRoundFn, /removeUploadedPhotoInBackground/);
   assert.match(capture, /再選一次相簿是新的一輪/);
   assert.match(capture, /resetDraft\(\)/);
