@@ -258,7 +258,8 @@ test("Lapland public short is the exact Codex cut under Journey, not a substitut
   assert.equal(heroInfo.size, LAPLAND_HERO_VIDEO_BYTES);
   assert.equal(createHash("sha256").update(hero).digest("hex"), LAPLAND_HERO_VIDEO_SHA256);
   assert.equal(hero.subarray(4, 8).toString("ascii"), "ftyp");
-  assert.equal(LAPLAND_HERO_VIDEO_SRC, `/travelos/lapland/${LAPLAND_HERO_VIDEO_FILENAME}`);
+  assert.equal(LAPLAND_HERO_VIDEO_SRC, encodeURI(`/travelos/lapland/${LAPLAND_HERO_VIDEO_FILENAME}`));
+  assert.match(LAPLAND_HERO_VIDEO_SRC, /Lapland_%E9%82%A3%E5%B9%B4%E5%86%AC%E5%A4%A9_WinterWarm_Q\.mp4$/);
   assert.equal(LAPLAND_HERO_VIDEO_FILENAME, "Lapland_那年冬天_WinterWarm_Q.mp4");
   assert.equal(publicCutInfo.size, 8946351);
   assert.equal(publicCutInfo.size, LAPLAND_PUBLIC_CUT_BYTES);

@@ -26,7 +26,8 @@ export const LAPLAND_WINTER_VOCAL_F_BYTES = 8935024;
 export const LAPLAND_WINTER_VOCAL_F_SHA256 = "fbdf340292780f34e98d4f9d822605b4c4671bd2976353d56249116801dd3c14";
 
 export const LAPLAND_HERO_VIDEO_FILENAME = "Lapland_那年冬天_WinterWarm_Q.mp4";
-export const LAPLAND_HERO_VIDEO_SRC = `/travelos/lapland/${LAPLAND_HERO_VIDEO_FILENAME}`;
+// CF assets 307 the raw CJK path; iPhone Safari <video> often will not follow that.
+export const LAPLAND_HERO_VIDEO_SRC = encodeURI(`/travelos/lapland/${LAPLAND_HERO_VIDEO_FILENAME}`);
 export const LAPLAND_HERO_VIDEO_BYTES = 8940928;
 export const LAPLAND_HERO_VIDEO_SHA256 = "4c27e746a56e97100116541d14f082e1eb9d44b36cdc415e6b2e5ee8b060aa64";
 
