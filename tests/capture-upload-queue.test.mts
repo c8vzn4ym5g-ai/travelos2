@@ -1178,11 +1178,11 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
   );
   assert.doesNotMatch(freshRoundFn, /\.abort\(\)/);
   assert.doesNotMatch(freshRoundFn, /removeUploadedPhotoInBackground/);
+  assert.match(capture, /再選一次相簿是新的一輪/);
   assert.match(capture, /resetDraft\(\)/);
-  assert.match(capture, /再選一次相簿會清掉畫面上的上一輪，上一輪已在倉庫裡/);
-  assert.match(uploadFn, /onDisplayReady/);
+  assert.match(capture, /fam-thumb-pending/);
   assert.match(uploadFn, /createTinyPreviewUrl\(display\)/);
-  assert.match(capture, /排隊中/);
+  assert.match(capture, /fam-thumb-pending/);
   assert.match(capture, /這一輪最多 40 張/);
   assert.match(prepare, /skipCanvasMaxBytes = 400_000/);
   assert.match(prepare, /file\.type === "image\/jpeg" && file\.size <= skipCanvasMaxBytes/);

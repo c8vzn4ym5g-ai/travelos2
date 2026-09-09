@@ -21,7 +21,7 @@ test("capture does not create trips and photos append to a moment", async () => 
   assert.match(capture, /appendMomentPhotos\(current, incoming\)/);
   assert.match(upload, /fetch\("\/api\/moments"/);
   assert.match(upload, /\/api\/moments\/photos/);
-  assert.match(capture, /Save as Moment/);
+  assert.match(capture, /寫下一句/);
   assert.doesNotMatch(capture, /\/api\/trips/);
   assert.doesNotMatch(capture, /buildPrivateCaptureTrip/);
   assert.doesNotMatch(capture, /visibility: "private"/);
@@ -356,17 +356,48 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(capture, /retryMoment/);
   assert.match(capture, /captureErrorMessage/);
   assert.match(capture, /captureDumpProgressMessage/);
-  assert.match(capture, /排隊中/);
+  assert.match(capture, /fam-thumb-pending/);
+  assert.match(capture, /fam-thumb-fail-hit/);
+  assert.match(capture, /name="x"/);
+  assert.match(capture, /data-capture-dock-count/);
+  assert.doesNotMatch(
+    capture.slice(capture.indexOf("{photos.length > 0 ? ("), capture.indexOf("fam-audio")),
+    /上傳失敗/,
+  );
+  assert.doesNotMatch(capture, /預覽還在/);
+  assert.doesNotMatch(capture, /preview ≠ uploaded/i);
+  assert.match(capture, /清楚看見的就是已經收到/);
+  assert.match(capture, /全部再傳/);
+  assert.match(capture, /Refresh failed/);
+  assert.match(capture, /retryFailedPhotos/);
+  assert.match(capture, /data-capture-retry-failed/);
+  assert.match(capture, /beginStagedPhotoRetry/);
+  assert.match(capture, /listRetryableCapturePhotoIds/);
+  const retryHeld = capture.slice(
+    capture.indexOf("function beginStagedPhotoRetry"),
+    capture.indexOf("function retakePhoto"),
+  );
+  assert.match(retryHeld, /photo\.file/);
+  assert.doesNotMatch(retryHeld, /cameraInputRef/);
+  assert.doesNotMatch(retryHeld, /addIncomingFiles/);
+  assert.doesNotMatch(retryHeld, /\.click\(/);
+  assert.match(capture, /status: "failed"/);
+  assert.match(capture, /previewUrl: null/);
+  assert.match(capture, /fam-thumb-fail/);
+  assert.match(capture, /data-capture-dock-count/);
+  assert.match(capture, /maybeAutoFinalize/);
+  assert.match(capture, /persistCaptureRound/);
+  assert.match(capture, /pagehide/);
+  assert.match(capture, /retryPhoto/);
   assert.match(capture, /上傳中/);
   assert.match(capture, /已上傳/);
-  assert.match(capture, /photo\.errorMessage/);
   assert.match(capture, /audio\.errorMessage/);
-  assert.match(capture, /disabled=\{!hasCapture\}/);
+  assert.match(capture, /寫下一句/);
   assert.doesNotMatch(saveBlock, /preparePhotoForUpload/);
   assert.doesNotMatch(saveBlock, /prepareDisplayPhoto/);
   assert.doesNotMatch(saveBlock, /formData\.set\("original"/);
   assert.doesNotMatch(saveBlock, /for \(const \[index, staged\] of photos\.entries\(\)\)/);
-  assert.match(saveBlock, /Promise\.all\(\[\.\.\.photoUploadsRef\.current\.values\(\)\]\)/);
+  assert.doesNotMatch(saveBlock, /Promise\.all\(\[\.\.\.photoUploadsRef\.current\.values\(\)\]\)/);
   assert.doesNotMatch(saveBlock, /uploadOriginalPhotoInBackground/);
   assert.match(displayUpload, /formData\.set\("file", display\)/);
   assert.match(displayUpload, /await prepareDisplayPhoto\(source\)/);

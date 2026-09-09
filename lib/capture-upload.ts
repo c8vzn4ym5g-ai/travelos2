@@ -477,6 +477,16 @@ export function createMomentSession(
       momentId = null;
       momentPromise = null;
     },
+    adopt(id: string) {
+      const next = id.trim();
+      if (!next) {
+        return;
+      }
+      momentId = next;
+    },
+    invalidate() {
+      momentPromise = null;
+    },
     allocate(_time?: string) {
       if (momentId) {
         return momentId;
@@ -565,10 +575,14 @@ export async function createCaptureMoment(input: {
         "content-type": "application/json",
         ...pinHeaders(input.pin),
       },
-      method: "POST",
+        method: "POST",
     },
     CAPTURE_MOMENT_FETCH_TIMEOUT_MS,
   );
+
+  if (response.status === 409 && input.id) {
+    return { job: null, moment: { id: input.id } as TravelMoment };
+  }
 
   if (!response.ok) {
     throw new Error(await readError(response, "Could not save this moment."));

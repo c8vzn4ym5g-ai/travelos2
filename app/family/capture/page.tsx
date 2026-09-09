@@ -39,6 +39,16 @@ import {
   uploadMomentAudio,
   uploadOriginalPhotoInBackground,
 } from "@/lib/capture-upload";
+import {
+  CAPTURE_PHOTO_RETRY_LIMIT,
+  capturePhotoRetryDelayMs,
+  clearCaptureRoundMeta,
+  createIndexedDbCaptureFileStore,
+  listRetryableCapturePhotoIds,
+  readCaptureRoundMeta,
+  writeCaptureRoundMeta,
+  type CaptureRoundMeta,
+} from "@/lib/capture-round-store";
 import { FAMILY_ADMIN_SESSION_KEY, resolveFamilySession } from "@/lib/family-session";
 import { preferredRecorderMime } from "@/lib/moment-audio";
 import { preparePlayableAudio, primePlaybackAudioContext } from "@/lib/moment-audio-playback";
@@ -55,8 +65,10 @@ type StagedPhoto = {
   hopTotal: number;
   id: string;
   previewUrl: string | null;
+  retryCount: number;
   serverPhotoId: string | null;
   status: UploadStatus;
+  uploadGeneration: number;
 };
 
 type StagedAudio = {
@@ -69,22 +81,6 @@ type StagedAudio = {
   status: UploadStatus;
   transcript: string;
 };
-
-function photoChip(photo: Pick<StagedPhoto, "hopDone" | "hopTotal" | "status">) {
-  if (photo.status === "uploaded") {
-    return { className: "fam-chip fam-chip-mint", label: "已上傳" };
-  }
-  if (photo.status === "failed") {
-    return { className: "fam-chip fam-chip-blush", label: "上傳失敗" };
-  }
-  if (photo.status === "queued") {
-    return { className: "fam-chip fam-chip-sky", label: "排隊中" };
-  }
-  if (photo.hopTotal > 0 && photo.hopDone > 0) {
-    return { className: "fam-chip fam-chip-honey", label: `上傳中 ${photo.hopDone}/${photo.hopTotal}` };
-  }
-  return { className: "fam-chip fam-chip-honey", label: "上傳中" };
-}
 
 function CaptureVideoThumb({ file, previewUrl }: { file: File; previewUrl: string | null }) {
   const [inlineFailed, setInlineFailed] = useState(false);
@@ -140,6 +136,10 @@ export default function CapturePage() {
   const audioUploadRef = useRef<Promise<void> | null>(null);
   const savingRef = useRef(false);
   const persistTimerRef = useRef<number>(0);
+  const finalizedMomentRef = useRef<string | null>(null);
+  const noteRef = useRef("");
+  const restoringRef = useRef(false);
+  const captureFilesRef = useRef(createIndexedDbCaptureFileStore());
   const speechLangRef = useRef<CaptureSpeechLangId>("cmn");
   const [pin, setPin] = useState("");
   const [speechLang, setSpeechLang] = useState<CaptureSpeechLangId>("cmn");
@@ -154,9 +154,7 @@ export default function CapturePage() {
   const [saving, setSaving] = useState(false);
   const [savedJobId, setSavedJobId] = useState<string | null>(null);
   const [savedMomentId, setSavedMomentId] = useState<string | null>(null);
-  const [message, setMessage] = useState("拍一張、選一張，或錄一小段。先看剛留下的，不好就重拍。");
-
-  const hasCapture = note.trim().length > 0 || photos.length > 0 || Boolean(audio);
+  const [message, setMessage] = useState("選了就會進工作台。清楚的照片就是已經收到。");
 
   useEffect(() => {
     let cancelled = false;
@@ -181,6 +179,10 @@ export default function CapturePage() {
       cancelled = true;
     };
   }, [router]);
+
+  useEffect(() => {
+    noteRef.current = note;
+  }, [note]);
 
   useEffect(() => {
     pinRef.current = pin;
@@ -227,6 +229,42 @@ export default function CapturePage() {
   }, [audio]);
 
   useEffect(() => {
+    if (!authenticated) {
+      return;
+    }
+    void restoreCaptureRound();
+  }, [authenticated]);
+
+  useEffect(() => {
+    if (!authenticated) {
+      return;
+    }
+
+    const onHide = () => persistCaptureRound();
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") {
+        persistCaptureRound();
+        return;
+      }
+      for (const photo of photosRef.current) {
+        if (photo.status === "uploaded") {
+          continue;
+        }
+        if (photo.status === "uploading" && photoUploadsRef.current.has(photo.id)) {
+          continue;
+        }
+        void startBackgroundPhotoUpload(photo);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pagehide", onHide);
+    };
+  }, [authenticated]);
+
+  useEffect(() => {
     return () => {
       for (const photo of photosRef.current) {
         if (photo.previewUrl) {
@@ -260,13 +298,48 @@ export default function CapturePage() {
     momentSession().reset();
     photoUploadsRef.current = new Map();
     audioUploadRef.current = null;
+    finalizedMomentRef.current = null;
+  }
+
+  function captureRoundMeta(): CaptureRoundMeta {
+    return {
+      momentId: momentSessionRef.current?.momentId ?? null,
+      note: noteRef.current,
+      photos: photosRef.current.map((photo) => ({
+        id: photo.id,
+        lastModified: photo.file.lastModified,
+        name: photo.file.name,
+        retryCount: photo.retryCount,
+        serverPhotoId: photo.serverPhotoId,
+        size: photo.file.size,
+        status: photo.status,
+        type: photo.file.type,
+      })),
+      v: 1,
+    };
+  }
+
+  function persistCaptureRound() {
+    writeCaptureRoundMeta(captureRoundMeta(), window.localStorage);
+  }
+
+  async function persistCapturePhotoFile(photo: StagedPhoto) {
+    await captureFilesRef.current.put(photo.id, photo.file);
+    persistCaptureRound();
+  }
+
+  async function clearCaptureRound() {
+    clearCaptureRoundMeta(window.localStorage);
+    await captureFilesRef.current.clear();
   }
 
   function beginFreshDumpRound() {
     photosRef.current = detachStagedCapturePhotos(photosRef.current);
     setPhotos(() => photosRef.current);
     photoUploadsRef.current = new Map();
+    finalizedMomentRef.current = null;
     momentSessionRef.current = createLiveMomentSession();
+    void clearCaptureRound();
   }
 
   async function ensureMoment(time: string) {
@@ -278,10 +351,114 @@ export default function CapturePage() {
     status: number,
     session = momentSession(),
   ) {
-    if (status === 404 && !session.momentId) {
-      session.reset();
+    if (status === 404) {
+      session.invalidate();
     }
     return session.ensure(time);
+  }
+
+  function maybeAutoFinalize() {
+    const list = photosRef.current;
+    if (list.length === 0) {
+      return;
+    }
+    if (list.some((photo) => photo.status === "queued" || photo.status === "uploading")) {
+      return;
+    }
+    const landed = list.filter((photo) => photo.status === "uploaded").length;
+    if (landed === 0) {
+      return;
+    }
+    const momentId = momentSession().momentId;
+    if (!momentId || finalizedMomentRef.current === momentId) {
+      return;
+    }
+    finalizedMomentRef.current = momentId;
+    const classified = classifyCaptureNote(noteRef.current);
+    const time = list[0]?.file.lastModified
+      ? new Date(list[0].file.lastModified).toISOString()
+      : new Date().toISOString();
+    void finalizeCaptureMoment({
+      command: classified.command,
+      coordinates: coordinatesRef.current,
+      momentId,
+      note: classified.note,
+      pin: sessionPin(pinRef.current),
+      time,
+      transcript: spokenRef.current || audioRef.current?.transcript || null,
+    }).then((saved) => {
+      setSavedJobId(saved.job?.id ?? null);
+      setSavedMomentId(saved.moment?.id ?? momentId);
+      const failed = list.filter((photo) => photo.status === "failed").length;
+      setMessage(
+        failed > 0
+          ? `已進工作台 ${landed} 張。${failed} 張會自動再傳。`
+          : `已進工作台 ${landed} 張。可離開。`,
+      );
+      persistCaptureRound();
+    }).catch(() => {
+      finalizedMomentRef.current = null;
+    });
+  }
+
+  async function restoreCaptureRound() {
+    if (restoringRef.current || photosRef.current.length > 0) {
+      return;
+    }
+    restoringRef.current = true;
+    try {
+      const meta = readCaptureRoundMeta(window.localStorage);
+      if (!meta || meta.photos.length === 0) {
+        return;
+      }
+      if (meta.momentId) {
+        momentSession().adopt(meta.momentId);
+      }
+      if (meta.note) {
+        setNote(meta.note);
+      }
+      const restored: StagedPhoto[] = [];
+      for (const item of meta.photos) {
+        const file = await captureFilesRef.current.get(item.id);
+        if (!file && item.status !== "uploaded") {
+          continue;
+        }
+        const staged: StagedPhoto = {
+          abort: new AbortController(),
+          errorMessage: null,
+          file: file ?? new File([], item.name, { lastModified: item.lastModified, type: item.type }),
+          hopDone: 0,
+          hopTotal: 0,
+          id: item.id,
+          previewUrl:
+            item.status === "uploaded" && file && !file.type.startsWith("video")
+              ? URL.createObjectURL(file)
+              : item.status === "uploaded" && file
+                ? captureVideoPreviewUrl(file)
+                : null,
+          retryCount: item.retryCount,
+          serverPhotoId: item.serverPhotoId,
+          status: item.status === "uploaded" && item.serverPhotoId ? "uploaded" : file ? "queued" : "failed",
+          uploadGeneration: 0,
+        };
+        restored.push(staged);
+      }
+      if (restored.length === 0) {
+        return;
+      }
+      photosRef.current = restored;
+      setPhotos(restored);
+      setMessage("還有這一輪，會繼續收。");
+      setSavedMomentId(meta.momentId);
+      for (const photo of restored) {
+        if (photo.status !== "uploaded") {
+          void startBackgroundPhotoUpload(photo);
+        }
+      }
+      maybeAutoFinalize();
+    } finally {
+      restoringRef.current = false;
+    }
   }
 
   function persistSpokenLine(next: string) {
@@ -297,7 +474,7 @@ export default function CapturePage() {
         pin: sessionPin(pinRef.current),
         transcript: next,
       }).catch(() => {
-        // Save as Moment still writes the latest spoken line.
+        // Optional note still writes the latest spoken line.
       });
     }, 400);
   }
@@ -368,22 +545,27 @@ export default function CapturePage() {
 
   async function startBackgroundPhotoUpload(photo: StagedPhoto) {
     const session = momentSession();
+    const generation = (photosRef.current.find((item) => item.id === photo.id)?.uploadGeneration ?? photo.uploadGeneration ?? 0) + 1;
+    patchPhoto(photo.id, {
+      abort: photo.abort,
+      errorMessage: null,
+      status: "uploading",
+      uploadGeneration: generation,
+    });
+    const stillThisRun = () =>
+      photosRef.current.find((item) => item.id === photo.id)?.uploadGeneration === generation;
     const run = (async () => {
-      if (photo.abort.signal.aborted) {
+      if (photo.abort.signal.aborted || !stillThisRun()) {
         return;
       }
 
-      patchPhoto(photo.id, { status: "uploading" });
+      persistCaptureRound();
       let watchdogFired = false;
       const watchdogMs = isCaptureVideoFile(photo.file)
         ? captureUploadWatchdogMs(photo.file.size)
         : capturePhotoWatchdogMs();
       const watchdog = globalThis.setTimeout(() => {
         watchdogFired = true;
-        if (photoIsOnScreen(photo.id)) {
-          patchPhoto(photo.id, { errorMessage: CAPTURE_UPLOAD_FAILED_MESSAGE, status: "failed" });
-          setMessage(CAPTURE_UPLOAD_FAILED_MESSAGE);
-        }
         if (!photo.abort.signal.aborted) {
           photo.abort.abort();
         }
@@ -393,11 +575,15 @@ export default function CapturePage() {
           ? new Date(photo.file.lastModified).toISOString()
           : new Date().toISOString();
         const momentId = session.allocate(takenAt);
+        persistCaptureRound();
         const video = isCaptureVideoFile(photo.file);
         if (!video) {
           await session.ensure(takenAt);
         }
-        if (photo.abort.signal.aborted) {
+        if (!stillThisRun()) {
+          return;
+        }
+        if (photo.abort.signal.aborted && !watchdogFired) {
           return;
         }
 
@@ -406,20 +592,21 @@ export default function CapturePage() {
           file: photo.file,
           momentId,
           onHopProgress: (hopDone, hopTotal) => {
-            if (photoIsOnScreen(photo.id)) {
+            if (stillThisRun()) {
               patchPhoto(photo.id, { hopDone, hopTotal, status: "uploading" });
             }
           },
           startMoment: video ? () => session.ensure(takenAt) : undefined,
           onDisplayReady: async (display) => {
-            if (photo.abort.signal.aborted || isCaptureVideoFile(photo.file)) {
+            if (photo.abort.signal.aborted || isCaptureVideoFile(photo.file) || !stillThisRun()) {
               return;
             }
             const previewUrl = await createTinyPreviewUrl(display);
             if (!previewUrl) {
               return;
             }
-            if (photo.abort.signal.aborted || !photoIsOnScreen(photo.id)) {
+            const latest = photosRef.current.find((item) => item.id === photo.id);
+            if (!latest || latest.status === "failed" || latest.uploadGeneration !== generation) {
               URL.revokeObjectURL(previewUrl);
               return;
             }
@@ -431,38 +618,70 @@ export default function CapturePage() {
           takenAt,
         });
 
-        if (photo.abort.signal.aborted) {
-          removeUploadedPhotoInBackground({
-            momentId: uploaded.momentId,
-            photoId: uploaded.photo.id,
-            pin: sessionPin(pinRef.current),
-          });
+        if (!stillThisRun()) {
           return;
         }
 
-        patchPhoto(photo.id, { errorMessage: null, serverPhotoId: uploaded.photo.id, status: "uploaded" });
-        uploadOriginalPhotoInBackground({
-          display: uploaded.display,
-          momentId: uploaded.momentId,
-          original: photo.file,
-          photoId: uploaded.photo.id,
-          pin: sessionPin(pinRef.current),
-        });
+        if (uploaded.photo?.id) {
+          patchPhoto(photo.id, { errorMessage: null, serverPhotoId: uploaded.photo.id, status: "uploaded" });
+          persistCaptureRound();
+          uploadOriginalPhotoInBackground({
+            display: uploaded.display,
+            momentId: uploaded.momentId,
+            original: photo.file,
+            photoId: uploaded.photo.id,
+            pin: sessionPin(pinRef.current),
+          });
+          maybeAutoFinalize();
+          return;
+        }
+
+        throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
       } catch (error) {
-        if (!photoIsOnScreen(photo.id)) {
+        if (!photoIsOnScreen(photo.id) || !stillThisRun()) {
           return;
         }
         if (photo.abort.signal.aborted && !watchdogFired) {
           return;
         }
         const current = photosRef.current.find((item) => item.id === photo.id);
-        if (current?.status === "failed") {
+        if (current?.status === "uploaded" && current.serverPhotoId) {
+          return;
+        }
+        const attempt = (current?.retryCount ?? photo.retryCount ?? 0) + 1;
+        if (attempt <= CAPTURE_PHOTO_RETRY_LIMIT && stillThisRun()) {
+          const nextAbort = new AbortController();
+          patchPhoto(photo.id, {
+            abort: nextAbort,
+            errorMessage: null,
+            retryCount: attempt,
+            status: "uploading",
+          });
+          persistCaptureRound();
+          await new Promise((resolve) => globalThis.setTimeout(resolve, capturePhotoRetryDelayMs(attempt)));
+          if (!stillThisRun()) {
+            return;
+          }
+          const latest = photosRef.current.find((item) => item.id === photo.id);
+          if (!latest || latest.status === "uploaded") {
+            return;
+          }
+          void startBackgroundPhotoUpload({ ...latest, abort: nextAbort, retryCount: attempt });
           return;
         }
         const detail = captureErrorMessage(error, CAPTURE_UPLOAD_FAILED_MESSAGE);
-        patchPhoto(photo.id, { errorMessage: detail, status: "failed" });
-        setMessage(detail);
-        throw error;
+        const currentPreview = photosRef.current.find((item) => item.id === photo.id)?.previewUrl;
+        if (currentPreview) {
+          URL.revokeObjectURL(currentPreview);
+        }
+        patchPhoto(photo.id, {
+          errorMessage: detail,
+          previewUrl: null,
+          retryCount: attempt,
+          status: "failed",
+        });
+        persistCaptureRound();
+        setMessage("有幾張沒收到。點叉叉或全部再傳，不用重選相簿。");
       } finally {
         globalThis.clearTimeout(watchdog);
       }
@@ -567,19 +786,33 @@ export default function CapturePage() {
           hopDone: 0,
           hopTotal: isCaptureVideoFile(file) ? captureVideoHopCount(file.size) : 0,
           previewUrl: isCaptureVideoFile(file) ? captureVideoPreviewUrl(file) : null,
+          retryCount: 0,
+          uploadGeneration: 0,
         }));
         if (incoming.length === 0) {
           return;
         }
 
+        const session = momentSession();
+        session.allocate(
+          Number.isFinite(file.lastModified) ? new Date(file.lastModified).toISOString() : new Date().toISOString(),
+        );
+        void session.ensure(
+          Number.isFinite(file.lastModified) ? new Date(file.lastModified).toISOString() : new Date().toISOString(),
+        ).catch(() => {
+          // Photo POST retries moment create if this first ensure is still in flight.
+        });
+
         setPhotos((current) => {
           const next = appendMomentPhotos(current, incoming);
           photosRef.current = next;
           setMessage(captureDumpProgressMessage(progress.fileListLength, next.length, { freshRound }));
+          persistCaptureRound();
           return next;
         });
 
         for (const photo of incoming) {
+          void persistCapturePhotoFile(photo);
           void startBackgroundPhotoUpload(photo);
         }
       },
@@ -625,8 +858,60 @@ export default function CapturePage() {
           });
         }
       }
-      return current.filter((photo) => photo.id !== photoId);
+      const next = current.filter((photo) => photo.id !== photoId);
+      photosRef.current = next;
+      persistCaptureRound();
+      return next;
     });
+  }
+
+  function beginStagedPhotoRetry(photo: StagedPhoto) {
+    photo.abort.abort();
+    const nextAbort = new AbortController();
+    const next: StagedPhoto = {
+      ...photo,
+      abort: nextAbort,
+      errorMessage: null,
+      retryCount: 0,
+      status: "uploading",
+    };
+    photosRef.current = photosRef.current.map((item) => (item.id === photo.id ? next : item));
+    setPhotos(photosRef.current);
+    persistCaptureRound();
+    void startBackgroundPhotoUpload(next);
+  }
+
+  function retryPhoto(photoId: string) {
+    const photo = photosRef.current.find((item) => item.id === photoId);
+    if (!photo || photo.status === "uploaded") {
+      return;
+    }
+    if (photo.file.size > 0) {
+      beginStagedPhotoRetry(photo);
+      return;
+    }
+    void captureFilesRef.current.get(photoId).then((stored) => {
+      const latest = photosRef.current.find((item) => item.id === photoId);
+      if (!latest || latest.status === "uploaded") {
+        return;
+      }
+      if (!stored?.size) {
+        setMessage("這張還在這一輪，檔案卻不見了。不要重選整本相簿。");
+        return;
+      }
+      beginStagedPhotoRetry({ ...latest, file: stored });
+    });
+  }
+
+  function retryFailedPhotos() {
+    const ids = listRetryableCapturePhotoIds(photosRef.current);
+    if (ids.length === 0) {
+      return;
+    }
+    setMessage(`正在再傳 ${ids.length} 張。還是這一輪，不用重選相簿。`);
+    for (const id of ids) {
+      retryPhoto(id);
+    }
   }
 
   function retakePhoto(photoId: string) {
@@ -742,8 +1027,8 @@ export default function CapturePage() {
   }
 
   async function saveMoment() {
-    if (!note.trim() && photos.length === 0 && !audio) {
-      setMessage("先拍一張、選一張、錄一段，或寫下一句心情。");
+    if (!note.trim() && !spoken.trim()) {
+      setMessage("照片選了就會進工作台。這格只是補一句心情，可不用按。");
       return;
     }
 
@@ -753,7 +1038,7 @@ export default function CapturePage() {
 
     savingRef.current = true;
     setSaving(true);
-    setMessage("正在存成 Moment…");
+    setMessage("正在寫下這一句…");
 
     try {
       const classified = classifyCaptureNote(note);
@@ -761,68 +1046,26 @@ export default function CapturePage() {
         ? new Date(photos[0].file.lastModified).toISOString()
         : new Date().toISOString();
 
-      await Promise.all([...photoUploadsRef.current.values()]);
-      if (audioUploadRef.current) {
-        await audioUploadRef.current;
-      }
-
-      const failedPhoto = photosRef.current.find((photo) => photo.status === "failed");
-      if (failedPhoto) {
-        throw new Error("有照片或影片還沒傳上去，請再試一次。");
-      }
-      if (audioRef.current?.status === "failed") {
-        throw new Error("聲音還沒傳上去，請再試一次。");
-      }
-
       let createdJob: TravelJob | null = null;
-      let keptMomentId = momentSession().momentId;
-      if (keptMomentId) {
-        const saved = await finalizeCaptureMoment({
-          command: classified.command,
-          coordinates: coordinatesRef.current,
-          momentId: keptMomentId,
-          note: classified.note,
-          pin: sessionPin(pinRef.current),
-          time,
-          transcript: spokenRef.current || audioRef.current?.transcript || null,
-        });
-        createdJob = saved.job;
-        keptMomentId = saved.moment?.id ?? keptMomentId;
-      } else {
-        const created = await createCaptureMoment({
-          command: classified.command,
-          coordinates: coordinatesRef.current,
-          note: classified.note,
-          pin: sessionPin(pinRef.current),
-          time,
-        });
-        createdJob = created.job;
-        keptMomentId = created.moment.id;
-      }
+      let keptMomentId = momentSession().momentId ?? (await ensureMoment(time));
+      const saved = await finalizeCaptureMoment({
+        command: classified.command,
+        coordinates: coordinatesRef.current,
+        momentId: keptMomentId,
+        note: classified.note,
+        pin: sessionPin(pinRef.current),
+        time,
+        transcript: spokenRef.current || audioRef.current?.transcript || null,
+      });
+      createdJob = saved.job;
+      keptMomentId = saved.moment?.id ?? keptMomentId;
 
-      for (const photo of photosRef.current) {
-        if (photo.previewUrl) {
-          URL.revokeObjectURL(photo.previewUrl);
-        }
-      }
-      if (audioRef.current) {
-        URL.revokeObjectURL(audioRef.current.previewUrl);
-      }
-      setPhotos([]);
-      setAudio(null);
-      setNote("");
-      spokenRef.current = "";
-      setSpoken("");
       setSavedJobId(createdJob?.id ?? null);
       setSavedMomentId(keptMomentId);
-      resetDraft();
-      setMessage(
-        createdJob
-          ? "已存成工作。照片在倉庫裡，打開 Write 看那些照片自己寫。"
-          : "已存成 Moment。可再拍一張補上。",
-      );
+      persistCaptureRound();
+      setMessage("這一句已寫上。照片還在這一輪，不用再等。");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "儲存失敗，請再試一次。");
+      setMessage(error instanceof Error ? error.message : "這一句沒寫上，請再試一次。");
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -854,7 +1097,7 @@ export default function CapturePage() {
           <p className="fam-script">one capture door</p>
           <h1 className="fam-title">Capture</h1>
           <p className="fam-lede">
-            打開就能拍或錄。先看剛留下的，不好就重拍或重錄，缺的再補一張。一次選很多張會立刻開始上傳，這一輪最多 40 張，其餘再選一次。再選一次相簿會清掉畫面上的上一輪，上一輪已在倉庫裡。存成 Moment，不是新的旅程。一句話可以是心情，也可以是交代給 TravelOS 的工作。
+            打開就能拍或選。清楚看見的就是已經收到，會進工作台。傳的時候轉圈；失敗只會看到叉叉，點再傳或全部再傳，不用重選相簿。這一輪最多 40 張。再選一次相簿是新的一輪。一句話可以補心情，也可以交代工作，可不用按。
           </p>
         </div>
       </header>
@@ -877,13 +1120,70 @@ export default function CapturePage() {
             />
           </label>
         </div>
-        <p className="fam-muted mt-3">加入之後兩個按鈕都還在。拍照會接在這一輪後面。再選一次相簿會清掉畫面上的上一輪，上一輪已在倉庫裡。</p>
+        <p className="fam-muted mt-3">加入之後兩個按鈕都還在。拍照會接在這一輪後面。再選一次相簿是新的一輪。</p>
 
         {photos.length > 0 ? (
           <>
+            <div className="fam-dock-count" data-capture-dock-count="">
+              <p>
+                已收到 {photos.filter((photo) => photo.status === "uploaded").length} / {photos.length}
+                {photos.some((photo) => photo.status === "failed")
+                  ? ` · ${photos.filter((photo) => photo.status === "failed").length} 張沒收到`
+                  : ""}
+              </p>
+              {photos.some((photo) => photo.status === "failed") ? (
+                <button
+                  className="fam-dock-retry"
+                  data-capture-retry-failed=""
+                  onClick={retryFailedPhotos}
+                  type="button"
+                >
+                  全部再傳
+                  <span className="fam-en">Refresh failed</span>
+                </button>
+              ) : null}
+            </div>
             <ul className="mt-5 grid grid-cols-2 gap-3">
               {photos.map((photo) => {
-                const chip = photoChip(photo);
+                if (photo.status === "failed") {
+                  return (
+                    <li className="fam-thumb fam-thumb-fail" key={photo.id}>
+                      <button className="fam-thumb-fail-hit" onClick={() => retryPhoto(photo.id)} type="button">
+                        <FamGlyph name="x" size={36} />
+                        <span>再傳</span>
+                      </button>
+                      <div className="fam-thumb-actions">
+                        <button onClick={() => retryPhoto(photo.id)} type="button">
+                          再傳
+                        </button>
+                        <button onClick={() => removePhoto(photo.id)} type="button">
+                          移除
+                        </button>
+                      </div>
+                    </li>
+                  );
+                }
+                if (photo.status !== "uploaded") {
+                  return (
+                    <li className="fam-thumb fam-thumb-pending" key={photo.id}>
+                      <div className="fam-spin-wrap">
+                        <span className="fam-spin" />
+                        <span className="fam-sr">上傳中</span>
+                      </div>
+                      {photo.hopTotal > 0 && photo.hopDone > 0 ? (
+                        <span className="fam-chip fam-chip-honey">{photo.hopDone}/{photo.hopTotal}</span>
+                      ) : null}
+                      <div className="fam-thumb-actions">
+                        <button onClick={() => retakePhoto(photo.id)} type="button">
+                          重拍
+                        </button>
+                        <button onClick={() => removePhoto(photo.id)} type="button">
+                          移除
+                        </button>
+                      </div>
+                    </li>
+                  );
+                }
                 return (
                   <li className="fam-thumb" key={photo.id}>
                     {isCaptureVideoFile(photo.file) ? (
@@ -893,13 +1193,9 @@ export default function CapturePage() {
                       <img alt="" src={photo.previewUrl} />
                     ) : (
                       <div className="fam-thumb-fallback">
-                        {isCaptureVideoFile(photo.file) ? <FamGlyph name="play" /> : null}
                         <p className="line-clamp-3">{photo.file.name}</p>
                       </div>
                     )}
-                    <span className={chip.className}>{chip.label}</span>
-                    {photo.status === "queued" ? <span className="fam-sr">接著會傳</span> : null}
-                    {photo.errorMessage ? <p className="fam-ref">{photo.errorMessage}</p> : null}
                     <div className="fam-thumb-actions">
                       <button onClick={() => retakePhoto(photo.id)} type="button">
                         重拍
@@ -1006,11 +1302,11 @@ export default function CapturePage() {
 
         <button
           className="fam-pill fam-pill-quiet mt-3 w-full"
-          disabled={!hasCapture}
+          disabled={!note.trim() && !spoken.trim()}
           onClick={() => void saveMoment()}
           type="button"
         >
-          {saving ? "儲存中…" : "Save as Moment"}
+          {saving ? "寫下中…" : "寫下一句"}
         </button>
       </section>
     </main>

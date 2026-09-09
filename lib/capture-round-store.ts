@@ -1,0 +1,186 @@
+export const CAPTURE_ROUND_META_KEY = "travelos-capture-round";
+export const CAPTURE_ROUND_DB = "travelos-capture-round";
+export const CAPTURE_ROUND_FILE_STORE = "files";
+export const CAPTURE_PHOTO_RETRY_LIMIT = 4;
+export const CAPTURE_PHOTO_RETRY_BASE_MS = 1200;
+
+export type CaptureDockStatus = "queued" | "uploading" | "uploaded" | "failed";
+
+export type CaptureRoundPhotoMeta = {
+  id: string;
+  lastModified: number;
+  name: string;
+  retryCount: number;
+  serverPhotoId: string | null;
+  size: number;
+  status: CaptureDockStatus;
+  type: string;
+};
+
+export type CaptureRoundMeta = {
+  momentId: string | null;
+  note: string;
+  photos: CaptureRoundPhotoMeta[];
+  v: 1;
+};
+
+export type CaptureRoundFileStore = {
+  clear: () => Promise<void>;
+  get: (id: string) => Promise<File | null>;
+  put: (id: string, file: File) => Promise<void>;
+};
+
+type StorageLike = Pick<Storage, "getItem" | "removeItem" | "setItem">;
+
+export function capturePhotoStatusLabel(status: CaptureDockStatus) {
+  if (status === "uploaded") {
+    return "已收到";
+  }
+  if (status === "failed") {
+    return "再傳";
+  }
+  return "上傳中";
+}
+
+export function capturePhotoRetryDelayMs(attempt: number) {
+  return CAPTURE_PHOTO_RETRY_BASE_MS * Math.max(1, attempt);
+}
+
+export function captureRoundNeedsResume(photos: Array<{ status: CaptureDockStatus }>) {
+  return photos.some((photo) => photo.status !== "uploaded");
+}
+
+export function listRetryableCapturePhotoIds(
+  photos: Array<{ id: string; status: CaptureDockStatus }>,
+) {
+  return photos.filter((photo) => photo.status === "failed").map((photo) => photo.id);
+}
+
+export function createMemoryCaptureFileStore(initial: Iterable<[string, File]> = []): CaptureRoundFileStore {
+  const map = new Map(initial);
+  return {
+    async clear() {
+      map.clear();
+    },
+    async get(id) {
+      return map.get(id) ?? null;
+    },
+    async put(id, file) {
+      map.set(id, file);
+    },
+  };
+}
+
+const memoryFileStore = createMemoryCaptureFileStore();
+
+function openCaptureRoundDb(): Promise<IDBDatabase | null> {
+  if (typeof indexedDB === "undefined") {
+    return Promise.resolve(null);
+  }
+
+  return new Promise((resolve) => {
+    try {
+      const request = indexedDB.open(CAPTURE_ROUND_DB, 1);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains(CAPTURE_ROUND_FILE_STORE)) {
+          request.result.createObjectStore(CAPTURE_ROUND_FILE_STORE);
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+export function createIndexedDbCaptureFileStore(): CaptureRoundFileStore {
+  return {
+    async clear() {
+      const db = await openCaptureRoundDb();
+      if (!db) {
+        await memoryFileStore.clear();
+        return;
+      }
+      await new Promise<void>((resolve) => {
+        const tx = db.transaction(CAPTURE_ROUND_FILE_STORE, "readwrite");
+        tx.objectStore(CAPTURE_ROUND_FILE_STORE).clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      });
+    },
+    async get(id) {
+      const db = await openCaptureRoundDb();
+      if (!db) {
+        return memoryFileStore.get(id);
+      }
+      return new Promise((resolve) => {
+        const tx = db.transaction(CAPTURE_ROUND_FILE_STORE, "readonly");
+        const request = tx.objectStore(CAPTURE_ROUND_FILE_STORE).get(id);
+        request.onsuccess = () => {
+          const value = request.result;
+          resolve(value instanceof File ? value : null);
+        };
+        request.onerror = () => resolve(null);
+      });
+    },
+    async put(id, file) {
+      const db = await openCaptureRoundDb();
+      if (!db) {
+        await memoryFileStore.put(id, file);
+        return;
+      }
+      await new Promise<void>((resolve) => {
+        const tx = db.transaction(CAPTURE_ROUND_FILE_STORE, "readwrite");
+        tx.objectStore(CAPTURE_ROUND_FILE_STORE).put(file, id);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      });
+    },
+  };
+}
+
+export function readCaptureRoundMeta(storage: StorageLike | null | undefined) {
+  if (!storage) {
+    return null;
+  }
+
+  try {
+    const raw = storage.getItem(CAPTURE_ROUND_META_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as CaptureRoundMeta;
+    if (parsed.v !== 1 || !Array.isArray(parsed.photos)) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function writeCaptureRoundMeta(meta: CaptureRoundMeta, storage: StorageLike | null | undefined) {
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    storage.setItem(CAPTURE_ROUND_META_KEY, JSON.stringify(meta));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function clearCaptureRoundMeta(storage: StorageLike | null | undefined) {
+  if (!storage) {
+    return;
+  }
+
+  try {
+    storage.removeItem(CAPTURE_ROUND_META_KEY);
+  } catch {
+    // Private mode can block localStorage.
+  }
+}

@@ -547,6 +547,96 @@
   color: var(--fam-blush);
 }
 
+[data-surface="family"] .fam-dock-count {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+  border-radius: 18px;
+  background: var(--fam-white);
+  box-shadow: var(--fam-shadow);
+  padding: 10px 12px 10px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fam-ink);
+}
+
+[data-surface="family"] .fam-dock-count p {
+  margin: 0;
+  min-width: 0;
+}
+
+[data-surface="family"] .fam-dock-retry {
+  flex-shrink: 0;
+  display: grid;
+  min-height: 44px;
+  place-items: center;
+  border: 0;
+  border-radius: 14px;
+  background: var(--fam-blush);
+  color: var(--fam-white);
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+[data-surface="family"] .fam-dock-retry .fam-en {
+  display: block;
+  margin-top: 2px;
+  color: color-mix(in srgb, var(--fam-white) 82%, transparent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+[data-surface="family"] .fam-thumb-pending .fam-thumb-fallback,
+[data-surface="family"] .fam-thumb-pending .fam-spin-wrap {
+  background: color-mix(in srgb, var(--fam-paper-2) 88%, #c9c1b5);
+  border-radius: 14px;
+}
+
+[data-surface="family"] .fam-thumb-fail-hit {
+  display: grid;
+  height: 132px;
+  place-items: center;
+  gap: 6px;
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  color: var(--fam-blush);
+  background: color-mix(in srgb, var(--fam-white) 70%, var(--fam-blush) 12%);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+[data-surface="family"] .fam-spin-wrap {
+  display: grid;
+  height: 132px;
+  place-items: center;
+}
+
+[data-surface="family"] .fam-spin {
+  width: 28px;
+  height: 28px;
+  border: 3px solid color-mix(in srgb, var(--fam-honey) 35%, transparent);
+  border-top-color: var(--fam-honey);
+  border-radius: 50%;
+  animation: fam-spin 0.8s linear infinite;
+}
+
+@keyframes fam-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 [data-surface="family"] .fam-thumb-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
