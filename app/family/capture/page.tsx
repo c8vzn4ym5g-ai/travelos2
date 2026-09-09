@@ -41,11 +41,13 @@ import {
   uploadOriginalPhotoInBackground,
 } from "@/lib/capture-upload";
 import {
+  CAPTURE_DOCK_RETRY_GUARD_MS,
   CAPTURE_HANG_SWEEP_MS,
   CAPTURE_PHOTO_HANG_MS,
   CAPTURE_PHOTO_RETRY_LIMIT,
   captureDockCountText,
   captureDockIsOpen,
+  captureDockRetryShouldRun,
   capturePhotoRetryDelayMs,
   captureUploadShouldForceFail,
   clearCaptureRoundMeta,
@@ -160,6 +162,8 @@ export default function CapturePage() {
   const [ingestHint, setIngestHint] = useState(0);
   const [dockRetryInFlight, setDockRetryInFlight] = useState(false);
   const dockRetryInFlightRef = useRef(false);
+  const dockRetryStartedAtRef = useRef<number | null>(null);
+  const dockRetryGuardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [note, setNote] = useState("");
   const [audio, setAudio] = useState<StagedAudio | null>(null);
   const [audioHold, setAudioHold] = useState<{ durationSeconds: number } | null>(null);
@@ -326,8 +330,7 @@ export default function CapturePage() {
     photoUploadsRef.current = new Map();
     audioUploadRef.current = null;
     finalizedMomentRef.current = null;
-    dockRetryInFlightRef.current = false;
-    setDockRetryInFlight(false);
+    releaseDockRetryGuard();
   }
 
   function captureRoundMeta(): CaptureRoundMeta {
@@ -366,8 +369,7 @@ export default function CapturePage() {
     photosRef.current = detachStagedCapturePhotos(photosRef.current);
     setPhotos(() => photosRef.current);
     photoUploadsRef.current = new Map();
-    dockRetryInFlightRef.current = false;
-    setDockRetryInFlight(false);
+    releaseDockRetryGuard();
     finalizedMomentRef.current = null;
     momentSessionRef.current = createLiveMomentSession();
     void clearCaptureRound();
@@ -445,6 +447,7 @@ export default function CapturePage() {
     }
     current.abort.abort();
     liveUploadsRef.current.delete(photoId);
+    photoUploadsRef.current.delete(photoId);
     if (current.previewUrl) {
       URL.revokeObjectURL(current.previewUrl);
     }
@@ -480,6 +483,12 @@ export default function CapturePage() {
       flipped = true;
     }
     if (flipped) {
+      const stillBusy = photosRef.current.some(
+        (photo) => photo.status === "queued" || photo.status === "uploading",
+      );
+      if (!stillBusy) {
+        releaseDockRetryGuard();
+      }
       void reconcileCaptureRoundFromServer().then(() => maybeAutoFinalize());
     }
   }
@@ -562,7 +571,12 @@ export default function CapturePage() {
       setPhotos(restored);
       setMessage("還有這一輪，會繼續收。");
       setSavedMomentId(meta.momentId);
-      for (const photo of restored) {
+      try {
+        await reconcileCaptureRoundFromServer();
+      } catch {
+        /* keep restored local state */
+      }
+      for (const photo of photosRef.current) {
         if (photo.status !== "uploaded") {
           void startBackgroundPhotoUpload(photo);
         }
@@ -689,6 +703,7 @@ export default function CapturePage() {
     const stillThisRun = () =>
       photosRef.current.find((item) => item.id === photo.id)?.uploadGeneration === generation;
     const run = (async () => {
+      await yieldCaptureUi(0);
       if (photo.abort.signal.aborted || !stillThisRun()) {
         return;
       }
@@ -794,7 +809,7 @@ export default function CapturePage() {
           return;
         }
         const current = photosRef.current.find((item) => item.id === photo.id);
-        if (current?.status === "uploaded" && current.serverPhotoId) {
+        if (current?.status === "uploaded" || current?.status === "failed") {
           return;
         }
         const attempt = (current?.retryCount ?? photo.retryCount ?? 0) + 1;
@@ -1075,72 +1090,91 @@ export default function CapturePage() {
     });
   }
 
-  async function waitForDockRetrySettled(ids: string[], budgetMs = 4000) {
-    const started = Date.now();
-    let lastWait: Promise<void> | null = null;
-    while (Date.now() - started < budgetMs) {
-      const busy = photosRef.current.filter(
-        (photo) => ids.includes(photo.id) && (photo.status === "queued" || photo.status === "uploading"),
-      );
-      if (busy.length === 0) {
-        return;
-      }
-      const waits = busy
-        .map((photo) => photoUploadsRef.current.get(photo.id))
-        .filter((wait): wait is Promise<void> => Boolean(wait));
-      const nextWait = waits[0] ?? null;
-      if (!nextWait || nextWait === lastWait) {
-        await yieldCaptureUi(100);
-        continue;
-      }
-      lastWait = nextWait;
-      await Promise.race([Promise.all(waits), yieldCaptureUi(250)]);
-    }
-    for (const photo of photosRef.current) {
-      if (ids.includes(photo.id) && (photo.status === "queued" || photo.status === "uploading")) {
-        failHungPhoto(photo.id);
-      }
-    }
-  }
-
   function pressDockRetry(event: React.PointerEvent<HTMLButtonElement>) {
     const button = event.currentTarget;
     button.classList.add("is-pressed");
     globalThis.setTimeout(() => button.classList.remove("is-pressed"), 180);
   }
 
-  function retryFailedPhotos() {
-    if (dockRetryInFlightRef.current) {
-      return;
+  function releaseDockRetryGuard() {
+    if (dockRetryGuardTimerRef.current) {
+      globalThis.clearTimeout(dockRetryGuardTimerRef.current);
+      dockRetryGuardTimerRef.current = null;
     }
-    const ids = listRetryableCapturePhotoIds(photosRef.current);
-    if (ids.length === 0) {
-      void reconcileCaptureRoundFromServer().then(() => maybeAutoFinalize());
-      return;
+    dockRetryInFlightRef.current = false;
+    dockRetryStartedAtRef.current = null;
+    setDockRetryInFlight(false);
+  }
+
+  function armDockRetryGuard() {
+    if (dockRetryGuardTimerRef.current) {
+      globalThis.clearTimeout(dockRetryGuardTimerRef.current);
     }
     dockRetryInFlightRef.current = true;
+    dockRetryStartedAtRef.current = Date.now();
     setDockRetryInFlight(true);
+    dockRetryGuardTimerRef.current = globalThis.setTimeout(() => {
+      dockRetryGuardTimerRef.current = null;
+      dockRetryInFlightRef.current = false;
+      dockRetryStartedAtRef.current = null;
+      setDockRetryInFlight(false);
+    }, CAPTURE_DOCK_RETRY_GUARD_MS);
+  }
+
+  function retryFailedPhotos() {
+    const ids = listRetryableCapturePhotoIds(photosRef.current);
+    if (
+      !captureDockRetryShouldRun(
+        dockRetryInFlightRef.current,
+        ids.length,
+        dockRetryStartedAtRef.current,
+      )
+    ) {
+      if (ids.length === 0) {
+        void reconcileCaptureRoundFromServer().then(() => maybeAutoFinalize());
+      }
+      return;
+    }
+    armDockRetryGuard();
     setMessage(`正在再送 ${ids.length} 張。還是這一輪，不用重選相簿。`);
     void (async () => {
       try {
-        await reconcileCaptureRoundFromServer();
+        await yieldCaptureUi(0);
+        for (const photo of photosRef.current) {
+          if (photo.status === "uploaded") {
+            continue;
+          }
+          photo.abort.abort();
+          liveUploadsRef.current.delete(photo.id);
+          photoUploadsRef.current.delete(photo.id);
+        }
+        try {
+          await reconcileCaptureRoundFromServer();
+        } catch {
+          /* keep local retry state */
+        }
         const still = listRetryableCapturePhotoIds(photosRef.current);
+        if (still.length === 0) {
+          maybeAutoFinalize();
+          return;
+        }
+        setMessage(`正在再送 ${still.length} 張。還是這一輪，不用重選相簿。`);
         for (const id of still) {
           const photo = photosRef.current.find((item) => item.id === id);
           if (!photo || photo.status === "uploaded") {
             continue;
           }
-          photo.abort.abort();
-          liveUploadsRef.current.delete(id);
-          await retryPhoto(id);
-          await yieldCaptureUi();
+          void retryPhoto(id);
+          await yieldCaptureUi(0);
         }
-        await waitForDockRetrySettled(still);
-        await reconcileCaptureRoundFromServer();
+        try {
+          await reconcileCaptureRoundFromServer();
+        } catch {
+          /* keep local retry state */
+        }
         maybeAutoFinalize();
       } finally {
-        dockRetryInFlightRef.current = false;
-        setDockRetryInFlight(false);
+        releaseDockRetryGuard();
       }
     })();
   }
@@ -1305,7 +1339,7 @@ export default function CapturePage() {
 
   if (!authenticated) {
     return (
-      <main className="fam-page">
+      <main className="fam-page fam-page-capture">
         <div className="fam-splash">
           <div className="fam-splash-card">
             <p className="fam-label">{redirecting ? "正在返回家庭登入…" : "正在開啟 Capture…"}</p>
@@ -1319,7 +1353,7 @@ export default function CapturePage() {
   }
 
   return (
-    <main className="fam-page">
+    <main className="fam-page fam-page-capture">
       <header className="fam-hero">
         <div className="fam-hero-inner">
           <FamilyBackLink className="min-h-11" href="/family">

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  CAPTURE_DOCK_RETRY_GUARD_MS,
+  CAPTURE_PHOTO_HANG_MS,
   captureDockCountText,
   captureDockIsOpen,
   captureDockRetryShouldRun,
@@ -92,6 +94,8 @@ test("dock status labels never call a local thumbnail received", () => {
   assert.equal(captureDockRetryShouldRun(false, 3), true);
   assert.equal(captureDockRetryShouldRun(true, 3), false);
   assert.equal(captureDockRetryShouldRun(false, 0), false);
+  assert.equal(captureDockRetryShouldRun(true, 3, 1_000, 2_000, 8_000), false);
+  assert.equal(captureDockRetryShouldRun(true, 3, 1_000, 10_000, 8_000), true);
 });
 
 test("hung uploading without a live worker is forced off 上傳中", () => {
@@ -113,8 +117,11 @@ test("hung uploading without a live worker is forced off 上傳中", () => {
     }),
     false,
   );
-  assert.equal(captureUploadIsHung("uploading", 1_000, 80_000, 70_000), true);
-  assert.equal(captureUploadIsHung("uploaded", 1_000, 80_000, 70_000), false);
+  assert.equal(CAPTURE_PHOTO_HANG_MS, 28_000);
+  assert.equal(CAPTURE_DOCK_RETRY_GUARD_MS, 8_000);
+  assert.equal(captureUploadIsHung("uploading", 1_000, 29_000), true);
+  assert.equal(captureUploadIsHung("uploading", 1_000, 20_000), false);
+  assert.equal(captureUploadIsHung("uploaded", 1_000, 80_000), false);
 });
 
 test("server photos for the round flip hung cards to uploaded", () => {

@@ -100,12 +100,36 @@ export function listRetryableCapturePhotoIds(
   return photos.filter((photo) => photo.status !== "uploaded").map((photo) => photo.id);
 }
 
-export function captureDockRetryShouldRun(inFlight: boolean, retryableCount: number) {
-  return !inFlight && retryableCount > 0;
+export function captureDockRetryShouldRun(
+  inFlight: boolean,
+  retryableCount: number,
+  startedAt: number | null = null,
+  now = Date.now(),
+  guardMs = CAPTURE_DOCK_RETRY_GUARD_MS,
+) {
+  if (retryableCount <= 0) {
+    return false;
+  }
+  if (!inFlight) {
+    return true;
+  }
+  return captureDockRetryGuardIsStale(startedAt, now, guardMs);
 }
 
-export const CAPTURE_PHOTO_HANG_MS = 70_000;
-export const CAPTURE_HANG_SWEEP_MS = 1000;
+export const CAPTURE_PHOTO_HANG_MS = 28_000;
+export const CAPTURE_HANG_SWEEP_MS = 500;
+export const CAPTURE_DOCK_RETRY_GUARD_MS = 8_000;
+
+export function captureDockRetryGuardIsStale(
+  startedAt: number | null | undefined,
+  now: number,
+  guardMs = CAPTURE_DOCK_RETRY_GUARD_MS,
+) {
+  if (startedAt == null) {
+    return false;
+  }
+  return now - startedAt >= guardMs;
+}
 
 export function yieldCaptureUi(ms = 0) {
   return new Promise<void>((resolve) => {

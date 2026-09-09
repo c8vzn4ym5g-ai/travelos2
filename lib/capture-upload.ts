@@ -979,8 +979,11 @@ export async function uploadDisplayPhoto(input: {
 
   let display: File;
   try {
-    display = await prepareDisplayPhoto(source);
-  } catch {
+    display = await prepareDisplayPhoto(source, input.signal);
+  } catch (error) {
+    if (input.signal?.aborted || isCaptureUploadAbortError(error)) {
+      throw new Error(CAPTURE_UPLOAD_FAILED_MESSAGE);
+    }
     display = source;
   }
 

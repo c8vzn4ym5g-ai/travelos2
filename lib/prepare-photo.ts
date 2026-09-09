@@ -60,10 +60,32 @@ async function decodePhoto(file: File) {
   }
 }
 
-async function renderFileAsJpeg(file: File, maxSide: number, quality: number) {
+function throwIfPhotoAborted(signal?: AbortSignal) {
+  if (!signal?.aborted) {
+    return;
+  }
+  if (typeof DOMException !== "undefined") {
+    throw new DOMException("Aborted", "AbortError");
+  }
+  throw new Error("Aborted");
+}
+
+function yieldPhotoUi() {
+  return new Promise<void>((resolve) => {
+    globalThis.setTimeout(resolve, 0);
+  });
+}
+
+async function renderFileAsJpeg(file: File, maxSide: number, quality: number, signal?: AbortSignal) {
+  throwIfPhotoAborted(signal);
+  await yieldPhotoUi();
+  throwIfPhotoAborted(signal);
   const decoded = await decodePhoto(file);
+  throwIfPhotoAborted(signal);
 
   try {
+    await yieldPhotoUi();
+    throwIfPhotoAborted(signal);
     const scale = Math.min(1, maxSide / Math.max(decoded.width, decoded.height));
     const width = Math.max(1, Math.round(decoded.width * scale));
     const height = Math.max(1, Math.round(decoded.height * scale));
@@ -89,8 +111,8 @@ async function renderFileAsJpeg(file: File, maxSide: number, quality: number) {
   }
 }
 
-async function convertPhonePhotoToJpeg(file: File) {
-  return renderFileAsJpeg(file, displayMaxEdge, displayJpegQuality);
+async function convertPhonePhotoToJpeg(file: File, signal?: AbortSignal) {
+  return renderFileAsJpeg(file, displayMaxEdge, displayJpegQuality, signal);
 }
 
 function canSkipDisplayCanvas(file: File) {
@@ -100,7 +122,8 @@ function canSkipDisplayCanvas(file: File) {
   return file.type === "image/jpeg" && file.size <= skipCanvasMaxBytes;
 }
 
-export async function prepareDisplayPhoto(file: File) {
+export async function prepareDisplayPhoto(file: File, signal?: AbortSignal) {
+  throwIfPhotoAborted(signal);
   if (canSkipDisplayCanvas(file)) {
     // Tiny JPEGs and raw HEIC skip canvas. Multi-megabyte iPhone JPEGs from
     // Choose Photos must resize (displayMaxEdge / displayJpegQuality) so Drive
@@ -109,15 +132,21 @@ export async function prepareDisplayPhoto(file: File) {
   }
 
   try {
-    let display = await convertPhonePhotoToJpeg(file);
+    let display = await convertPhonePhotoToJpeg(file, signal);
+    throwIfPhotoAborted(signal);
     if (display.size > maxUploadBytes) {
-      display = await renderFileAsJpeg(display, 1280, 0.65);
+      display = await renderFileAsJpeg(display, 1280, 0.65, signal);
     }
+    throwIfPhotoAborted(signal);
     if (file.type === "image/jpeg" && display.size >= file.size) {
       return file;
     }
     return display;
-  } catch {
+  } catch (error) {
+    throwIfPhotoAborted(signal);
+    if (error instanceof Error && (error.name === "AbortError" || error.message === "Aborted")) {
+      throw error;
+    }
     return file;
   }
 }

@@ -863,6 +863,13 @@ test("HEIC prepare is cheap and does not exclusive-decode", async () => {
   assert.doesNotMatch(prepare, /8000/);
 });
 
+test("aborted prepareDisplayPhoto does not start canvas work", async () => {
+  const jpeg = new File([new Uint8Array(500_001)], "IMG_big.jpg", { type: "image/jpeg" });
+  const abort = new AbortController();
+  abort.abort();
+  await assert.rejects(() => prepareDisplayPhoto(jpeg, abort.signal), /Aborted|abort/i);
+});
+
 test("large HEIC still skips canvas convert", async () => {
   const heic = new File([new Uint8Array(2_000_000).fill(1)], "IMG_1001.HEIC", { type: "image/heic" });
   const stub = stubJpegCanvas({ bytes: 12_000 });
@@ -1152,11 +1159,24 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
   assert.match(capture, /liveUploadsRef/);
   assert.match(capture, /reconcileCaptureRoundFromServer/);
   assert.match(capture, /yieldCaptureUi/);
-  assert.match(capture, /waitForDockRetrySettled\(still/);
-  assert.doesNotMatch(
-    capture.slice(capture.indexOf("async function waitForDockRetrySettled"), capture.indexOf("function pressDockRetry")),
-    /for \(;;\)/,
+  assert.doesNotMatch(capture, /waitForDockRetrySettled/);
+  assert.doesNotMatch(capture, /Promise\.all\(waits\)/);
+  assert.match(capture, /captureDockRetryShouldRun/);
+  assert.match(capture, /armDockRetryGuard/);
+  assert.match(capture, /releaseDockRetryGuard/);
+  assert.match(capture, /CAPTURE_DOCK_RETRY_GUARD_MS/);
+  const retryBlock = capture.slice(
+    capture.indexOf("function retryFailedPhotos"),
+    capture.indexOf("function retakePhoto"),
   );
+  assert.match(retryBlock, /photo\.abort\.abort\(\)/);
+  assert.match(retryBlock, /liveUploadsRef\.current\.delete/);
+  assert.match(retryBlock, /reconcileCaptureRoundFromServer/);
+  assert.match(retryBlock, /listRetryableCapturePhotoIds/);
+  assert.match(retryBlock, /void retryPhoto\(id\)/);
+  assert.match(retryBlock, /yieldCaptureUi\(0\)/);
+  assert.doesNotMatch(retryBlock, /await retryPhoto/);
+  assert.doesNotMatch(retryBlock, /await waitFor/);
   assert.match(prepare, /photoDecodeTimeoutMs = 8_000/);
   assert.match(addBlock, /ingestCaptureFileList\(fileList/);
   assert.match(addBlock, /limit: CAPTURE_DUMP_LIMIT/);
@@ -1200,7 +1220,7 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
     upload.indexOf("export async function uploadDisplayPhoto"),
     upload.indexOf("export function uploadOriginalPhotoInBackground"),
   );
-  assert.match(displayUpload, /await prepareDisplayPhoto\(source\)/);
+  assert.match(displayUpload, /await prepareDisplayPhoto\(source, input\.signal\)/);
   assert.match(displayUpload, /return await attempt\(\);/);
   assert.doesNotMatch(displayUpload, /createImageBitmap\(/);
   assert.doesNotMatch(displayUpload, /canvas\.toBlob/);

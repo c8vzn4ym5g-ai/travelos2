@@ -297,7 +297,7 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
     upload.indexOf("export async function uploadDisplayPhoto"),
     upload.indexOf("export function uploadOriginalPhotoInBackground"),
   );
-  assert.match(displayUpload, /await prepareDisplayPhoto\(source\)/);
+  assert.match(displayUpload, /await prepareDisplayPhoto\(source, input\.signal\)/);
   assert.match(prepare, /return file;/);
   assert.doesNotMatch(prepare, /Could not prepare this photo for upload/);
   assert.doesNotMatch(prepare, /supportedUploadTypes/);
@@ -395,7 +395,9 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(capture, /data-capture-retry-busy/);
   assert.match(capture, /fam-dock-retry-glyph/);
   assert.match(capture, /onPointerDown=\{pressDockRetry\}/);
-  assert.match(capture, /if \(dockRetryInFlightRef\.current\)/);
+  assert.match(capture, /captureDockRetryShouldRun/);
+  assert.match(capture, /armDockRetryGuard/);
+  assert.match(capture, /releaseDockRetryGuard/);
   assert.match(capture, /reconcileCaptureRoundFromServer/);
   assert.match(capture, /failHungPhoto/);
   assert.match(capture, /listRetryableCapturePhotoIds\(photosRef\.current\)/);
@@ -453,7 +455,7 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.doesNotMatch(saveBlock, /Promise\.all\(\[\.\.\.photoUploadsRef\.current\.values\(\)\]\)/);
   assert.doesNotMatch(saveBlock, /uploadOriginalPhotoInBackground/);
   assert.match(displayUpload, /formData\.set\("file", display\)/);
-  assert.match(displayUpload, /await prepareDisplayPhoto\(source\)/);
+  assert.match(displayUpload, /await prepareDisplayPhoto\(source, input\.signal\)/);
   assert.doesNotMatch(displayUpload, /formData\.set\("original"/);
   assert.match(upload, /void fetch\("\/api\/moments\/photos"/);
   assert.match(upload, /Originals are durable when they land; they must never block Capture/);
@@ -652,5 +654,6 @@ test("sticky dock refresh bounces on press and spins the icon while retry is in 
   assert.match(dock, /animation: fam-spin 0\.8s linear infinite/);
   assert.doesNotMatch(dock, /再送一次|全部再送|上傳失敗/);
   assert.match(css, /\.fam-page \{[\s\S]*overflow-y: auto/);
+  assert.match(css, /\.fam-page-capture \{[\s\S]*touch-action: pan-y/);
   assert.match(css, /-webkit-overflow-scrolling: touch/);
 });
