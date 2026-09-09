@@ -452,6 +452,49 @@ export function pinHeaders(pin: string): Record<string, string> {
   return { "x-travelos-admin-pin": pin };
 }
 
+export async function fetchCaptureMoment(momentId: string, pin: string) {
+  const id = momentId.trim();
+  if (!id) {
+    return null;
+  }
+  const response = await captureFetch(
+    `/api/moments?id=${encodeURIComponent(id)}`,
+    {
+      cache: "no-store",
+      headers: pinHeaders(pin),
+      method: "GET",
+    },
+    12_000,
+  );
+  if (!response.ok) {
+    return null;
+  }
+  const payload = (await readJsonWithTimeout(response)) as { moment?: { id: string; photos?: Array<{ id: string; originalFilename: string }> } };
+  return payload.moment ?? null;
+}
+
+export async function readJsonWithTimeout<T>(response: Response, signal?: AbortSignal, timeoutMs = 12_000): Promise<T> {
+  const controller = new AbortController();
+  const timer = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  const onAbort = () => controller.abort();
+  signal?.addEventListener("abort", onAbort, { once: true });
+  try {
+    return await Promise.race([
+      response.json() as Promise<T>,
+      new Promise<T>((_, reject) => {
+        controller.signal.addEventListener(
+          "abort",
+          () => reject(new Error(CAPTURE_UPLOAD_FAILED_MESSAGE)),
+          { once: true },
+        );
+      }),
+    ]);
+  } finally {
+    globalThis.clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
+  }
+}
+
 export function captureErrorMessage(error: unknown, fallback: string) {
   if (isCaptureUploadAbortError(error)) {
     return fallback;
@@ -972,7 +1015,7 @@ export async function uploadDisplayPhoto(input: {
     if (!response.ok) {
       throw new Error(await readError(response, CAPTURE_UPLOAD_FAILED_MESSAGE));
     }
-    const payload = (await response.json()) as { photo: MomentPhoto };
+    const payload = await readJsonWithTimeout(response, input.signal) as { photo: MomentPhoto };
     return { display, momentId, photo: payload.photo };
   };
 

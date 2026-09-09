@@ -1146,7 +1146,17 @@ test("capture page caps a dump at 40 and fires POSTs in parallel", async () => {
   assert.match(ingestFn, /materializeCapturePhoto\(file\)/);
   assert.match(upload, /export function materializeCapturePhoto/);
   assert.match(upload, /export function capturePhotoWatchdogMs/);
-  assert.match(capture, /capturePhotoWatchdogMs\(\)/);
+  assert.match(capture, /failHungPhoto/);
+  assert.match(capture, /CAPTURE_PHOTO_HANG_MS/);
+  assert.match(capture, /sweepHungUploads/);
+  assert.match(capture, /liveUploadsRef/);
+  assert.match(capture, /reconcileCaptureRoundFromServer/);
+  assert.match(capture, /yieldCaptureUi/);
+  assert.match(capture, /waitForDockRetrySettled\(still/);
+  assert.doesNotMatch(
+    capture.slice(capture.indexOf("async function waitForDockRetrySettled"), capture.indexOf("function pressDockRetry")),
+    /for \(;;\)/,
+  );
   assert.match(prepare, /photoDecodeTimeoutMs = 8_000/);
   assert.match(addBlock, /ingestCaptureFileList\(fileList/);
   assert.match(addBlock, /limit: CAPTURE_DUMP_LIMIT/);

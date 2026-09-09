@@ -1,6 +1,7 @@
 import {
   addJob,
   addMoment,
+  getMomentById,
   isAdminPinValid,
   momentApiErrorResponse,
   readMoments,
@@ -33,6 +34,15 @@ export async function GET(request: Request) {
   try {
     if (!isAdminPinValid(pinFrom(request))) {
       return Response.json({ error: "Invalid admin PIN" }, { status: 401 });
+    }
+
+    const momentId = new URL(request.url).searchParams.get("id")?.trim() ?? "";
+    if (momentId) {
+      const moment = await getMomentById(momentId);
+      if (!moment) {
+        return Response.json({ error: "Moment not found" }, { status: 404 });
+      }
+      return Response.json({ moment });
     }
 
     const { content, status } = await readMoments();

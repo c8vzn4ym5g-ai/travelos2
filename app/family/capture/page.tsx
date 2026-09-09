@@ -21,7 +21,6 @@ import {
   CAPTURE_UPLOAD_FAILED_MESSAGE,
   captureDumpProgressMessage,
   captureErrorMessage,
-  capturePhotoWatchdogMs,
   captureUploadWatchdogMs,
   captureVideoHopCount,
   captureVideoPreviewUrl,
@@ -31,6 +30,7 @@ import {
   createStagedCapturePhotos,
   createTinyPreviewUrl,
   detachStagedCapturePhotos,
+  fetchCaptureMoment,
   finalizeCaptureMoment,
   ingestCaptureFileList,
   removeUploadedPhotoInBackground,
@@ -41,17 +41,21 @@ import {
   uploadOriginalPhotoInBackground,
 } from "@/lib/capture-upload";
 import {
+  CAPTURE_HANG_SWEEP_MS,
+  CAPTURE_PHOTO_HANG_MS,
   CAPTURE_PHOTO_RETRY_LIMIT,
   captureDockCountText,
   captureDockIsOpen,
-  captureDockRetryShouldRun,
   capturePhotoRetryDelayMs,
+  captureUploadShouldForceFail,
   clearCaptureRoundMeta,
   createIndexedDbCaptureFileStore,
   listRetryableCapturePhotoIds,
   readCaptureRoundMeta,
+  reconcileCapturePhotosWithServer,
   waitForCaptureDockPaint,
   writeCaptureRoundMeta,
+  yieldCaptureUi,
   type CaptureRoundMeta,
 } from "@/lib/capture-round-store";
 import { FAMILY_ADMIN_SESSION_KEY, resolveFamilySession } from "@/lib/family-session";
@@ -74,6 +78,7 @@ type StagedPhoto = {
   serverPhotoId: string | null;
   status: UploadStatus;
   uploadGeneration: number;
+  uploadingSince: number | null;
 };
 
 type StagedAudio = {
@@ -138,6 +143,7 @@ export default function CapturePage() {
   const coordinatesRef = useRef<GeoPoint | null>(null);
   const momentSessionRef = useRef<ReturnType<typeof createMomentSession> | null>(null);
   const photoUploadsRef = useRef(new Map<string, Promise<void>>());
+  const liveUploadsRef = useRef(new Set<string>());
   const audioUploadRef = useRef<Promise<void> | null>(null);
   const savingRef = useRef(false);
   const persistTimerRef = useRef<number>(0);
@@ -254,11 +260,13 @@ export default function CapturePage() {
         persistCaptureRound();
         return;
       }
+      sweepHungUploads();
+      void reconcileCaptureRoundFromServer().then(() => maybeAutoFinalize());
       for (const photo of photosRef.current) {
         if (photo.status === "uploaded") {
           continue;
         }
-        if (photo.status === "uploading" && photoUploadsRef.current.has(photo.id)) {
+        if (liveUploadsRef.current.has(photo.id)) {
           continue;
         }
         void startBackgroundPhotoUpload(photo);
@@ -270,6 +278,17 @@ export default function CapturePage() {
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("pagehide", onHide);
     };
+  }, [authenticated]);
+
+  useEffect(() => {
+    if (!authenticated) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      sweepHungUploads();
+    }, CAPTURE_HANG_SWEEP_MS);
+    sweepHungUploads();
+    return () => window.clearInterval(timer);
   }, [authenticated]);
 
   useEffect(() => {
@@ -413,6 +432,86 @@ export default function CapturePage() {
     });
   }
 
+  function failHungPhoto(photoId: string, generation?: number) {
+    const current = photosRef.current.find((photo) => photo.id === photoId);
+    if (!current) {
+      return;
+    }
+    if (generation != null && current.uploadGeneration !== generation) {
+      return;
+    }
+    if (current.status === "uploaded") {
+      return;
+    }
+    current.abort.abort();
+    liveUploadsRef.current.delete(photoId);
+    if (current.previewUrl) {
+      URL.revokeObjectURL(current.previewUrl);
+    }
+    patchPhoto(photoId, {
+      errorMessage: CAPTURE_UPLOAD_FAILED_MESSAGE,
+      previewUrl: null,
+      status: "failed",
+      uploadingSince: null,
+    });
+    persistCaptureRound();
+    setMessage("還有幾張在這一輪。點刷新就可以，不用重選相簿。");
+  }
+
+  function sweepHungUploads() {
+    const now = Date.now();
+    let flipped = false;
+    for (const photo of photosRef.current) {
+      const hangMs = isCaptureVideoFile(photo.file)
+        ? captureUploadWatchdogMs(photo.file.size)
+        : CAPTURE_PHOTO_HANG_MS;
+      if (
+        !captureUploadShouldForceFail({
+          hasLiveUpload: liveUploadsRef.current.has(photo.id),
+          hangMs,
+          now,
+          status: photo.status,
+          uploadingSince: photo.uploadingSince,
+        })
+      ) {
+        continue;
+      }
+      failHungPhoto(photo.id);
+      flipped = true;
+    }
+    if (flipped) {
+      void reconcileCaptureRoundFromServer().then(() => maybeAutoFinalize());
+    }
+  }
+
+  async function reconcileCaptureRoundFromServer() {
+    const momentId = momentSession().momentId;
+    if (!momentId) {
+      return;
+    }
+    const moment = await fetchCaptureMoment(momentId, sessionPin(pinRef.current));
+    if (!moment?.photos?.length) {
+      return;
+    }
+    const reconciled = reconcileCapturePhotosWithServer(photosRef.current, moment.photos);
+    const changed = reconciled.some((photo, index) => {
+      const current = photosRef.current[index];
+      return photo.status !== current?.status || photo.serverPhotoId !== current?.serverPhotoId;
+    });
+    if (!changed) {
+      return;
+    }
+    for (const photo of reconciled) {
+      if (photo.status === "uploaded") {
+        photo.abort.abort();
+        liveUploadsRef.current.delete(photo.id);
+      }
+    }
+    photosRef.current = reconciled;
+    setPhotos(reconciled);
+    persistCaptureRound();
+  }
+
   async function restoreCaptureRound() {
     if (restoringRef.current || photosRef.current.length > 0) {
       return;
@@ -452,6 +551,7 @@ export default function CapturePage() {
           serverPhotoId: item.serverPhotoId,
           status: item.status === "uploaded" && item.serverPhotoId ? "uploaded" : file ? "queued" : "failed",
           uploadGeneration: 0,
+          uploadingSince: item.status === "uploaded" && item.serverPhotoId ? null : Date.now(),
         };
         restored.push(staged);
       }
@@ -556,6 +656,7 @@ export default function CapturePage() {
   }
 
   async function startBackgroundPhotoUpload(photo: StagedPhoto) {
+    liveUploadsRef.current.add(photo.id);
     const session = momentSession();
     const generation =
       (photosRef.current.find((item) => item.id === photo.id)?.uploadGeneration ?? photo.uploadGeneration ?? 0) + 1;
@@ -570,6 +671,7 @@ export default function CapturePage() {
               retryCount: photo.retryCount,
               status: "uploading" as const,
               uploadGeneration: generation,
+              uploadingSince: item.uploadingSince ?? Date.now(),
             }
           : item,
       );
@@ -595,12 +697,13 @@ export default function CapturePage() {
       let watchdogFired = false;
       const watchdogMs = isCaptureVideoFile(photo.file)
         ? captureUploadWatchdogMs(photo.file.size)
-        : capturePhotoWatchdogMs();
+        : CAPTURE_PHOTO_HANG_MS;
       const watchdog = globalThis.setTimeout(() => {
         watchdogFired = true;
         if (!photo.abort.signal.aborted) {
           photo.abort.abort();
         }
+        failHungPhoto(photo.id, generation);
       }, watchdogMs);
       try {
         const takenAt = Number.isFinite(photo.file.lastModified)
@@ -610,7 +713,17 @@ export default function CapturePage() {
         persistCaptureRound();
         const video = isCaptureVideoFile(photo.file);
         if (!video) {
-          await session.ensure(takenAt);
+          await Promise.race([
+            session.ensure(takenAt),
+            new Promise<string>((_, reject) => {
+              const onAbort = () => reject(new Error(CAPTURE_UPLOAD_FAILED_MESSAGE));
+              if (photo.abort.signal.aborted) {
+                onAbort();
+                return;
+              }
+              photo.abort.signal.addEventListener("abort", onAbort, { once: true });
+            }),
+          ]);
         }
         if (!stillThisRun()) {
           return;
@@ -673,7 +786,11 @@ export default function CapturePage() {
         if (!photoIsOnScreen(photo.id) || !stillThisRun()) {
           return;
         }
-        if (photo.abort.signal.aborted && !watchdogFired) {
+        if (watchdogFired) {
+          failHungPhoto(photo.id, generation);
+          return;
+        }
+        if (photo.abort.signal.aborted) {
           return;
         }
         const current = photosRef.current.find((item) => item.id === photo.id);
@@ -720,6 +837,18 @@ export default function CapturePage() {
     })();
 
     photoUploadsRef.current.set(photo.id, run.then(() => undefined, () => undefined));
+    void run.then(
+      () => {
+        if (photosRef.current.find((item) => item.id === photo.id)?.uploadGeneration === generation) {
+          liveUploadsRef.current.delete(photo.id);
+        }
+      },
+      () => {
+        if (photosRef.current.find((item) => item.id === photo.id)?.uploadGeneration === generation) {
+          liveUploadsRef.current.delete(photo.id);
+        }
+      },
+    );
     return run;
   }
 
@@ -827,6 +956,7 @@ export default function CapturePage() {
           previewUrl: isCaptureVideoFile(file) ? captureVideoPreviewUrl(file) : null,
           retryCount: 0,
           uploadGeneration: 0,
+          uploadingSince: Date.now(),
         }));
         if (incoming.length === 0) {
           return;
@@ -852,6 +982,7 @@ export default function CapturePage() {
           void persistCapturePhotoFile(photo);
           void startBackgroundPhotoUpload(photo);
         }
+        await yieldCaptureUi();
       },
       onReceived(received) {
         setMessage(
@@ -914,6 +1045,7 @@ export default function CapturePage() {
       errorMessage: null,
       retryCount: 0,
       status: "uploading",
+      uploadingSince: Date.now(),
     };
     photosRef.current = photosRef.current.map((item) => (item.id === photo.id ? next : item));
     setPhotos(photosRef.current);
@@ -936,15 +1068,17 @@ export default function CapturePage() {
         return;
       }
       if (!stored?.size) {
-        setMessage("這張還在這一輪，檔案卻不見了。不要重選整本相簿。");
+        failHungPhoto(latest.id);
         return;
       }
       beginStagedPhotoRetry({ ...latest, file: stored });
     });
   }
 
-  async function waitForDockRetrySettled(ids: string[]) {
-    for (;;) {
+  async function waitForDockRetrySettled(ids: string[], budgetMs = 4000) {
+    const started = Date.now();
+    let lastWait: Promise<void> | null = null;
+    while (Date.now() - started < budgetMs) {
       const busy = photosRef.current.filter(
         (photo) => ids.includes(photo.id) && (photo.status === "queued" || photo.status === "uploading"),
       );
@@ -954,11 +1088,18 @@ export default function CapturePage() {
       const waits = busy
         .map((photo) => photoUploadsRef.current.get(photo.id))
         .filter((wait): wait is Promise<void> => Boolean(wait));
-      if (waits.length === 0) {
-        await new Promise((resolve) => globalThis.setTimeout(resolve, 32));
+      const nextWait = waits[0] ?? null;
+      if (!nextWait || nextWait === lastWait) {
+        await yieldCaptureUi(100);
         continue;
       }
-      await Promise.all(waits);
+      lastWait = nextWait;
+      await Promise.race([Promise.all(waits), yieldCaptureUi(250)]);
+    }
+    for (const photo of photosRef.current) {
+      if (ids.includes(photo.id) && (photo.status === "queued" || photo.status === "uploading")) {
+        failHungPhoto(photo.id);
+      }
     }
   }
 
@@ -969,19 +1110,34 @@ export default function CapturePage() {
   }
 
   function retryFailedPhotos() {
+    if (dockRetryInFlightRef.current) {
+      return;
+    }
     const ids = listRetryableCapturePhotoIds(photosRef.current);
-    if (!captureDockRetryShouldRun(dockRetryInFlightRef.current, ids.length)) {
+    if (ids.length === 0) {
+      void reconcileCaptureRoundFromServer().then(() => maybeAutoFinalize());
       return;
     }
     dockRetryInFlightRef.current = true;
-    flushSync(() => {
-      setDockRetryInFlight(true);
-    });
+    setDockRetryInFlight(true);
     setMessage(`正在再送 ${ids.length} 張。還是這一輪，不用重選相簿。`);
     void (async () => {
       try {
-        await Promise.all(ids.map((id) => retryPhoto(id)));
-        await waitForDockRetrySettled(ids);
+        await reconcileCaptureRoundFromServer();
+        const still = listRetryableCapturePhotoIds(photosRef.current);
+        for (const id of still) {
+          const photo = photosRef.current.find((item) => item.id === id);
+          if (!photo || photo.status === "uploaded") {
+            continue;
+          }
+          photo.abort.abort();
+          liveUploadsRef.current.delete(id);
+          await retryPhoto(id);
+          await yieldCaptureUi();
+        }
+        await waitForDockRetrySettled(still);
+        await reconcileCaptureRoundFromServer();
+        maybeAutoFinalize();
       } finally {
         dockRetryInFlightRef.current = false;
         setDockRetryInFlight(false);

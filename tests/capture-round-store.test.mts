@@ -7,12 +7,16 @@ import {
   capturePhotoRetryDelayMs,
   capturePhotoStatusLabel,
   captureRoundNeedsResume,
+  captureUploadIsHung,
+  captureUploadShouldForceFail,
   clearCaptureRoundMeta,
   createMemoryCaptureFileStore,
   listRetryableCapturePhotoIds,
   readCaptureRoundMeta,
+  reconcileCapturePhotosWithServer,
   waitForCaptureDockPaint,
   writeCaptureRoundMeta,
+  yieldCaptureUi,
 } from "../lib/capture-round-store.ts";
 
 class MemoryStorage {
@@ -88,6 +92,61 @@ test("dock status labels never call a local thumbnail received", () => {
   assert.equal(captureDockRetryShouldRun(false, 3), true);
   assert.equal(captureDockRetryShouldRun(true, 3), false);
   assert.equal(captureDockRetryShouldRun(false, 0), false);
+});
+
+test("hung uploading without a live worker is forced off 上傳中", () => {
+  assert.equal(
+    captureUploadShouldForceFail({
+      hasLiveUpload: false,
+      now: 80_000,
+      status: "uploading",
+      uploadingSince: 1_000,
+    }),
+    true,
+  );
+  assert.equal(
+    captureUploadShouldForceFail({
+      hasLiveUpload: true,
+      now: 20_000,
+      status: "uploading",
+      uploadingSince: 1_000,
+    }),
+    false,
+  );
+  assert.equal(captureUploadIsHung("uploading", 1_000, 80_000, 70_000), true);
+  assert.equal(captureUploadIsHung("uploaded", 1_000, 80_000, 70_000), false);
+});
+
+test("server photos for the round flip hung cards to uploaded", () => {
+  const local = [
+    { file: { name: "A.jpg" }, serverPhotoId: "p1", status: "uploaded" as const },
+    { file: { name: "B.jpg" }, serverPhotoId: null, status: "uploading" as const },
+  ];
+  const server = [
+    { id: "p1", originalFilename: "A.jpg" },
+    { id: "p2", originalFilename: "B.jpg" },
+  ];
+  const next = reconcileCapturePhotosWithServer(local, server);
+  assert.equal(next[1]?.status, "uploaded");
+  assert.equal(next[1]?.serverPhotoId, "p2");
+});
+
+test("leftover warehouse photo lands on the one hung card", () => {
+  const local = [
+    { file: { name: "IMG_1.JPG" }, serverPhotoId: "a", status: "uploaded" as const },
+    { file: { name: "IMG_2.JPG" }, serverPhotoId: null, status: "uploading" as const },
+  ];
+  const server = [
+    { id: "a", originalFilename: "display-1.jpg" },
+    { id: "b", originalFilename: "display-2.jpg" },
+  ];
+  const next = reconcileCapturePhotosWithServer(local, server);
+  assert.equal(next[1]?.status, "uploaded");
+  assert.equal(next[1]?.serverPhotoId, "b");
+});
+
+test("yieldCaptureUi resolves", async () => {
+  await yieldCaptureUi(0);
 });
 
 test("dock paint yields twice so 已選 can show before ingest copies", async () => {

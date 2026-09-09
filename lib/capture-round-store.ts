@@ -104,6 +104,93 @@ export function captureDockRetryShouldRun(inFlight: boolean, retryableCount: num
   return !inFlight && retryableCount > 0;
 }
 
+export const CAPTURE_PHOTO_HANG_MS = 70_000;
+export const CAPTURE_HANG_SWEEP_MS = 1000;
+
+export function yieldCaptureUi(ms = 0) {
+  return new Promise<void>((resolve) => {
+    globalThis.setTimeout(resolve, ms);
+  });
+}
+
+export function captureUploadIsHung(
+  status: CaptureDockStatus,
+  uploadingSince: number | null | undefined,
+  now: number,
+  hangMs = CAPTURE_PHOTO_HANG_MS,
+) {
+  if (status !== "queued" && status !== "uploading") {
+    return false;
+  }
+  if (!uploadingSince) {
+    return false;
+  }
+  return now - uploadingSince >= hangMs;
+}
+
+export function captureUploadShouldForceFail(options: {
+  hasLiveUpload: boolean;
+  hangMs?: number;
+  now: number;
+  status: CaptureDockStatus;
+  uploadingSince: number | null | undefined;
+}) {
+  if (options.status !== "queued" && options.status !== "uploading") {
+    return false;
+  }
+  if (!options.hasLiveUpload) {
+    return true;
+  }
+  return captureUploadIsHung(options.status, options.uploadingSince, options.now, options.hangMs);
+}
+
+export function reconcileCapturePhotosWithServer<
+  T extends {
+    file: { name: string };
+    serverPhotoId: string | null;
+    status: CaptureDockStatus;
+  },
+>(photos: T[], serverPhotos: Array<{ id: string; originalFilename: string }>) {
+  if (serverPhotos.length === 0) {
+    return photos;
+  }
+
+  const used = new Set<string>();
+  const next = photos.map((photo) => {
+    if (photo.status === "uploaded" && photo.serverPhotoId) {
+      used.add(photo.serverPhotoId);
+      return photo;
+    }
+    if (photo.serverPhotoId && serverPhotos.some((item) => item.id === photo.serverPhotoId)) {
+      used.add(photo.serverPhotoId);
+      return { ...photo, status: "uploaded" as const };
+    }
+    const match = serverPhotos.find(
+      (item) => !used.has(item.id) && item.originalFilename === photo.file.name,
+    );
+    if (!match) {
+      return photo;
+    }
+    used.add(match.id);
+    return { ...photo, serverPhotoId: match.id, status: "uploaded" as const };
+  });
+
+  const leftoverServer = serverPhotos.filter((item) => !used.has(item.id));
+  let leftoverIndex = 0;
+  return next.map((photo) => {
+    if (photo.status === "uploaded") {
+      return photo;
+    }
+    const match = leftoverServer[leftoverIndex];
+    if (!match) {
+      return photo;
+    }
+    leftoverIndex += 1;
+    used.add(match.id);
+    return { ...photo, serverPhotoId: match.id, status: "uploaded" as const };
+  });
+}
+
 export function createMemoryCaptureFileStore(initial: Iterable<[string, File]> = []): CaptureRoundFileStore {
   const map = new Map(initial);
   return {
