@@ -10,8 +10,9 @@ second gate. Interrupted dumps never reached 工作台.
 
 Result:
 
-- Clear photo = received. Uploading is a spinner. Failed is 叉叉 + 再傳.
-  Sticky 全部再傳 retries held Files; do not re-open the album.
+- Clear photo = received. Uploading is a spinner. Failed is a quiet refresh
+  icon (same circular glyph in the sticky dock). Tap retries held Files;
+  do not re-open the album. Visible retry copy is icon-only.
 - Auto-retry after watchdog/interrupt. Successful POSTs are not deleted.
 - Round persists and resumes. Auto-finalize when uploads land. Optional
   「寫下一句」 only adds a note. Same cute Capture look. CF ship.

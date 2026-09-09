@@ -29,7 +29,7 @@ class MemoryStorage {
 
 test("dock status labels never call a local thumbnail received", () => {
   assert.equal(capturePhotoStatusLabel("uploaded"), "已收到");
-  assert.equal(capturePhotoStatusLabel("failed"), "再傳");
+  assert.equal(capturePhotoStatusLabel("failed"), "再送");
   assert.equal(capturePhotoStatusLabel("uploading"), "上傳中");
   assert.equal(capturePhotoStatusLabel("queued"), "上傳中");
   assert.equal(capturePhotoRetryDelayMs(1), 1200);

@@ -1,6 +1,17 @@
 import type { ReactNode } from "react";
 
-type FamIconName = "camera" | "pencil" | "mic" | "folder" | "play" | "pause" | "plane" | "car" | "hotel" | "x";
+type FamIconName =
+  | "camera"
+  | "pencil"
+  | "mic"
+  | "folder"
+  | "play"
+  | "pause"
+  | "plane"
+  | "car"
+  | "hotel"
+  | "refresh"
+  | "x";
 type FamIconWell = "blush" | "sky" | "honey" | "mint" | "paper";
 
 const paths: Record<FamIconName, ReactNode> = {
@@ -54,6 +65,12 @@ const paths: Record<FamIconName, ReactNode> = {
       <path d="M3 21h18" />
       <path d="M5 21V7l7-4 7 4v14" />
       <path d="M9 21v-6h6v6" />
+    </>
+  ),
+  refresh: (
+    <>
+      <path d="M21 12a9 9 0 1 1-3.16-6.84" />
+      <polyline points="21 3 21 9 15 9" />
     </>
   ),
   x: (

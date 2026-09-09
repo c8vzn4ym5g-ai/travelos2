@@ -7,9 +7,10 @@ preview vs warehouse. `/family/capture` on iPhone Safari:
 
 - Uploading: spinner tile, not a clear still.
 - Received: clear photo. Sticky count `已收到 n / total`.
-- Failed: 叉叉 + 再傳, tap retries the held File. Sticky `全部再傳 / Refresh failed`
-  retries every failed card. Never re-open Apple album for the same round.
-  Never a nice image plus 上傳失敗.
+- Failed: quiet refresh icon on a muted tile (same circular refresh in the
+  sticky dock). Tap retries the held File. Never re-open Apple album for
+  the same round. Never a nice image plus 上傳失敗. Visible UI is icon-only;
+  aria-label is 再送.
 - Choosing photos is the 收货点. Uploads auto-finalize the Moment.
   Leave mid-upload keeps/resumes the round. 「寫下一句」 is optional.
 - Live after merge: https://travelos2.chao-jason.workers.dev/family/capture

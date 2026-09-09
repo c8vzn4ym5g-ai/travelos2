@@ -392,7 +392,7 @@ export default function CapturePage() {
       const failed = list.filter((photo) => photo.status === "failed").length;
       setMessage(
         failed > 0
-          ? `已進工作台 ${landed} 張。${failed} 張會自動再傳。`
+          ? `已進工作台 ${landed} 張。還有幾張會再送。`
           : `已進工作台 ${landed} 張。可離開。`,
       );
       persistCaptureRound();
@@ -681,7 +681,7 @@ export default function CapturePage() {
           status: "failed",
         });
         persistCaptureRound();
-        setMessage("有幾張沒收到。點叉叉或全部再傳，不用重選相簿。");
+        setMessage("還有幾張在這一輪。點刷新就可以，不用重選相簿。");
       } finally {
         globalThis.clearTimeout(watchdog);
       }
@@ -908,7 +908,7 @@ export default function CapturePage() {
     if (ids.length === 0) {
       return;
     }
-    setMessage(`正在再傳 ${ids.length} 張。還是這一輪，不用重選相簿。`);
+    setMessage(`正在再送 ${ids.length} 張。還是這一輪，不用重選相簿。`);
     for (const id of ids) {
       retryPhoto(id);
     }
@@ -1097,7 +1097,7 @@ export default function CapturePage() {
           <p className="fam-script">one capture door</p>
           <h1 className="fam-title">Capture</h1>
           <p className="fam-lede">
-            打開就能拍或選。清楚看見的就是已經收到，會進工作台。傳的時候轉圈；失敗只會看到叉叉，點再傳或全部再傳，不用重選相簿。這一輪最多 40 張。再選一次相簿是新的一輪。一句話可以補心情，也可以交代工作，可不用按。
+            打開就能拍或選。清楚看見的就是已經收到，會進工作台。傳的時候轉圈。還沒好的點刷新就可以，不用重選相簿。這一輪最多 40 張。再選一次相簿是新的一輪。一句話可以補心情，也可以交代工作，可不用按。
           </p>
         </div>
       </header>
@@ -1127,19 +1127,16 @@ export default function CapturePage() {
             <div className="fam-dock-count" data-capture-dock-count="">
               <p>
                 已收到 {photos.filter((photo) => photo.status === "uploaded").length} / {photos.length}
-                {photos.some((photo) => photo.status === "failed")
-                  ? ` · ${photos.filter((photo) => photo.status === "failed").length} 張沒收到`
-                  : ""}
               </p>
               {photos.some((photo) => photo.status === "failed") ? (
                 <button
+                  aria-label="再送"
                   className="fam-dock-retry"
                   data-capture-retry-failed=""
                   onClick={retryFailedPhotos}
                   type="button"
                 >
-                  全部再傳
-                  <span className="fam-en">Refresh failed</span>
+                  <FamGlyph name="refresh" size={22} />
                 </button>
               ) : null}
             </div>
@@ -1148,13 +1145,17 @@ export default function CapturePage() {
                 if (photo.status === "failed") {
                   return (
                     <li className="fam-thumb fam-thumb-fail" key={photo.id}>
-                      <button className="fam-thumb-fail-hit" onClick={() => retryPhoto(photo.id)} type="button">
-                        <FamGlyph name="x" size={36} />
-                        <span>再傳</span>
+                      <button
+                        aria-label="再送"
+                        className="fam-thumb-fail-hit"
+                        onClick={() => retryPhoto(photo.id)}
+                        type="button"
+                      >
+                        <FamGlyph name="refresh" size={36} />
                       </button>
                       <div className="fam-thumb-actions">
-                        <button onClick={() => retryPhoto(photo.id)} type="button">
-                          再傳
+                        <button onClick={() => retakePhoto(photo.id)} type="button">
+                          重拍
                         </button>
                         <button onClick={() => removePhoto(photo.id)} type="button">
                           移除

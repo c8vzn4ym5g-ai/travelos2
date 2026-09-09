@@ -37,7 +37,7 @@ export function capturePhotoStatusLabel(status: CaptureDockStatus) {
     return "已收到";
   }
   if (status === "failed") {
-    return "再傳";
+    return "再送";
   }
   return "上傳中";
 }

@@ -358,7 +358,8 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(capture, /captureDumpProgressMessage/);
   assert.match(capture, /fam-thumb-pending/);
   assert.match(capture, /fam-thumb-fail-hit/);
-  assert.match(capture, /name="x"/);
+  assert.match(capture, /name="refresh"/);
+  assert.match(capture, /aria-label="再送"/);
   assert.match(capture, /data-capture-dock-count/);
   assert.doesNotMatch(
     capture.slice(capture.indexOf("{photos.length > 0 ? ("), capture.indexOf("fam-audio")),
@@ -367,8 +368,13 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.doesNotMatch(capture, /預覽還在/);
   assert.doesNotMatch(capture, /preview ≠ uploaded/i);
   assert.match(capture, /清楚看見的就是已經收到/);
-  assert.match(capture, /全部再傳/);
-  assert.match(capture, /Refresh failed/);
+  assert.doesNotMatch(capture, /全部再傳/);
+  assert.doesNotMatch(capture, /全部再送/);
+  assert.doesNotMatch(capture, /再送一次/);
+  assert.doesNotMatch(capture, /Refresh failed/);
+  const retryUi = capture.slice(capture.indexOf("{photos.length > 0 ? ("), capture.indexOf("fam-audio"));
+  assert.doesNotMatch(retryUi, />\s*再傳\s*</);
+  assert.doesNotMatch(retryUi, />\s*再送\s*</);
   assert.match(capture, /retryFailedPhotos/);
   assert.match(capture, /data-capture-retry-failed/);
   assert.match(capture, /beginStagedPhotoRetry/);

@@ -573,26 +573,14 @@
 [data-surface="family"] .fam-dock-retry {
   flex-shrink: 0;
   display: grid;
-  min-height: 44px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   border: 0;
-  border-radius: 14px;
-  background: var(--fam-blush);
-  color: var(--fam-white);
-  padding: 6px 12px;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.1;
-}
-
-[data-surface="family"] .fam-dock-retry .fam-en {
-  display: block;
-  margin-top: 2px;
-  color: color-mix(in srgb, var(--fam-white) 82%, transparent);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  border-radius: 50%;
+  background: var(--fam-paper);
+  color: var(--fam-ink);
+  cursor: pointer;
 }
 
 [data-surface="family"] .fam-thumb-pending .fam-thumb-fallback,
@@ -605,15 +593,12 @@
   display: grid;
   height: 132px;
   place-items: center;
-  gap: 6px;
   width: 100%;
   border: 0;
   border-radius: 14px;
-  color: var(--fam-blush);
-  background: color-mix(in srgb, var(--fam-white) 70%, var(--fam-blush) 12%);
+  color: var(--fam-ink);
+  background: color-mix(in srgb, var(--fam-paper-2) 88%, #c9c1b5);
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 700;
 }
 
 [data-surface="family"] .fam-spin-wrap {
