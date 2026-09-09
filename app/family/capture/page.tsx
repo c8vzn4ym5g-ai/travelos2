@@ -545,13 +545,22 @@ export default function CapturePage() {
 
   async function startBackgroundPhotoUpload(photo: StagedPhoto) {
     const session = momentSession();
-    const generation = (photosRef.current.find((item) => item.id === photo.id)?.uploadGeneration ?? photo.uploadGeneration ?? 0) + 1;
-    patchPhoto(photo.id, {
-      abort: photo.abort,
-      errorMessage: null,
-      status: "uploading",
-      uploadGeneration: generation,
-    });
+    const generation =
+      (photosRef.current.find((item) => item.id === photo.id)?.uploadGeneration ?? photo.uploadGeneration ?? 0) + 1;
+    photosRef.current = photosRef.current.map((item) =>
+      item.id === photo.id
+        ? {
+            ...item,
+            abort: photo.abort,
+            errorMessage: null,
+            file: photo.file,
+            retryCount: photo.retryCount,
+            status: "uploading",
+            uploadGeneration: generation,
+          }
+        : item,
+    );
+    setPhotos(photosRef.current);
     const stillThisRun = () =>
       photosRef.current.find((item) => item.id === photo.id)?.uploadGeneration === generation;
     const run = (async () => {

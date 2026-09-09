@@ -379,6 +379,12 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(capture, /data-capture-retry-failed/);
   assert.match(capture, /beginStagedPhotoRetry/);
   assert.match(capture, /listRetryableCapturePhotoIds/);
+  const uploadFn = capture.slice(
+    capture.indexOf("async function startBackgroundPhotoUpload"),
+    capture.indexOf("async function startBackgroundAudioUpload"),
+  );
+  assert.match(uploadFn, /photosRef\.current = photosRef\.current\.map/);
+  assert.match(uploadFn, /uploadGeneration: generation/);
   const retryHeld = capture.slice(
     capture.indexOf("function beginStagedPhotoRetry"),
     capture.indexOf("function retakePhoto"),
