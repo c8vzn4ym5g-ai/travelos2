@@ -385,6 +385,14 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.doesNotMatch(retryUi, /Retry failed/);
   assert.match(capture, /retryFailedPhotos/);
   assert.match(capture, /data-capture-retry-failed/);
+  assert.match(capture, /data-capture-retry-busy/);
+  assert.match(capture, /fam-dock-retry-glyph/);
+  assert.match(capture, /onPointerDown=\{pressDockRetry\}/);
+  assert.match(capture, /captureDockRetryShouldRun\(dockRetryInFlightRef\.current, ids\.length\)/);
+  assert.match(capture, /flushSync\(\(\) => \{\s*setDockRetryInFlight\(true\);/);
+  assert.match(capture, /waitForDockRetrySettled/);
+  assert.match(capture, /aria-busy=\{dockRetryInFlight\}/);
+  assert.doesNotMatch(capture, />\s*上傳失敗\s*</);
   assert.match(capture, /beginStagedPhotoRetry/);
   assert.match(capture, /listRetryableCapturePhotoIds/);
   const uploadFn = capture.slice(
@@ -625,4 +633,15 @@ test("capture voice line is editable and language chips sit by the mic", async (
   assert.doesNotMatch(lapland, /SpokenLine/);
   assert.doesNotMatch(lapland, /CaptureSpeechLangChips/);
   assert.doesNotMatch(lapland, /capture-speech/);
+});
+
+test("sticky dock refresh bounces on press and spins the icon while retry is in flight", async () => {
+  const css = await readSource("app/family/family.css");
+  const dock = css.slice(css.indexOf(".fam-dock-retry {"), css.indexOf(".fam-thumb-pending"));
+  assert.match(dock, /:active/);
+  assert.match(dock, /\.is-pressed/);
+  assert.match(dock, /scale\(0\.84\)/);
+  assert.match(dock, /\.fam-dock-retry-glyph\.is-busy/);
+  assert.match(dock, /animation: fam-spin 0\.8s linear infinite/);
+  assert.doesNotMatch(dock, /再送一次|全部再送|上傳失敗/);
 });

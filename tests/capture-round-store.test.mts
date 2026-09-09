@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   captureDockCountText,
   captureDockIsOpen,
+  captureDockRetryShouldRun,
   capturePhotoRetryDelayMs,
   capturePhotoStatusLabel,
   captureRoundNeedsResume,
@@ -84,6 +85,9 @@ test("dock status labels never call a local thumbnail received", () => {
     ]),
     ["b", "c", "d"],
   );
+  assert.equal(captureDockRetryShouldRun(false, 3), true);
+  assert.equal(captureDockRetryShouldRun(true, 3), false);
+  assert.equal(captureDockRetryShouldRun(false, 0), false);
 });
 
 test("dock paint yields twice so 已選 can show before ingest copies", async () => {

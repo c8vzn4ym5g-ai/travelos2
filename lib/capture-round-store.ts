@@ -100,6 +100,10 @@ export function listRetryableCapturePhotoIds(
   return photos.filter((photo) => photo.status !== "uploaded").map((photo) => photo.id);
 }
 
+export function captureDockRetryShouldRun(inFlight: boolean, retryableCount: number) {
+  return !inFlight && retryableCount > 0;
+}
+
 export function createMemoryCaptureFileStore(initial: Iterable<[string, File]> = []): CaptureRoundFileStore {
   const map = new Map(initial);
   return {

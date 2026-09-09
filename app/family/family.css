@@ -584,6 +584,24 @@
   background: var(--fam-paper);
   color: var(--fam-ink);
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: transform 0.12s ease;
+}
+
+[data-surface="family"] .fam-dock-retry:active,
+[data-surface="family"] .fam-dock-retry.is-pressed {
+  transform: scale(0.84);
+}
+
+[data-surface="family"] .fam-dock-retry-glyph {
+  display: grid;
+  place-items: center;
+}
+
+[data-surface="family"] .fam-dock-retry-glyph.is-busy {
+  animation: fam-spin 0.8s linear infinite;
 }
 
 [data-surface="family"] .fam-thumb-pending .fam-thumb-fallback,

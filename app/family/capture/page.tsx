@@ -44,6 +44,7 @@ import {
   CAPTURE_PHOTO_RETRY_LIMIT,
   captureDockCountText,
   captureDockIsOpen,
+  captureDockRetryShouldRun,
   capturePhotoRetryDelayMs,
   clearCaptureRoundMeta,
   createIndexedDbCaptureFileStore,
@@ -151,6 +152,8 @@ export default function CapturePage() {
   const [redirecting, setRedirecting] = useState(false);
   const [photos, setPhotos] = useState<StagedPhoto[]>([]);
   const [ingestHint, setIngestHint] = useState(0);
+  const [dockRetryInFlight, setDockRetryInFlight] = useState(false);
+  const dockRetryInFlightRef = useRef(false);
   const [note, setNote] = useState("");
   const [audio, setAudio] = useState<StagedAudio | null>(null);
   const [audioHold, setAudioHold] = useState<{ durationSeconds: number } | null>(null);
@@ -304,6 +307,8 @@ export default function CapturePage() {
     photoUploadsRef.current = new Map();
     audioUploadRef.current = null;
     finalizedMomentRef.current = null;
+    dockRetryInFlightRef.current = false;
+    setDockRetryInFlight(false);
   }
 
   function captureRoundMeta(): CaptureRoundMeta {
@@ -342,6 +347,8 @@ export default function CapturePage() {
     photosRef.current = detachStagedCapturePhotos(photosRef.current);
     setPhotos(() => photosRef.current);
     photoUploadsRef.current = new Map();
+    dockRetryInFlightRef.current = false;
+    setDockRetryInFlight(false);
     finalizedMomentRef.current = null;
     momentSessionRef.current = createLiveMomentSession();
     void clearCaptureRound();
@@ -917,13 +924,13 @@ export default function CapturePage() {
   function retryPhoto(photoId: string) {
     const photo = photosRef.current.find((item) => item.id === photoId);
     if (!photo || photo.status === "uploaded") {
-      return;
+      return Promise.resolve();
     }
     if (photo.file.size > 0) {
       beginStagedPhotoRetry(photo);
-      return;
+      return Promise.resolve();
     }
-    void captureFilesRef.current.get(photoId).then((stored) => {
+    return captureFilesRef.current.get(photoId).then((stored) => {
       const latest = photosRef.current.find((item) => item.id === photoId);
       if (!latest || latest.status === "uploaded") {
         return;
@@ -936,15 +943,50 @@ export default function CapturePage() {
     });
   }
 
+  async function waitForDockRetrySettled(ids: string[]) {
+    for (;;) {
+      const busy = photosRef.current.filter(
+        (photo) => ids.includes(photo.id) && (photo.status === "queued" || photo.status === "uploading"),
+      );
+      if (busy.length === 0) {
+        return;
+      }
+      const waits = busy
+        .map((photo) => photoUploadsRef.current.get(photo.id))
+        .filter((wait): wait is Promise<void> => Boolean(wait));
+      if (waits.length === 0) {
+        await new Promise((resolve) => globalThis.setTimeout(resolve, 32));
+        continue;
+      }
+      await Promise.all(waits);
+    }
+  }
+
+  function pressDockRetry(event: React.PointerEvent<HTMLButtonElement>) {
+    const button = event.currentTarget;
+    button.classList.add("is-pressed");
+    globalThis.setTimeout(() => button.classList.remove("is-pressed"), 180);
+  }
+
   function retryFailedPhotos() {
     const ids = listRetryableCapturePhotoIds(photosRef.current);
-    if (ids.length === 0) {
+    if (!captureDockRetryShouldRun(dockRetryInFlightRef.current, ids.length)) {
       return;
     }
+    dockRetryInFlightRef.current = true;
+    flushSync(() => {
+      setDockRetryInFlight(true);
+    });
     setMessage(`正在再送 ${ids.length} 張。還是這一輪，不用重選相簿。`);
-    for (const id of ids) {
-      retryPhoto(id);
-    }
+    void (async () => {
+      try {
+        await Promise.all(ids.map((id) => retryPhoto(id)));
+        await waitForDockRetrySettled(ids);
+      } finally {
+        dockRetryInFlightRef.current = false;
+        setDockRetryInFlight(false);
+      }
+    })();
   }
 
   function retakePhoto(photoId: string) {
@@ -1140,13 +1182,18 @@ export default function CapturePage() {
           <div className="fam-dock-count" data-capture-dock-count="">
             <p>{captureDockCountText(photos, ingestHint)}</p>
             <button
+              aria-busy={dockRetryInFlight}
               aria-label="再送"
               className="fam-dock-retry"
+              data-capture-retry-busy={dockRetryInFlight ? "" : undefined}
               data-capture-retry-failed=""
               onClick={retryFailedPhotos}
+              onPointerDown={pressDockRetry}
               type="button"
             >
-              <FamGlyph name="refresh" size={22} />
+              <span className={dockRetryInFlight ? "fam-dock-retry-glyph is-busy" : "fam-dock-retry-glyph"}>
+                <FamGlyph name="refresh" size={22} />
+              </span>
             </button>
           </div>
         ) : null}
