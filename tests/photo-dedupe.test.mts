@@ -8,6 +8,7 @@ import {
   hashPhotoBytes,
   journalLinkedPhotoIds,
   normalizePhotoContentHash,
+  storageKeysToHashForDedupe,
 } from "../lib/photo-dedupe.ts";
 import type { MomentPhoto, TravelMoment } from "../lib/types.ts";
 
@@ -31,7 +32,7 @@ function momentWithPhotos(id: string, photos: MomentPhoto[]): TravelMoment {
   };
 }
 
-test("hashPhotoBytes is a stable sha256 hex of the posted bytes", () => {
+test("hashPhotoBytes is a stable sha256 hex of the bytes", () => {
   assert.equal(hashPhotoBytes(Buffer.from("abc")), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
   assert.equal(hashPhotoBytes(Buffer.from("abc")), hashPhotoBytes(new Uint8Array(Buffer.from("abc"))));
   assert.notEqual(hashPhotoBytes(Buffer.from("abc")), hashPhotoBytes(Buffer.from("abd")));
@@ -138,5 +139,33 @@ test("normalizePhotoContentHash rejects short or empty values", () => {
   assert.equal(
     normalizePhotoContentHash("BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD"),
     "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+  );
+});
+
+test("later hash pass only reads colliding filenames that are missing a hash", () => {
+  const unique = photo({ id: "photo_unique", momentId: "moment_1", originalFilename: "solo.jpg", storageKey: "drive:solo" });
+  const first = photo({ id: "photo_a", momentId: "moment_1", originalFilename: "IMG_1001.jpg", storageKey: "drive:a" });
+  const copy = photo({ id: "photo_b", momentId: "moment_2", originalFilename: "IMG_1001.jpg", storageKey: "drive:b" });
+  const hashed = photo({
+    contentHash: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+    id: "photo_c",
+    momentId: "moment_3",
+    originalFilename: "IMG_1001.jpg",
+    storageKey: "drive:c",
+  });
+  const video = photo({
+    id: "photo_vid",
+    kind: "video",
+    momentId: "moment_1",
+    originalFilename: "IMG_1001.mov",
+    storageKey: "drive:vid",
+  });
+  assert.deepEqual(
+    storageKeysToHashForDedupe([
+      momentWithPhotos("moment_1", [unique, first, video]),
+      momentWithPhotos("moment_2", [copy]),
+      momentWithPhotos("moment_3", [hashed]),
+    ]).sort(),
+    ["drive:a", "drive:b"],
   );
 });

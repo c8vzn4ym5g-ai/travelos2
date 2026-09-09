@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
+import { displayPhotoStem, isCaptureVideoFile } from "@/lib/moments";
 import type { MomentPhoto, TravelMoment } from "@/lib/types";
+
+export const PHOTO_HASH_BATCH = 4;
 
 export function hashPhotoBytes(bytes: Uint8Array | Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
@@ -35,6 +38,63 @@ export function findPhotoByContentHash(moments: TravelMoment[], contentHash: str
   }
 
   return match;
+}
+
+export function isHashableWarehousePhoto(photo: Pick<MomentPhoto, "kind" | "mimeType" | "originalFilename">) {
+  if (photo.kind === "video") {
+    return false;
+  }
+  return !isCaptureVideoFile({
+    name: photo.originalFilename ?? "",
+    type: photo.mimeType ?? "",
+  });
+}
+
+export function storageKeysToHashForDedupe(moments: TravelMoment[]): string[] {
+  const stemCount = new Map<string, number>();
+  for (const moment of moments) {
+    for (const photo of moment.photos) {
+      const stem = displayPhotoStem(photo.originalFilename ?? "");
+      if (!stem) {
+        continue;
+      }
+      stemCount.set(stem, (stemCount.get(stem) ?? 0) + 1);
+    }
+  }
+
+  const keys = new Set<string>();
+  for (const moment of moments) {
+    for (const photo of moment.photos) {
+      if (!isHashableWarehousePhoto(photo) || normalizePhotoContentHash(photo.contentHash)) {
+        continue;
+      }
+      const storageKey = photo.storageKey?.trim() ?? "";
+      const stem = displayPhotoStem(photo.originalFilename ?? "");
+      if (!storageKey || !stem || (stemCount.get(stem) ?? 0) < 2) {
+        continue;
+      }
+      keys.add(storageKey);
+    }
+  }
+  return [...keys];
+}
+
+export function stampPhotoContentHashes(
+  moments: TravelMoment[],
+  hashByStorageKey: Map<string, string> | Record<string, string>,
+): TravelMoment[] {
+  const hashes = hashByStorageKey instanceof Map ? hashByStorageKey : new Map(Object.entries(hashByStorageKey));
+  return moments.map((moment) => ({
+    ...moment,
+    photos: moment.photos.map((photo) => {
+      const fromIndex = hashes.get(photo.storageKey) ?? hashes.get(photo.storageKey?.trim() ?? "");
+      const hash = normalizePhotoContentHash(fromIndex) || normalizePhotoContentHash(photo.contentHash);
+      if (!hash || normalizePhotoContentHash(photo.contentHash) === hash) {
+        return photo;
+      }
+      return { ...photo, contentHash: hash };
+    }),
+  }));
 }
 
 export type JournalLinkedTrip = {

@@ -54,6 +54,7 @@ export default function FamilyBenchPage() {
   const [loadState, setLoadState] = useState<LoadState>("session");
   const [message, setMessage] = useState("正在打開工作台…");
   const [spokenDrafts, setSpokenDrafts] = useState<Record<string, string>>({});
+  const [cleaning, setCleaning] = useState(false);
 
   const listed = useMemo(() => sortMomentsNewestFirst(moments), [moments]);
 
@@ -170,6 +171,33 @@ export default function FamilyBenchPage() {
     }
   }, [fillSpokenText, router]);
 
+  async function cleanUnreferencedDuplicates() {
+    if (cleaning) {
+      return;
+    }
+    setCleaning(true);
+    setMessage("正在清理還沒寫進遊記的重複照片…");
+    try {
+      const response = await fetch("/api/moments/dedupe", {
+        cache: "no-store",
+        headers: familyPinHeaders(sessionPin(pin)),
+        method: "POST",
+      });
+      if (!response.ok) {
+        throw new Error("clean failed");
+      }
+      const data = (await response.json()) as MomentsResponse & { dropped?: number };
+      const next = sortMomentsNewestFirst(data.content.moments ?? []);
+      setMoments(next);
+      const dropped = data.dropped ?? 0;
+      setMessage(dropped > 0 ? `已清掉 ${dropped} 張還沒寫進遊記的重複照片。` : "沒有可清的重複照片。");
+    } catch {
+      setMessage("這次沒清成。再點一次就好。");
+    } finally {
+      setCleaning(false);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     const failOpen = window.setTimeout(() => {
@@ -272,6 +300,16 @@ export default function FamilyBenchPage() {
           <p className="fam-script">family workshop</p>
           <h1 className="fam-title">工作台 / Bench</h1>
           <p className="fam-lede">{BENCH_INTRO}</p>
+          {showCards ? (
+            <button
+              className="fam-muted mt-4 min-h-11 text-sm underline-offset-4 hover:underline disabled:opacity-60"
+              disabled={cleaning}
+              onClick={() => void cleanUnreferencedDuplicates()}
+              type="button"
+            >
+              {cleaning ? "清理中…" : "清理重複照片"}
+            </button>
+          ) : null}
         </div>
       </header>
 

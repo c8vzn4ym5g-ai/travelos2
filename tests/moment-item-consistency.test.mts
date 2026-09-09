@@ -394,7 +394,7 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
     });
   });
 
-  test("POST photo reuses an existing warehouse photo with the same content hash", async () => {
+  test("Capture photo POST stores a second copy of the same bytes", async () => {
     await withPinEnv(undefined, async () => {
       const [{ POST }, photos] = await Promise.all([
         import("../app/api/moments/route.ts"),
@@ -431,7 +431,6 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
       const firstBody = (await firstPhoto.json()) as { duplicate?: boolean; photo: { id: string; storageKey: string } };
       assert.equal(firstBody.duplicate, undefined);
       assert.ok(firstBody.photo.id);
-      assert.match(firstBody.photo.storageKey, /^data:image\/jpeg;base64,/);
 
       const secondData = new FormData();
       secondData.set("momentId", second.moment.id);
@@ -441,9 +440,8 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
       );
       assert.equal(secondPhoto.status, 200);
       const secondBody = (await secondPhoto.json()) as { duplicate?: boolean; photo: { id: string; storageKey: string } };
-      assert.equal(secondBody.duplicate, true);
-      assert.equal(secondBody.photo.id, firstBody.photo.id);
-      assert.equal(secondBody.photo.storageKey, firstBody.photo.storageKey);
+      assert.notEqual(secondBody.photo.id, firstBody.photo.id);
+      assert.equal(secondBody.duplicate, undefined);
     });
   });
 
@@ -484,6 +482,44 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
     assert.equal(cleaned.dropped, 1);
     const photos = cleaned.content.moments.flatMap((moment) => moment.photos.map((photo) => photo.id)).sort();
     assert.deepEqual(photos, ["photo_journal", "photo_unique"]);
+  });
+
+  test("write cleanup hashes colliding filenames later and keeps journal-linked ids", async () => {
+    const payload = Buffer.from([9, 8, 7, 6, 5, 4]);
+    const firstUrl = `data:image/jpeg;base64,${payload.toString("base64")}`;
+    const secondUrl = `data:application/octet-stream;base64,${payload.toString("base64")}`;
+    const first = createTravelMoment({ note: "old-dump", time: "2026-09-01T00:00:00.000Z" });
+    const second = createTravelMoment({ note: "new-dump", time: "2026-09-02T00:00:00.000Z" });
+    const createdFirst = await addMoment(first);
+    const createdSecond = await addMoment(second);
+    assert.equal(createdFirst.conflict, false);
+    assert.equal(createdSecond.conflict, false);
+    if (createdFirst.conflict || createdSecond.conflict) {
+      return;
+    }
+
+    await addPhotoToMoment(createdFirst.moment.id, {
+      ...testPhoto(createdFirst.moment.id, "photo_extra"),
+      createdAt: "2026-09-01T00:00:00.000Z",
+      originalFilename: "IMG_1001.jpg",
+      storageKey: firstUrl,
+    });
+    await addPhotoToMoment(createdSecond.moment.id, {
+      ...testPhoto(createdSecond.moment.id, "photo_journal"),
+      createdAt: "2026-09-02T00:00:00.000Z",
+      originalFilename: "IMG_1001.jpg",
+      storageKey: secondUrl,
+    });
+
+    const cleaned = await applyUnreferencedDuplicatePhotoCleanup(["photo_journal"]);
+    assert.equal(cleaned.dropped, 1);
+    const photos = cleaned.content.moments.flatMap((moment) => moment.photos.map((photo) => photo.id)).sort();
+    assert.deepEqual(photos, ["photo_journal"]);
+    assert.ok(
+      cleaned.content.moments
+        .flatMap((moment) => moment.photos)
+        .every((photo) => typeof photo.contentHash === "string" && photo.contentHash.length === 64),
+    );
   });
 
   test("POST /api/moments/transcript awaits fill and persists speech text", async () => {
@@ -773,10 +809,9 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
       );
       assert.equal(dupResponse.status, 200);
       const dupJson = (await dupResponse.json()) as { duplicate?: boolean; photo: { id: string; storageKey: string } };
-      assert.equal(dupJson.duplicate, true);
-      assert.equal(dupJson.photo.id, photoJson.photo.id);
-      assert.equal(dupJson.photo.storageKey, photoJson.photo.storageKey);
-      assert.equal(files.size, driveFilesAfterFirst);
+      assert.notEqual(dupJson.photo.id, photoJson.photo.id);
+      assert.equal(dupJson.duplicate, undefined);
+      assert.ok(files.size > driveFilesAfterFirst);
 
       const audioData = new FormData();
       audioData.set("momentId", created.moment.id);

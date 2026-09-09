@@ -28,6 +28,7 @@ import {
   listMomentBlobs,
   putMomentItemJson,
   putMomentJsonBlob,
+  readMomentBlobBytes,
   resetBlobStoreAccessForTests,
   resetMomentThumbCacheForTests,
   setMomentBlobAdapterForTests,
@@ -56,8 +57,10 @@ import {
 } from "@/lib/moments";
 import {
   dropUnreferencedDuplicatePhotos,
-  findPhotoByContentHash,
-  normalizePhotoContentHash,
+  hashPhotoBytes,
+  PHOTO_HASH_BATCH,
+  stampPhotoContentHashes,
+  storageKeysToHashForDedupe,
 } from "@/lib/photo-dedupe";
 import type { MomentPhoto, TravelJob, TravelMoment } from "@/lib/types";
 import {
@@ -189,81 +192,11 @@ export function resetMomentStoreForTests() {
   listed.at = 0;
   listed.files = [];
   listed.inflight = null;
-  photoHashIndex.clear();
-  photoHashIndexReady = false;
-  photoHashIndexInflight = null;
   warehouseWriteQueue = Promise.resolve();
   pendingPhotoAppends.length = 0;
   photoAppendFlush = null;
   transcriptInFlight.clear();
   transcriptJobs.clear();
-}
-
-const photoHashIndex = new Map<string, MomentPhoto>();
-let photoHashIndexReady = false;
-let photoHashIndexInflight: Promise<void> | null = null;
-
-function rememberPhotoContentHash(photo: MomentPhoto) {
-  const hash = normalizePhotoContentHash(photo.contentHash);
-  if (hash) {
-    photoHashIndex.set(hash, photo);
-  }
-}
-
-function indexMomentPhotos(moments: Iterable<TravelMoment>) {
-  for (const moment of moments) {
-    for (const photo of moment.photos) {
-      rememberPhotoContentHash(photo);
-    }
-  }
-}
-
-async function ensurePhotoHashIndex() {
-  if (photoHashIndexReady) {
-    return;
-  }
-  if (photoHashIndexInflight) {
-    await photoHashIndexInflight;
-    return;
-  }
-
-  photoHashIndexInflight = (async () => {
-    try {
-      const { content } = await readMoments({ hydrate: false });
-      indexMomentPhotos(content.moments);
-      indexMomentPhotos(getItemCache().values());
-      photoHashIndexReady = true;
-    } finally {
-      photoHashIndexInflight = null;
-    }
-  })();
-  await photoHashIndexInflight;
-}
-
-export async function findWarehousePhotoByContentHash(contentHash: string): Promise<MomentPhoto | null> {
-  const hash = normalizePhotoContentHash(contentHash);
-  if (!hash) {
-    return null;
-  }
-
-  const indexed = photoHashIndex.get(hash);
-  if (indexed) {
-    return indexed;
-  }
-
-  await ensurePhotoHashIndex();
-  const fromIndex = photoHashIndex.get(hash);
-  if (fromIndex) {
-    return fromIndex;
-  }
-
-  const cached = findPhotoByContentHash([...getItemCache().values()], hash);
-  if (cached) {
-    rememberPhotoContentHash(cached);
-    return cached;
-  }
-
-  return null;
 }
 
 let warehouseWriteQueue: Promise<void> = Promise.resolve();
@@ -280,12 +213,10 @@ function withWarehouseLock<T>(work: () => Promise<T>): Promise<T> {
 function rememberItem(moment: TravelMoment) {
   const next = normalizeTravelMoment(moment);
   getItemCache().set(next.id, next);
-  indexMomentPhotos([next]);
   return next;
 }
 
 export function rememberUploadedDisplayPhoto(momentId: string, photo: MomentPhoto) {
-  rememberPhotoContentHash(photo);
   const current = getItemCache().get(momentId);
   if (!current) {
     return;
@@ -913,42 +844,73 @@ export async function removePhotoFromMoment(momentId: string, photoId: string) {
 export async function applyUnreferencedDuplicatePhotoCleanup(linkedPhotoIds: Iterable<string>) {
   return withWarehouseLock(async () => {
     const { content } = await readMoments({ hydrate: false });
-    const cleaned = dropUnreferencedDuplicatePhotos(content.moments, linkedPhotoIds);
-    if (cleaned.droppedIds.length === 0) {
-      return { content, dropped: 0 };
-    }
-
-    const keepKeys = new Set(
-      cleaned.moments.flatMap((moment) => moment.photos.map((photo) => `${moment.id}:${photo.id}`)),
-    );
+    const hashed = stampPhotoContentHashes(content.moments, await hashWarehouseStorageKeys(storageKeysToHashForDedupe(content.moments)));
+    const cleaned = dropUnreferencedDuplicatePhotos(hashed, linkedPhotoIds);
+    const nextById = new Map(cleaned.moments.map((moment) => [moment.id, moment]));
     const changed: TravelMoment[] = [];
+
     for (const moment of content.moments) {
+      const next = nextById.get(moment.id);
+      if (!next) {
+        continue;
+      }
       const current = await readMomentItem(moment.id);
       if (!current) {
         continue;
       }
-      const nextPhotos = current.photos.filter((photo) => keepKeys.has(`${moment.id}:${photo.id}`));
-      if (nextPhotos.length === current.photos.length) {
+      if (!momentPhotosChanged(current.photos, next.photos)) {
         continue;
       }
-      changed.push(await writeMomentItem({ ...current, photos: nextPhotos }));
+      changed.push(await writeMomentItem({ ...current, photos: next.photos }));
     }
 
     if (changed.length === 0) {
-      return { content, dropped: 0 };
+      return { content, dropped: cleaned.droppedIds.length };
     }
 
-    const nextById = new Map(content.moments.map((moment) => [moment.id, moment]));
+    const savedById = new Map(content.moments.map((moment) => [moment.id, moment]));
     for (const moment of changed) {
-      nextById.set(moment.id, moment);
+      savedById.set(moment.id, moment);
     }
-    const nextMoments = content.moments.map((moment) => nextById.get(moment.id) ?? moment);
+    const nextMoments = content.moments.map((moment) => savedById.get(moment.id) ?? moment);
     const saved = await writeWarehouse(nextMoments, content.jobs, { replacePhotos: true });
-    photoHashIndex.clear();
-    photoHashIndexReady = false;
-    indexMomentPhotos(saved.moments);
-    photoHashIndexReady = true;
     return { content: saved, dropped: cleaned.droppedIds.length };
+  });
+}
+
+async function hashWarehouseStorageKeys(keys: string[]) {
+  const hashes = new Map<string, string>();
+  for (let index = 0; index < keys.length; index += PHOTO_HASH_BATCH) {
+    const slice = keys.slice(index, index + PHOTO_HASH_BATCH);
+    const loaded = await Promise.all(
+      slice.map(async (storageKey) => {
+        try {
+          const loadedBytes = await readMomentBlobBytes(storageKey);
+          if (!loadedBytes?.bytes.length) {
+            return null;
+          }
+          return [storageKey, hashPhotoBytes(loadedBytes.bytes)] as const;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    for (const item of loaded) {
+      if (item) {
+        hashes.set(item[0], item[1]);
+      }
+    }
+  }
+  return hashes;
+}
+
+function momentPhotosChanged(left: MomentPhoto[], right: MomentPhoto[]) {
+  if (left.length !== right.length) {
+    return true;
+  }
+  return left.some((photo, index) => {
+    const next = right[index];
+    return !next || photo.id !== next.id || (photo.contentHash ?? "") !== (next.contentHash ?? "");
   });
 }
 

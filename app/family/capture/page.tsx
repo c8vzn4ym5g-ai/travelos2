@@ -770,15 +770,13 @@ export default function CapturePage() {
         if (uploaded.photo?.id) {
           patchPhoto(photo.id, { errorMessage: null, serverPhotoId: uploaded.photo.id, status: "uploaded" });
           persistCaptureRound();
-          if (!uploaded.duplicate) {
-            uploadOriginalPhotoInBackground({
-              display: uploaded.display,
-              momentId: uploaded.momentId,
-              original: photo.file,
-              photoId: uploaded.photo.id,
-              pin: sessionPin(pinRef.current),
-            });
-          }
+          uploadOriginalPhotoInBackground({
+            display: uploaded.display,
+            momentId: uploaded.momentId,
+            original: photo.file,
+            photoId: uploaded.photo.id,
+            pin: sessionPin(pinRef.current),
+          });
           maybeAutoFinalize();
           return;
         }

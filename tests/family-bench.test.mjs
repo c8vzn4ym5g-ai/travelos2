@@ -28,6 +28,10 @@ test("family bench is a private workshop table for raw Capture dumps", async () 
   assert.match(bench, /href="\/family\/capture"/);
   assert.match(bench, /去 Capture 拍一張/);
   assert.match(bench, /fetch\("\/api\/moments"/);
+  assert.doesNotMatch(bench.slice(bench.indexOf("const loadMoments"), bench.indexOf("async function cleanUnreferencedDuplicates")), /\/api\/moments\/dedupe/);
+  assert.match(bench, /\/api\/moments\/dedupe/);
+  assert.match(bench, /清理重複照片/);
+  assert.match(bench, /cleanUnreferencedDuplicates/);
   assert.match(bench, /MOMENTS_MS = 30000/);
   assert.match(bench, /SESSION_MS = 5000/);
   assert.match(bench, /sortMomentsNewestFirst/);
