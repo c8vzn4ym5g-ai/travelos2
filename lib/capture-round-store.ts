@@ -42,8 +42,12 @@ export function capturePhotoStatusLabel(status: CaptureDockStatus) {
   return "上傳中";
 }
 
+export function captureDockSelectedCount(photoCount: number, selectedHint = 0) {
+  return Math.max(photoCount, selectedHint);
+}
+
 export function captureDockIsOpen(photoCount: number, selectedHint = 0) {
-  return photoCount > 0 || selectedHint > 0;
+  return captureDockSelectedCount(photoCount, selectedHint) > 0;
 }
 
 export function captureDockCountText(

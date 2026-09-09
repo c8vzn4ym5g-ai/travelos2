@@ -5,6 +5,7 @@ import {
   CAPTURE_PHOTO_HANG_MS,
   captureDockCountText,
   captureDockIsOpen,
+  captureDockSelectedCount,
   captureDockRetryShouldRun,
   capturePhotoRetryDelayMs,
   capturePhotoStatusLabel,
@@ -58,6 +59,9 @@ test("sticky dock count stays on selected / received while the round is open", (
     "已選 6 · 上傳中 2 · 已收到 2 · 還沒進倉 2",
   );
   assert.equal(captureDockCountText([], 39), "已選 39");
+  assert.equal(captureDockSelectedCount(0, 0), 0);
+  assert.equal(captureDockSelectedCount(0, 39), 39);
+  assert.equal(captureDockSelectedCount(31, 8), 31);
   assert.equal(captureDockIsOpen(0, 0), false);
   assert.equal(captureDockIsOpen(0, 39), true);
   assert.equal(captureDockIsOpen(31, 0), true);

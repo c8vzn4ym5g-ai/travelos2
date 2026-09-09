@@ -1,5 +1,13 @@
 # TravelOS Handoff
 
+## 2026-09-09 Capture dock count stays on while the round is open
+
+`fam-dock-count` is always in the Capture DOM. Hide only with
+`[data-capture-dock-n="0"]` — never `open ? dock : null` (that minifies
+to a bang-IIFE that looks inverted). Count text stays
+`已選 N · 上傳中 · 已收到`. Sticky on `/family/capture` while thumbnails
+are on screen. Apple album `N 個項目` is not ours.
+
 ## 2026-09-09 Maple titles are place-only 繁體; series is separate
 
 Owner lock. Journal TITLE is the place/trip only. Never prepend

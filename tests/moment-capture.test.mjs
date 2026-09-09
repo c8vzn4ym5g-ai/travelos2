@@ -327,13 +327,14 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
 });
 
 test("background upload starts on add and Save does not wait on originals", async () => {
-  const [capture, upload, photosApi, prepare, store, warehouseRead] = await Promise.all([
+  const [capture, upload, photosApi, prepare, store, warehouseRead, css] = await Promise.all([
     readSource("app/family/capture/page.tsx"),
     readSource("lib/capture-upload.ts"),
     readSource("app/api/moments/photos/route.ts"),
     readSource("lib/prepare-photo.ts"),
     readSource("lib/moment-store.ts"),
     readSource("lib/warehouse-read.ts"),
+    readSource("app/family/family.css"),
   ]);
 
   const addBlock = capture.slice(
@@ -421,8 +422,10 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(capture, /previewUrl: null/);
   assert.match(capture, /fam-thumb-fail/);
   assert.match(capture, /data-capture-dock-count/);
+  assert.match(capture, /data-capture-dock-n=\{captureDockSelectedCount\(photos\.length, ingestHint\)\}/);
   assert.match(capture, /captureDockCountText\(photos, ingestHint\)/);
-  assert.match(capture, /captureDockIsOpen\(photos\.length, ingestHint\)/);
+  assert.doesNotMatch(capture, /captureDockIsOpen\(photos\.length, ingestHint\)\s*\?/);
+  assert.match(css, /\[data-capture-dock-n="0"\]/);
   assert.match(capture, /flushSync/);
   assert.match(capture, /waitForCaptureDockPaint/);
   assert.match(capture, /setIngestHint\(freshRound \? incomingCount : photosRef\.current\.length \+ incomingCount\)/);
@@ -652,6 +655,8 @@ test("sticky dock refresh bounces on press and spins the icon while retry is in 
   assert.match(dock, /\.fam-dock-retry-glyph\.is-busy/);
   assert.match(dock, /animation: fam-spin 0\.8s linear infinite/);
   assert.doesNotMatch(dock, /再送一次|全部再送|上傳失敗/);
+  assert.match(css, /\[data-capture-dock-n="0"\]/);
+  assert.match(css, /:has\(\.fam-page-capture\)/);
   assert.match(css, /\.fam-page \{[\s\S]*overflow-y: auto/);
   assert.match(css, /\.fam-page-capture \{[\s\S]*touch-action: pan-y/);
   assert.match(css, /-webkit-overflow-scrolling: touch/);

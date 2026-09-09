@@ -46,8 +46,8 @@ import {
   CAPTURE_PHOTO_HANG_MS,
   CAPTURE_PHOTO_RETRY_LIMIT,
   captureDockCountText,
-  captureDockIsOpen,
   captureDockRetryShouldRun,
+  captureDockSelectedCount,
   capturePhotoRetryDelayMs,
   captureUploadShouldForceFail,
   clearCaptureRoundMeta,
@@ -1014,6 +1014,7 @@ export default function CapturePage() {
       if (input && input.files === fileList) {
         input.value = "";
       }
+      await waitForCaptureDockPaint();
       setIngestHint(0);
     }
   }
@@ -1367,26 +1368,29 @@ export default function CapturePage() {
         </div>
       </header>
 
+      <div
+        className="fam-dock-count"
+        data-capture-dock-count=""
+        data-capture-dock-n={captureDockSelectedCount(photos.length, ingestHint)}
+      >
+        <p>{captureDockCountText(photos, ingestHint)}</p>
+        <button
+          aria-busy={dockRetryInFlight}
+          aria-label="再送"
+          className="fam-dock-retry"
+          data-capture-retry-busy={dockRetryInFlight ? "" : undefined}
+          data-capture-retry-failed=""
+          onClick={retryFailedPhotos}
+          onPointerDown={pressDockRetry}
+          type="button"
+        >
+          <span className={dockRetryInFlight ? "fam-dock-retry-glyph is-busy" : "fam-dock-retry-glyph"}>
+            <FamGlyph name="refresh" size={22} />
+          </span>
+        </button>
+      </div>
+
       <section className="fam-sheet">
-        {captureDockIsOpen(photos.length, ingestHint) ? (
-          <div className="fam-dock-count" data-capture-dock-count="">
-            <p>{captureDockCountText(photos, ingestHint)}</p>
-            <button
-              aria-busy={dockRetryInFlight}
-              aria-label="再送"
-              className="fam-dock-retry"
-              data-capture-retry-busy={dockRetryInFlight ? "" : undefined}
-              data-capture-retry-failed=""
-              onClick={retryFailedPhotos}
-              onPointerDown={pressDockRetry}
-              type="button"
-            >
-              <span className={dockRetryInFlight ? "fam-dock-retry-glyph is-busy" : "fam-dock-retry-glyph"}>
-                <FamGlyph name="refresh" size={22} />
-              </span>
-            </button>
-          </div>
-        ) : null}
         <div className="mt-3 grid grid-cols-2 gap-3">
           <label className="fam-file fam-pill fam-pill-blush-outline">
             <span>拍照</span>
