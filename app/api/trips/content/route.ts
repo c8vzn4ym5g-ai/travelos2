@@ -67,9 +67,16 @@ export async function PUT(request: Request) {
     ...body.trip,
     updatedAt: new Date().toISOString(),
   };
-  const trips = content.trips.map((trip) => (trip.id === updatedTrip.id ? updatedTrip : trip));
-  if (!isBlobConfigured()) await writeDriveTrip(updatedTrip);
-  const savedContent = isBlobConfigured() ? await writeContent(trips) : { ...content, trips };
+  if (!isBlobConfigured()) {
+    await writeDriveTrip(updatedTrip);
+    const { content: fresh } = await readContent();
+    return Response.json({
+      content: fresh,
+      trip: fresh.trips.find((trip) => trip.id === updatedTrip.id) ?? updatedTrip,
+    });
+  }
 
+  const trips = content.trips.map((trip) => (trip.id === updatedTrip.id ? updatedTrip : trip));
+  const savedContent = await writeContent(trips);
   return Response.json({ content: savedContent, trip: updatedTrip });
 }

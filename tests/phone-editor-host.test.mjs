@@ -44,7 +44,7 @@ test("family PWA and editor stay on Cloudflare workers.dev, not Vercel seed", as
   assert.match(admin, /isSpareVercelHost\(window\.location\.host\)/);
   assert.match(admin, /canonicalSiteUrl/);
 
-  assert.match(store, /withMissingPublicSeedTrips\(saved\)/);
+  assert.match(store, /withMissingSeedTrips\(saved\)/);
   assert.doesNotMatch(store, /seedTripDetails\.filter\(trip => !savedIds\.has\(trip\.id\)\)/);
   assert.match(contentApi, /private, no-store, no-cache, must-revalidate/);
   assert.match(family, /travelos2\.chao-jason\.workers\.dev/);

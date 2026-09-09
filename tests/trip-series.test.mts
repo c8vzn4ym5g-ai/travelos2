@@ -69,11 +69,11 @@ function journal(title: string, body: string): JournalEntry {
   };
 }
 
-test("maple stays as separate 爱慕虚荣团 journals in the family editor list", () => {
+test("maple journals keep place-only Traditional titles; series stays 愛慕虛榮團", () => {
   const kyushu = baseTrip("trip_kyushu_family_2026", "九州家庭慢遊：福岡、小國町與阿蘇");
   const arashiyama = baseTrip("trip_kyoto_maple_arashiyama", "爱慕虚荣团 · 岚山翠嵐：温泉饭店里的枫叶禁区");
   arashiyama.photos = [ingestPhoto("drive_suiran", "IMG_2718.jpg")];
-  arashiyama.journalEntries = [journal("住进枫叶区里面的饭店", "翠嵐禁区竹林。")];
+  arashiyama.journalEntries = [journal("住进枫叶区里面的饭店", "翠嵐禁区竹林。回顾红枫西门，不写东福寺。")];
   const ginkaku = baseTrip("trip_kyoto_maple_ginkaku", "爱慕虚荣团 · 银阁寺线（Day17）");
   ginkaku.journalEntries = [journal("银阁寺确认：池中「北斗石」", "北斗石。")];
   const higashiyama = baseTrip("trip_kyoto_maple_higashiyama", "爱慕虚荣团 · 东山朱色／清水候选（Day18）");
@@ -96,12 +96,24 @@ test("maple stays as separate 爱慕虚荣团 journals in the family editor list
   assert.equal(maple.length, 4);
   assert.ok(maple.every((trip) => trip.visibility === "private"));
   assert.ok(maple.every((trip) => !isTripPublic(trip)));
-  assert.ok(maple.every((trip) => trip.title.includes(VANITY_CREW_SERIES)));
-  assert.match(prepared.find((trip) => trip.id === "trip_kyoto_maple_crew_notes")?.title ?? "", /团主题/);
+  assert.ok(maple.every((trip) => trip.series === "愛慕虛榮團"));
+  assert.ok(maple.every((trip) => !trip.title.includes("爱慕虚荣团")));
+  assert.ok(maple.every((trip) => !trip.title.includes("愛慕虛榮團")));
+  assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_arashiyama")?.title, "嵐山翠嵐：溫泉飯店裡的楓葉禁區");
+  assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_ginkaku")?.title, "銀閣寺線（Day17）");
+  assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_higashiyama")?.title, "東山朱色／清水候選（Day18）");
+  assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_crew_notes")?.title, "京都四人怎麼一起玩開心");
+  assert.match(prepared.find((trip) => trip.id === "trip_kyoto_maple_arashiyama")?.journalEntries[0]?.body ?? "", /回顧紅楓西門，不寫東福寺/);
   assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_arashiyama")?.photos[0]?.storageKey, "/api/trips/media?id=drive_suiran");
+
+  const doublePrefixed = prepareFamilyEditorTrips([
+    baseTrip("trip_kyoto_maple_arashiyama", "爱慕虚荣团 · 愛慕虛榮團 · 嵐山翠嵐：溫泉飯店裡的楓葉禁區"),
+  ]);
+  assert.equal(doublePrefixed[0]?.title, "嵐山翠嵐：溫泉飯店裡的楓葉禁區");
 
   assert.equal(searchTripsBySeries(prepared, "").length, prepared.length);
   const found = searchTripsBySeries(prepared, VANITY_CREW_SERIES);
   assert.equal(found.length, 4);
   assert.equal(found.some((trip) => trip.id === "trip_kyushu_family_2026"), false);
+  assert.equal(searchTripsBySeries(prepared, "爱慕虚荣团").length, 4);
 });

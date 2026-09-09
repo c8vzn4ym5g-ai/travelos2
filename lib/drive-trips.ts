@@ -1,5 +1,5 @@
 import { getDriveAccess } from "@/lib/drive-warehouse";
-import { VANITY_CREW_HELD_TRIP_IDS, prepareFamilyEditorTrips } from "@/lib/trip-series";
+import { VANITY_CREW_HELD_TRIP_IDS, prepareFamilyEditorTrips, prepareTripForWarehouse } from "@/lib/trip-series";
 import type { TripDetail } from "@/lib/types";
 
 const prefix = "travelos__trip__";
@@ -82,8 +82,9 @@ export async function readDriveTrips(): Promise<TripDetail[]> {
 }
 
 export async function writeDriveTrip(trip: TripDetail) {
+  const payload = prepareTripForWarehouse(trip);
   const access = await connection();
-  const name = `${prefix}${trip.id.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
+  const name = `${prefix}${payload.id.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
   const headers = { Authorization: `Bearer ${access.token}` };
   const query = new URLSearchParams({
     q: `'${access.folderId}' in parents and trashed = false and name = '${name}'`,
@@ -106,8 +107,8 @@ export async function writeDriveTrip(trip: TripDetail) {
   const saved = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media`, {
     method: "PATCH",
     headers: { ...headers, "Content-Type": "application/json" },
-    body: JSON.stringify(trip),
+    body: JSON.stringify(payload),
   });
   if (!saved.ok) throw new Error("尚未儲存，請再試一次。");
-  return trip;
+  return payload;
 }

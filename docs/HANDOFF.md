@@ -1,5 +1,26 @@
 # TravelOS Handoff
 
+## 2026-09-09 Maple titles are place-only 繁體; series is separate
+
+Owner lock. Journal TITLE is the place/trip only. Never prepend
+`爱慕虚荣团` / `愛慕虛榮團`. That brand lives in `series` (繁體
+`愛慕虛榮團`) for a later 專題. `prepareMapleJournal` and
+`writeDriveTrip` both force the locked titles so PUT cannot put the
+prefix back.
+
+Locked maple titles:
+
+- trip_kyoto_maple_arashiyama → 嵐山翠嵐：溫泉飯店裡的楓葉禁區
+- trip_kyoto_maple_ginkaku → 銀閣寺線（Day17）
+- trip_kyoto_maple_higashiyama → 東山朱色／清水候選（Day18）
+- trip_kyoto_maple_crew_notes → 京都四人怎麼一起玩開心
+
+Drive reads reattach leftover seed journals Owner still edits
+(北海道 / 曼谷 / 巴黎冬日 / 倫敦 / Lapland). PUT re-reads the full
+warehouse after one-trip save so maple save cannot shrink the picker.
+
+Same door: `/family` → 編輯 → 旅行遊記 → `/trips/admin`.
+
 ## 2026-09-09 Phone 遊記編輯 was the Vercel seed list
 
 Owner reinstalled the iPhone app and the picker showed only:
