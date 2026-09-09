@@ -1,4 +1,4 @@
-import { put } from "@vercel/blob";
+import { putVideoBinary } from "@/lib/drive-warehouse";
 import { addPhotoToTrip, isAdminPinValid } from "@/lib/editable-store";
 import type { Photo } from "@/lib/types";
 
@@ -24,16 +24,13 @@ export async function POST(request: Request) {
     return Response.json({ error: "Trip and photo file are required" }, { status: 400 });
   }
 
-  const blob = await put(`travelos/trips/photos/${tripId}/${Date.now()}-${cleanFilename(file.name)}`, file, {
-    access: "public",
-    addRandomSuffix: true,
-  });
+  const blob = await putVideoBinary({ bytes: Buffer.from(await file.arrayBuffer()), mimeType: file.type || "image/jpeg", name: `travelos__trip_photo__${Date.now()}-${cleanFilename(file.name)}` });
 
   const now = new Date().toISOString();
   const photo: Photo = {
     id: `trip_photo_${Date.now()}`,
     tripId,
-    storageKey: blob.url,
+    storageKey: `/api/trips/media?id=${blob.id}`,
     originalFilename: file.name,
     caption: caption || null,
     takenAt: takenAt ? new Date(takenAt).toISOString() : now,

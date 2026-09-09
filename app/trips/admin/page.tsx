@@ -1,36 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ShortVideoGallery } from "@/components/short-video-gallery";
 import type { TravelOSContent } from "@/lib/editable-store";
-import { resolveFamilySession } from "@/lib/family-session";
-import type { GeoPoint, JournalEntry, Photo, Place, PlaceType, RouteTransport, TravelRouteSegment, TravelVisibility, TripDetail } from "@/lib/types";
+import { getTripPromoVideos } from "@/lib/promo-videos";
+import { isTripPublic } from "@/lib/trip-visibility";
+import type { JournalEntry, Photo, TravelVisibility, TripDetail } from "@/lib/types";
 
 type TravelContentResponse = {
   content: TravelOSContent;
-  status: {
-    configured: boolean;
-    source: "blob" | "seed";
-  };
+  status: { configured: boolean; source: "blob" | "drive" | "seed" };
 };
-
-type TripTextField = "city" | "country" | "slug" | "summary" | "title";
-type TripDateField = "endDate" | "startDate";
-type JournalTextField = "body" | "entryDate" | "mood" | "storyPhotoId" | "title" | "weatherSummary";
-type PhotoTextField = "caption" | "originalFilename" | "takenAt";
-type PlaceTextField = "address" | "city" | "country" | "name" | "notes";
-type RouteTextField = "fromLabel" | "linkedJournalEntryId" | "linkedPhotoId" | "linkedPlaceId" | "note" | "toLabel";
+type EditorTab = "story" | "photos" | "videos" | "details";
+type PickerTarget = { kind: "new" } | { kind: "journal"; entryId: string } | null;
 
 const inputClass =
-  "mt-2 min-h-11 w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-sm text-zinc-950 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100";
-const textareaClass = `${inputClass} min-h-28 leading-6`;
+  "mt-2 min-h-11 w-full rounded-2xl border border-sky-200 bg-white px-4 py-3 text-base text-zinc-950 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100";
 const primaryButtonClass =
-  "travel-label rounded-full border border-sky-300 bg-sky-50 px-5 py-3 text-sm font-semibold text-sky-950 shadow-sm transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60";
-const smallButtonClass =
-  "travel-label inline-flex min-h-11 items-center rounded-full border border-sky-200 bg-white px-3 py-2 text-xs font-semibold text-sky-900 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-40";
-const supportedUploadTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
-const maxUploadBytes = 4_500_000;
+  "travel-label inline-flex min-h-11 items-center justify-center rounded-full bg-sky-800 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-900 disabled:cursor-not-allowed disabled:opacity-50";
+const secondaryButtonClass =
+  "travel-label inline-flex min-h-11 items-center justify-center rounded-full border border-sky-200 bg-white px-4 py-2.5 text-sm font-semibold text-sky-900 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-40";
+
+const tabs: Array<{ id: EditorTab; label: string }> = [
+  { id: "story", label: "看草稿・寫感想" },
+  { id: "photos", label: "照片" },
+  { id: "videos", label: "短片" },
+  { id: "details", label: "行程資料" },
+];
 
 function nowIso() {
   return new Date().toISOString();
@@ -40,17 +37,41 @@ function makeId(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function Field({
-  label,
-  onChange,
-  type = "text",
-  value,
-}: {
-  label: string;
-  onChange: (value: string) => void;
-  type?: string;
-  value: string;
-}) {
+function toDateInput(value: string) {
+  return value ? value.slice(0, 10) : "";
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "時間尚未整理";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  return new Intl.DateTimeFormat("zh-TW", { year: "numeric", month: "long", day: "numeric" }).format(date);
+}
+
+function photoLabel(photo: Photo, index: number) {
+  return photo.caption?.trim() || photo.originalFilename || `照片 ${index + 1}`;
+}
+
+function isRenderablePhoto(photo: Photo) {
+  return photo.storageKey.startsWith("http") || photo.storageKey.startsWith("/");
+}
+
+function photoTime(photo: Photo) {
+  const time = Date.parse(photo.takenAt ?? "");
+  return Number.isFinite(time) ? time : Number.MAX_SAFE_INTEGER;
+}
+
+function PhotoThumb({ photo, className = "h-28" }: { photo: Photo; className?: string }) {
+  if (!isRenderablePhoto(photo)) {
+    return <div className={`${className} grid w-full place-items-center bg-stone-100 text-sm text-zinc-500`}>照片整理中</div>;
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img alt={photo.caption ?? photo.originalFilename} className={`${className} w-full object-cover`} src={photo.storageKey} />
+  );
+}
+
+function Field({ label, onChange, type = "text", value }: { label: string; onChange: (value: string) => void; type?: string; value: string }) {
   return (
     <label className="block">
       <span className="travel-label text-sm font-semibold text-zinc-700">{label}</span>
@@ -59,1130 +80,370 @@ function Field({
   );
 }
 
-function TextArea({ label, onChange, value }: { label: string; onChange: (value: string) => void; value: string }) {
-  return (
-    <label className="block">
-      <span className="travel-label text-sm font-semibold text-zinc-700">{label}</span>
-      <textarea className={textareaClass} onChange={(event) => onChange(event.target.value)} value={value} />
-    </label>
-  );
-}
-
-function SectionTitle({ eyebrow, title }: { eyebrow: string; title: string }) {
-  return (
-    <div>
-      <p className="travel-label text-xs font-semibold uppercase tracking-[0.14em] text-sky-700">{eyebrow}</p>
-      <h2 className="travel-display mt-2 text-2xl font-semibold">{title}</h2>
-    </div>
-  );
-}
-
-function toDateInput(value: string) {
-  return value ? value.slice(0, 10) : "";
-}
-
-function toDateTimeInput(value: string | null) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 16);
-}
-
-function fromDateTimeInput(value: string) {
-  return value ? new Date(value).toISOString() : null;
-}
-
-function formatCoordinate(value: number | undefined) {
-  return typeof value === "number" ? String(value) : "";
-}
-
-function parseCoordinate(value: string) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function updatePoint(point: GeoPoint | null, field: keyof GeoPoint, value: string): GeoPoint | null {
-  const parsed = parseCoordinate(value);
-  const next = point ?? { latitude: 0, longitude: 0 };
-
-  if (parsed === null) {
-    return point;
-  }
-
-  return {
-    ...next,
-    [field]: parsed,
-  };
-}
-
-function isRenderablePhoto(photo: Photo) {
-  return photo.storageKey.startsWith("http") || photo.storageKey.startsWith("/");
-}
-
-function replaceTrip(trips: TripDetail[], tripId: string, updater: (trip: TripDetail) => TripDetail) {
-  return trips.map((trip) =>
-    trip.id === tripId
-      ? {
-          ...updater(trip),
-          updatedAt: nowIso(),
-        }
-      : trip,
-  );
-}
-
-function moveItem<T>(items: T[], index: number, direction: -1 | 1) {
-  const nextIndex = index + direction;
-  if (nextIndex < 0 || nextIndex >= items.length) {
-    return items;
-  }
-
-  const next = [...items];
-  const [item] = next.splice(index, 1);
-  next.splice(nextIndex, 0, item);
-  return next;
-}
-
-function waitWithTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
-  return new Promise<T>((resolve, reject) => {
-    const timeout = window.setTimeout(() => reject(new Error(message)), timeoutMs);
-    promise.then(
-      (value) => {
-        window.clearTimeout(timeout);
-        resolve(value);
-      },
-      (error: unknown) => {
-        window.clearTimeout(timeout);
-        reject(error);
-      },
-    );
-  });
-}
-
-async function resizePhotoForUpload(file: File) {
-  if (!supportedUploadTypes.has(file.type)) {
-    throw new Error("Please use JPG, PNG, or WebP. Phone HEIC photos need to be converted before upload.");
-  }
-
-  if (!file.type.startsWith("image/") || file.size < 1_500_000) {
-    return file;
-  }
-
-  const imageUrl = URL.createObjectURL(file);
-
-  try {
-    const image = new Image();
-    image.src = imageUrl;
-    await waitWithTimeout(image.decode(), 12000, "Photo preparation timed out. Try a smaller JPG photo.");
-
-    const maxSide = 1800;
-    const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
-    const width = Math.max(1, Math.round(image.naturalWidth * scale));
-    const height = Math.max(1, Math.round(image.naturalHeight * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-
-    const context = canvas.getContext("2d");
-    if (!context) {
-      return file;
-    }
-
-    context.drawImage(image, 0, 0, width, height);
-
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
-    if (!blob || blob.size >= file.size) {
-      return file;
-    }
-
-    const filename = file.name.replace(/\.[^.]+$/, "") || "trip-photo";
-    return new File([blob], `${filename}.jpg`, { type: "image/jpeg" });
-  } finally {
-    URL.revokeObjectURL(imageUrl);
-  }
-}
-
-function uploadTripPhotoWithProgress(
-  formData: FormData,
-  pin: string,
-  onProgress: (progress: number) => void,
-): Promise<{ content: TravelOSContent; photo: Photo }> {
-  return new Promise((resolve, reject) => {
+function uploadTripPhotoWithProgress(formData: FormData, onProgress: (progress: number) => void) {
+  return new Promise<{ content: TravelOSContent; photo: Photo }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const timeout = window.setTimeout(() => {
       xhr.abort();
-      reject(new DOMException("Photo upload timed out.", "AbortError"));
-    }, 45000);
-
+      reject(new Error("照片上傳逾時，請再試一次。"));
+    }, 120000);
     xhr.upload.onprogress = (event) => {
-      if (!event.lengthComputable) {
-        onProgress(1);
-        return;
-      }
-
-      onProgress(Math.max(1, Math.min(99, Math.round((event.loaded / event.total) * 100))));
+      if (event.lengthComputable) onProgress(Math.max(1, Math.min(99, Math.round((event.loaded / event.total) * 100))));
     };
-
     xhr.onload = () => {
       window.clearTimeout(timeout);
       const data = JSON.parse(xhr.responseText || "{}") as { content?: TravelOSContent; error?: string; photo?: Photo };
-
       if (xhr.status < 200 || xhr.status >= 300 || !data.content || !data.photo) {
-        reject(new Error(data.error ?? "Photo upload failed."));
+        reject(new Error(data.error ?? "照片上傳失敗。"));
         return;
       }
-
       onProgress(100);
       resolve({ content: data.content, photo: data.photo });
     };
-
     xhr.onerror = () => {
       window.clearTimeout(timeout);
-      reject(new Error("Network failed during photo upload."));
+      reject(new Error("照片上傳失敗，請再試一次。"));
     };
-
-    xhr.onabort = () => {
-      window.clearTimeout(timeout);
-      reject(new DOMException("Photo upload timed out.", "AbortError"));
-    };
-
     xhr.open("POST", "/api/trips/photos");
-    xhr.setRequestHeader("x-travelos-admin-pin", pin);
     xhr.send(formData);
   });
 }
 
 export default function TravelAdminPage() {
-  const router = useRouter();
-  const [pin, setPin] = useState("");
-  const [authenticated, setAuthenticated] = useState(false);
   const [trips, setTrips] = useState<TripDetail[]>([]);
   const [activeTripId, setActiveTripId] = useState<string | null>(null);
-  const [configured, setConfigured] = useState(false);
-  const [source, setSource] = useState<"blob" | "seed">("seed");
+  const [tab, setTab] = useState<EditorTab>("story");
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploadingTripId, setUploadingTripId] = useState<string | null>(null);
+  const [dirtyTripIds, setDirtyTripIds] = useState<Set<string>>(new Set());
+  const [message, setMessage] = useState("正在打開家庭遊記編輯…");
+  const [storeSource, setStoreSource] = useState<"blob" | "drive" | "seed">("seed");
+  const [pickerTarget, setPickerTarget] = useState<PickerTarget>(null);
+  const [showAllPickerPhotos, setShowAllPickerPhotos] = useState(false);
+  const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const [message, setMessage] = useState("Unlock admin to edit existing trips or create a new draft.");
-
-  useEffect(() => {
-    let cancelled = false;
-
-    void resolveFamilySession().then((session) => {
-      if (cancelled) {
-        return;
-      }
-
-      if (session.allowed) {
-        setPin(session.pin);
-        setAuthenticated(true);
-        setMessage("Admin session unlocked from the shared admin workspace.");
-        return;
-      }
-
-      router.replace("/family");
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [router]);
+  const [recordingEntryId, setRecordingEntryId] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   const loadContent = useCallback(async () => {
-    setMessage("Loading Travel content...");
-    const response = await fetch("/api/trips/content", {
-      cache: "no-store",
-      headers: { "x-travelos-admin-pin": pin },
-    });
-    if (!response.ok) {
-      throw new Error("Travel content access denied");
-    }
+    setLoading(true);
+    const response = await fetch("/api/trips/content", { cache: "no-store" });
+    if (!response.ok) throw new Error("無法讀取旅行內容");
     const data = (await response.json()) as TravelContentResponse;
-    const sortedTrips = [...data.content.trips].sort((first, second) => second.startDate.localeCompare(first.startDate));
-    setTrips(sortedTrips);
-    setActiveTripId((current) => current ?? sortedTrips[0]?.id ?? null);
-    setConfigured(data.status.configured);
-    setSource(data.status.source);
-    setMessage(data.status.configured ? "Ready to edit existing trips." : "Storage setup needed before saves work on Vercel.");
-  }, [pin]);
+    const sorted = [...data.content.trips].sort((a, b) => b.startDate.localeCompare(a.startDate));
+    setTrips(sorted);
+    setActiveTripId((current) => current ?? sorted[0]?.id ?? null);
+    setStoreSource(data.status.source);
+    setMessage("草稿已經整理好。直接看、改一句，或錄一句話就可以。");
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    if (!authenticated) {
-      return;
-    }
+    loadContent().catch(() => {
+      setMessage("目前無法打開旅行內容。");
+      setLoading(false);
+    });
+  }, [loadContent]);
 
-    loadContent().catch(() => setMessage("Could not load Travel content."));
-  }, [authenticated, loadContent]);
+  useEffect(() => () => mediaStreamRef.current?.getTracks().forEach((track) => track.stop()), []);
 
-  const sortedTrips = useMemo(
-    () => [...trips].sort((first, second) => second.startDate.localeCompare(first.startDate)),
-    [trips],
-  );
+  const sortedTrips = useMemo(() => [...trips].sort((a, b) => b.startDate.localeCompare(a.startDate)), [trips]);
   const activeTrip = sortedTrips.find((trip) => trip.id === activeTripId) ?? sortedTrips[0] ?? null;
+  const selectedPhoto = activeTrip?.photos.find((photo) => photo.id === selectedPhotoId) ?? activeTrip?.photos[0] ?? null;
+  const promoVideos = activeTrip ? getTripPromoVideos(activeTrip.slug) : [];
+  const pickerPhotos = useMemo(() => {
+    if (!activeTrip || !pickerTarget) return [];
+    const usedPhotoIds = new Set(activeTrip.journalEntries.map((entry) => entry.storyPhotoId).filter(Boolean));
+    const entry = pickerTarget.kind === "journal" ? activeTrip.journalEntries.find((item) => item.id === pickerTarget.entryId) : null;
+    const targetTime = Date.parse(entry?.entryDate ?? "");
+    const ordered = [...activeTrip.photos].sort((a, b) => {
+      if (entry?.storyPhotoId === a.id) return -1;
+      if (entry?.storyPhotoId === b.id) return 1;
+      if (pickerTarget.kind === "new") {
+        const aUsed = usedPhotoIds.has(a.id) ? 1 : 0;
+        const bUsed = usedPhotoIds.has(b.id) ? 1 : 0;
+        if (aUsed !== bUsed) return aUsed - bUsed;
+      }
+      if (Number.isFinite(targetTime)) return Math.abs(photoTime(a) - targetTime) - Math.abs(photoTime(b) - targetTime);
+      return photoTime(a) - photoTime(b);
+    });
+    return showAllPickerPhotos ? ordered : ordered.slice(0, 8);
+  }, [activeTrip, pickerTarget, showAllPickerPhotos]);
 
-  function updateTrip(field: TripTextField | TripDateField, value: string) {
-    if (!activeTrip) {
-      return;
-    }
-
-    setTrips((current) =>
-      current.map((trip) =>
-        trip.id === activeTrip.id
-          ? {
-              ...trip,
-              [field]: value,
-              updatedAt: new Date().toISOString(),
-            }
-          : trip,
-      ),
-    );
+  function openPicker(target: Exclude<PickerTarget, null>) {
+    setShowAllPickerPhotos(false);
+    setPickerTarget(target);
   }
 
   function updateActiveTrip(updater: (trip: TripDetail) => TripDetail) {
-    if (!activeTrip) {
-      return;
+    if (!activeTrip) return;
+    setTrips((current) => current.map((trip) => (trip.id === activeTrip.id ? { ...updater(trip), updatedAt: nowIso() } : trip)));
+    setDirtyTripIds((current) => new Set(current).add(activeTrip.id));
+    setMessage("有尚未儲存的變更。");
+  }
+
+  function updateJournalEntry(entryId: string, updates: Partial<JournalEntry>) {
+    updateActiveTrip((trip) => ({
+      ...trip,
+      journalEntries: trip.journalEntries.map((entry) => entry.id === entryId ? { ...entry, ...updates, updatedAt: nowIso() } : entry),
+    }));
+  }
+
+  function choosePhoto(photo: Photo | null) {
+    if (!activeTrip || !pickerTarget) return;
+    if (pickerTarget.kind === "new") {
+      const now = nowIso();
+      const index = photo ? activeTrip.photos.findIndex((item) => item.id === photo.id) : -1;
+      const entry: JournalEntry = {
+        id: makeId("journal"), tripId: activeTrip.id,
+        title: photo ? photoLabel(photo, index) : "旅途中這一刻", body: "",
+        entryDate: photo?.takenAt?.slice(0, 10) || activeTrip.startDate || now.slice(0, 10),
+        storyPhotoId: photo?.id ?? null, mood: null, weatherSummary: null, aiSummary: null, voiceNoteUrl: null,
+        createdAt: now, updatedAt: now,
+      };
+      updateActiveTrip((trip) => ({ ...trip, journalEntries: [...trip.journalEntries, entry] }));
+      setMessage("已補上一段回憶，寫一句感想或錄一句話就可以。");
+    } else {
+      updateJournalEntry(pickerTarget.entryId, { storyPhotoId: photo?.id ?? null });
     }
-
-    setTrips((current) => replaceTrip(current, activeTrip.id, updater));
-  }
-
-  function updateVisibility(value: TravelVisibility) {
-    if (!activeTrip) {
-      return;
-    }
-
-    setTrips((current) =>
-      current.map((trip) =>
-        trip.id === activeTrip.id
-          ? {
-              ...trip,
-              visibility: value,
-              updatedAt: new Date().toISOString(),
-            }
-          : trip,
-      ),
-    );
-  }
-
-  function updateRating(value: string) {
-    if (!activeTrip) {
-      return;
-    }
-
-    setTrips((current) =>
-      current.map((trip) =>
-        trip.id === activeTrip.id
-          ? {
-              ...trip,
-              rating: value ? Number(value) : null,
-              updatedAt: new Date().toISOString(),
-            }
-          : trip,
-      ),
-    );
-  }
-
-  function updateTripCoordinate(field: keyof GeoPoint, value: string) {
-    updateActiveTrip((trip) => ({
-      ...trip,
-      coordinates: updatePoint(trip.coordinates, field, value),
-    }));
-  }
-
-  function addPlace() {
-    if (!activeTrip) {
-      return;
-    }
-
-    const now = nowIso();
-    const place: Place = {
-      address: null,
-      city: activeTrip.city,
-      coordinates: activeTrip.coordinates,
-      country: activeTrip.country,
-      createdAt: now,
-      id: makeId("place"),
-      name: "New map pin",
-      notes: "Add a short visitor note for this stop.",
-      rating: null,
-      tripId: activeTrip.id,
-      type: "attraction",
-      updatedAt: now,
-    };
-
-    updateActiveTrip((trip) => ({ ...trip, places: [...trip.places, place] }));
-    setMessage("New map pin added. Edit the details and save trip changes.");
-  }
-
-  function updatePlace(placeId: string, field: PlaceTextField, value: string) {
-    updateActiveTrip((trip) => ({
-      ...trip,
-      places: trip.places.map((place) =>
-        place.id === placeId
-          ? {
-              ...place,
-              [field]: field === "address" || field === "notes" ? value || null : value,
-              updatedAt: nowIso(),
-            }
-          : place,
-      ),
-    }));
-  }
-
-  function updatePlaceType(placeId: string, value: PlaceType) {
-    updateActiveTrip((trip) => ({
-      ...trip,
-      places: trip.places.map((place) => (place.id === placeId ? { ...place, type: value, updatedAt: nowIso() } : place)),
-    }));
-  }
-
-  function updatePlaceRating(placeId: string, value: string) {
-    updateActiveTrip((trip) => ({
-      ...trip,
-      places: trip.places.map((place) =>
-        place.id === placeId
-          ? {
-              ...place,
-              rating: value ? Number(value) : null,
-              updatedAt: nowIso(),
-            }
-          : place,
-      ),
-    }));
-  }
-
-  function updatePlaceCoordinate(placeId: string, field: keyof GeoPoint, value: string) {
-    updateActiveTrip((trip) => ({
-      ...trip,
-      places: trip.places.map((place) =>
-        place.id === placeId
-          ? {
-              ...place,
-              coordinates: updatePoint(place.coordinates, field, value),
-              updatedAt: nowIso(),
-            }
-          : place,
-      ),
-    }));
-  }
-
-  function removePlace(placeId: string) {
-    updateActiveTrip((trip) => ({
-      ...trip,
-      places: trip.places.filter((place) => place.id !== placeId),
-      travelRoute: (trip.travelRoute ?? []).map((segment) =>
-        segment.linkedPlaceId === placeId ? { ...segment, linkedPlaceId: null, updatedAt: nowIso() } : segment,
-      ),
-    }));
-  }
-
-  function addRouteSegment() {
-    if (!activeTrip) {
-      return;
-    }
-
-    const now = nowIso();
-    const start = activeTrip.coordinates ?? activeTrip.places.find((place) => place.coordinates)?.coordinates ?? { latitude: 0, longitude: 0 };
-    const end = activeTrip.places.find((place) => place.coordinates)?.coordinates ?? start;
-    const segment: TravelRouteSegment = {
-      createdAt: now,
-      from: start,
-      fromLabel: activeTrip.city || "Start",
-      id: makeId("route"),
-      linkedJournalEntryId: activeTrip.journalEntries[0]?.id ?? null,
-      linkedPhotoId: activeTrip.photos[0]?.id ?? null,
-      linkedPlaceId: activeTrip.places[0]?.id ?? null,
-      note: "Describe why this movement matters.",
-      to: end,
-      toLabel: activeTrip.places[0]?.name ?? "Next stop",
-      transport: "car",
-      tripId: activeTrip.id,
-      updatedAt: now,
-      visibility: "public",
-    };
-
-    updateActiveTrip((trip) => ({ ...trip, travelRoute: [...(trip.travelRoute ?? []), segment] }));
-    setMessage("New route segment added. Edit it, then save trip changes.");
-  }
-
-  function updateRouteSegment(segmentId: string, field: RouteTextField, value: string) {
-    updateActiveTrip((trip) => ({
-      ...trip,
-      travelRoute: (trip.travelRoute ?? []).map((segment) =>
-        segment.id === segmentId
-          ? {
-              ...segment,
-              [field]: field.startsWith("linked") || field === "note" ? value || null : value,
-              updatedAt: nowIso(),
-            }
-          : segment,
-      ),
-    }));
-  }
-
-  function updateRouteCoordinate(segmentId: string, pointName: "from" | "to", field: keyof GeoPoint, value: string) {
-    updateActiveTrip((trip) => ({
-      ...trip,
-      travelRoute: (trip.travelRoute ?? []).map((segment) =>
-        segment.id === segmentId
-          ? {
-              ...segment,
-              [pointName]: updatePoint(segment[pointName], field, value) ?? segment[pointName],
-              updatedAt: nowIso(),
-            }
-          : segment,
-      ),
-    }));
-  }
-
-  function updateRouteTransport(segmentId: string, value: RouteTransport) {
-    updateActiveTrip((trip) => ({
-      ...trip,
-      travelRoute: (trip.travelRoute ?? []).map((segment) =>
-        segment.id === segmentId ? { ...segment, transport: value, updatedAt: nowIso() } : segment,
-      ),
-    }));
-  }
-
-  function updateRouteVisibility(segmentId: string, value: TravelVisibility) {
-    updateActiveTrip((trip) => ({
-      ...trip,
-      travelRoute: (trip.travelRoute ?? []).map((segment) =>
-        segment.id === segmentId ? { ...segment, visibility: value, updatedAt: nowIso() } : segment,
-      ),
-    }));
-  }
-
-  function removeRouteSegment(segmentId: string) {
-    updateActiveTrip((trip) => ({ ...trip, travelRoute: (trip.travelRoute ?? []).filter((segment) => segment.id !== segmentId) }));
-  }
-
-  function addJournalEntry() {
-    if (!activeTrip) {
-      return;
-    }
-
-    const now = nowIso();
-    const entry: JournalEntry = {
-      id: makeId("journal"),
-      tripId: activeTrip.id,
-      title: "New journal note",
-      body: "Write the memory here.",
-      entryDate: activeTrip.startDate || now.slice(0, 10),
-      storyPhotoId: null,
-      mood: null,
-      weatherSummary: null,
-      aiSummary: null,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    updateActiveTrip((trip) => ({ ...trip, journalEntries: [entry, ...trip.journalEntries] }));
-    setMessage("New journal entry added. Edit it, then save trip changes.");
-  }
-
-  function updateJournalEntry(entryId: string, field: JournalTextField, value: string) {
-    updateActiveTrip((trip) => ({
-      ...trip,
-      journalEntries: trip.journalEntries.map((entry) =>
-        entry.id === entryId
-          ? {
-              ...entry,
-              [field]: field === "mood" || field === "storyPhotoId" || field === "weatherSummary" ? value || null : value,
-              updatedAt: nowIso(),
-            }
-          : entry,
-      ),
-    }));
-  }
-
-  function removeJournalEntry(entryId: string) {
-    updateActiveTrip((trip) => ({
-      ...trip,
-      journalEntries: trip.journalEntries.filter((entry) => entry.id !== entryId),
-    }));
+    setPickerTarget(null);
   }
 
   function moveJournalEntry(index: number, direction: -1 | 1) {
-    updateActiveTrip((trip) => ({ ...trip, journalEntries: moveItem(trip.journalEntries, index, direction) }));
+    updateActiveTrip((trip) => {
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= trip.journalEntries.length) return trip;
+      const journalEntries = [...trip.journalEntries];
+      const [entry] = journalEntries.splice(index, 1);
+      journalEntries.splice(nextIndex, 0, entry);
+      return { ...trip, journalEntries };
+    });
   }
 
-  function updatePhoto(photoId: string, field: PhotoTextField, value: string) {
-    updateActiveTrip((trip) => ({
-      ...trip,
-      photos: trip.photos.map((photo) =>
-        photo.id === photoId
-          ? {
-              ...photo,
-              [field]: field === "caption" ? value || null : field === "takenAt" ? fromDateTimeInput(value) : value,
-            }
-          : photo,
-      ),
-    }));
+  function removeJournalEntry(entryId: string) {
+    if (!window.confirm("要刪除這一段回憶嗎？")) return;
+    updateActiveTrip((trip) => ({ ...trip, journalEntries: trip.journalEntries.filter((entry) => entry.id !== entryId) }));
   }
 
-  function removePhoto(photoId: string) {
-    updateActiveTrip((trip) => ({
-      ...trip,
-      coverPhotoId: trip.coverPhotoId === photoId ? null : trip.coverPhotoId,
-      photos: trip.photos.filter((photo) => photo.id !== photoId),
-      journalEntries: trip.journalEntries.map((entry) =>
-        entry.storyPhotoId === photoId
-          ? {
-              ...entry,
-              storyPhotoId: null,
-              updatedAt: nowIso(),
-            }
-          : entry,
-      ),
-    }));
+  async function persistTrips(drafts: TripDetail[]) {
+    let latestContent: TravelOSContent | null = null;
+    for (const trip of drafts) {
+      const response = await fetch("/api/trips/content", {
+        method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ trip }),
+      });
+      const data = (await response.json()) as { content?: TravelOSContent; error?: string };
+      if (!response.ok || !data.content) throw new Error(data.error ?? `「${trip.title}」儲存失敗`);
+      latestContent = data.content;
+    }
+    return latestContent;
   }
 
-  function movePhoto(index: number, direction: -1 | 1) {
-    updateActiveTrip((trip) => ({ ...trip, photos: moveItem(trip.photos, index, direction) }));
-  }
-
-  function setCoverPhoto(photoId: string) {
-    updateActiveTrip((trip) => ({ ...trip, coverPhotoId: photoId }));
+  async function saveAllChanges() {
+    const drafts = trips.filter((trip) => dirtyTripIds.has(trip.id));
+    if (drafts.length === 0) return;
+    setSaving(true);
+    setMessage(`正在儲存 ${drafts.length} 個行程…`);
+    try {
+      const latestContent = await persistTrips(drafts);
+      if (latestContent) setTrips(latestContent.trips);
+      setDirtyTripIds(new Set());
+      setStoreSource("drive");
+      setMessage("全部變更已儲存。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "儲存失敗，內容仍留在目前畫面。");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function uploadPhoto(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!activeTrip) {
-      return;
-    }
-
-    setUploadingTripId(activeTrip.id);
-    setUploadProgress(null);
-    setMessage("Preparing selected trip photo...");
-
+    if (!activeTrip) return;
     const form = event.currentTarget;
     const formData = new FormData(form);
-    const selectedFile = formData.get("file");
-
-    if (!(selectedFile instanceof File)) {
-      setMessage("Choose a photo file first.");
-      setUploadingTripId(null);
-      return;
-    }
-
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) return;
+    setUploading(true);
+    setUploadProgress(0);
+    setMessage("正在放入原始照片…");
     try {
-      const uploadFile = await resizePhotoForUpload(selectedFile);
-      if (uploadFile.size > maxUploadBytes) {
-        setMessage("Photo is still too large after compression. Please choose a smaller JPG, PNG, or WebP photo.");
-        return;
-      }
-
-      formData.set("file", uploadFile);
+      const drafts = trips.filter((trip) => dirtyTripIds.has(trip.id));
+      if (drafts.length > 0) await persistTrips(drafts);
       formData.set("tripId", activeTrip.id);
-      setMessage("Saving trip before photo upload...");
-
-      const saveResponse = await fetch("/api/trips/content", {
-        body: JSON.stringify({ trip: activeTrip }),
-        headers: {
-          "content-type": "application/json",
-          "x-travelos-admin-pin": pin,
-        },
-        method: "PUT",
-      });
-
-      if (!saveResponse.ok) {
-        const data = (await saveResponse.json()) as { error?: string };
-        setMessage(data.error ?? "Save before photo upload failed.");
-        return;
-      }
-
-      setUploadProgress(0);
-      setMessage("Uploading trip photo: 0%");
-
-      const data = await uploadTripPhotoWithProgress(formData, pin, (progress) => {
-        setUploadProgress(progress);
-        setMessage(`Uploading trip photo: ${progress}%`);
-      });
+      const data = await uploadTripPhotoWithProgress(formData, setUploadProgress);
       setTrips(data.content.trips);
-      setActiveTripId(activeTrip.id);
+      setSelectedPhotoId(data.photo.id);
+      setDirtyTripIds(new Set());
+      setStoreSource("drive");
       form.reset();
-      setMessage(`Photo uploaded: ${data.photo.originalFilename}`);
+      setMessage("照片已保留原檔並放入這個行程。沒有壓縮或轉格式。");
     } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : error instanceof DOMException && error.name === "AbortError"
-            ? "Photo upload timed out. Try a smaller photo."
-            : "Photo upload failed. Try another image.",
-      );
+      setMessage(error instanceof Error ? error.message : "照片上傳失敗。");
     } finally {
-      setUploadingTripId(null);
+      setUploading(false);
       setUploadProgress(null);
     }
   }
 
-  async function saveActiveTrip() {
-    if (!activeTrip) {
-      return;
+  async function startRecording(entryId: string) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      mediaStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (event) => { if (event.data.size > 0) audioChunksRef.current.push(event.data); };
+      recorder.onstop = () => void uploadRecording(entryId, new Blob(audioChunksRef.current, { type: recorder.mimeType }));
+      recorder.start();
+      setRecordingEntryId(entryId);
+      setMessage("正在錄音。說完後按「完成錄音」。");
+    } catch {
+      setMessage("瀏覽器沒有取得麥克風，仍可直接寫一句感想。");
     }
-
-    if (!activeTrip.title.trim() || !activeTrip.slug.trim() || !activeTrip.country.trim() || !activeTrip.city.trim()) {
-      setMessage("Title, slug, country, and city are required.");
-      return;
-    }
-
-    setSaving(true);
-    setMessage("Saving trip changes...");
-    const response = await fetch("/api/trips/content", {
-      body: JSON.stringify({ trip: activeTrip }),
-      headers: {
-        "content-type": "application/json",
-        "x-travelos-admin-pin": pin,
-      },
-      method: "PUT",
-    });
-
-    setSaving(false);
-    if (!response.ok) {
-      const data = (await response.json()) as { error?: string };
-      setMessage(data.error ?? "Trip save failed.");
-      return;
-    }
-
-    const data = (await response.json()) as { content: TravelOSContent; trip: TripDetail };
-    setTrips(data.content.trips);
-    setActiveTripId(data.trip.id);
-    setMessage("Saved. Existing trip updated.");
   }
 
-  if (!authenticated) {
-    return (
-      <main className="travel-body min-h-screen bg-[#f8f3ea] text-zinc-950">
-        <section className="mx-auto max-w-md px-6 py-8 lg:px-10">
-          <div className="rounded-3xl border border-sky-200 bg-white p-6 text-center shadow-sm">
-            <p className="travel-label text-sm font-semibold text-sky-900">正在返回家庭登入…</p>
-            <p className="mt-3 text-sm leading-6 text-zinc-600">旅行部門不再另外要求密碼。</p>
-          </div>
-        </section>
-      </main>
-    );
+  function stopRecording() {
+    mediaRecorderRef.current?.stop();
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+    setRecordingEntryId(null);
+    setMessage("正在放入這段錄音…");
+  }
+
+  async function uploadRecording(entryId: string, blob: Blob) {
+    if (!activeTrip || blob.size === 0) return;
+    const formData = new FormData();
+    formData.set("tripId", activeTrip.id);
+    formData.set("entryId", entryId);
+    formData.set("file", new File([blob], `voice-${Date.now()}.webm`, { type: blob.type || "audio/webm" }));
+    const response = await fetch("/api/trips/journal-audio", { method: "POST", body: formData });
+    const data = (await response.json()) as { audioUrl?: string; error?: string };
+    if (!response.ok || !data.audioUrl) {
+      setMessage(data.error ?? "錄音沒有放入，請再試一次。");
+      return;
+    }
+    updateJournalEntry(entryId, { voiceNoteUrl: data.audioUrl });
+    setMessage("錄音已放入這段回憶，記得儲存全部變更。");
+  }
+
+  function updatePhotoCaption(photoId: string, caption: string) {
+    updateActiveTrip((trip) => ({ ...trip, photos: trip.photos.map((photo) => photo.id === photoId ? { ...photo, caption: caption || null } : photo) }));
+  }
+
+  function movePhoto(photoId: string, direction: -1 | 1) {
+    updateActiveTrip((trip) => {
+      const index = trip.photos.findIndex((photo) => photo.id === photoId);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= trip.photos.length) return trip;
+      const photos = [...trip.photos];
+      const [photo] = photos.splice(index, 1);
+      photos.splice(nextIndex, 0, photo);
+      return { ...trip, photos };
+    });
+  }
+
+  function removePhoto(photoId: string) {
+    if (!window.confirm("要從這個行程移除這張照片嗎？原始檔不會被修改。")) return;
+    updateActiveTrip((trip) => ({
+      ...trip, coverPhotoId: trip.coverPhotoId === photoId ? null : trip.coverPhotoId,
+      photos: trip.photos.filter((photo) => photo.id !== photoId),
+      journalEntries: trip.journalEntries.map((entry) => entry.storyPhotoId === photoId ? { ...entry, storyPhotoId: null, updatedAt: nowIso() } : entry),
+    }));
+    setSelectedPhotoId(null);
+  }
+
+  if (loading) {
+    return <main className="travel-body grid min-h-screen place-items-center bg-[#f8f3ea] px-6 text-zinc-950"><p className="travel-display text-2xl font-semibold">正在打開遊記編輯…</p></main>;
   }
 
   return (
-    <main className="travel-body min-h-screen bg-[#f8f3ea] text-zinc-950">
-      <section className="border-b border-sky-100 bg-[linear-gradient(135deg,_#eff6ff_0%,_#fff7ed_100%)]">
-        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-8 lg:px-10">
+    <main className="travel-body min-h-screen bg-[#f8f3ea] pb-28 text-zinc-950">
+      <fieldset className="m-0 min-w-0 border-0 p-0" disabled={saving || uploading}>
+      <header className="border-b border-sky-100 bg-[linear-gradient(135deg,_#eaf6ff_0%,_#fff7ed_100%)]">
+        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link className="travel-label inline-flex min-h-11 items-center text-sm font-semibold text-sky-800" href="/family">
-              家庭入口
-            </Link>
-            <div className="flex flex-wrap gap-2">
-              <Link className={smallButtonClass} href="/trips/write">
-                Sit and write
-              </Link>
-              <Link className={smallButtonClass} href="/trips/new">
-                New trip draft
-              </Link>
-              {activeTrip ? (
-                <Link className={smallButtonClass} href={`/trips/${activeTrip.slug}`}>
-                  Open public trip
-                </Link>
-              ) : null}
-            </div>
+            <Link className={secondaryButtonClass} href="/family">← 家庭入口</Link>
+            {activeTrip && isTripPublic(activeTrip) ? <Link className={secondaryButtonClass} href={`/trips/${activeTrip.slug}`}>查看公開頁</Link> : <span className="rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-zinc-600">私人草稿</span>}
           </div>
-          <div className="grid gap-4 lg:grid-cols-[1fr_20rem] lg:items-end">
-            <div>
-              <p className="travel-label text-sm font-semibold uppercase text-sky-700">Travel admin</p>
-              <h1 className="travel-display mt-2 text-4xl font-semibold tracking-normal sm:text-5xl">Edit existing trips</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">
-                Manage existing Travel records first. Use “New trip draft” only when you are adding a new journey.
-              </p>
-            </div>
-            <div className="rounded-xl border border-sky-100 bg-white/90 p-4 text-sm leading-6 text-zinc-600">
-              <p>{message}</p>
-              <p className="mt-2 text-xs text-zinc-500">
-                Source: {source} / Storage {configured ? "configured" : "not configured"}
-              </p>
-            </div>
+          <p className="travel-hand mt-6 text-lg text-sky-800">family travel journal</p>
+          <h1 className="travel-display mt-1 text-3xl font-semibold sm:text-5xl">遊記編輯</h1>
+          <p className="mt-3 max-w-2xl text-base leading-7 text-zinc-600">草稿、照片和文字已經整理好。家人只要看一遍，改想改的地方，或錄一句當時的感想。</p>
+        </div>
+      </header>
+
+      <div className="sticky top-0 z-30 border-b border-sky-100 bg-[#f8f3ea]/95 shadow-sm backdrop-blur">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+          <label className="min-w-0 flex-1">
+            <span className="sr-only">選擇行程</span>
+            <select className="min-h-11 w-full rounded-2xl border border-sky-200 bg-white px-4 text-sm font-semibold text-zinc-900 lg:max-w-xl" onChange={(event) => setActiveTripId(event.target.value)} value={activeTrip?.id ?? ""}>
+              {sortedTrips.map((trip) => <option key={trip.id} value={trip.id}>{trip.title}｜{toDateInput(trip.startDate)}</option>)}
+            </select>
+          </label>
+          <div className="flex items-center justify-between gap-3">
+            <p aria-live="polite" className="text-sm font-semibold text-zinc-600">{dirtyTripIds.size > 0 ? `${dirtyTripIds.size} 個行程尚未儲存` : "全部已儲存"}</p>
+            <button className={primaryButtonClass} disabled={saving || dirtyTripIds.size === 0} onClick={() => void saveAllChanges()} type="button">{saving ? "儲存中…" : "儲存全部變更"}</button>
           </div>
         </div>
-      </section>
+      </div>
 
-      <section className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[20rem_1fr] lg:px-10">
-        <aside className="rounded-xl border border-sky-100 bg-white/95 p-4 shadow-sm">
-          <SectionTitle eyebrow="Existing trips" title="Travel records" />
-          <div className="mt-5 grid gap-2">
-            {sortedTrips.map((trip) => (
-              <button
-                className={`rounded-lg border px-3 py-3 text-left text-sm transition ${
-                  trip.id === activeTrip?.id ? "border-sky-300 bg-sky-50 text-sky-950" : "border-zinc-200 bg-white text-zinc-700 hover:bg-sky-50/60"
-                }`}
-                key={trip.id}
-                onClick={() => setActiveTripId(trip.id)}
-                type="button"
-              >
-                <span className="travel-display block font-semibold">{trip.title}</span>
-                <span className="mt-1 block text-xs text-zinc-500">
-                  {trip.city}, {trip.country} / {trip.startDate}
-                </span>
-              </button>
-            ))}
-          </div>
-        </aside>
-
+      <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
         {activeTrip ? (
-          <section className="rounded-xl border border-sky-100 bg-white/95 p-5 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <SectionTitle eyebrow="Selected trip" title={activeTrip.title} />
-              <button className={primaryButtonClass} disabled={saving} onClick={saveActiveTrip} type="button">
-                {saving ? "Saving" : "Save trip changes"}
-              </button>
+          <>
+            <div className="overflow-x-auto pb-2"><nav aria-label="編輯內容" className="flex min-w-max gap-2">{tabs.map((item) => <button className={`travel-label min-h-11 rounded-full px-5 py-2.5 text-sm font-semibold transition ${tab === item.id ? "bg-sky-800 text-white" : "border border-sky-200 bg-white text-sky-900"}`} key={item.id} onClick={() => setTab(item.id)} type="button">{item.label}</button>)}</nav></div>
+
+            <div className="mt-5 rounded-3xl border border-sky-100 bg-white/95 p-4 shadow-sm sm:p-6">
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-semibold text-sky-700">{activeTrip.city}・{activeTrip.country}</p><label className="mt-2 block"><span className="text-xs text-zinc-500">遊記標題 · 可直接修改</span><input aria-label="遊記標題" className={`${inputClass} font-semibold sm:text-2xl`} onChange={(event) => updateActiveTrip((trip) => ({ ...trip, title: event.target.value }))} value={activeTrip.title} /></label></div><span className="rounded-full bg-sky-50 px-3 py-2 text-xs font-semibold text-zinc-600">{activeTrip.photos.length} 張照片・{activeTrip.journalEntries.length} 段草稿</span></div>
+              <label className="mt-4 block"><span className="text-sm font-semibold text-zinc-600">開場介紹 · 可直接修改</span><textarea aria-label="開場介紹" className={`${inputClass} min-h-28 leading-7`} onChange={(event) => updateActiveTrip((trip) => ({ ...trip, summary: event.target.value }))} value={activeTrip.summary} /></label>
             </div>
-            <div className="mt-6 grid gap-5">
-              <Field label="Title" onChange={(value) => updateTrip("title", value)} value={activeTrip.title} />
-              <Field label="Slug" onChange={(value) => updateTrip("slug", value)} value={activeTrip.slug} />
-              <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="Country" onChange={(value) => updateTrip("country", value)} value={activeTrip.country} />
-                <Field label="City" onChange={(value) => updateTrip("city", value)} value={activeTrip.city} />
-              </div>
-              <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="Start date" onChange={(value) => updateTrip("startDate", value)} type="date" value={toDateInput(activeTrip.startDate)} />
-                <Field label="End date" onChange={(value) => updateTrip("endDate", value)} type="date" value={toDateInput(activeTrip.endDate)} />
-              </div>
-              <div className="grid gap-5 sm:grid-cols-2">
-                <label className="block">
-                  <span className="travel-label text-sm font-semibold text-zinc-700">公開狀態</span>
-                  <select className={inputClass} onChange={(event) => updateVisibility(event.target.value as TravelVisibility)} value={activeTrip.visibility}>
-                    <option value="public">公開：任何人都能閱讀</option>
-                    <option value="private">私人：只保留在家庭編輯</option>
-                  </select>
-                </label>
-                <Field label="Rating" onChange={updateRating} type="number" value={activeTrip.rating ? String(activeTrip.rating) : ""} />
-              </div>
-              <TextArea label="Summary" onChange={(value) => updateTrip("summary", value)} value={activeTrip.summary} />
-              <div className="grid gap-3 rounded-lg border border-sky-100 bg-sky-50/60 p-4 text-sm text-zinc-600 sm:grid-cols-4">
-                <p>
-                  <span className="travel-label block text-xs uppercase text-sky-700">Photos</span>
-                  {activeTrip.photos.length}
-                </p>
-                <p>
-                  <span className="travel-label block text-xs uppercase text-sky-700">Journal</span>
-                  {activeTrip.journalEntries.length}
-                </p>
-                <p>
-                  <span className="travel-label block text-xs uppercase text-sky-700">Places</span>
-                  {activeTrip.places.length}
-                </p>
-                <p>
-                  <span className="travel-label block text-xs uppercase text-sky-700">Costs</span>
-                  {activeTrip.costs.length}
-                </p>
-              </div>
-            </div>
-            <section className="mt-8 rounded-xl border border-sky-100 bg-white p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <SectionTitle eyebrow="Map" title="Pins and route" />
-                <div className="flex flex-wrap gap-2">
-                  <button className={smallButtonClass} onClick={addPlace} type="button">
-                    Add place pin
-                  </button>
-                  <button className={smallButtonClass} onClick={addRouteSegment} type="button">
-                    Add route segment
-                  </button>
-                </div>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-zinc-600">
-                Use this to power the visitor journey map. Public/shared routes show on the trip page; private routes stay hidden.
-              </p>
-              <div className="mt-5 rounded-xl border border-amber-100 bg-amber-50/60 p-4">
-                <p className="travel-label text-xs font-semibold uppercase text-amber-800">Trip map center</p>
-                <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                  <Field
-                    label="Center latitude"
-                    onChange={(value) => updateTripCoordinate("latitude", value)}
-                    type="number"
-                    value={formatCoordinate(activeTrip.coordinates?.latitude)}
-                  />
-                  <Field
-                    label="Center longitude"
-                    onChange={(value) => updateTripCoordinate("longitude", value)}
-                    type="number"
-                    value={formatCoordinate(activeTrip.coordinates?.longitude)}
-                  />
-                </div>
-              </div>
-              <div className="mt-5 grid gap-4">
-                {activeTrip.places.map((place, index) => (
-                  <article className="rounded-xl border border-sky-100 bg-sky-50/40 p-4" key={place.id}>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="travel-label text-xs font-semibold uppercase text-sky-700">Pin {index + 1}</p>
-                      <button className={smallButtonClass} onClick={() => removePlace(place.id)} type="button">
-                        Delete pin
-                      </button>
-                    </div>
-                    <div className="mt-4 grid gap-4">
-                      <Field label="Place name" onChange={(value) => updatePlace(place.id, "name", value)} value={place.name} />
-                      <div className="grid gap-4 sm:grid-cols-3">
-                        <label className="block">
-                          <span className="travel-label text-sm font-semibold text-zinc-700">Type</span>
-                          <select className={inputClass} onChange={(event) => updatePlaceType(place.id, event.target.value as PlaceType)} value={place.type}>
-                            {["hotel", "restaurant", "attraction", "airport", "station", "shopping", "other"].map((type) => (
-                              <option key={type} value={type}>
-                                {type}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <Field label="City" onChange={(value) => updatePlace(place.id, "city", value)} value={place.city} />
-                        <Field label="Country" onChange={(value) => updatePlace(place.id, "country", value)} value={place.country} />
-                      </div>
-                      <Field label="Address" onChange={(value) => updatePlace(place.id, "address", value)} value={place.address ?? ""} />
-                      <div className="grid gap-4 sm:grid-cols-3">
-                        <Field
-                          label="Latitude"
-                          onChange={(value) => updatePlaceCoordinate(place.id, "latitude", value)}
-                          type="number"
-                          value={formatCoordinate(place.coordinates?.latitude)}
-                        />
-                        <Field
-                          label="Longitude"
-                          onChange={(value) => updatePlaceCoordinate(place.id, "longitude", value)}
-                          type="number"
-                          value={formatCoordinate(place.coordinates?.longitude)}
-                        />
-                        <Field label="Rating" onChange={(value) => updatePlaceRating(place.id, value)} type="number" value={place.rating ? String(place.rating) : ""} />
-                      </div>
-                      <TextArea label="Visitor pin note" onChange={(value) => updatePlace(place.id, "notes", value)} value={place.notes ?? ""} />
-                    </div>
-                  </article>
-                ))}
-              </div>
-              <div className="mt-5 grid gap-4">
-                {(activeTrip.travelRoute ?? []).map((segment, index) => (
-                  <article className="rounded-xl border border-teal-100 bg-teal-50/40 p-4" key={segment.id}>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="travel-label text-xs font-semibold uppercase text-teal-800">Route {index + 1}</p>
-                      <button className={smallButtonClass} onClick={() => removeRouteSegment(segment.id)} type="button">
-                        Delete route
-                      </button>
-                    </div>
-                    <div className="mt-4 grid gap-4">
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <Field label="From label" onChange={(value) => updateRouteSegment(segment.id, "fromLabel", value)} value={segment.fromLabel} />
-                        <Field label="To label" onChange={(value) => updateRouteSegment(segment.id, "toLabel", value)} value={segment.toLabel} />
-                      </div>
-                      <div className="grid gap-4 sm:grid-cols-4">
-                        <Field label="From latitude" onChange={(value) => updateRouteCoordinate(segment.id, "from", "latitude", value)} type="number" value={formatCoordinate(segment.from.latitude)} />
-                        <Field label="From longitude" onChange={(value) => updateRouteCoordinate(segment.id, "from", "longitude", value)} type="number" value={formatCoordinate(segment.from.longitude)} />
-                        <Field label="To latitude" onChange={(value) => updateRouteCoordinate(segment.id, "to", "latitude", value)} type="number" value={formatCoordinate(segment.to.latitude)} />
-                        <Field label="To longitude" onChange={(value) => updateRouteCoordinate(segment.id, "to", "longitude", value)} type="number" value={formatCoordinate(segment.to.longitude)} />
-                      </div>
-                      <div className="grid gap-4 sm:grid-cols-3">
-                        <label className="block">
-                          <span className="travel-label text-sm font-semibold text-zinc-700">Transport</span>
-                          <select className={inputClass} onChange={(event) => updateRouteTransport(segment.id, event.target.value as RouteTransport)} value={segment.transport}>
-                            {["flight", "train", "car", "walk", "boat", "other"].map((transport) => (
-                              <option key={transport} value={transport}>
-                                {transport}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="block">
-                          <span className="travel-label text-sm font-semibold text-zinc-700">Visibility</span>
-                          <select className={inputClass} onChange={(event) => updateRouteVisibility(segment.id, event.target.value as TravelVisibility)} value={segment.visibility}>
-                            <option value="public">Public</option>
-                            <option value="shared">Shared</option>
-                            <option value="private">Private</option>
-                          </select>
-                        </label>
-                        <label className="block">
-                          <span className="travel-label text-sm font-semibold text-zinc-700">Linked place</span>
-                          <select className={inputClass} onChange={(event) => updateRouteSegment(segment.id, "linkedPlaceId", event.target.value)} value={segment.linkedPlaceId ?? ""}>
-                            <option value="">No place link</option>
-                            {activeTrip.places.map((place) => (
-                              <option key={place.id} value={place.id}>
-                                {place.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <label className="block">
-                          <span className="travel-label text-sm font-semibold text-zinc-700">Linked story</span>
-                          <select className={inputClass} onChange={(event) => updateRouteSegment(segment.id, "linkedJournalEntryId", event.target.value)} value={segment.linkedJournalEntryId ?? ""}>
-                            <option value="">No story link</option>
-                            {activeTrip.journalEntries.map((entry) => (
-                              <option key={entry.id} value={entry.id}>
-                                {entry.title}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="block">
-                          <span className="travel-label text-sm font-semibold text-zinc-700">Linked photo</span>
-                          <select className={inputClass} onChange={(event) => updateRouteSegment(segment.id, "linkedPhotoId", event.target.value)} value={segment.linkedPhotoId ?? ""}>
-                            <option value="">No photo link</option>
-                            {activeTrip.photos.map((photo, photoIndex) => (
-                              <option key={photo.id} value={photo.id}>
-                                {photoIndex + 1}. {photo.caption ?? photo.originalFilename}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
-                      <TextArea label="Route note" onChange={(value) => updateRouteSegment(segment.id, "note", value)} value={segment.note ?? ""} />
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-            <section className="mt-8 rounded-xl border border-sky-100 bg-sky-50/40 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <SectionTitle eyebrow="Journal" title="Trip journal entries" />
-                <button className={smallButtonClass} onClick={addJournalEntry} type="button">
-                  Add journal entry
-                </button>
-              </div>
-              <div className="mt-5 grid gap-4">
-                {activeTrip.journalEntries.map((entry, index) => (
-                  <article className="rounded-xl border border-sky-100 bg-white p-4" key={entry.id}>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="travel-label text-xs font-semibold uppercase text-sky-700">Entry {index + 1}</p>
-                      <div className="flex flex-wrap gap-2">
-                        <button className={smallButtonClass} disabled={index === 0} onClick={() => moveJournalEntry(index, -1)} type="button">
-                          Move up
-                        </button>
-                        <button
-                          className={smallButtonClass}
-                          disabled={index === activeTrip.journalEntries.length - 1}
-                          onClick={() => moveJournalEntry(index, 1)}
-                          type="button"
-                        >
-                          Move down
-                        </button>
-                        <button className={smallButtonClass} onClick={() => removeJournalEntry(entry.id)} type="button">
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                    <div className="mt-4 grid gap-4">
-                      <Field label="Entry title" onChange={(value) => updateJournalEntry(entry.id, "title", value)} value={entry.title} />
-                      <div className="grid gap-4 sm:grid-cols-3">
-                        <Field label="Entry date" onChange={(value) => updateJournalEntry(entry.id, "entryDate", value)} type="date" value={toDateInput(entry.entryDate)} />
-                        <Field label="Mood" onChange={(value) => updateJournalEntry(entry.id, "mood", value)} value={entry.mood ?? ""} />
-                        <Field label="Weather" onChange={(value) => updateJournalEntry(entry.id, "weatherSummary", value)} value={entry.weatherSummary ?? ""} />
-                      </div>
-                      <label className="block">
-                        <span className="travel-label text-sm font-semibold text-zinc-700">Story photo paired with this wording</span>
-                        <select className={inputClass} onChange={(event) => updateJournalEntry(entry.id, "storyPhotoId", event.target.value)} value={entry.storyPhotoId ?? ""}>
-                          <option value="">Auto match for old entries</option>
-                          {activeTrip.photos.map((photo, photoIndex) => (
-                            <option key={photo.id} value={photo.id}>
-                              {photoIndex + 1}. {photo.caption ?? photo.originalFilename}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <TextArea label="Journal body" onChange={(value) => updateJournalEntry(entry.id, "body", value)} value={entry.body} />
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-            <section className="mt-8 rounded-xl border border-sky-100 bg-white p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <SectionTitle eyebrow="Album" title="Trip photos" />
-                <span className="rounded-full bg-sky-50 px-3 py-2 text-xs font-semibold text-zinc-600">{activeTrip.photos.length} photos</span>
-              </div>
-              <form className="mt-5 rounded-xl border border-dashed border-sky-200 bg-sky-50/60 p-4" onSubmit={uploadPhoto}>
-                <div className="grid gap-4 xl:grid-cols-[minmax(22rem,1.4fr)_minmax(16rem,1fr)_13rem] xl:items-end">
-                  <label className="block min-w-0">
-                    <span className="travel-label text-sm font-semibold text-zinc-700">Upload photo</span>
-                    <input
-                      accept="image/jpeg,image/png,image/webp"
-                      className={`${inputClass} file:mr-3 file:rounded-full file:border-0 file:bg-sky-800 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white`}
-                      name="file"
-                      required
-                      type="file"
-                    />
-                  </label>
-                  <label className="block min-w-0">
-                    <span className="travel-label text-sm font-semibold text-zinc-700">Caption</span>
-                    <input className={inputClass} name="caption" placeholder="Snow road outside Rovaniemi" />
-                  </label>
-                  <label className="block">
-                    <span className="travel-label text-sm font-semibold text-zinc-700">Taken at</span>
-                    <input className={inputClass} name="takenAt" type="datetime-local" />
-                  </label>
-                </div>
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs leading-5 text-zinc-500">JPG, PNG, or WebP only. Large photos are compressed before upload.</p>
-                  <button className={`${primaryButtonClass} min-w-32`} disabled={uploadingTripId === activeTrip.id} type="submit">
-                    {uploadingTripId === activeTrip.id ? "Uploading" : "Upload"}
-                  </button>
-                </div>
-              </form>
-              {uploadingTripId === activeTrip.id && uploadProgress !== null ? (
-                <div className="mt-4 rounded-xl border border-sky-100 bg-white p-3">
-                  <div className="h-2 overflow-hidden rounded-full bg-sky-100">
-                    <div className="h-full rounded-full bg-sky-700 transition-all" style={{ width: `${uploadProgress}%` }} />
-                  </div>
-                  <p className="mt-2 text-xs font-semibold text-zinc-600">{uploadProgress}% uploaded</p>
-                </div>
-              ) : null}
-              <div className="mt-5 grid gap-4">
-                {activeTrip.photos.map((photo, index) => (
-                  <article className="grid gap-4 rounded-xl border border-sky-100 bg-sky-50/50 p-4 lg:grid-cols-[14rem_1fr]" key={photo.id}>
-                    <div className="overflow-hidden rounded-xl bg-white">
-                      {isRenderablePhoto(photo) ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img alt={photo.caption ?? photo.originalFilename} className="h-44 w-full object-cover" src={photo.storageKey} />
-                      ) : (
-                        <div className="grid h-44 place-items-center text-sm text-zinc-500">Photo pending</div>
-                      )}
-                    </div>
-                    <div className="grid gap-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-zinc-700">
-                          Photo {index + 1} {photo.id === activeTrip.coverPhotoId ? "/ Cover" : ""}
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          <button className={smallButtonClass} disabled={photo.id === activeTrip.coverPhotoId} onClick={() => setCoverPhoto(photo.id)} type="button">
-                            Set cover
-                          </button>
-                          <button className={smallButtonClass} disabled={index === 0} onClick={() => movePhoto(index, -1)} type="button">
-                            Move up
-                          </button>
-                          <button className={smallButtonClass} disabled={index === activeTrip.photos.length - 1} onClick={() => movePhoto(index, 1)} type="button">
-                            Move down
-                          </button>
-                          <button className={smallButtonClass} onClick={() => removePhoto(photo.id)} type="button">
-                            Delete
-                          </button>
+
+            {tab === "story" ? (
+              <section className="mt-5 space-y-5">
+                <div><h2 className="travel-display text-2xl font-semibold">一段一段看草稿</h2><p className="mt-1 text-sm text-zinc-600">照片和初稿已經配好。覺得對就保留；想補充時，寫一句或錄一句話。</p></div>
+                {activeTrip.journalEntries.map((entry, index) => {
+                  const photo = activeTrip.photos.find((item) => item.id === entry.storyPhotoId) ?? null;
+                  return (
+                    <article className="overflow-hidden rounded-3xl border border-sky-100 bg-white shadow-sm" key={entry.id}>
+                      <div className="grid lg:grid-cols-[18rem_1fr]">
+                        <div className="relative min-h-48 overflow-hidden bg-stone-100">{photo ? <PhotoThumb className="h-full min-h-64" photo={photo} /> : <div className="grid min-h-64 place-items-center px-6 text-center text-sm font-semibold text-zinc-500">這一段還沒有照片</div>}<button className="absolute bottom-3 left-3 min-h-11 rounded-full bg-black/70 px-4 py-2 text-xs font-semibold text-white" onClick={() => openPicker({ kind: "journal", entryId: entry.id })} type="button">{photo ? "這張不對，換一張" : "補一張照片"}</button></div>
+                        <div className="p-5 sm:p-6">
+                          <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold text-sky-700">草稿第 {index + 1} 段・{formatDate(photo?.takenAt ?? entry.entryDate)}</p><label className="mt-2 block"><span className="text-xs text-zinc-500">段落標題 · 可直接修改</span><input aria-label="段落標題" className={`${inputClass} font-semibold`} onChange={(event) => updateJournalEntry(entry.id, { title: event.target.value })} value={entry.title} /></label></div><div className="flex gap-2"><button aria-label="往前移" className={secondaryButtonClass} disabled={index === 0} onClick={() => moveJournalEntry(index, -1)} type="button">↑</button><button aria-label="往後移" className={secondaryButtonClass} disabled={index === activeTrip.journalEntries.length - 1} onClick={() => moveJournalEntry(index, 1)} type="button">↓</button></div></div>
+                          <label className="mt-5 block"><span className="travel-label text-base font-semibold text-zinc-800">這一段想怎麼改？</span><textarea className={`${inputClass} min-h-40 leading-7`} onChange={(event) => updateJournalEntry(entry.id, { body: event.target.value })} placeholder="原稿可以直接改；只補一句也可以。" value={entry.body} /></label>
+                          <div className="mt-4 flex flex-wrap items-center gap-3">{recordingEntryId === entry.id ? <button className="travel-label inline-flex min-h-11 items-center rounded-full bg-rose-700 px-5 py-3 text-sm font-semibold text-white" onClick={stopRecording} type="button">■ 完成錄音</button> : <button className={secondaryButtonClass} disabled={recordingEntryId !== null} onClick={() => void startRecording(entry.id)} type="button">● 補一句錄音</button>}{entry.voiceNoteUrl ? <audio className="h-11 max-w-full" controls src={entry.voiceNoteUrl} /> : <span className="text-xs text-zinc-500">不想打字，也可以直接說</span>}</div>
+                          <details className="mt-5 border-t border-sky-100 pt-4"><summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-zinc-500">其他修改（平常不用）</summary><div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end"><button className={secondaryButtonClass} onClick={() => removeJournalEntry(entry.id)} type="button">刪除這段</button></div></details>
                         </div>
                       </div>
-                      <TextArea label="Caption" onChange={(value) => updatePhoto(photo.id, "caption", value)} value={photo.caption ?? ""} />
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <Field label="Filename" onChange={(value) => updatePhoto(photo.id, "originalFilename", value)} value={photo.originalFilename} />
-                        <Field label="Taken at" onChange={(value) => updatePhoto(photo.id, "takenAt", value)} type="datetime-local" value={toDateTimeInput(photo.takenAt)} />
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          </section>
-        ) : (
-          <section className="rounded-xl border border-sky-100 bg-white/95 p-5 shadow-sm">
-            <SectionTitle eyebrow="No trips" title="Nothing to edit yet" />
-            <p className="mt-3 text-sm text-zinc-600">Create a new trip draft first.</p>
-          </section>
-        )}
+                    </article>
+                  );
+                })}
+                <div className="rounded-3xl border border-dashed border-sky-200 bg-white p-5 text-center"><p className="text-sm text-zinc-600">只有草稿真的少了一段，才需要補。</p><button className={`${secondaryButtonClass} mt-3`} onClick={() => openPicker({ kind: "new" })} type="button">＋ 補一段回憶</button></div>
+              </section>
+            ) : null}
+
+            {tab === "photos" ? (
+              <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+                <div><form className="rounded-3xl border border-dashed border-sky-200 bg-white p-5" onSubmit={uploadPhoto}><h2 className="travel-display text-2xl font-semibold">少了照片才從這裡補</h2><p className="mt-2 text-sm text-zinc-600">原檔直接放入，不壓縮、不轉格式。</p><div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end"><input accept="image/*" className={`${inputClass} file:mr-3 file:rounded-full file:border-0 file:bg-sky-800 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white`} name="file" required type="file" /><button className={primaryButtonClass} disabled={uploading} type="submit">{uploading ? `放入中 ${uploadProgress ?? 0}%` : "放入原始照片"}</button></div></form>
+                  <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{activeTrip.photos.map((photo, index) => <button className={`overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition hover:-translate-y-0.5 ${selectedPhoto?.id === photo.id ? "border-sky-600 ring-4 ring-sky-100" : "border-sky-100"}`} key={photo.id} onClick={() => setSelectedPhotoId(photo.id)} type="button"><PhotoThumb className="h-36 sm:h-40" photo={photo} /><span className="block p-3"><span className="block text-xs font-semibold text-sky-700">工作編號 #{index + 1}{photo.id === activeTrip.coverPhotoId ? "・封面" : ""}</span><span className="mt-1 block line-clamp-2 text-sm font-semibold text-zinc-800">{photoLabel(photo, index)}</span><span className="mt-1 block text-xs text-zinc-500">{formatDate(photo.takenAt)}</span></span></button>)}</div>
+                </div>
+                {selectedPhoto ? <aside className="h-fit rounded-3xl border border-sky-100 bg-white p-5 shadow-sm xl:sticky xl:top-28"><PhotoThumb className="h-56 rounded-2xl" photo={selectedPhoto} /><p className="mt-4 text-xs font-semibold text-sky-700">工作編號 #{activeTrip.photos.findIndex((photo) => photo.id === selectedPhoto.id) + 1}</p><p className="mt-1 text-sm text-zinc-500">{formatDate(selectedPhoto.takenAt)}</p><label className="mt-4 block"><span className="travel-label text-sm font-semibold">這張照片想留下什麼話？</span><textarea className={`${inputClass} min-h-28`} onChange={(event) => updatePhotoCaption(selectedPhoto.id, event.target.value)} value={selectedPhoto.caption ?? ""} /></label><div className="mt-4 grid grid-cols-2 gap-2"><button className={secondaryButtonClass} onClick={() => updateActiveTrip((trip) => ({ ...trip, coverPhotoId: selectedPhoto.id }))} type="button">設為封面</button><button className={secondaryButtonClass} onClick={() => removePhoto(selectedPhoto.id)} type="button">移除照片</button><button className={secondaryButtonClass} disabled={activeTrip.photos[0]?.id === selectedPhoto.id} onClick={() => movePhoto(selectedPhoto.id, -1)} type="button">往前</button><button className={secondaryButtonClass} disabled={activeTrip.photos.at(-1)?.id === selectedPhoto.id} onClick={() => movePhoto(selectedPhoto.id, 1)} type="button">往後</button></div></aside> : null}
+              </section>
+            ) : null}
+
+            {tab === "videos" ? <section className="mt-5">{promoVideos.length > 0 ? <ShortVideoGallery videos={promoVideos} /> : <div className="rounded-3xl border border-dashed border-sky-200 bg-white p-8 text-center text-zinc-600">這個行程目前沒有短片草稿。</div>}</section> : null}
+
+            {tab === "details" ? <section className="mt-5 rounded-3xl border border-sky-100 bg-white p-5 shadow-sm sm:p-7"><h2 className="travel-display text-2xl font-semibold">系統整理好的行程資料</h2><p className="mt-2 text-sm leading-6 text-zinc-600">這些只是背景資訊。看草稿、寫感想時不需要填。</p><dl className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><div className="rounded-2xl bg-sky-50 p-4"><dt className="text-xs font-semibold text-zinc-500">時間</dt><dd className="mt-1 font-semibold">{formatDate(activeTrip.startDate)}－{formatDate(activeTrip.endDate)}</dd></div><div className="rounded-2xl bg-sky-50 p-4"><dt className="text-xs font-semibold text-zinc-500">地方</dt><dd className="mt-1 font-semibold">{activeTrip.city}・{activeTrip.country}</dd></div><div className="rounded-2xl bg-sky-50 p-4"><dt className="text-xs font-semibold text-zinc-500">狀態</dt><dd className="mt-1 font-semibold">{isTripPublic(activeTrip) ? "公開" : "私人草稿"}</dd></div><div className="rounded-2xl bg-sky-50 p-4"><dt className="text-xs font-semibold text-zinc-500">系統整理</dt><dd className="mt-1 font-semibold">{activeTrip.places.length} 個地點・{(activeTrip.travelRoute ?? []).length} 段路線</dd></div></dl><details className="mt-6 rounded-2xl border border-sky-100 p-4"><summary className="min-h-11 cursor-pointer py-2 font-semibold text-sky-900">真的需要時才修改基本資料</summary><div className="mt-4 grid gap-4 sm:grid-cols-2"><Field label="行程名稱" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, title: value }))} value={activeTrip.title} /><Field label="公開網址名稱" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, slug: value }))} value={activeTrip.slug} /><Field label="城市" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, city: value }))} value={activeTrip.city} /><Field label="國家" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, country: value }))} value={activeTrip.country} /><Field label="開始日期" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, startDate: value }))} type="date" value={toDateInput(activeTrip.startDate)} /><Field label="結束日期" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, endDate: value }))} type="date" value={toDateInput(activeTrip.endDate)} /><label className="block sm:col-span-2"><span className="travel-label text-sm font-semibold text-zinc-700">行程簡介</span><textarea className={`${inputClass} min-h-28`} onChange={(event) => updateActiveTrip((trip) => ({ ...trip, summary: event.target.value }))} value={activeTrip.summary} /></label><label className="block sm:col-span-2"><span className="travel-label text-sm font-semibold text-zinc-700">公開狀態</span><select className={inputClass} onChange={(event) => updateActiveTrip((trip) => ({ ...trip, visibility: event.target.value as TravelVisibility }))} value={activeTrip.visibility}><option value="private">私人草稿</option><option value="public">公開</option></select></label></div></details></section> : null}
+          </>
+        ) : <div className="rounded-3xl border border-sky-100 bg-white p-8 text-center"><h2 className="travel-display text-2xl font-semibold">目前沒有行程</h2></div>}
+
+        <p aria-live="polite" className="mt-6 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-zinc-600 shadow-sm">{message}<span className="ml-2 text-xs font-normal text-zinc-400">{storeSource === "blob" ? "雲端工作台" : storeSource === "drive" ? "家庭共用儲存" : "初始內容"}</span></p>
       </section>
+
+      {pickerTarget && activeTrip ? <div aria-modal="true" className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 sm:items-center sm:p-6" role="dialog"><section className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-t-3xl bg-[#f8f3ea] shadow-2xl sm:rounded-3xl"><div className="flex items-start justify-between gap-4 border-b border-sky-100 bg-white px-5 py-4"><div><h2 className="travel-display text-2xl font-semibold">{pickerTarget.kind === "new" ? "系統先挑出尚未使用的照片" : "先看這一段附近的照片"}</h2><p className="mt-1 text-sm text-zinc-600">不用從頭翻相簿。先看少量建議；真的找不到，再查看全部照片。</p></div><button className={secondaryButtonClass} onClick={() => setPickerTarget(null)} type="button">關閉</button></div><div className="max-h-[72vh] overflow-y-auto p-4 sm:p-6"><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{pickerPhotos.map((photo) => { const index = activeTrip.photos.findIndex((item) => item.id === photo.id); return <button className="overflow-hidden rounded-2xl border border-sky-100 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-500" key={photo.id} onClick={() => choosePhoto(photo)} type="button"><PhotoThumb className="h-40 sm:h-44" photo={photo} /><span className="block p-3"><span className="block text-xs font-semibold text-sky-700">工作編號 #{index + 1}</span><span className="mt-1 block line-clamp-2 text-sm font-semibold">{photoLabel(photo, index)}</span><span className="mt-1 block text-xs text-zinc-500">{formatDate(photo.takenAt)}</span><span className="mt-3 block rounded-full bg-sky-800 px-3 py-2 text-center text-xs font-semibold text-white">選擇這張照片</span></span></button>; })}</div>{!showAllPickerPhotos && activeTrip.photos.length > pickerPhotos.length ? <button className={`${secondaryButtonClass} mt-5 w-full`} onClick={() => setShowAllPickerPhotos(true)} type="button">建議裡沒有，再查看全部 {activeTrip.photos.length} 張</button> : null}{pickerTarget.kind === "new" ? <button className={`${secondaryButtonClass} mt-3 w-full`} onClick={() => choosePhoto(null)} type="button">這一段沒有照片，直接寫一句</button> : null}</div></section></div> : null}
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-sky-100 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur sm:hidden"><button className={`${primaryButtonClass} w-full`} disabled={saving || dirtyTripIds.size === 0} onClick={() => void saveAllChanges()} type="button">{saving ? "儲存中…" : dirtyTripIds.size > 0 ? `儲存全部變更（${dirtyTripIds.size}）` : "全部已儲存"}</button></div>
+      </fieldset>
     </main>
   );
 }

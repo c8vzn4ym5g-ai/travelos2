@@ -1,4 +1,5 @@
 import { list, put } from "@vercel/blob";
+import { readDriveTrips, writeDriveTrip } from "@/lib/drive-trips";
 import { isAdminPinValid, isFamilyPinRequired } from "./family-pin.ts";
 import { LAPLAND_WINTER_VILLAGE_CAPTION, LAPLAND_WINTER_VILLAGE_PHOTO_ID, seedTripDetails } from "@/lib/trips";
 import type { MusicTrack, Photo, TripDetail } from "@/lib/types";
@@ -14,7 +15,7 @@ export type TravelOSContent = {
 
 export type StoreStatus = {
   configured: boolean;
-  source: "blob" | "seed";
+  source: "blob" | "drive" | "seed";
 };
 
 export function isBlobConfigured() {
@@ -25,9 +26,11 @@ export { isAdminPinValid, isFamilyPinRequired };
 
 export async function readContent(): Promise<{ content: TravelOSContent; status: StoreStatus }> {
   if (!isBlobConfigured()) {
+    const saved = await readDriveTrips();
+    const savedIds = new Set(saved.map(trip => trip.id));
     return {
-      content: createSeedContent(),
-      status: { configured: false, source: "seed" },
+      content: { ...createSeedContent(), trips: [...saved, ...seedTripDetails.filter(trip => !savedIds.has(trip.id))] },
+      status: { configured: true, source: "drive" },
     };
   }
 
@@ -71,6 +74,14 @@ export async function writeContent(trips: TripDetail[]) {
     updatedAt: new Date().toISOString(),
   };
 
+  if (!isBlobConfigured()) {
+    const saved = await readDriveTrips();
+    const byId = new Map(saved.map(trip => [trip.id, trip]));
+    for (const trip of trips) {
+      if (JSON.stringify(byId.get(trip.id)) !== JSON.stringify(trip)) await writeDriveTrip(trip);
+    }
+    return content;
+  }
   await put(DATA_BLOB_PATH, JSON.stringify(content, null, 2), {
     access: "public",
     allowOverwrite: true,

@@ -1,5 +1,7 @@
 import { isAdminPinValid, readContent, writeContent } from "@/lib/editable-store";
 import type { TripDetail } from "@/lib/types";
+import { writeDriveTrip } from "@/lib/drive-trips";
+import { isBlobConfigured } from "@/lib/editable-store";
 
 export const runtime = "nodejs";
 
@@ -29,7 +31,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "A trip with this title/address already exists" }, { status: 409 });
   }
 
-  const savedContent = await writeContent([body.trip, ...content.trips]);
+  if (!isBlobConfigured()) await writeDriveTrip(body.trip);
+  const savedContent = isBlobConfigured() ? await writeContent([body.trip, ...content.trips]) : { ...content, trips: [body.trip, ...content.trips] };
   return Response.json({ content: savedContent, trip: body.trip });
 }
 
@@ -58,7 +61,8 @@ export async function PUT(request: Request) {
     updatedAt: new Date().toISOString(),
   };
   const trips = content.trips.map((trip) => (trip.id === updatedTrip.id ? updatedTrip : trip));
-  const savedContent = await writeContent(trips);
+  if (!isBlobConfigured()) await writeDriveTrip(updatedTrip);
+  const savedContent = isBlobConfigured() ? await writeContent(trips) : { ...content, trips };
 
   return Response.json({ content: savedContent, trip: updatedTrip });
 }
