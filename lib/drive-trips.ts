@@ -1,7 +1,10 @@
 import { getDriveAccess } from "@/lib/drive-warehouse";
+import { KYOTO_MAPLE_CHAPTER_IDS, KYOTO_MAPLE_TRIP_ID, foldKyotoMapleTrips } from "@/lib/kyoto-maple-merge";
 import type { TripDetail } from "@/lib/types";
 
 const prefix = "travelos__trip__";
+const mapleCanonicalFileName = `${prefix}${KYOTO_MAPLE_TRIP_ID}.json`;
+const mapleChapterFileNames = new Set(KYOTO_MAPLE_CHAPTER_IDS.map((id) => `${prefix}${id}.json`));
 
 export type DriveTripFile = {
   id: string;
@@ -36,6 +39,15 @@ export function selectLatestDriveTripFiles(files: DriveTripFile[]) {
   return [...byName.values()];
 }
 
+export function selectDriveTripFilesForRead(files: DriveTripFile[]) {
+  const latest = selectLatestDriveTripFiles(files);
+  const hasCanonical = latest.some((file) => file.name === mapleCanonicalFileName);
+  if (!hasCanonical) {
+    return latest;
+  }
+  return latest.filter((file) => !mapleChapterFileNames.has(file.name));
+}
+
 export function preferLatestDriveTrips(
   trips: Array<{ modifiedTime?: string; trip: TripDetail }>,
 ) {
@@ -62,7 +74,7 @@ export async function readDriveTrips(): Promise<TripDetail[]> {
   });
   if (!response.ok) throw new Error("無法讀取家庭遊記。");
   const listing = await response.json() as { files: DriveTripFile[] };
-  const files = selectLatestDriveTripFiles(listing.files ?? []);
+  const files = selectDriveTripFilesForRead(listing.files ?? []);
   const loaded = await Promise.all(files.map(async (file) => {
     const result = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {
       headers: { Authorization: `Bearer ${access.token}` },
@@ -72,7 +84,7 @@ export async function readDriveTrips(): Promise<TripDetail[]> {
     const trip = await result.json() as TripDetail;
     return { modifiedTime: file.modifiedTime, trip };
   }));
-  return preferLatestDriveTrips(loaded);
+  return foldKyotoMapleTrips(preferLatestDriveTrips(loaded));
 }
 
 export async function writeDriveTrip(trip: TripDetail) {

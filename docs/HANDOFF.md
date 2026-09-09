@@ -37,11 +37,13 @@ Open in iPhone Safari, same PIN flow as `/family`:
 - 巴黎→萊茵: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_paris-rhine_2013
 - 羅浮宮: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_paris-louvre_2023
 - 克羅埃西亞→威尼斯: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_croatia-venice_2011
+- 爱慕虚荣团 · 京都枫叶: https://travelos2.chao-jason.workers.dev/trips/admin?trip=trip_kyoto_maple
 - Write / 轉成遊記: https://travelos2.chao-jason.workers.dev/trips/write
 
-`/family` lists live Drive titles as 編輯 pills into `?trip=`.
-`/trips/admin` restores family session + PIN headers on content /
-photo / audio. Write’s attach control is labeled 轉成遊記.
+`/family` 編輯 → 旅行遊記 opens the same `/trips/admin` picker the six
+journeys already use. Kyoto maple chapters fold into **one** private
+trip `trip_kyoto_maple` (爱慕虚荣团 · 京都枫叶). Do not add maple-only
+pills or a second editor door. Public `/trips` still only lists Lapland.
 
 Phone edits autosave to `localStorage` (`travelos-trip-draft:` /
 `travelos-write-draft:`), flushed on debounce, interval, blur,

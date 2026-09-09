@@ -191,6 +191,7 @@ test("family home lists live Drive trip drafts for iPhone edit", async () => {
   assert.match(family, /FamilyEditableTrips/);
   assert.match(list, /readContent/);
   assert.match(list, /\/trips\/admin\?trip=/);
+  assert.doesNotMatch(list, /trip_kyoto_maple_/);
   assert.match(list, /data-family-editable-trips=""/);
   assert.match(list, />編輯</);
   assert.match(admin, /resolveFamilySession/);

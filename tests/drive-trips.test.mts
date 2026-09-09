@@ -81,3 +81,11 @@ test("parsed Drive trips keep the latest copy per trip id", () => {
   assert.equal(trips[0]?.title, "爱慕虚荣团 · 岚山翠嵐：温泉饭店里的枫叶禁区");
   assert.equal(trips[0]?.visibility, "private");
 });
+
+test("Drive trip reader folds maple chapters after keeping the latest file", async () => {
+  const source = await import("node:fs/promises").then((fs) =>
+    fs.readFile(new URL("../lib/drive-trips.ts", import.meta.url), "utf8"),
+  );
+  assert.match(source, /foldKyotoMapleTrips/);
+  assert.match(source, /selectDriveTripFilesForRead/);
+});
