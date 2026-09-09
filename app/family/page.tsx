@@ -84,7 +84,8 @@ export default function FamilyWorkspacePage() {
         <h2 className="fam-section">編輯</h2>
         <div className="mt-4 grid grid-cols-2 gap-3">
           {departments.map((department) => (
-            <article className={`fam-album fam-album-${department.album}`} key={department.title}>
+            <div className="min-w-0" key={department.title}>
+            <a className={`fam-album fam-album-${department.album} fam-editor-card`} href={department.editHref} aria-label={department.editLabel}>
               <div className="fam-album-art" aria-hidden>
                 {department.album === "sky" ? (
                   <>
@@ -100,14 +101,11 @@ export default function FamilyWorkspacePage() {
               </div>
               <div>
                 <h3 className="fam-album-title">{department.title}</h3>
-                <Link className="fam-quiet-action" href={department.viewHref}>
-                  看看本子
-                </Link>
-                <Link className="fam-edit-link" href={department.editHref}>
-                  {department.editLabel}
-                </Link>
+                <span className="fam-editor-card-action">點這裡編輯 →</span>
               </div>
-            </article>
+            </a>
+            <a className="fam-editor-read" href={department.viewHref}>閱讀{department.title} →</a>
+            </div>
           ))}
         </div>
       </section>
