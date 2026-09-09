@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { CaptureSpeechLangChips } from "@/app/family/capture-speech-lang";
 import { FamilyBackLink } from "@/app/family/family-back";
 import { FamGlyph } from "@/app/family/family-icons";
@@ -42,11 +43,13 @@ import {
 import {
   CAPTURE_PHOTO_RETRY_LIMIT,
   captureDockCountText,
+  captureDockIsOpen,
   capturePhotoRetryDelayMs,
   clearCaptureRoundMeta,
   createIndexedDbCaptureFileStore,
   listRetryableCapturePhotoIds,
   readCaptureRoundMeta,
+  waitForCaptureDockPaint,
   writeCaptureRoundMeta,
   type CaptureRoundMeta,
 } from "@/lib/capture-round-store";
@@ -792,14 +795,18 @@ export default function CapturePage() {
     }
 
     const incomingCount = fileListLength;
-    setIngestHint(freshRound ? incomingCount : photosRef.current.length + incomingCount);
-    setMessage(
-      captureDumpProgressMessage(
-        fileListLength,
-        photosRef.current.length + Math.min(fileListLength, CAPTURE_DUMP_LIMIT),
-        { freshRound },
-      ),
-    );
+    // Cite input.files.length on Confirm. Apple’s 加入 (n) is not readable from the web.
+    flushSync(() => {
+      setIngestHint(freshRound ? incomingCount : photosRef.current.length + incomingCount);
+      setMessage(
+        captureDumpProgressMessage(
+          fileListLength,
+          photosRef.current.length + Math.min(fileListLength, CAPTURE_DUMP_LIMIT),
+          { freshRound },
+        ),
+      );
+    });
+    await waitForCaptureDockPaint();
 
     try {
       await ingestCaptureFileList(fileList, {
@@ -1129,7 +1136,7 @@ export default function CapturePage() {
       </header>
 
       <section className="fam-sheet">
-        {photos.length > 0 || ingestHint > 0 ? (
+        {captureDockIsOpen(photos.length, ingestHint) ? (
           <div className="fam-dock-count" data-capture-dock-count="">
             <p>{captureDockCountText(photos, ingestHint)}</p>
             <button

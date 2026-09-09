@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   captureDockCountText,
+  captureDockIsOpen,
   capturePhotoRetryDelayMs,
   capturePhotoStatusLabel,
   captureRoundNeedsResume,
@@ -9,6 +10,7 @@ import {
   createMemoryCaptureFileStore,
   listRetryableCapturePhotoIds,
   readCaptureRoundMeta,
+  waitForCaptureDockPaint,
   writeCaptureRoundMeta,
 } from "../lib/capture-round-store.ts";
 
@@ -48,7 +50,10 @@ test("sticky dock count stays on selected / received while the round is open", (
     ]),
     "已選 6 · 上傳中 2 · 已收到 2 · 還沒進倉 2",
   );
-  assert.equal(captureDockCountText([], 39), "已選 39 · 已收到 0");
+  assert.equal(captureDockCountText([], 39), "已選 39");
+  assert.equal(captureDockIsOpen(0, 0), false);
+  assert.equal(captureDockIsOpen(0, 39), true);
+  assert.equal(captureDockIsOpen(31, 0), true);
   assert.equal(
     captureDockCountText(
       [
@@ -79,6 +84,24 @@ test("dock status labels never call a local thumbnail received", () => {
     ]),
     ["b", "c", "d"],
   );
+});
+
+test("dock paint yields twice so 已選 can show before ingest copies", async () => {
+  const frames: Array<() => void> = [];
+  const painted = waitForCaptureDockPaint({
+    requestAnimationFrame(callback) {
+      frames.push(callback);
+      return frames.length;
+    },
+    setTimeout() {
+      throw new Error("setTimeout must not run when rAF exists");
+    },
+  });
+  assert.equal(frames.length, 1);
+  frames.shift()?.();
+  assert.equal(frames.length, 1);
+  frames.shift()?.();
+  await painted;
 });
 
 test("capture round meta round-trips and memory file store keeps the File", async () => {

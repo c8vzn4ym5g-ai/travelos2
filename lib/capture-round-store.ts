@@ -42,11 +42,18 @@ export function capturePhotoStatusLabel(status: CaptureDockStatus) {
   return "上傳中";
 }
 
+export function captureDockIsOpen(photoCount: number, selectedHint = 0) {
+  return photoCount > 0 || selectedHint > 0;
+}
+
 export function captureDockCountText(
   photos: Array<{ status: CaptureDockStatus }>,
   selectedHint = 0,
 ) {
   const selected = Math.max(photos.length, selectedHint);
+  if (photos.length === 0) {
+    return `已選 ${selected}`;
+  }
   const uploaded = photos.filter((photo) => photo.status === "uploaded").length;
   const uploading = photos.filter((photo) => photo.status === "queued" || photo.status === "uploading").length;
   const held = photos.filter((photo) => photo.status === "failed").length;
@@ -59,6 +66,24 @@ export function captureDockCountText(
     parts.push(`還沒進倉 ${held}`);
   }
   return parts.join(" · ");
+}
+
+type PaintScheduler = {
+  requestAnimationFrame?: (callback: FrameRequestCallback) => number;
+  setTimeout: (callback: () => void, ms: number) => unknown;
+};
+
+export function waitForCaptureDockPaint(scheduler: PaintScheduler = globalThis) {
+  return new Promise<void>((resolve) => {
+    const raf = scheduler.requestAnimationFrame;
+    if (typeof raf === "function") {
+      raf.call(scheduler, () => {
+        raf.call(scheduler, () => resolve());
+      });
+      return;
+    }
+    scheduler.setTimeout(() => resolve(), 0);
+  });
 }
 
 export function capturePhotoRetryDelayMs(attempt: number) {
