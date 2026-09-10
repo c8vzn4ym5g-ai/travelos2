@@ -4,7 +4,6 @@ import { resolve } from "node:path";
 import test from "node:test";
 import {
   ensureR2MediaBucket,
-  R2_OWNER_CREATE_CLICK,
   TRAVELOS_MEDIA_BUCKET,
 } from "../scripts/ensure-r2-media-bucket.mjs";
 
@@ -61,7 +60,7 @@ test("ensureR2MediaBucket creates the bucket when the list is empty", async () =
   assert.equal(result.created, true);
 });
 
-test("ensureR2MediaBucket tells Owner the dashboard click on 403", async () => {
+test("ensureR2MediaBucket tells Owner to enable R2 on API 10042", async () => {
   const result = await ensureR2MediaBucket({
     token: "fake-token",
     accountId: GOOD_ID,
@@ -69,15 +68,17 @@ test("ensureR2MediaBucket tells Owner the dashboard click on 403", async () => {
       ok: false,
       status: 403,
       text: async () =>
-        JSON.stringify({ success: false, errors: [{ code: 9109, message: "Unauthorized" }] }),
+        JSON.stringify({
+          success: false,
+          errors: [{ code: 10042, message: "Please enable R2 through the Cloudflare Dashboard." }],
+        }),
     }),
   });
   assert.equal(result.ok, false);
-  assert.match(result.message, /R2/);
+  assert.match(result.message, /10042/);
+  assert.match(result.message, /Enable R2/);
   assert.match(result.message, /travelos-media/);
-  assert.match(result.message, /Create bucket/);
   assert.doesNotMatch(result.message, /fake-token/);
-  assert.match(R2_OWNER_CREATE_CLICK, /R2 Object Storage/);
 });
 
 test("Cloudflare workflow creates travelos-media before Wrangler deploy", async () => {

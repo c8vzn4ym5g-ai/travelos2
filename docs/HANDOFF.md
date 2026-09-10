@@ -7,8 +7,9 @@ Worker binding `TRAVELOS_MEDIA` → bucket `travelos-media` is on in
 Probe: `PUT /api/media?probe=1` then `GET /api/media?key=probe/ok.txt`.
 
 CI creates the bucket (`scripts/ensure-r2-media-bucket.mjs`). If that
-403s, Owner: Cloudflare Dashboard → R2 → Create bucket → `travelos-media`.
-Public r2.dev is optional; Worker GET is enough.
+403s with API **10042**, Owner: Cloudflare Dashboard → R2 Object Storage
+(enable R2 / accept terms) → Create bucket → `travelos-media`, then
+re-run Cloudflare Workers. Public r2.dev is optional; Worker GET is enough.
 
 ## 2026-09-10 Home 500: null startDate after Drive parse spread
 
