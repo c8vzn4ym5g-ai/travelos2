@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { readContent } from "@/lib/editable-store";
 import { isLaplandStorefrontSlug, LAPLAND_SEASON_LABEL } from "@/lib/lapland-storefront-copy";
+import { seedTripDetails } from "@/lib/trips";
 import { isTripPublic } from "@/lib/trip-visibility";
 import type { Money, Photo, TripDetail } from "@/lib/types";
 
@@ -108,7 +109,12 @@ function TripCard({ trip }: { trip: TripDetail }) {
 }
 
 export default async function TripsPage() {
-  const { content } = await readContent();
+  let content: { trips: TripDetail[] };
+  try {
+    content = (await readContent()).content;
+  } catch {
+    content = { trips: seedTripDetails };
+  }
   const trips = [...content.trips].sort((first, second) => second.startDate.localeCompare(first.startDate));
   const publicTrips = trips.filter(isTripPublic);
   const visibleTrips = publicTrips;

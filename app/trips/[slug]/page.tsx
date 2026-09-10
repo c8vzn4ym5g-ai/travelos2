@@ -39,6 +39,14 @@ interface TripDetailPageProps {
   params: Promise<{ slug: string }>;
 }
 
+async function loadTripCatalog() {
+  try {
+    return (await readContent()).content.trips;
+  } catch {
+    return getTripDetailsByStartDate();
+  }
+}
+
 const dateFormatter = new Intl.DateTimeFormat("en", {
   month: "short",
   day: "numeric",
@@ -248,8 +256,8 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: TripDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const { content } = await readContent();
-  const trip = content.trips.find((item) => item.slug === slug);
+  const trips = await loadTripCatalog();
+  const trip = trips.find((item) => item.slug === slug);
 
   if (!trip || !isTripPublic(trip)) {
     return {};
@@ -282,8 +290,8 @@ export async function generateMetadata({ params }: TripDetailPageProps): Promise
 
 export default async function TripDetailPage({ params }: TripDetailPageProps) {
   const { slug } = await params;
-  const { content } = await readContent();
-  const found = content.trips.find((item) => item.slug === slug);
+  const trips = await loadTripCatalog();
+  const found = trips.find((item) => item.slug === slug);
 
   if (!found || !isTripPublic(found)) {
     notFound();

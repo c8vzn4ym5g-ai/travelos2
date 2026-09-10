@@ -82,6 +82,38 @@ Files under `public/travelos/` are copied into the Worker assets bundle. They ke
 
 No R2 incremental cache is configured, so ISR cache is in-memory per isolate. Capture persistence is Drive, not CF cache.
 
+### Optional R2 `travelos-media` (finished shorts)
+
+Family trip shelves stay on Drive (`travelos__trip__*.json` in folder `1Sk2TqgpF6NxoNYdUKO4h8t84UA7KxChN`). Do **not** wait on R2 to restore GET/PUT `/api/trips/content`.
+
+Later cold storage for finished shorts can use an R2 bucket named `travelos-media`. Create the bucket in the Cloudflare dashboard first, then uncomment this in `wrangler.jsonc`:
+
+```jsonc
+"r2_buckets": [
+  { "binding": "TRAVELOS_MEDIA", "bucket_name": "travelos-media" }
+]
+```
+
+A missing bucket will fail OpenNext/Wrangler deploy. Keep the binding commented until the bucket exists.
+
+## Drive trip shelves (not Vercel Blob)
+
+Live CF must **not** set `BLOB_READ_WRITE_TOKEN`. Trip JSON is per-file in the Drive warehouse.
+
+After a batch of PUTs, Apps Script `op=item` wrapped some trip files as `{ moment: <trip>, updatedAt }`. The Worker now unwraps that shape. New writes use `POST op=trip` (raw JSON) when the pasted Apps Script is current, and otherwise Drive API media PATCH.
+
+Paste `scripts/drive-warehouse-apps-script.js` into the existing web app (same `/exec` URL) so these trip ops are live:
+
+- `GET op=trips` — search `travelos__trip__*.json`, unwrap `{moment}`, return `{ trips: [{ name, modifiedTime, trip }] }`
+- `POST op=trip` — write raw trip JSON (`upsertNamed_`). Never `op=item` for trips.
+- `GET op=item&name=` — still required for Capture shards
+
+Until that paste, the Worker falls back to `op=drive-access` + Drive API. Access tokens are cached ~45 minutes on the isolate.
+
+Maple journal titles follow the PUT body (Traditional Chinese). Do not force `嵐山翠嵐：溫泉飯店裡的楓葉禁區` or `京都四人怎麼一起玩開心`. Series `愛慕虛榮團` stays on `series`. Kyushu `trip_kyushu_family_2026` locked journals (`大分 奧日田 梅響 溫泉酒店`, `小國町附近：竹庵的驚人份量`) are not rewritten on read.
+
+Family PIN stays off unless `TRAVELOS_REQUIRE_FAMILY_PIN=1` is set. Do not set that on Cloudflare until Owner asks.
+
 Trip/coffee **admin photo upload** routes still import `@vercel/blob`. Without `BLOB_READ_WRITE_TOKEN` they are not the Capture path; public Lapland reads seed + `/public/travelos/`. Those Blob admin routes are leftover from Vercel and are not required for family Capture on Workers.
 
 ## Cutover

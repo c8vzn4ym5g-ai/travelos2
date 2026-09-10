@@ -13,10 +13,10 @@ test("homepage featured strip uses first-glance promo copy and the public journa
   assert.match(home, /FEATURED_JOURNAL_DEK_ZH = "廣場上有一條線。走過去，就是北極圈。"/);
   assert.match(home, /FEATURED_JOURNAL_DEK_EN = "A line in the square you can walk across."/);
   assert.match(home, /FEATURED_JOURNAL_CTA = "打開這趟 \/ Open this trip"/);
+  assert.match(home, /url: LAPLAND_COVER_PHOTO/);
   assert.match(home, /href=\{LAPLAND_JOURNAL_PATH\}/);
   assert.match(home, /description: FEATURED_JOURNAL_DEK/);
   assert.match(home, /title: FEATURED_JOURNAL_TITLE/);
-  assert.match(home, /cover_IMG_3619/);
   assert.doesNotMatch(home, /現在公開 \/ Now public/);
   assert.doesNotMatch(home, /打開遊記 \/ Open the journal/);
   assert.doesNotMatch(home, /十二月。深冬。白晝只剩兩三小時。/);

@@ -1,6 +1,32 @@
 # TravelOS Handoff
 
-## 2026-09-09 Capture photo path no longer rewrites the fat catalog
+## 2026-09-10 Restore family trip shelves on live CF
+
+Root cause of live `GET/PUT /api/trips/content` empty HTTP 500 (and `/` 500):
+after a batch of trip PUTs, several `travelos__trip__*.json` files were stored
+through Apps Script `op=item`, which wraps JSON as `{ moment, updatedAt }`.
+`readDriveTrips` treated that as a `TripDetail`, so `title` was missing and
+`stripSeriesFromTitle(undefined)` threw. Home SSR calls the same `readContent`.
+Not a mega `content.json` / Vercel Blob crash — CF has no Blob token.
+
+Fixes on this ship:
+
+- Unwrap `{ moment }` / `{ trip }` wrappers; skip files without `trip_*` ids.
+- Honor PUT titles (繁體). Stop forcing maple locked titles.
+- Apps Script `GET op=trips` + `POST op=trip` (raw JSON). Paste the in-repo
+  script into the existing `/exec` web app. Until then Drive API fallback
+  plus isolate token cache still works.
+- PUT writes one trip file and returns merged content (no second full warehouse read).
+- Optional R2 `travelos-media` is documented only; do not uncomment the
+  wrangler binding until the bucket exists (it would block CF deploy).
+
+Kyushu locked journals in Drive are unchanged:
+`大分 奧日田 梅響 溫泉酒店` and `小國町附近：竹庵的驚人份量`.
+
+Same door: `/family` → 編輯 → 旅行遊記 → `/trips/admin`.
+Live origin: https://travelos2.chao-jason.workers.dev
+
+## 2026-09-09 Maple titles are place-only 繁體; series is separate
 
 Live CF was still slow after concurrency=3: full GET `/api/moments` ~70s
 (122 moments / ~1353 photos), and a 38-photo round took ~27 min because
@@ -46,16 +72,9 @@ are on screen. Apple album `N 個項目` is not ours.
 
 Owner lock. Journal TITLE is the place/trip only. Never prepend
 `爱慕虚荣团` / `愛慕虛榮團`. That brand lives in `series` (繁體
-`愛慕虛榮團`) for a later 專題. `prepareMapleJournal` and
-`writeDriveTrip` both force the locked titles so PUT cannot put the
-prefix back.
-
-Locked maple titles:
-
-- trip_kyoto_maple_arashiyama → 嵐山翠嵐：溫泉飯店裡的楓葉禁區
-- trip_kyoto_maple_ginkaku → 銀閣寺線
-- trip_kyoto_maple_higashiyama → 東山朱色
-- trip_kyoto_maple_crew_notes → 京都四人怎麼一起玩開心
+`愛慕虛榮團`) for a later 專題. `prepareMapleJournal` and `writeDriveTrip` convert titles to 繁體 and drop a
+`爱慕虚荣团 ·` prefix / Day N / 候選. They do **not** overwrite the PUT title.
+Owner shelves: `嵐山翠嵐` and `愛慕虛榮團：四個人怎麼一起把京都玩開心` round-trip.
 
 Day17 / Day18 stay on startDate/endDate only. Never in the reader title.
 `候選` is GM-only (Kiyomizu west-gate guess). Never in the reader title.
@@ -63,12 +82,12 @@ Day17 / Day18 stay on startDate/endDate only. Never in the reader title.
 All family/reader-facing Chinese on trips is Taiwan 繁體 (OpenCC s2tw
 characters). Keep 朱色 / 朱紅; keep 亞得里亞. Do not run phrase-layer
 s2twp (that turns 朱色→硃色, 性價比→價效比, 局部→區域性).
-`prepareReaderChinese` runs on every editor trip; maple still uses the
-locked titles. Drive writes trash older same-name JSON duplicates.
+`prepareReaderChinese` runs on every editor trip; maple titles follow the PUT
+body after 繁體 conversion. Drive writes trash older same-name JSON duplicates.
 
 Drive reads reattach leftover seed journals Owner still edits
-(北海道 / 曼谷 / 巴黎冬日 / 倫敦 / Lapland). PUT re-reads the full
-warehouse after one-trip save so maple save cannot shrink the picker.
+(北海道 / 曼谷 / 巴黎冬日 / 倫敦 / Lapland). PUT writes that one trip file and
+returns merged editor content (no second full warehouse read).
 
 Kyushu `trip_kyushu_family_2026` dates lock to 2026-08-30 → 2026-09-06.
 Stay spine: Solaria TF53AEFAC2A33, 界 KYIBNF266359, 梅響

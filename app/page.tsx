@@ -5,7 +5,7 @@ import { getCoffeeShopsByVisitDate, getCoffeeStats } from "@/lib/coffee";
 import { readCoffeeContent } from "@/lib/coffee-store";
 import { readContent } from "@/lib/editable-store";
 import { isTripPublic } from "@/lib/trip-visibility";
-import { LAPLAND_COVER_PHOTO, LAPLAND_JOURNAL_PATH, LAPLAND_TRIP_SLUG } from "@/lib/travelpayouts";
+import { LAPLAND_COVER_PHOTO, LAPLAND_JOURNAL_PATH } from "@/lib/travelpayouts";
 import type { CoffeePhoto, CoffeeShop, CoffeeShopListItem, Photo, TripDetail } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -18,27 +18,14 @@ const FEATURED_JOURNAL_DEK = `${FEATURED_JOURNAL_DEK_ZH}\n${FEATURED_JOURNAL_DEK
 const FEATURED_JOURNAL_CTA = "打開這趟 / Open this trip";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { content } = await readContent();
-  const publicTrips = content.trips.filter(isTripPublic);
-
-  if (publicTrips.length !== 1 || publicTrips[0].slug !== LAPLAND_TRIP_SLUG) {
-    return {};
-  }
-
-  const featured = publicTrips[0];
-  const coverPhoto =
-    featured.photos.find((photo) => photo.storageKey.includes("cover_IMG_3619") && isRenderablePhoto(photo)) ??
-    featured.photos.find((photo) => photo.id === featured.coverPhotoId && isRenderablePhoto(photo)) ??
-    featured.photos.find(isRenderablePhoto);
-
   return {
     description: FEATURED_JOURNAL_DEK,
     openGraph: {
       description: FEATURED_JOURNAL_DEK,
       images: [
         {
-          alt: coverPhoto?.caption ?? FEATURED_JOURNAL_TITLE,
-          url: coverPhoto?.storageKey ?? LAPLAND_COVER_PHOTO,
+          alt: FEATURED_JOURNAL_TITLE,
+          url: LAPLAND_COVER_PHOTO,
         },
       ],
       title: FEATURED_JOURNAL_TITLE,
@@ -255,7 +242,12 @@ function LatestTripItem({ trip }: { trip: TripDetail }) {
 }
 
 export default async function Home() {
-  const { content: travelContent } = await readContent();
+  let travelContent: { trips: TripDetail[] };
+  try {
+    travelContent = (await readContent()).content;
+  } catch {
+    travelContent = { trips: [] };
+  }
   const { content: coffeeContent } = await readCoffeeContent();
   const coffeeStats = getCoffeeStats(coffeeContent.shops);
   const trips = [...travelContent.trips].sort((first, second) => second.startDate.localeCompare(first.startDate));

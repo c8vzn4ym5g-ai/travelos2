@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   duplicateDriveTripFileIds,
+  parseDriveTripRecord,
   preferLatestDriveTrips,
   selectDriveTripFilesForRead,
   selectLatestDriveTripFiles,
@@ -106,6 +107,9 @@ test("Drive trip reader holds unconfirmed maple files and prepares the series", 
   assert.match(source, /VANITY_CREW_HELD_TRIP_IDS/);
   assert.match(source, /duplicateDriveTripFileIds/);
   assert.match(source, /trashed: true/);
+  assert.match(source, /parseDriveTripRecord/);
+  assert.match(source, /getWarehouseTripBundle/);
+  assert.match(source, /putWarehouseTrip/);
 });
 
 test("older same-name Drive trip files are marked for trash", () => {
@@ -118,5 +122,60 @@ test("older same-name Drive trip files are marked for trash", () => {
       "keep",
     ),
     ["old"],
+  );
+});
+
+test("Drive trip JSON wrapped as Apps Script moment still parses", () => {
+  const wrapped = parseDriveTripRecord({
+    updatedAt: "2026-09-10T12:19:42.247Z",
+    moment: {
+      id: "trip_kyoto_maple_arashiyama",
+      title: "嵐山翠嵐",
+      slug: "kyoto-maple-arashiyama",
+      journalEntries: [{ id: "j1", title: "渡月橋", body: "竹林。" }],
+      photos: [{ id: "p1", storageKey: "/api/trips/media?id=x" }],
+    },
+  });
+  assert.equal(wrapped?.id, "trip_kyoto_maple_arashiyama");
+  assert.equal(wrapped?.title, "嵐山翠嵐");
+  assert.equal(wrapped?.photos.length, 1);
+  assert.equal(wrapped?.journalEntries.length, 1);
+
+  const raw = parseDriveTripRecord({
+    id: "trip_kyushu_family_2026",
+    title: "九州家庭慢遊：福岡、大分與阿蘇",
+    slug: "kyushu-family",
+    journalEntries: [
+      { id: "kyushu_arrival", title: "大分 奧日田 梅響 溫泉酒店", body: "梅酒廠 經營的溫泉旅館。" },
+      { id: "kyushu_chikuan", title: "小國町附近：竹庵的驚人份量", body: "到了熊本小國町附近，公路旁的餐廳：竹庵。" },
+    ],
+  });
+  assert.equal(raw?.journalEntries[0]?.title, "大分 奧日田 梅響 溫泉酒店");
+  assert.equal(raw?.journalEntries[1]?.title, "小國町附近：竹庵的驚人份量");
+
+  assert.equal(parseDriveTripRecord({ moment: { trips: ["trip_tokyo_crew"], photos: [] } }), null);
+  assert.equal(parseDriveTripRecord({ id: "trip_kyoto_maple", title: "mega" }), null);
+});
+
+test("wrapped maple files without a top-level title do not collapse into one trip", () => {
+  const trips = preferLatestDriveTrips([
+    {
+      modifiedTime: "2026-09-10T12:19:42.247Z",
+      trip: parseDriveTripRecord({
+        moment: { id: "trip_kyoto_maple_arashiyama", title: "嵐山翠嵐" },
+      })!,
+    },
+    {
+      modifiedTime: "2026-09-10T12:19:51.106Z",
+      trip: parseDriveTripRecord({
+        moment: { id: "trip_kyoto_maple_crew_notes", title: "愛慕虛榮團：四個人怎麼一起把京都玩開心" },
+      })!,
+    },
+  ]);
+  assert.equal(trips.length, 2);
+  assert.equal(trips.find((item) => item.id === "trip_kyoto_maple_arashiyama")?.title, "嵐山翠嵐");
+  assert.equal(
+    trips.find((item) => item.id === "trip_kyoto_maple_crew_notes")?.title,
+    "愛慕虛榮團：四個人怎麼一起把京都玩開心",
   );
 });

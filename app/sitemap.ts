@@ -6,7 +6,19 @@ import { resolvePublicSiteOrigin } from "@/lib/site-url";
 const siteUrl = resolvePublicSiteOrigin();
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [{ content: travelContent }, { content: coffeeContent }] = await Promise.all([readContent(), readCoffeeContent()]);
+  let travelContent: { trips: Array<{ visibility: string; updatedAt: string; slug: string }> } = { trips: [] };
+  let coffeeContent: { shops: Array<{ updatedAt: string; slug: string }> } = { shops: [] };
+  try {
+    const [{ content: travel }, { content: coffee }] = await Promise.all([readContent(), readCoffeeContent()]);
+    travelContent = travel;
+    coffeeContent = coffee;
+  } catch {
+    try {
+      coffeeContent = (await readCoffeeContent()).content;
+    } catch {
+      coffeeContent = { shops: [] };
+    }
+  }
   const publicTrips = travelContent.trips.filter((trip) => trip.visibility !== "private");
 
   return [

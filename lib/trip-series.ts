@@ -13,13 +13,6 @@ export const VANITY_CREW_MAPLE_JOURNAL_IDS = [
   "trip_kyoto_maple_crew_notes",
 ] as const;
 
-export const VANITY_CREW_JOURNAL_TITLES = {
-  trip_kyoto_maple_arashiyama: "嵐山翠嵐：溫泉飯店裡的楓葉禁區",
-  trip_kyoto_maple_ginkaku: "銀閣寺線",
-  trip_kyoto_maple_higashiyama: "東山朱色",
-  trip_kyoto_maple_crew_notes: "京都四人怎麼一起玩開心",
-} as const;
-
 export const VANITY_CREW_HELD_TRIP_IDS = [
   "trip_kyoto_maple_tofukuji_path",
   "trip_kyoto_maple",
@@ -98,7 +91,7 @@ function normalizePlace(place: Partial<Place>, tripId: string, index: number): P
     updatedAt: place.updatedAt || isoNow(),
   };
 }
-const SERIES_TITLE_PREFIX = /^\s*(爱慕虚荣团|愛慕虛榮團)\s*[·•:：]?\s*/u;
+const SERIES_TITLE_PREFIX = /^\s*(爱慕虚荣团|愛慕虛榮團)\s*[·•]\s*/u;
 const KEEP_ZHU_SE = "\uE010\uE011";
 const KEEP_ZHU_HONG = "\uE012\uE013";
 const KEEP_ADRIATIC = "\uE014\uE015\uE016";
@@ -143,8 +136,8 @@ function convertNullable(value: string | null | undefined): string | null {
   return toTraditional(value);
 }
 
-export function stripSeriesFromTitle(title: string) {
-  let next = title.trim();
+export function stripSeriesFromTitle(title: string | null | undefined) {
+  let next = (title ?? "").trim();
   for (let i = 0; i < 4; i += 1) {
     const stripped = next.replace(SERIES_TITLE_PREFIX, "").trim();
     if (stripped === next) {
@@ -155,12 +148,14 @@ export function stripSeriesFromTitle(title: string) {
   return next;
 }
 
+/** PUT title wins. Convert to 繁體, drop `爱慕虚荣团 ·` prefix and Day N / 候選 GM notes. */
 export function mapleJournalTitle(trip: Pick<TripDetail, "id" | "title">) {
-  const locked = VANITY_CREW_JOURNAL_TITLES[trip.id as keyof typeof VANITY_CREW_JOURNAL_TITLES];
-  if (locked) {
-    return locked;
-  }
-  return toTraditional(stripSeriesFromTitle(trip.title)).replace(/[（(]\s*Day\s*\d+\s*[）)]/gi, "").trim();
+  const converted = toTraditional(stripSeriesFromTitle(trip.title))
+    .replace(/[（(]\s*Day\s*\d+\s*[）)]/gi, "")
+    .replace(/[／/]\s*清水候選/g, "")
+    .replace(/候選/g, "")
+    .trim();
+  return converted || toTraditional(trip.title ?? "").trim() || trip.id;
 }
 
 function convertJournalEntry(entry: JournalEntry, tripId: string, index: number): JournalEntry {
@@ -195,7 +190,7 @@ export function prepareReaderChinese(trip: TripDetail): TripDetail {
   const crew = convertCrew(extra.crew);
   return {
     ...trip,
-    title: toTraditional(stripSeriesFromTitle(trip.title)).replace(/[（(]\s*Day\s*\d+\s*[）)]/gi, "").trim() || trip.title,
+    title: toTraditional(stripSeriesFromTitle(trip.title)).replace(/[（(]\s*Day\s*\d+\s*[）)]/gi, "").trim() || trip.title || trip.id,
     summary: toTraditional(trip.summary),
     series: trip.series ? toTraditional(trip.series) : trip.series,
     photos: (trip.photos ?? []).map((photo) => ({
@@ -232,7 +227,7 @@ export function prepareReaderChinese(trip: TripDetail): TripDetail {
 }
 
 export function prepareMapleJournal(trip: TripDetail): TripDetail {
-  const photos = (trip.photos as IngestPhoto[])
+  const photos = ((trip.photos ?? []) as IngestPhoto[])
     .map((photo, index) => normalizePhoto(photo, trip.id, index))
     .filter((photo): photo is Photo => Boolean(photo));
   const places = (trip.places ?? []).map((place, index) => normalizePlace(place, trip.id, index));
