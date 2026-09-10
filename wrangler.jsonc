@@ -16,12 +16,12 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS",
   },
-  // Cold storage for finished shorts. CI creates `travelos-media` via
-  // scripts/ensure-r2-media-bucket.mjs. A missing bucket still blocks deploy.
-  // Trip shelves stay on Drive — this binding is not on the content path.
-  "r2_buckets": [
-    { "binding": "TRAVELOS_MEDIA", "bucket_name": "travelos-media" }
-  ],
+  // Cold storage for finished shorts. Keep commented until Owner enables R2
+  // (API 10042) and bucket `travelos-media` exists — a live binding blocks
+  // Wrangler deploy. Trip shelves stay on Drive; this is not on the content path.
+  // "r2_buckets": [
+  //   { "binding": "TRAVELOS_MEDIA", "bucket_name": "travelos-media" }
+  // ],
   "ai": {
     "binding": "AI",
   },

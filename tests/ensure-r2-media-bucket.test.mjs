@@ -75,18 +75,20 @@ test("ensureR2MediaBucket tells Owner to enable R2 on API 10042", async () => {
     }),
   });
   assert.equal(result.ok, false);
+  assert.equal(result.skipWorkflowFailure, true);
   assert.match(result.message, /10042/);
   assert.match(result.message, /Enable R2/);
   assert.match(result.message, /travelos-media/);
   assert.doesNotMatch(result.message, /fake-token/);
 });
 
-test("Cloudflare workflow creates travelos-media before Wrangler deploy", async () => {
+test("Cloudflare workflow does not block Worker deploy on missing R2", async () => {
   const workflow = await readFile(resolve(root, ".github/workflows/cloudflare-deploy.yml"), "utf8");
   assert.match(workflow, /ensure-r2-media-bucket\.mjs/);
+  assert.match(workflow, /continue-on-error: true/);
   const wrangler = await readFile(resolve(root, "wrangler.jsonc"), "utf8");
-  assert.match(wrangler, /"r2_buckets"/);
-  assert.doesNotMatch(wrangler, /\/\/ "r2_buckets"/);
+  assert.match(wrangler, /\/\/ "r2_buckets"/);
   assert.match(wrangler, /TRAVELOS_MEDIA/);
   assert.match(wrangler, /travelos-media/);
+  assert.match(wrangler, /API 10042/);
 });

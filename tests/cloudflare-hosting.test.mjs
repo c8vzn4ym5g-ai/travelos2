@@ -31,8 +31,7 @@ test("Cloudflare OpenNext path exists and does not replace Vercel next build", a
   assert.match(wrangler, /\.open-next\/assets/);
   assert.match(wrangler, /travelos-media/);
   assert.match(wrangler, /TRAVELOS_MEDIA/);
-  assert.match(wrangler, /"r2_buckets"/);
-  assert.doesNotMatch(wrangler, /\/\/ "r2_buckets"/);
+  assert.match(wrangler, /\/\/ "r2_buckets"/);
   assert.doesNotMatch(wrangler, /BLOB_READ_WRITE_TOKEN/);
   assert.doesNotMatch(wrangler, /TRAVELOS_REQUIRE_FAMILY_PIN/);
 

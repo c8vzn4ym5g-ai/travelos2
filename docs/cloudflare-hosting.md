@@ -86,15 +86,15 @@ No R2 incremental cache is configured, so ISR cache is in-memory per isolate. Ca
 
 Family trip shelves stay on Drive (`travelos__trip__*.json` in folder `1Sk2TqgpF6NxoNYdUKO4h8t84UA7KxChN`). GET/PUT `/api/trips/content` does not use R2.
 
-`wrangler.jsonc` binds the bucket:
+`wrangler.jsonc` keeps the bucket commented until Owner enables R2 (API **10042**). Uncomment only after `travelos-media` exists:
 
 ```jsonc
-"r2_buckets": [
-  { "binding": "TRAVELOS_MEDIA", "bucket_name": "travelos-media" }
-]
+// "r2_buckets": [
+//   { "binding": "TRAVELOS_MEDIA", "bucket_name": "travelos-media" }
+// ]
 ```
 
-CI runs `node scripts/ensure-r2-media-bucket.mjs` before Wrangler deploy. That script lists R2 and creates `travelos-media` when missing.
+CI runs `node scripts/ensure-r2-media-bucket.mjs` before Wrangler deploy. API **10042** is a warning; it does not skip the Worker deploy. The script still creates `travelos-media` when R2 is enabled and the token can write.
 
 **Owner click if GitHub Action fails on R2 401/403** (token `travelos2-deploy` is Workers Scripts Edit only):
 
@@ -115,7 +115,7 @@ curl -X PUT "https://travelos2.chao-jason.workers.dev/api/media?probe=1"
 curl "https://travelos2.chao-jason.workers.dev/api/media?key=probe%2Fok.txt"
 ```
 
-A missing bucket still fails OpenNext/Wrangler deploy. Do not comment the binding back out unless Owner wants to skip R2 entirely.
+A live `r2_buckets` binding still fails Wrangler deploy while R2 is disabled. Keep it commented until the Owner click below is done, then uncomment and re-run Cloudflare Workers.
 
 ## Drive trip shelves (not Vercel Blob)
 
