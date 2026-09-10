@@ -447,6 +447,7 @@ test("Apps Script locks only index/item writes so photo binaries stay parallel",
 
   assert.match(doPost, /if \(body\.op === "index"\) \{\s*return withLock_/);
   assert.match(doPost, /if \(body\.op === "item"\) \{\s*return withLock_/);
+  assert.match(doPost, /if \(body\.op === "trip"\) \{\s*return writeTrip_/);
   assert.equal((doPost.match(/withLock_\(/g) ?? []).length, 2);
   assert.match(doPost, /return createBinaryFile_\(body\)/);
   assert.doesNotMatch(doPost, /var body = JSON\.parse\(e\.postData\.contents\);\s*return withLock_/);
@@ -454,14 +455,17 @@ test("Apps Script locks only index/item writes so photo binaries stay parallel",
   const doGet = extractNamedFunction(script, "doGet");
   assert.match(doGet, /op === "drive-access"/);
   assert.match(doGet, /op === "item"/);
+  assert.match(doGet, /op === "trips"/);
   assert.match(doGet, /getFilesByName\(itemName\)/);
   assert.match(doGet, /ScriptApp\.getOAuthToken/);
   assert.match(doGet, /folderId: FOLDER_ID/);
   assert.ok(doGet.indexOf('op === "item"') < doGet.indexOf('error: "missing id"'));
   assert.ok(doGet.indexOf('op === "drive-access"') < doGet.indexOf('error: "missing id"'));
+  assert.ok(doGet.indexOf('op === "trips"') < doGet.indexOf('error: "missing id"'));
 
   const unlocked = stripWithLockCalls(doPost);
   assert.match(unlocked, /createBinaryFile_\(body\)/);
+  assert.match(unlocked, /writeTrip_/);
   assert.doesNotMatch(unlocked, /writeIndex_|writeItem_/);
   assert.doesNotMatch(unlocked, /LockService/);
 

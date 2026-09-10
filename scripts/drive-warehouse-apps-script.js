@@ -151,6 +151,62 @@ function withLock_(work) {
   }
 }
 
+function parseTripRecord_(raw) {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  var trip = raw;
+  if (typeof raw.id !== "string" && raw.moment && typeof raw.moment === "object") {
+    trip = raw.moment;
+  } else if (typeof raw.id !== "string" && raw.trip && typeof raw.trip === "object") {
+    trip = raw.trip;
+  }
+  if (!trip || typeof trip.id !== "string" || trip.id.indexOf("trip_") !== 0) {
+    return null;
+  }
+  return trip;
+}
+
+function listTrips_() {
+  var folder = folder_();
+  var files = folder.searchFiles('title contains "travelos__trip__"');
+  var byId = {};
+  while (files.hasNext()) {
+    var file = files.next();
+    var name = file.getName();
+    if (name.indexOf("travelos__trip__") !== 0 || name.slice(-5) !== ".json") {
+      continue;
+    }
+    if (file.isTrashed && file.isTrashed()) {
+      continue;
+    }
+    var modified = file.getLastUpdated().toISOString();
+    try {
+      var trip = parseTripRecord_(JSON.parse(file.getBlob().getDataAsString()));
+      if (!trip) {
+        continue;
+      }
+      var current = byId[trip.id];
+      if (current && current.modifiedTime > modified) {
+        continue;
+      }
+      byId[trip.id] = { modifiedTime: modified, name: name, trip: trip };
+    } catch (err) {}
+  }
+  return Object.keys(byId).map(function (id) {
+    return byId[id];
+  });
+}
+
+function writeTrip_(body) {
+  var name = String(body.name || "");
+  if (name.indexOf("travelos__trip__") !== 0 || name.slice(-5) !== ".json") {
+    return json_({ error: "invalid trip name" });
+  }
+  upsertNamed_(name, body.text || "{}", "application/json");
+  return json_({ ok: true, name: name });
+}
+
 function writeIndex_(body) {
   var incoming = JSON.parse(body.text || "{}");
   var existing = readIndexObject_();
@@ -224,6 +280,9 @@ function doGet(e) {
       return json_({ error: "invalid item", name: itemName });
     }
   }
+  if (op === "trips") {
+    return json_({ trips: listTrips_() });
+  }
   if (op === "list") {
     return json_({ files: listFiles_() });
   }
@@ -277,6 +336,9 @@ function doPost(e) {
     return withLock_(function () {
       return writeItem_(body);
     });
+  }
+  if (body.op === "trip") {
+    return writeTrip_(body);
   }
   return createBinaryFile_(body);
 }

@@ -71,9 +71,9 @@ function journal(title: string, body: string): JournalEntry {
   };
 }
 
-test("maple journals keep place-only Traditional titles; series stays 愛慕虛榮團", () => {
+test("maple journals keep Traditional titles from PUT; series stays 愛慕虛榮團", () => {
   const kyushu = baseTrip("trip_kyushu_family_2026", "九州家庭慢遊：福岡、小國町與阿蘇");
-  const arashiyama = baseTrip("trip_kyoto_maple_arashiyama", "爱慕虚荣团 · 岚山翠嵐：温泉饭店里的枫叶禁区");
+  const arashiyama = baseTrip("trip_kyoto_maple_arashiyama", "嵐山翠嵐");
   arashiyama.photos = [ingestPhoto("drive_suiran", "IMG_2718.jpg")];
   arashiyama.journalEntries = [journal("住进枫叶区里面的饭店", "翠嵐禁区竹林。回顾红枫西门，不写东福寺。")];
   const ginkaku = baseTrip("trip_kyoto_maple_ginkaku", "爱慕虚荣团 · 银阁寺线（Day17）");
@@ -84,7 +84,7 @@ test("maple journals keep place-only Traditional titles; series stays 愛慕虛�
   higashiyama.startDate = "2022-11-18";
   higashiyama.endDate = "2022-11-18";
   higashiyama.journalEntries = [journal("朱红与蓝天", "东山。")];
-  const crew = baseTrip("trip_kyoto_maple_crew_notes", "爱慕虚荣团：四个人怎么一起把京都玩开心");
+  const crew = baseTrip("trip_kyoto_maple_crew_notes", "愛慕虛榮團：四個人怎麼一起把京都玩開心");
   crew.journalEntries = [journal("团名、分工、开心配额", "三位姐妹。")];
   const tofukuji = baseTrip("trip_kyoto_maple_tofukuji_path", "红叶参道候选篇：是否东福寺，待确认");
   const mega = baseTrip("trip_kyoto_maple", "爱慕虚荣团 · 京都枫叶");
@@ -103,16 +103,14 @@ test("maple journals keep place-only Traditional titles; series stays 愛慕虛�
   assert.ok(maple.every((trip) => trip.visibility === "private"));
   assert.ok(maple.every((trip) => !isTripPublic(trip)));
   assert.ok(maple.every((trip) => trip.series === "愛慕虛榮團"));
-  assert.ok(maple.every((trip) => !trip.title.includes("爱慕虚荣团")));
-  assert.ok(maple.every((trip) => !trip.title.includes("愛慕虛榮團")));
-  assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_arashiyama")?.title, "嵐山翠嵐：溫泉飯店裡的楓葉禁區");
+  assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_arashiyama")?.title, "嵐山翠嵐");
   assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_ginkaku")?.title, "銀閣寺線");
   assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_higashiyama")?.title, "東山朱色");
   assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_ginkaku")?.startDate, "2022-11-17");
   assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_higashiyama")?.startDate, "2022-11-18");
   assert.ok(maple.every((trip) => !/Day\s*\d+/i.test(trip.title)));
   assert.ok(maple.every((trip) => !trip.title.includes("候選")));
-  assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_crew_notes")?.title, "京都四人怎麼一起玩開心");
+  assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_crew_notes")?.title, "愛慕虛榮團：四個人怎麼一起把京都玩開心");
   assert.match(prepared.find((trip) => trip.id === "trip_kyoto_maple_arashiyama")?.journalEntries[0]?.body ?? "", /回顧紅楓西門，不寫東福寺/);
   assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_arashiyama")?.photos[0]?.storageKey, "/api/trips/media?id=drive_suiran");
 
@@ -120,6 +118,11 @@ test("maple journals keep place-only Traditional titles; series stays 愛慕虛�
     baseTrip("trip_kyoto_maple_arashiyama", "爱慕虚荣团 · 愛慕虛榮團 · 嵐山翠嵐：溫泉飯店裡的楓葉禁區"),
   ]);
   assert.equal(doublePrefixed[0]?.title, "嵐山翠嵐：溫泉飯店裡的楓葉禁區");
+
+  const forcedLong = prepareFamilyEditorTrips([
+    baseTrip("trip_kyoto_maple_arashiyama", "嵐山翠嵐"),
+  ]);
+  assert.equal(forcedLong[0]?.title, "嵐山翠嵐");
 
   assert.equal(searchTripsBySeries(prepared, "").length, prepared.length);
   const found = searchTripsBySeries(prepared, VANITY_CREW_SERIES);
@@ -168,4 +171,30 @@ test("reader Chinese converts Simplified to Taiwan Traditional without 朱色/�
   assert.equal(maple?.title, "東山朱色");
   assert.equal(maple?.journalEntries[0]?.title, "朱紅與藍天");
   assert.equal((maple as TripDetail & { crew?: { note: string } }).crew?.note, "嵐山→銀閣→東山朱色，同一團。");
+});
+
+test("Kyushu locked 梅響 and 竹庵 journals keep Owner bodies through editor prepare", () => {
+  const kyushu = baseTrip("trip_kyushu_family_2026", "九州家庭慢遊：福岡、大分與阿蘇");
+  kyushu.journalEntries = [
+    {
+      ...journal("大分 奧日田 梅響 溫泉酒店", "梅酒廠 經營的溫泉旅館。價效比算高。"),
+      id: "kyushu_arrival",
+    },
+    {
+      ...journal("小國町附近：竹庵的驚人份量", "到了熊本小國町附近，公路旁的餐廳：竹庵。份量大到極度誇張。"),
+      id: "kyushu_chikuan",
+    },
+  ];
+  const prepared = prepareFamilyEditorTrips([kyushu])[0];
+  assert.equal(prepared?.journalEntries[0]?.title, "大分 奧日田 梅響 溫泉酒店");
+  assert.equal(prepared?.journalEntries[1]?.title, "小國町附近：竹庵的驚人份量");
+  assert.match(prepared?.journalEntries[0]?.body ?? "", /梅酒廠 經營的溫泉旅館/);
+  assert.match(prepared?.journalEntries[0]?.body ?? "", /價效比算高/);
+  assert.match(prepared?.journalEntries[1]?.body ?? "", /公路旁的餐廳：竹庵/);
+});
+
+test("family editor prepare does not throw when Drive omitted a title", () => {
+  const broken = baseTrip("trip_tainan-yanshui-fireworks_2020", "鹽水蜂炮");
+  (broken as { title?: string }).title = undefined;
+  assert.doesNotThrow(() => prepareFamilyEditorTrips([broken]));
 });

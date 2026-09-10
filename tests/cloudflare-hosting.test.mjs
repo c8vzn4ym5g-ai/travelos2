@@ -29,6 +29,9 @@ test("Cloudflare OpenNext path exists and does not replace Vercel next build", a
   assert.match(wrangler, /"global_fetch_strictly_public"/);
   assert.match(wrangler, /\.open-next\/worker\.js/);
   assert.match(wrangler, /\.open-next\/assets/);
+  assert.match(wrangler, /travelos-media/);
+  assert.match(wrangler, /TRAVELOS_MEDIA/);
+  assert.match(wrangler, /\/\/ "r2_buckets"/);
   assert.doesNotMatch(wrangler, /BLOB_READ_WRITE_TOKEN/);
   assert.doesNotMatch(wrangler, /TRAVELOS_REQUIRE_FAMILY_PIN/);
 
@@ -90,6 +93,8 @@ test("storefront canonical origin is Cloudflare workers.dev; Vercel remains a co
   assert.match(docs, /cold spare/);
   assert.match(docs, /NTY3NzUw\.js\?t=567750/);
   assert.match(docs, /NTUwMzEz\.js\?t=550313/);
+  assert.match(docs, /travelos-media/);
+  assert.match(docs, /TRAVELOS_MEDIA/);
 });
 
 test("Drive warehouse credentials stay server-only for the Cloudflare path", async () => {

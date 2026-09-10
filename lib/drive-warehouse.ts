@@ -67,6 +67,7 @@ export function isDriveWarehouseFetchOverridden() {
 
 export function resetDriveWarehouseForTests() {
   testFetch = null;
+  cachedDriveAccess = null;
 }
 
 export function isDriveWarehouseConfigured() {
@@ -266,6 +267,56 @@ export async function putIndex(text: string, request?: DriveFetch): Promise<{ ok
   return { ok: true, name: typeof record?.name === "string" ? record.name : DRIVE_INDEX_NAME };
 }
 
+export type WarehouseTripBundleItem = {
+  modifiedTime?: string;
+  name?: string;
+  trip?: unknown;
+};
+
+/** Live Apps Script without `op=trips` returns `{ error: "missing id" }`. */
+export async function getWarehouseTripBundle(request?: DriveFetch): Promise<WarehouseTripBundleItem[] | null> {
+  try {
+    const raw = await getJson(
+      { op: "trips", token: getDriveWarehouseToken() },
+      "Drive warehouse trips GET",
+      request,
+      { allowNotFound: true },
+    );
+    if (!raw || typeof raw !== "object") {
+      return null;
+    }
+    const record = raw as { error?: unknown; trips?: unknown };
+    if (typeof record.error === "string" || !Array.isArray(record.trips)) {
+      return null;
+    }
+    return record.trips as WarehouseTripBundleItem[];
+  } catch {
+    return null;
+  }
+}
+
+/** Raw trip JSON. Never `op=item` — that wraps the file as `{ moment, updatedAt }` and breaks GET. */
+export async function putWarehouseTrip(
+  name: string,
+  text: string,
+  request?: DriveFetch,
+): Promise<boolean> {
+  try {
+    const raw = await postJson(
+      { name, op: "trip", text, token: getDriveWarehouseToken() },
+      "Drive warehouse trip POST",
+      request,
+    );
+    const record = raw as { error?: unknown; ok?: unknown };
+    if (typeof record?.error === "string") {
+      return false;
+    }
+    return record?.ok !== false;
+  } catch {
+    return false;
+  }
+}
+
 export async function putItem(name: string, text: string, request?: DriveFetch): Promise<{ ok: true; name: string }> {
   const raw = await postJson(
     { name, op: "item", text, token: getDriveWarehouseToken() },
@@ -405,6 +456,14 @@ export type DriveAccess = {
   token: string;
 };
 
+type CachedDriveAccess = {
+  access: DriveAccess;
+  exp: number;
+};
+
+let cachedDriveAccess: CachedDriveAccess | null = null;
+const DRIVE_ACCESS_TTL_MS = 45 * 60 * 1000;
+
 export type DriveResumableSessionPayload = {
   coordinates: GeoPoint | null;
   exp: number;
@@ -505,13 +564,20 @@ function parseDriveAccess(raw: unknown): DriveAccess | null {
 }
 
 export async function getDriveAccess(request?: DriveFetch): Promise<DriveAccess | null> {
+  if (!request && !testFetch && cachedDriveAccess && cachedDriveAccess.exp > Date.now()) {
+    return cachedDriveAccess.access;
+  }
   const raw = await getJson(
     { op: "drive-access", token: getDriveWarehouseToken() },
     "Drive warehouse access GET",
     request,
     { allowNotFound: true },
   );
-  return parseDriveAccess(raw);
+  const parsed = parseDriveAccess(raw);
+  if (parsed && !request && !testFetch) {
+    cachedDriveAccess = { access: parsed, exp: Date.now() + DRIVE_ACCESS_TTL_MS };
+  }
+  return parsed;
 }
 
 export function safeBrowserOrigin(origin: string | null | undefined) {
