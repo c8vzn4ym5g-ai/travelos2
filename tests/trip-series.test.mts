@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { formatEditorTripPickerLabel } from "../lib/editor-trip-label.ts";
 import {
   VANITY_CREW_SERIES,
   prepareFamilyEditorTrips,
   prepareReaderChinese,
   searchTripsBySeries,
+  stripSeriesFromTitle,
   toTraditional,
 } from "../lib/trip-series.ts";
 import { compareTripsByStartDateDesc, isTripPublic } from "../lib/trip-visibility.ts";
@@ -205,4 +207,22 @@ test("trip startDate sort treats null dates as empty", () => {
   const ordered = [withDate, missing].sort(compareTripsByStartDateDesc);
   assert.equal(ordered[0], withDate);
   assert.doesNotThrow(() => [missing, missing].sort(compareTripsByStartDateDesc));
+});
+
+test("editor trip picker keeps Lapland title and omits trailing pipe when date is empty", () => {
+  assert.equal(stripSeriesFromTitle("北極圈上的十二月"), "北極圈上的十二月");
+  const lapland = baseTrip("trip_lapland_2020", "北極圈上的十二月");
+  lapland.startDate = "2019-12-11";
+  const prepared = prepareFamilyEditorTrips([lapland])[0];
+  assert.equal(prepared?.title, "北極圈上的十二月");
+  assert.equal(
+    formatEditorTripPickerLabel(prepared?.title, prepared?.startDate),
+    "北極圈上的十二月 | 2019-12-11",
+  );
+  assert.equal(formatEditorTripPickerLabel("北極圈上的十二月", "2019-12-11"), "北極圈上的十二月 | 2019-12-11");
+  assert.equal(formatEditorTripPickerLabel("東京走走", ""), "東京走走");
+  assert.equal(formatEditorTripPickerLabel("瑞士山水", null), "瑞士山水");
+  assert.equal(formatEditorTripPickerLabel("西班牙陽光", "   "), "西班牙陽光");
+  assert.doesNotMatch(formatEditorTripPickerLabel("東京走走", ""), /\s*\|\s*$/);
+  assert.equal(formatEditorTripPickerLabel("  ", "2019-12-11"), "2019-12-11");
 });

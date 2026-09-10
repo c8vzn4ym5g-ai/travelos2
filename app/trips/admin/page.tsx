@@ -15,6 +15,7 @@ import {
 import { FAMILY_ADMIN_SESSION_KEY, familyPinHeaders, resolveFamilySession } from "@/lib/family-session";
 import { canonicalSiteUrl, isSpareVercelHost } from "@/lib/site-url";
 import { getTripPromoVideos } from "@/lib/promo-videos";
+import { formatEditorTripPickerLabel } from "@/lib/editor-trip-label";
 import { compareTripsByStartDateDesc, isTripPublic } from "@/lib/trip-visibility";
 import type { JournalEntry, Photo, TravelVisibility, TripDetail } from "@/lib/types";
 
@@ -550,7 +551,7 @@ export default function TravelAdminPage() {
           <label className="min-w-0 flex-1">
             <span className="sr-only">選擇行程</span>
             <select className="min-h-11 w-full rounded-2xl border border-sky-200 bg-white px-4 text-sm font-semibold text-zinc-900 lg:max-w-xl" onChange={(event) => { flushLocalDrafts(); setActiveTripId(event.target.value); }} value={activeTrip?.id ?? ""}>
-              {sortedTrips.map((trip) => <option key={trip.id} value={trip.id}>{trip.title}｜{toDateInput(trip.startDate)}</option>)}
+              {sortedTrips.map((trip) => <option key={trip.id} value={trip.id}>{formatEditorTripPickerLabel(trip.title, trip.startDate)}</option>)}
             </select>
           </label>
           <div className="flex items-center justify-between gap-3">

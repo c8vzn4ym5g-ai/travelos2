@@ -43,6 +43,8 @@ test("family PWA and editor stay on Cloudflare workers.dev, not Vercel seed", as
   assert.match(host, /isSpareVercelHost/);
   assert.match(admin, /isSpareVercelHost\(window\.location\.host\)/);
   assert.match(admin, /canonicalSiteUrl/);
+  assert.match(admin, /formatEditorTripPickerLabel\(trip\.title, trip\.startDate\)/);
+  assert.doesNotMatch(admin, /\{trip\.title\}｜\{toDateInput\(trip\.startDate\)\}/);
 
   assert.match(store, /withMissingSeedTrips\(saved\)/);
   assert.doesNotMatch(store, /seedTripDetails\.filter\(trip => !savedIds\.has\(trip\.id\)\)/);
