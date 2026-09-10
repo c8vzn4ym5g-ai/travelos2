@@ -31,7 +31,8 @@ test("Cloudflare OpenNext path exists and does not replace Vercel next build", a
   assert.match(wrangler, /\.open-next\/assets/);
   assert.match(wrangler, /travelos-media/);
   assert.match(wrangler, /TRAVELOS_MEDIA/);
-  assert.match(wrangler, /\/\/ "r2_buckets"/);
+  assert.match(wrangler, /"r2_buckets"/);
+  assert.doesNotMatch(wrangler, /\/\/ "r2_buckets"/);
   assert.doesNotMatch(wrangler, /BLOB_READ_WRITE_TOKEN/);
   assert.doesNotMatch(wrangler, /TRAVELOS_REQUIRE_FAMILY_PIN/);
 
@@ -46,12 +47,16 @@ test("Cloudflare OpenNext path exists and does not replace Vercel next build", a
   assert.match(workflow, /opennextjs-cloudflare deploy/);
   assert.doesNotMatch(workflow, /pnpm exec wrangler deploy/);
   assert.match(workflow, /scripts\/verify-cloudflare-creds\.mjs/);
+  assert.match(workflow, /scripts\/ensure-r2-media-bucket\.mjs/);
   assert.match(workflow, /pnpm run build/);
 
   const docs = await readSource("docs/cloudflare-hosting.md");
   assert.match(docs, /32 hexadecimal/);
   assert.match(docs, /31c5f4dccc8eabb03968996576e8e1c4/);
   assert.doesNotMatch(docs, /31c5f4dccc8eabb039689996576e8e1c4/);
+
+  const tripsContent = await readSource("app/api/trips/content/route.ts");
+  assert.doesNotMatch(tripsContent, /r2-media|TRAVELOS_MEDIA/);
 });
 
 test("storefront canonical origin is Cloudflare workers.dev; Vercel remains a cold spare", async () => {

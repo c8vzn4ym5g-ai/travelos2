@@ -16,13 +16,12 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS",
   },
-  // Optional cold storage for finished shorts. Create the `travelos-media`
-  // R2 bucket in the Cloudflare dashboard before uncommenting — a missing
-  // bucket blocks `wrangler` / OpenNext deploy. Shelf restore does not
-  // depend on R2.
-  // "r2_buckets": [
-  //   { "binding": "TRAVELOS_MEDIA", "bucket_name": "travelos-media" }
-  // ],
+  // Cold storage for finished shorts. CI creates `travelos-media` via
+  // scripts/ensure-r2-media-bucket.mjs. A missing bucket still blocks deploy.
+  // Trip shelves stay on Drive — this binding is not on the content path.
+  "r2_buckets": [
+    { "binding": "TRAVELOS_MEDIA", "bucket_name": "travelos-media" }
+  ],
   "ai": {
     "binding": "AI",
   },

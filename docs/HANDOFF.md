@@ -1,5 +1,17 @@
 # TravelOS Handoff
 
+## 2026-09-10 R2 travelos-media binding
+
+Worker binding `TRAVELOS_MEDIA` → bucket `travelos-media` is on in
+`wrangler.jsonc`. Trip shelves stay on Drive. Helper: `lib/r2-media.ts`.
+Probe: `PUT /api/media?probe=1` then `GET /api/media?key=probe/ok.txt`.
+
+CI creates the bucket (`scripts/ensure-r2-media-bucket.mjs`). If that
+403s, Owner: Cloudflare Dashboard → R2 → Create bucket → `travelos-media`.
+Public r2.dev is optional; Worker GET is enough.
+
+## 2026-09-10 Home 500: null startDate after Drive parse spread
+
 ## 2026-09-10 Home 500: null startDate after Drive parse spread
 
 Live `GET /api/trips/content` was 200, but `GET /` stayed 500.

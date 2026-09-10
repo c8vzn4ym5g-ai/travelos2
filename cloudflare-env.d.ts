@@ -4,6 +4,7 @@ interface __BaseEnv_CloudflareEnv {
 	ASSETS: Fetcher;
 	NEXTJS_ENV: string;
 	WORKER_SELF_REFERENCE: Fetcher /* travelos2 */;
+	TRAVELOS_MEDIA: R2Bucket;
 	AI: {
 		run(model: string, inputs: Record<string, unknown>): Promise<unknown>;
 	};

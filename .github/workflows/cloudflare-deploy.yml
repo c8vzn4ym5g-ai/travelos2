@@ -56,6 +56,13 @@ jobs:
       - name: Build with OpenNext
         run: pnpm run cf:build
 
+      - name: Ensure R2 bucket travelos-media
+        if: steps.creds.outputs.present == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/ensure-r2-media-bucket.mjs
+
       - name: Deploy to Cloudflare Workers
         if: steps.creds.outputs.present == 'true'
         run: pnpm exec opennextjs-cloudflare deploy
