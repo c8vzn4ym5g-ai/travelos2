@@ -1,15 +1,17 @@
 # TravelOS Handoff
 
+## 2026-09-10 R2 10042 must not block Worker deploy
+
+Live `r2_buckets` + `ensure-r2-media-bucket.mjs` exit 1 on API **10042**
+blocked Cloudflare Workers after PR #112, so 遊記編輯 picker labels never
+shipped. Binding is commented again. 10042 is a warning; Worker deploy
+continues. Trip shelves stay on Drive. After Owner enables R2 and creates
+`travelos-media`, uncomment `r2_buckets` and re-run the workflow.
+
 ## 2026-09-10 R2 travelos-media binding
 
-Worker binding `TRAVELOS_MEDIA` → bucket `travelos-media` is on in
-`wrangler.jsonc`. Trip shelves stay on Drive. Helper: `lib/r2-media.ts`.
-Probe: `PUT /api/media?probe=1` then `GET /api/media?key=probe/ok.txt`.
-
-CI creates the bucket (`scripts/ensure-r2-media-bucket.mjs`). If that
-403s with API **10042**, Owner: Cloudflare Dashboard → R2 Object Storage
-(enable R2 / accept terms) → Create bucket → `travelos-media`, then
-re-run Cloudflare Workers. Public r2.dev is optional; Worker GET is enough.
+Worker helper: `lib/r2-media.ts`. Probe: `PUT /api/media?probe=1` then
+`GET /api/media?key=probe/ok.txt`. Public r2.dev is optional.
 
 ## 2026-09-10 Home 500: null startDate after Drive parse spread
 
