@@ -7,7 +7,7 @@ import {
   searchTripsBySeries,
   toTraditional,
 } from "../lib/trip-series.ts";
-import { isTripPublic } from "../lib/trip-visibility.ts";
+import { compareTripsByStartDateDesc, isTripPublic } from "../lib/trip-visibility.ts";
 import type { JournalEntry, Photo, TripDetail } from "../lib/types.ts";
 
 function baseTrip(id: string, title: string): TripDetail {
@@ -197,4 +197,12 @@ test("family editor prepare does not throw when Drive omitted a title", () => {
   const broken = baseTrip("trip_tainan-yanshui-fireworks_2020", "鹽水蜂炮");
   (broken as { title?: string }).title = undefined;
   assert.doesNotThrow(() => prepareFamilyEditorTrips([broken]));
+});
+
+test("trip startDate sort treats null dates as empty", () => {
+  const withDate = { startDate: "2019-12-11" };
+  const missing = { startDate: null };
+  const ordered = [withDate, missing].sort(compareTripsByStartDateDesc);
+  assert.equal(ordered[0], withDate);
+  assert.doesNotThrow(() => [missing, missing].sort(compareTripsByStartDateDesc));
 });

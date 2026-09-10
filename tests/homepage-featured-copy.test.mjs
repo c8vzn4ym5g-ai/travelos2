@@ -17,6 +17,7 @@ test("homepage featured strip uses first-glance promo copy and the public journa
   assert.match(home, /href=\{LAPLAND_JOURNAL_PATH\}/);
   assert.match(home, /description: FEATURED_JOURNAL_DEK/);
   assert.match(home, /title: FEATURED_JOURNAL_TITLE/);
+  assert.match(home, /compareTripsByStartDateDesc/);
   assert.doesNotMatch(home, /現在公開 \/ Now public/);
   assert.doesNotMatch(home, /打開遊記 \/ Open the journal/);
   assert.doesNotMatch(home, /十二月。深冬。白晝只剩兩三小時。/);

@@ -179,3 +179,20 @@ test("wrapped maple files without a top-level title do not collapse into one tri
     "愛慕虛榮團：四個人怎麼一起把京都玩開心",
   );
 });
+
+test("Drive trips with null dates coerce to empty strings after spread", () => {
+  const parsed = parseDriveTripRecord({
+    id: "trip_finland_lakes",
+    title: "芬蘭湖區",
+    slug: "finland-lakes",
+    startDate: null,
+    endDate: null,
+  });
+  assert.equal(parsed?.startDate, "");
+  assert.equal(parsed?.endDate, "");
+  const crew = parseDriveTripRecord({
+    moment: { id: "trip_tokyo_crew", title: "東京走走", startDate: null, endDate: null },
+  });
+  assert.equal(crew?.startDate, "");
+  assert.equal(crew?.endDate, "");
+});

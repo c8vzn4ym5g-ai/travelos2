@@ -86,6 +86,7 @@ export function parseDriveTripRecord(raw: unknown): TripDetail | null {
     return null;
   }
   return {
+    ...trip,
     userId: typeof trip.userId === "string" && trip.userId ? trip.userId : "user_travelos_owner",
     summary: typeof trip.summary === "string" ? trip.summary : "",
     country: typeof trip.country === "string" ? trip.country : "",
@@ -99,7 +100,6 @@ export function parseDriveTripRecord(raw: unknown): TripDetail | null {
     coordinates: trip.coordinates ?? null,
     createdAt: typeof trip.createdAt === "string" ? trip.createdAt : "",
     updatedAt: typeof trip.updatedAt === "string" ? trip.updatedAt : "",
-    ...trip,
     id: trip.id,
     title: typeof trip.title === "string" ? trip.title : "",
     slug: typeof trip.slug === "string" && trip.slug.trim() ? trip.slug : trip.id.replace(/_/g, "-"),

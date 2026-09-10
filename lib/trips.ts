@@ -793,13 +793,13 @@ export const tripListItems: TripListItem[] = seedTripDetails.map((trip) => ({
 
 export function getTripsByStartDate(): TripListItem[] {
   return [...tripListItems].sort((firstTrip, secondTrip) =>
-    secondTrip.startDate.localeCompare(firstTrip.startDate),
+    (secondTrip.startDate ?? "").localeCompare(firstTrip.startDate ?? ""),
   );
 }
 
 export function getTripDetailsByStartDate(): TripDetail[] {
   return [...seedTripDetails].sort((firstTrip, secondTrip) =>
-    secondTrip.startDate.localeCompare(firstTrip.startDate),
+    (secondTrip.startDate ?? "").localeCompare(firstTrip.startDate ?? ""),
   );
 }
 

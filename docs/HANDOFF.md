@@ -1,5 +1,19 @@
 # TravelOS Handoff
 
+## 2026-09-10 Home 500: null startDate after Drive parse spread
+
+Live `GET /api/trips/content` was 200, but `GET /` stayed 500.
+Crew shelves (`trip_finland_lakes`, `trip_tokyo_crew`, …) store
+`startDate: null`. Home sorts every trip with
+`second.startDate.localeCompare(...)` before filtering public ones.
+
+`parseDriveTripRecord` already coerced dates to `""`, then `...trip`
+wrote the nulls back. Coerced fields now win. Storefront/admin sorts
+use `compareTripsByStartDateDesc`. Kyushu locked journals unchanged.
+
+Live origin: https://travelos2.chao-jason.workers.dev
+`Vercel – travelos2` is the cold spare; CF Workers is the live door.
+
 ## 2026-09-10 Restore family trip shelves on live CF
 
 Root cause of live `GET/PUT /api/trips/content` empty HTTP 500 (and `/` 500):

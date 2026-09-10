@@ -4,7 +4,7 @@ import { SessionPhotoCarousel } from "@/components/session-photo-carousel";
 import { getCoffeeShopsByVisitDate, getCoffeeStats } from "@/lib/coffee";
 import { readCoffeeContent } from "@/lib/coffee-store";
 import { readContent } from "@/lib/editable-store";
-import { isTripPublic } from "@/lib/trip-visibility";
+import { compareTripsByStartDateDesc, isTripPublic } from "@/lib/trip-visibility";
 import { LAPLAND_COVER_PHOTO, LAPLAND_JOURNAL_PATH } from "@/lib/travelpayouts";
 import type { CoffeePhoto, CoffeeShop, CoffeeShopListItem, Photo, TripDetail } from "@/lib/types";
 
@@ -248,9 +248,14 @@ export default async function Home() {
   } catch {
     travelContent = { trips: [] };
   }
-  const { content: coffeeContent } = await readCoffeeContent();
+  let coffeeContent: Awaited<ReturnType<typeof readCoffeeContent>>["content"];
+  try {
+    coffeeContent = (await readCoffeeContent()).content;
+  } catch {
+    coffeeContent = { shops: [], updatedAt: "" };
+  }
   const coffeeStats = getCoffeeStats(coffeeContent.shops);
-  const trips = [...travelContent.trips].sort((first, second) => second.startDate.localeCompare(first.startDate));
+  const trips = [...travelContent.trips].sort(compareTripsByStartDateDesc);
   const publicTrips = trips.filter(isTripPublic);
   const visibleTrips = publicTrips.slice(0, 3);
   const latestCoffee = getCoffeeShopsByVisitDate(coffeeContent.shops).slice(0, 3);

@@ -15,7 +15,7 @@ import {
 import { FAMILY_ADMIN_SESSION_KEY, familyPinHeaders, resolveFamilySession } from "@/lib/family-session";
 import { canonicalSiteUrl, isSpareVercelHost } from "@/lib/site-url";
 import { getTripPromoVideos } from "@/lib/promo-videos";
-import { isTripPublic } from "@/lib/trip-visibility";
+import { compareTripsByStartDateDesc, isTripPublic } from "@/lib/trip-visibility";
 import type { JournalEntry, Photo, TravelVisibility, TripDetail } from "@/lib/types";
 
 type TravelContentResponse = {
@@ -203,7 +203,7 @@ export default function TravelAdminPage() {
     }
     if (!response.ok) throw new Error("無法讀取旅行內容");
     const data = (await response.json()) as TravelContentResponse;
-    const sorted = [...data.content.trips].sort((a, b) => b.startDate.localeCompare(a.startDate));
+    const sorted = [...data.content.trips].sort(compareTripsByStartDateDesc);
     const requested = requestedTripId();
     const applied = applyTripLocalDrafts(sorted);
     setTrips(applied.trips);
@@ -287,7 +287,7 @@ export default function TravelAdminPage() {
 
   useEffect(() => () => mediaStreamRef.current?.getTracks().forEach((track) => track.stop()), []);
 
-  const sortedTrips = useMemo(() => [...trips].sort((a, b) => b.startDate.localeCompare(a.startDate)), [trips]);
+  const sortedTrips = useMemo(() => [...trips].sort(compareTripsByStartDateDesc), [trips]);
   const activeTrip = sortedTrips.find((trip) => trip.id === activeTripId) ?? sortedTrips[0] ?? null;
   const selectedPhoto = activeTrip?.photos.find((photo) => photo.id === selectedPhotoId) ?? activeTrip?.photos[0] ?? null;
   const promoVideos = activeTrip ? getTripPromoVideos(activeTrip.slug) : [];
