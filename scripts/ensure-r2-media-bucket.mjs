@@ -95,6 +95,11 @@ export async function ensureR2MediaBucket({ token, accountId, fetchImpl } = {}) 
 
   if (listRes.status === 403 || listRes.status === 401) {
     const { code, message } = firstCfError(listJson);
+    if (code === 10042) {
+      return fail(
+        `Cloudflare R2 is not enabled on this account (API 10042). Owner: open Cloudflare Dashboard → R2 Object Storage once (accept R2 terms / Enable R2), then Create bucket → name \`travelos-media\`. After that, re-run the Cloudflare Workers workflow. Optional public r2.dev is not required; Worker GET /api/media?key= serves objects.`,
+      );
+    }
     return fail(
       `Cloudflare refused R2 list (HTTP ${listRes.status}${code ? `, code ${code}` : ""}). ${message || "Token needs Account → Cloudflare R2 → Edit (or at least Read)."} ${R2_OWNER_CREATE_CLICK}`,
     );

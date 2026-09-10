@@ -98,10 +98,11 @@ CI runs `node scripts/ensure-r2-media-bucket.mjs` before Wrangler deploy. That s
 
 **Owner click if GitHub Action fails on R2 401/403** (token `travelos2-deploy` is Workers Scripts Edit only):
 
-1. Cloudflare Dashboard → **R2 Object Storage** → **Create bucket**.
-2. Name: `travelos-media` → **Create bucket**.
+1. Cloudflare Dashboard → **R2 Object Storage**. First visit: accept R2 terms / **Enable R2** (API **10042** until this is done).
+2. **Create bucket**. Name: `travelos-media` → **Create bucket**.
 3. Optional: add **Account → Cloudflare R2 → Edit** on token `travelos2-deploy` so CI can create buckets later.
 4. Optional public `r2.dev`: bucket → **Settings** → **Public access** → **Allow Access**. Not required. The Worker serves objects at `GET /api/media?key=`.
+5. Re-run **Cloudflare Workers** (`workflow_dispatch` or push to `main`).
 
 Server helper: `lib/r2-media.ts` (`putTravelosMediaObject` / `getTravelosMediaObject`). Public URL is the Worker URL, not a signed S3 URL:
 
