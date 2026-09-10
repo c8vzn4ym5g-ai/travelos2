@@ -2,7 +2,7 @@ import Link from "next/link";
 import { readContent } from "@/lib/editable-store";
 import { isLaplandStorefrontSlug, LAPLAND_SEASON_LABEL } from "@/lib/lapland-storefront-copy";
 import { seedTripDetails } from "@/lib/trips";
-import { isTripPublic } from "@/lib/trip-visibility";
+import { compareTripsByStartDateDesc, isTripPublic } from "@/lib/trip-visibility";
 import type { Money, Photo, TripDetail } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,14 @@ function articleHref(trip: TripDetail) {
 }
 
 function formatDate(date: string): string {
-  return dateFormatter.format(new Date(date));
+  if (!date) {
+    return "";
+  }
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+  return dateFormatter.format(parsed);
 }
 
 function formatDateRange(startDate: string, endDate: string): string {
@@ -115,7 +122,7 @@ export default async function TripsPage() {
   } catch {
     content = { trips: seedTripDetails };
   }
-  const trips = [...content.trips].sort((first, second) => second.startDate.localeCompare(first.startDate));
+  const trips = [...content.trips].sort(compareTripsByStartDateDesc);
   const publicTrips = trips.filter(isTripPublic);
   const visibleTrips = publicTrips;
 
