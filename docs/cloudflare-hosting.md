@@ -82,11 +82,11 @@ Files under `public/travelos/` are copied into the Worker assets bundle. They ke
 
 No R2 incremental cache is configured, so ISR cache is in-memory per isolate. Capture persistence is Drive, not CF cache.
 
-### Optional R2 `travelos-media` (finished shorts)
+### R2 `travelos-media` (finished shorts)
 
-Family trip shelves stay on Drive (`travelos__trip__*.json` in folder `1Sk2TqgpF6NxoNYdUKO4h8t84UA7KxChN`). Do **not** wait on R2 to restore GET/PUT `/api/trips/content`.
+Family trip shelves stay on Drive (`travelos__trip__*.json` in folder `1Sk2TqgpF6NxoNYdUKO4h8t84UA7KxChN`). GET/PUT `/api/trips/content` does not use R2.
 
-Later cold storage for finished shorts can use an R2 bucket named `travelos-media`. Create the bucket in the Cloudflare dashboard first, then uncomment this in `wrangler.jsonc`:
+`wrangler.jsonc` binds the bucket:
 
 ```jsonc
 "r2_buckets": [
@@ -94,7 +94,27 @@ Later cold storage for finished shorts can use an R2 bucket named `travelos-medi
 ]
 ```
 
-A missing bucket will fail OpenNext/Wrangler deploy. Keep the binding commented until the bucket exists.
+CI runs `node scripts/ensure-r2-media-bucket.mjs` before Wrangler deploy. That script lists R2 and creates `travelos-media` when missing.
+
+**Owner click if GitHub Action fails on R2 401/403** (token `travelos2-deploy` is Workers Scripts Edit only):
+
+1. Cloudflare Dashboard → **R2 Object Storage** → **Create bucket**.
+2. Name: `travelos-media` → **Create bucket**.
+3. Optional: add **Account → Cloudflare R2 → Edit** on token `travelos2-deploy` so CI can create buckets later.
+4. Optional public `r2.dev`: bucket → **Settings** → **Public access** → **Allow Access**. Not required. The Worker serves objects at `GET /api/media?key=`.
+
+Server helper: `lib/r2-media.ts` (`putTravelosMediaObject` / `getTravelosMediaObject`). Public URL is the Worker URL, not a signed S3 URL:
+
+`https://travelos2.chao-jason.workers.dev/api/media?key=probe%2Fok.txt`
+
+Probe (tiny write + read, does not touch trip JSON):
+
+```bash
+curl -X PUT "https://travelos2.chao-jason.workers.dev/api/media?probe=1"
+curl "https://travelos2.chao-jason.workers.dev/api/media?key=probe%2Fok.txt"
+```
+
+A missing bucket still fails OpenNext/Wrangler deploy. Do not comment the binding back out unless Owner wants to skip R2 entirely.
 
 ## Drive trip shelves (not Vercel Blob)
 
