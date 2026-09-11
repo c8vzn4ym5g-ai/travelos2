@@ -54,8 +54,17 @@ const dateFormatter = new Intl.DateTimeFormat("en", {
   year: "numeric",
 });
 
-function formatDate(date: string): string {
-  return dateFormatter.format(new Date(date));
+function formatDate(date: string | null | undefined): string {
+  if (!date) {
+    return "Date not set";
+  }
+
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) {
+    return "Date not set";
+  }
+
+  return dateFormatter.format(parsed);
 }
 
 function getSeasonLabel(date: string): string {
@@ -566,7 +575,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               ))}
             </div>
           </section>
-          <JournalSpendPanel costs={trip.costs} slug={trip.slug} startDate={trip.startDate} totalCost={trip.totalCost} />
+          <JournalSpendPanel costs={trip.costs ?? []} slug={trip.slug} startDate={trip.startDate} totalCost={trip.totalCost} />
         </aside>
       </section>
     </main>
