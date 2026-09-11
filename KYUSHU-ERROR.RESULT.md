@@ -2,7 +2,8 @@
 
 **Live:** `https://travelos2.chao-jason.workers.dev/trips/kyushu-family-fukuoka-oguni-aso-2026`  
 **Digest:** `3502938665` (Next.js server Application error / HTTP 500)  
-**Branch:** `hotfix/kyushu-entrydate-ssr`  
+**Branch:** `hotfix/kyushu-entrydate-ssr` (`dc28823`)  
+**PR:** https://github.com/c8vzn4ym5g-ai/travelos2/pull/123  
 **Locked texts:** untouched (`大分 奧日田 梅響 溫泉酒店`, `小國町附近：竹庵的驚人份量`)
 
 ## Root cause
@@ -43,10 +44,8 @@ Does **not** rewrite any journal bodies.
 
 ```bash
 git fetch origin hotfix/kyushu-entrydate-ssr
-# or apply patch below if branch not available
+# or apply KYUSHU-ENTRYDATE-SSR.patch
 ```
-
-Patch path: `KYUSHU-ENTRYDATE-SSR.patch` (same folder).
 
 ## Verify after deploy
 
