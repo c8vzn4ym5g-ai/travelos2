@@ -45,14 +45,14 @@ const familySurfaces = [
   "/api/family/gate",
 ];
 
-const publicSurfaces = [
-  "/",
+const hubSurfaces = ["/", "/trips", "/trips/", "/coffee", "/coffee/helsinki-cafe"];
+
+const monetizedSurfaces = [
   "/drive",
-  "/trips",
+  "/drive/",
   "/trips/finland-lapland-winter-journal",
   "/trips/finland-lapland-winter-journal-2019",
   "/trips/finland-lapland-winter-journal-2020",
-  "/coffee",
 ];
 
 test("Travelpayouts Drive loads once at the public app boundary", async () => {
@@ -64,6 +64,8 @@ test("Travelpayouts Drive loads once at the public app boundary", async () => {
     readFile(resolve(root, "middleware.ts"), "utf8"),
   ]);
 
+  const tripsHub = await readFile(resolve(root, "app/trips/page.tsx"), "utf8");
+
   assert.match(layout, /<TravelpayoutsDrive \/>/);
   assert.match(layout, /<Suspense fallback=\{null\}>/);
   assert.doesNotMatch(integration, /["']use client["']/);
@@ -74,6 +76,7 @@ test("Travelpayouts Drive loads once at the public app boundary", async () => {
   assert.match(driveLogic, /https:\/\/emrldtp\.cc\/NTY3NzUw\.js\?t=567750/);
   assert.match(driveLogic, /https:\/\/emrldtp\.cc\/NTUwMzEz\.js\?t=550313/);
   assert.match(driveLogic, /TRAVELOS_TRAVELPAYOUTS_DRIVE_SRC/);
+  assert.match(driveLogic, /isPublicTripArticle|isBookingDesk/);
   assert.match(integration, /id=\{TRAVELPAYOUTS_DRIVE_SCRIPT_ID\}/);
   assert.match(integration, /travelpayoutsDriveScriptUrl/);
   assert.match(integration, /src=\{src\}/);
@@ -81,10 +84,19 @@ test("Travelpayouts Drive loads once at the public app boundary", async () => {
   assert.match(middleware, /request\.nextUrl\.pathname/);
   assert.match(middleware, /isSpareVercelHost/);
   assert.doesNotMatch(drivePage, /<Script/);
+  assert.doesNotMatch(tripsHub, /href="\/timeline"/);
+  assert.doesNotMatch(tripsHub, /Timeline/);
 });
 
 test("family HTML does not contain Drive, public trip HTML still can", () => {
   for (const pathname of familySurfaces) {
+    const html = travelpayoutsDriveScriptHtml(pathname);
+    assert.equal(shouldLoadTravelpayoutsDrive(pathname), false, pathname);
+    assert.doesNotMatch(html, /emrldtp\.cc/);
+    assert.doesNotMatch(html, /travelpayouts-drive/);
+  }
+
+  for (const pathname of hubSurfaces) {
     const html = travelpayoutsDriveScriptHtml(pathname);
     assert.equal(shouldLoadTravelpayoutsDrive(pathname), false, pathname);
     assert.doesNotMatch(html, /emrldtp\.cc/);
@@ -103,7 +115,7 @@ test("family HTML does not contain Drive, public trip HTML still can", () => {
   });
   assert.match(vercelSpareHtml, /https:\/\/emrldtp\.cc\/NTUwMzEz\.js\?t=550313/);
 
-  for (const pathname of publicSurfaces) {
+  for (const pathname of monetizedSurfaces) {
     assert.equal(shouldLoadTravelpayoutsDrive(pathname), true, pathname);
     assert.match(travelpayoutsDriveScriptHtml(pathname), /travelpayouts-drive/);
   }
@@ -173,6 +185,9 @@ test("Drive pathname comes from the request header, not a guessed widget hash", 
   const publicHeaders = new Headers({
     "x-travelos-pathname": "/trips/finland-lapland-winter-journal-2020",
   });
+  const hubHeaders = new Headers({
+    "x-travelos-pathname": "/trips",
+  });
   const apiHeaders = new Headers({
     "x-travelos-pathname": "/api/moments/photos",
   });
@@ -180,6 +195,7 @@ test("Drive pathname comes from the request header, not a guessed widget hash", 
   assert.equal(pathnameFromRequestHeaders(familyHeaders), "/family");
   assert.equal(shouldLoadTravelpayoutsDrive(pathnameFromRequestHeaders(familyHeaders)), false);
   assert.equal(shouldLoadTravelpayoutsDrive(pathnameFromRequestHeaders(publicHeaders)), true);
+  assert.equal(shouldLoadTravelpayoutsDrive(pathnameFromRequestHeaders(hubHeaders)), false);
   assert.equal(shouldLoadTravelpayoutsDrive(pathnameFromRequestHeaders(apiHeaders)), false);
   assert.equal(pathnameFromRequestHeaders(new Headers()), "");
   assert.equal(shouldLoadTravelpayoutsDrive(pathnameFromRequestHeaders(new Headers())), false);
@@ -323,6 +339,19 @@ test("served family HTML omits Drive; public Lapland and Drive keep Drive plus b
   assert.doesNotMatch(benchHtml, /id="travelpayouts-drive"/);
   assert.doesNotMatch(benchHtml, /data-booking-band/);
   assert.doesNotMatch(benchHtml, /aviasales\.com/);
+
+  const homeResponse = await fetch(`${base}/`);
+  assert.equal(homeResponse.ok, true);
+  const homeHtml = await homeResponse.text();
+  assert.doesNotMatch(homeHtml, /emrldtp\.cc/);
+  assert.doesNotMatch(homeHtml, /id="travelpayouts-drive"/);
+
+  const tripsResponse = await fetch(`${base}/trips`);
+  assert.equal(tripsResponse.ok, true);
+  const tripsHtml = await tripsResponse.text();
+  assert.doesNotMatch(tripsHtml, /emrldtp\.cc/);
+  assert.doesNotMatch(tripsHtml, /id="travelpayouts-drive"/);
+  assert.doesNotMatch(tripsHtml, /href="\/timeline"/);
 
   const laplandResponse = await fetch(`${base}${LAPLAND_JOURNAL_PATH}`);
   assert.equal(laplandResponse.ok, true);

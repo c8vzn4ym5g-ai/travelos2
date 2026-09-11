@@ -12,7 +12,6 @@ const ui = {
   intro:
     "\u9019\u88e1\u662f TravelOS \u7684\u65c5\u7a0b\u5165\u53e3\u3002\u6bcf\u4e00\u7bc7\u6587\u7ae0\u90fd\u7528\u81ea\u5df1\u7684\u7db2\u5740\u958b\u555f\uff0c\u4e4b\u5f8c\u65b0\u589e\u65c5\u7a0b\u4e0d\u9700\u8981\u518d\u5efa\u7acb\u56fa\u5b9a\u9801\u9762\u3002",
   read: "\u95b1\u8b80 / Open details",
-  timeline: "\u6642\u9593\u7dda / Timeline",
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
@@ -130,15 +129,10 @@ export default async function TripsPage() {
     <main className="travel-shell">
       <section className="travel-hero">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-9 lg:px-10">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
             <Link className="travel-kicker inline-flex min-h-11 items-center text-sm" href="/">
               TravelOS
             </Link>
-            <div className="flex flex-wrap gap-2">
-              <Link className="travel-chip inline-flex min-h-11 items-center rounded-full px-4 py-2 text-sm font-semibold" href="/timeline">
-                {ui.timeline}
-              </Link>
-            </div>
           </div>
           <div className="grid gap-5 lg:grid-cols-[1fr_20rem] lg:items-end">
             <div className="min-w-0">

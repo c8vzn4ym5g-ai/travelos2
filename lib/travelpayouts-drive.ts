@@ -67,6 +67,8 @@ const privateDriveRoutes = [
   "/api",
 ] as const;
 
+const reservedTripEditorSlugs = new Set(["write", "admin", "new"]);
+
 function normalizePathname(pathname: string) {
   const pathOnly = pathname.split("?")[0]?.split("#")[0] ?? pathname;
   if (pathOnly.length > 1 && pathOnly.endsWith("/")) {
@@ -79,13 +81,34 @@ function matchesRoute(pathname: string, route: string) {
   return pathname === route || pathname.startsWith(`${route}/`);
 }
 
+function isBookingDesk(pathname: string) {
+  return pathname === "/drive" || pathname.startsWith("/drive/");
+}
+
+function isPublicTripArticle(pathname: string) {
+  if (!pathname.startsWith("/trips/")) {
+    return false;
+  }
+
+  const slug = pathname.slice("/trips/".length);
+  return Boolean(slug) && !slug.includes("/") && !reservedTripEditorSlugs.has(slug);
+}
+
+/**
+ * Travelpayouts Drive (emrldtp.cc) patches <a href> / click handling.
+ * Load it only on monetized surfaces so Next.js Links on hubs stay clickable.
+ */
 export function shouldLoadTravelpayoutsDrive(pathname: string | null | undefined) {
   if (!pathname) {
     return false;
   }
 
   const normalized = normalizePathname(pathname);
-  return !privateDriveRoutes.some((route) => matchesRoute(normalized, route));
+  if (privateDriveRoutes.some((route) => matchesRoute(normalized, route))) {
+    return false;
+  }
+
+  return isBookingDesk(normalized) || isPublicTripArticle(normalized);
 }
 
 export function pathnameFromRequestHeaders(headerStore: { get(name: string): string | null }) {
