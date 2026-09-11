@@ -1,5 +1,24 @@
 # TravelOS Codex Tasks
 
+## TASK-040: Family 首頁 stays snappy; public home no longer dumps every photo
+
+Status: done
+
+Goal: Leaving 家庭編輯 via 「← 首頁」 was slow on iPhone and could hard-fail
+with Next.js Application error Digest 2392877480. Public `/` is
+`force-dynamic` Drive content, and `getTravelSessionPhotos` dumped every
+shared-trip photo into `SessionPhotoCarousel` (Kyushu ~80). `/family` is
+fast; public `/` is not.
+
+Result:
+
+- Family 「← 首頁」 lands on `/family`, not the public storefront.
+- Home travel/coffee strips cap at 8 photos (covers first, then extras).
+- Carousel slices to the same cap so HTML never lists every trip photo.
+- `/trips` still lists shared journals. Travelpayouts Drive stays on public
+  pages. Family PIN stays off unless `TRAVELOS_REQUIRE_FAMILY_PIN=1`.
+- Ship path is Cloudflare Worker travelos2.
+
 ## TASK-039: Capture dock receives photos without Save and without false-fail thumbnails
 
 Status: done

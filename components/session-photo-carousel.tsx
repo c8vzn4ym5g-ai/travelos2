@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { HOME_SESSION_PHOTO_LIMIT } from "@/lib/home-session-photos";
 
 type SessionPhoto = {
   alt: string;
@@ -12,9 +13,10 @@ const blankMs = 300;
 const stayMs = 7000;
 
 export function SessionPhotoCarousel({ photos }: { photos: SessionPhoto[] }) {
+  const slides = photos.slice(0, HOME_SESSION_PHOTO_LIMIT);
   const [activeIndex, setActiveIndex] = useState(0);
   const [visible, setVisible] = useState(true);
-  const photoCount = photos.length;
+  const photoCount = slides.length;
 
   useEffect(() => {
     if (activeIndex >= photoCount) {
@@ -53,15 +55,15 @@ export function SessionPhotoCarousel({ photos }: { photos: SessionPhoto[] }) {
     <div className="relative h-56 overflow-hidden rounded-lg bg-stone-100">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        alt={photos[activeIndex].alt}
+        alt={slides[activeIndex].alt}
         className={`h-full w-full object-cover transition-opacity duration-[2200ms] ease-in-out ${
           visible ? "opacity-100" : "opacity-0"
         }`}
-        src={photos[activeIndex].src}
+        src={slides[activeIndex].src}
       />
       {photoCount > 1 ? (
         <div className="absolute bottom-3 left-3 flex gap-1.5">
-          {photos.map((photo, index) => (
+          {slides.map((photo, index) => (
             <span
               className={`h-1.5 w-6 rounded-full shadow-sm ${index === activeIndex ? "bg-white" : "bg-white/45"}`}
               key={`${photo.src}-dot-${index}`}
