@@ -236,7 +236,6 @@ export function prepareMapleJournal(trip: TripDetail): TripDetail {
     ...converted,
     userId: trip.userId || "user_travelos_owner",
     title: mapleJournalTitle(trip),
-    visibility: "private",
     series: VANITY_CREW_SERIES,
     seriesAliases: [...VANITY_CREW_SERIES_ALIASES],
     coverPhotoId: trip.coverPhotoId || photos[0]?.id || converted.coverPhotoId || null,
