@@ -25,7 +25,7 @@ export default function FamilyWorkspacePage() {
     <main className="fam-page">
       <header className="fam-hero">
         <div className="fam-hero-inner">
-          <FamilyBackLink className="min-h-11" href="/family">
+          <FamilyBackLink className="min-h-11" href="/">
             ← 首頁
           </FamilyBackLink>
           <p className="fam-script">our family workspace</p>
