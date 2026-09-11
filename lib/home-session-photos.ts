@@ -1,4 +1,4 @@
-import type { CoffeePhoto, CoffeeShop, Photo, TripDetail } from "@/lib/types";
+import type { CoffeePhoto, CoffeeShop, Photo } from "@/lib/types";
 
 /** Home carousels show one photo at a time. Never dump every trip/shop photo into HTML. */
 export const HOME_SESSION_PHOTO_LIMIT = 8;
@@ -78,7 +78,10 @@ export function pickHomeSessionPhotos(
   return picked;
 }
 
-export function getTravelSessionPhotos(trips: TripDetail[], limit = HOME_SESSION_PHOTO_LIMIT) {
+export function getTravelSessionPhotos(
+  trips: Array<{ coverPhotoId?: string | null; photos: SessionPhotoSource[]; title: string }>,
+  limit = HOME_SESSION_PHOTO_LIMIT,
+) {
   return pickHomeSessionPhotos(
     trips.map((trip) => ({
       coverId: trip.coverPhotoId,

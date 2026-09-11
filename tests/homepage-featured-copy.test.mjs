@@ -17,9 +17,10 @@ test("homepage featured strip uses first-glance promo copy and the public journa
   assert.match(home, /href=\{LAPLAND_JOURNAL_PATH\}/);
   assert.match(home, /description: FEATURED_JOURNAL_DEK/);
   assert.match(home, /title: FEATURED_JOURNAL_TITLE/);
-  assert.match(home, /compareTripsByStartDateDesc/);
+  assert.match(home, /readPublicHubTrips/);
   assert.match(home, /getTravelSessionPhotos/);
   assert.match(home, /getCoffeeSessionPhotos/);
+  assert.doesNotMatch(home, /readContent/);
   assert.doesNotMatch(home, /trips\.flatMap\(\(trip\) =>/);
   assert.doesNotMatch(home, /現在公開 \/ Now public/);
   assert.doesNotMatch(home, /打開遊記 \/ Open the journal/);
@@ -27,7 +28,7 @@ test("homepage featured strip uses first-glance promo copy and the public journa
   assert.doesNotMatch(home, /Two or three hours of daylight/);
 });
 
-test("home photo carousels are hard-capped and family 首頁 stays on /family", async () => {
+test("home photo carousels are hard-capped and family 首頁 exits to the public storefront", async () => {
   const [home, carousel, familyHome] = await Promise.all([
     readFile(resolve(root, "app/page.tsx"), "utf8"),
     readFile(resolve(root, "components/session-photo-carousel.tsx"), "utf8"),
@@ -35,8 +36,10 @@ test("home photo carousels are hard-capped and family 首頁 stays on /family", 
   ]);
 
   assert.match(home, /from "@\/lib\/home-session-photos"/);
+  assert.match(home, /readPublicHubTrips/);
+  assert.doesNotMatch(home, /from "@\/lib\/editable-store"/);
   assert.match(carousel, /HOME_SESSION_PHOTO_LIMIT/);
   assert.match(carousel, /photos\.slice\(0, HOME_SESSION_PHOTO_LIMIT\)/);
-  assert.match(familyHome, /FamilyBackLink className="min-h-11" href="\/family"/);
-  assert.doesNotMatch(familyHome, /FamilyBackLink className="min-h-11" href="\/">/);
+  assert.match(familyHome, /FamilyBackLink className="min-h-11" href="\/">/);
+  assert.match(familyHome, /← 首頁/);
 });

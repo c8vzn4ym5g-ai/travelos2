@@ -93,6 +93,9 @@ test("Travelpayouts Drive loads once at the public app boundary", async () => {
   assert.doesNotMatch(tripsHub, /Timeline/);
   assert.match(tripsHub, /StorefrontHomeLink/);
   assert.match(tripsHub, /← 首頁|STOREFRONT_HOME_LABEL|StorefrontHomeLink/);
+  assert.match(tripsHub, /readPublicHubTrips/);
+  assert.doesNotMatch(tripsHub, /readContent/);
+  assert.doesNotMatch(tripsHub, /from "@\/lib\/editable-store"/);
 });
 
 test("family, hub, and trip-article HTML omit Drive; only /drive loads it", () => {

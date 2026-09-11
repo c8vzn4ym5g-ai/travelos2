@@ -3,11 +3,10 @@ import Link from "next/link";
 import { SessionPhotoCarousel } from "@/components/session-photo-carousel";
 import { getCoffeeShopsByVisitDate, getCoffeeStats } from "@/lib/coffee";
 import { readCoffeeContent } from "@/lib/coffee-store";
-import { readContent } from "@/lib/editable-store";
 import { getCoffeeSessionPhotos, getTravelSessionPhotos } from "@/lib/home-session-photos";
-import { compareTripsByStartDateDesc, isTripPublic } from "@/lib/trip-visibility";
+import { hubCardAsSessionTrip, readPublicHubTrips, type HubTripCard } from "@/lib/public-hub";
 import { LAPLAND_COVER_PHOTO, LAPLAND_JOURNAL_PATH } from "@/lib/travelpayouts";
-import type { CoffeePhoto, CoffeeShopListItem, Photo, TripDetail } from "@/lib/types";
+import type { CoffeeShopListItem } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -74,16 +73,8 @@ const sessions = [
   },
 ];
 
-function isRenderablePhoto(photo: Photo | CoffeePhoto) {
-  return photo.storageKey.startsWith("http") || photo.storageKey.startsWith("/");
-}
-
-function getTripCoverPhoto(trip: TripDetail) {
-  return (
-    trip.photos.find((photo) => photo.id === trip.coverPhotoId && isRenderablePhoto(photo)) ??
-    trip.photos.find(isRenderablePhoto) ??
-    null
-  );
+function getTripCoverPhoto(trip: HubTripCard) {
+  return trip.coverPhoto;
 }
 
 function getCoffeeCoverPhoto(shop: CoffeeShopListItem) {
@@ -183,7 +174,7 @@ function LatestCoffeeItem({ shop }: { shop: CoffeeShopListItem }) {
   );
 }
 
-function LatestTripItem({ trip }: { trip: TripDetail }) {
+function LatestTripItem({ trip }: { trip: HubTripCard }) {
   const coverPhoto = getTripCoverPhoto(trip);
 
   return (
@@ -208,20 +199,16 @@ function LatestTripItem({ trip }: { trip: TripDetail }) {
 }
 
 export default async function Home() {
-  const [travelResult, coffeeResult] = await Promise.all([
-    readContent()
-      .then((result) => result.content)
-      .catch(() => ({ trips: [] as TripDetail[] })),
+  const [publicTrips, coffeeResult] = await Promise.all([
+    readPublicHubTrips(),
     readCoffeeContent()
       .then((result) => result.content)
       .catch(() => ({ shops: [], updatedAt: "" })),
   ]);
   const coffeeStats = getCoffeeStats(coffeeResult.shops);
-  const trips = [...travelResult.trips].sort(compareTripsByStartDateDesc);
-  const publicTrips = trips.filter(isTripPublic);
   const visibleTrips = publicTrips.slice(0, 3);
   const latestCoffee = getCoffeeShopsByVisitDate(coffeeResult.shops).slice(0, 3);
-  const travelPhotoStrip = getTravelSessionPhotos(publicTrips);
+  const travelPhotoStrip = getTravelSessionPhotos(publicTrips.map(hubCardAsSessionTrip));
   const coffeePhotoStrip = getCoffeeSessionPhotos(coffeeResult.shops);
   const sessionPhotosByHref: Record<string, { alt: string; src: string }[]> = {
     "/coffee": coffeePhotoStrip,
