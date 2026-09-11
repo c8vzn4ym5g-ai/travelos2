@@ -1,27 +1,24 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { isPublicStorefront, PUBLIC_ORIGIN, UUID_PATTERN, VISITOR_COOKIE } from "@/lib/public-stats";
 
-function readPathname() {
-  if (typeof window === "undefined") return "";
-  return window.location.pathname || "/";
-}
-
 /** Invisible public-layout beacon. Must never throw into the storefront. */
 export function PublicStatsBeacon() {
+  const pathname = usePathname() || "/";
   const previous = useRef<string | null>(null);
 
   useEffect(() => {
-    const send = (pathname: string) => {
+    const send = (nextPath: string) => {
       try {
-        if (!pathname || !isPublicStorefront(pathname)) {
+        if (!nextPath || !isPublicStorefront(nextPath)) {
           previous.current = null;
           return;
         }
         if (window.location.origin !== PUBLIC_ORIGIN) return;
         if (typeof navigator !== "undefined" && navigator.webdriver) return;
-        if (document.visibilityState !== "visible" || previous.current === pathname) return;
+        if (document.visibilityState !== "visible" || previous.current === nextPath) return;
 
         let visitor = document.cookie
           .split("; ")
@@ -37,13 +34,13 @@ export function PublicStatsBeacon() {
             document.cookie = `${VISITOR_COOKIE}=${visitor}; Path=/; Max-Age=31536000; SameSite=Lax; Secure`;
           }
         }
-        previous.current = pathname;
+        previous.current = nextPath;
         const eventId =
           typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
             ? crypto.randomUUID()
             : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
         if (!UUID_PATTERN.test(eventId)) return;
-        const body = JSON.stringify({ path: pathname, event: eventId });
+        const body = JSON.stringify({ path: nextPath, event: eventId });
         if (!navigator.sendBeacon?.("/api/stats", new Blob([body], { type: "application/json" }))) {
           void fetch("/api/stats", {
             method: "POST",
@@ -57,28 +54,13 @@ export function PublicStatsBeacon() {
       }
     };
 
-    send(readPathname());
-    const onVisible = () => send(readPathname());
+    send(pathname);
+    const onVisible = () => send(pathname);
     document.addEventListener("visibilitychange", onVisible);
-
-    // App Router soft navigations
-    const wrap = (type: "pushState" | "replaceState") => {
-      const original = history[type];
-      return function (this: History, ...args: Parameters<History["pushState"]>) {
-        const result = original.apply(this, args);
-        queueMicrotask(() => send(readPathname()));
-        return result;
-      };
-    };
-    history.pushState = wrap("pushState");
-    history.replaceState = wrap("replaceState");
-    window.addEventListener("popstate", onVisible);
-
     return () => {
       document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("popstate", onVisible);
     };
-  }, []);
+  }, [pathname]);
 
   return null;
 }

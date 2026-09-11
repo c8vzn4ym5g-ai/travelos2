@@ -31,6 +31,7 @@ test("same Lapland URL keeps notebook layout in source and switches to a dedicat
   assert.match(page, /isLaplandPhoneUserAgent/);
   assert.match(gate, /data-lapland-mobile-storefront|LaplandMobileStorefront/);
   assert.match(gate, /max-width: \$\{LAPLAND_MOBILE_MAX_WIDTH_PX\}px/);
+  assert.match(mobile, /StorefrontHomeLink/);
   assert.match(mobile, /data-lapland-mobile-storefront=""/);
   assert.match(mobile, /data-lapland-mobile-hero=""/);
   assert.match(mobile, /data-lapland-mobile-still=""/);

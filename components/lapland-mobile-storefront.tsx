@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { BookingBand } from "@/components/booking-band";
+import { StorefrontHomeLink } from "@/components/storefront-home-link";
 import { JournalSpendPanel } from "@/components/journal-spend";
 import { LaplandMoreCut } from "@/components/lapland-more-cut";
 import { LaplandPlaceKnowledge } from "@/components/lapland-place-knowledge";
@@ -29,12 +30,15 @@ export function LaplandMobileStorefront({
   return (
     <main className="travel-shell bg-[color:var(--paper)]" data-lapland-mobile-storefront="">
       <section className="relative w-full" data-lapland-mobile-hero="">
-        <Link
-          className="travel-chip absolute left-3 top-3 z-20 rounded-full px-3 py-2 text-xs font-semibold"
-          href="/trips"
-        >
-          Trips
-        </Link>
+        <div className="absolute left-3 top-3 z-20 flex flex-wrap gap-2">
+          <StorefrontHomeLink className="travel-chip inline-flex min-h-11 items-center rounded-full px-3 py-2 text-xs font-semibold" />
+          <Link
+            className="travel-chip inline-flex min-h-11 items-center rounded-full px-3 py-2 text-xs font-semibold"
+            href="/trips"
+          >
+            旅程
+          </Link>
+        </div>
         <LaplandPublicCut bleed phoneFold />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/55 to-transparent px-4 pb-3 pt-8">
           <p className="travel-kicker text-[0.6rem] text-white/80">那年冬天 · {LAPLAND_SEASON_LABEL}</p>

@@ -45,15 +45,19 @@ const familySurfaces = [
   "/api/family/gate",
 ];
 
-const hubSurfaces = ["/", "/trips", "/trips/", "/coffee", "/coffee/helsinki-cafe"];
-
-const monetizedSurfaces = [
-  "/drive",
-  "/drive/",
+const hubSurfaces = [
+  "/",
+  "/trips",
+  "/trips/",
+  "/coffee",
+  "/coffee/helsinki-cafe",
   "/trips/finland-lapland-winter-journal",
   "/trips/finland-lapland-winter-journal-2019",
   "/trips/finland-lapland-winter-journal-2020",
+  "/trips/paris-louvre-summer-2023",
 ];
+
+const monetizedSurfaces = ["/drive", "/drive/"];
 
 test("Travelpayouts Drive loads once at the public app boundary", async () => {
   const [layout, integration, driveLogic, drivePage, middleware] = await Promise.all([
@@ -76,7 +80,8 @@ test("Travelpayouts Drive loads once at the public app boundary", async () => {
   assert.match(driveLogic, /https:\/\/emrldtp\.cc\/NTY3NzUw\.js\?t=567750/);
   assert.match(driveLogic, /https:\/\/emrldtp\.cc\/NTUwMzEz\.js\?t=550313/);
   assert.match(driveLogic, /TRAVELOS_TRAVELPAYOUTS_DRIVE_SRC/);
-  assert.match(driveLogic, /isPublicTripArticle|isBookingDesk/);
+  assert.match(driveLogic, /isBookingDesk/);
+  assert.doesNotMatch(driveLogic, /isPublicTripArticle/);
   assert.match(integration, /id=\{TRAVELPAYOUTS_DRIVE_SCRIPT_ID\}/);
   assert.match(integration, /travelpayoutsDriveScriptUrl/);
   assert.match(integration, /src=\{src\}/);
@@ -86,9 +91,11 @@ test("Travelpayouts Drive loads once at the public app boundary", async () => {
   assert.doesNotMatch(drivePage, /<Script/);
   assert.doesNotMatch(tripsHub, /href="\/timeline"/);
   assert.doesNotMatch(tripsHub, /Timeline/);
+  assert.match(tripsHub, /StorefrontHomeLink/);
+  assert.match(tripsHub, /← 首頁|STOREFRONT_HOME_LABEL|StorefrontHomeLink/);
 });
 
-test("family HTML does not contain Drive, public trip HTML still can", () => {
+test("family, hub, and trip-article HTML omit Drive; only /drive loads it", () => {
   for (const pathname of familySurfaces) {
     const html = travelpayoutsDriveScriptHtml(pathname);
     assert.equal(shouldLoadTravelpayoutsDrive(pathname), false, pathname);
@@ -104,13 +111,18 @@ test("family HTML does not contain Drive, public trip HTML still can", () => {
   }
 
   const publicTripHtml = travelpayoutsDriveScriptHtml("/trips/finland-lapland-winter-journal-2020");
-  assert.equal(shouldLoadTravelpayoutsDrive("/trips/finland-lapland-winter-journal-2020"), true);
-  assert.match(publicTripHtml, /emrldtp\.cc/);
-  assert.match(publicTripHtml, /id="travelpayouts-drive"/);
-  assert.match(publicTripHtml, /https:\/\/emrldtp\.cc\/NTY3NzUw\.js\?t=567750/);
-  assert.doesNotMatch(publicTripHtml, /NTUwMzEz\.js\?t=550313/);
+  assert.equal(shouldLoadTravelpayoutsDrive("/trips/finland-lapland-winter-journal-2020"), false);
+  assert.doesNotMatch(publicTripHtml, /emrldtp\.cc/);
+  assert.doesNotMatch(publicTripHtml, /travelpayouts-drive/);
 
-  const vercelSpareHtml = travelpayoutsDriveScriptHtml("/trips/finland-lapland-winter-journal-2020", {
+  const driveHtml = travelpayoutsDriveScriptHtml("/drive");
+  assert.equal(shouldLoadTravelpayoutsDrive("/drive"), true);
+  assert.match(driveHtml, /emrldtp\.cc/);
+  assert.match(driveHtml, /id="travelpayouts-drive"/);
+  assert.match(driveHtml, /https:\/\/emrldtp\.cc\/NTY3NzUw\.js\?t=567750/);
+  assert.doesNotMatch(driveHtml, /NTUwMzEz\.js\?t=550313/);
+
+  const vercelSpareHtml = travelpayoutsDriveScriptHtml("/drive", {
     host: "travelos2-63r3.vercel.app",
   });
   assert.match(vercelSpareHtml, /https:\/\/emrldtp\.cc\/NTUwMzEz\.js\?t=550313/);
@@ -194,7 +206,11 @@ test("Drive pathname comes from the request header, not a guessed widget hash", 
 
   assert.equal(pathnameFromRequestHeaders(familyHeaders), "/family");
   assert.equal(shouldLoadTravelpayoutsDrive(pathnameFromRequestHeaders(familyHeaders)), false);
-  assert.equal(shouldLoadTravelpayoutsDrive(pathnameFromRequestHeaders(publicHeaders)), true);
+  assert.equal(shouldLoadTravelpayoutsDrive(pathnameFromRequestHeaders(publicHeaders)), false);
+  const driveHeaders = new Headers({
+    "x-travelos-pathname": "/drive",
+  });
+  assert.equal(shouldLoadTravelpayoutsDrive(pathnameFromRequestHeaders(driveHeaders)), true);
   assert.equal(shouldLoadTravelpayoutsDrive(pathnameFromRequestHeaders(hubHeaders)), false);
   assert.equal(shouldLoadTravelpayoutsDrive(pathnameFromRequestHeaders(apiHeaders)), false);
   assert.equal(pathnameFromRequestHeaders(new Headers()), "");
@@ -352,17 +368,16 @@ test("served family HTML omits Drive; public Lapland and Drive keep Drive plus b
   assert.doesNotMatch(tripsHtml, /emrldtp\.cc/);
   assert.doesNotMatch(tripsHtml, /id="travelpayouts-drive"/);
   assert.doesNotMatch(tripsHtml, /href="\/timeline"/);
+  assert.match(tripsHtml, /← 首頁/);
+  assert.match(tripsHtml, /href="\/"/);
 
   const laplandResponse = await fetch(`${base}${LAPLAND_JOURNAL_PATH}`);
   assert.equal(laplandResponse.ok, true);
   const laplandHtml = await laplandResponse.text();
-  assert.match(laplandHtml, /emrldtp\.cc/);
-  assert.match(laplandHtml, /travelpayouts-drive/);
-  const expectedDrive =
-    /workers\.dev/i.test(base) || (!/vercel\.app/i.test(base) && !process.env.VERCEL)
-      ? /https:\/\/emrldtp\.cc\/NTY3NzUw\.js\?t=567750/
-      : /https:\/\/emrldtp\.cc\/NTUwMzEz\.js\?t=550313/;
-  assert.match(laplandHtml, expectedDrive);
+  assert.doesNotMatch(laplandHtml, /emrldtp\.cc/);
+  assert.doesNotMatch(laplandHtml, /id="travelpayouts-drive"/);
+  assert.match(laplandHtml, /← 首頁/);
+  assert.match(laplandHtml, /href="\/"/);
   assert.match(laplandHtml, /data-booking-band/);
   assert.match(laplandHtml, /aviasales\.com\/search/);
   assert.match(laplandHtml, /search\.hotellook\.com/);
@@ -374,6 +389,7 @@ test("served family HTML omits Drive; public Lapland and Drive keep Drive plus b
   const driveHtml = await driveResponse.text();
   assert.match(driveHtml, /emrldtp\.cc/);
   assert.match(driveHtml, /travelpayouts-drive/);
+  assert.match(driveHtml, /← 首頁/);
   assert.match(driveHtml, /data-booking-band/);
   assert.match(driveHtml, /aviasales\.com\/search/);
   assert.match(driveHtml, /search\.hotellook\.com/);
