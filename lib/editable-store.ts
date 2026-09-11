@@ -1,5 +1,6 @@
 import { list, put } from "@vercel/blob";
 import { readDriveTrips, writeDriveTrip } from "@/lib/drive-trips";
+import { invalidatePublicHubCache } from "@/lib/public-hub";
 import { isAdminPinValid, isFamilyPinRequired } from "./family-pin.ts";
 import { LAPLAND_WINTER_VILLAGE_CAPTION, LAPLAND_WINTER_VILLAGE_PHOTO_ID, seedTripDetails, withMissingSeedTrips } from "@/lib/trips";
 import { prepareFamilyEditorTrips } from "@/lib/trip-series";
@@ -86,6 +87,7 @@ export async function writeContent(trips: TripDetail[]) {
     for (const trip of trips) {
       if (JSON.stringify(byId.get(trip.id)) !== JSON.stringify(trip)) await writeDriveTrip(trip);
     }
+    invalidatePublicHubCache();
     return content;
   }
   await put(DATA_BLOB_PATH, JSON.stringify(content, null, 2), {
@@ -94,6 +96,7 @@ export async function writeContent(trips: TripDetail[]) {
     contentType: "application/json",
   });
 
+  invalidatePublicHubCache();
   return content;
 }
 

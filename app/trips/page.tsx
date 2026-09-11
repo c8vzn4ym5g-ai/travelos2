@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { readContent } from "@/lib/editable-store";
+import { StorefrontHomeLink } from "@/components/storefront-home-link";
 import { isLaplandStorefrontSlug, LAPLAND_SEASON_LABEL } from "@/lib/lapland-storefront-copy";
-import { seedTripDetails } from "@/lib/trips";
-import { compareTripsByStartDateDesc, isTripPublic } from "@/lib/trip-visibility";
-import type { Money, Photo, TripDetail } from "@/lib/types";
+import { readPublicHubTrips, type HubTripCard } from "@/lib/public-hub";
+import type { Money } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +19,7 @@ const dateFormatter = new Intl.DateTimeFormat("en", {
   year: "numeric",
 });
 
-function articleHref(trip: TripDetail) {
+function articleHref(trip: HubTripCard) {
   return `/trips/${trip.slug}`;
 }
 
@@ -51,19 +50,8 @@ function formatMoney(totalCost: Money | null): string {
   }).format(totalCost.amount);
 }
 
-function isRenderablePhoto(photo: Photo) {
-  return photo.storageKey.startsWith("http") || photo.storageKey.startsWith("/");
-}
-
-function getCoverPhoto(trip: TripDetail) {
-  return (
-    trip.photos.find((photo) => photo.id === trip.coverPhotoId && isRenderablePhoto(photo)) ??
-    trip.photos.find(isRenderablePhoto)
-  );
-}
-
-function TripCard({ trip }: { trip: TripDetail }) {
-  const coverPhoto = getCoverPhoto(trip);
+function TripCard({ trip }: { trip: HubTripCard }) {
+  const coverPhoto = trip.coverPhoto;
   const href = articleHref(trip);
 
   return (
@@ -115,24 +103,15 @@ function TripCard({ trip }: { trip: TripDetail }) {
 }
 
 export default async function TripsPage() {
-  let content: { trips: TripDetail[] };
-  try {
-    content = (await readContent()).content;
-  } catch {
-    content = { trips: seedTripDetails };
-  }
-  const trips = [...content.trips].sort(compareTripsByStartDateDesc);
-  const publicTrips = trips.filter(isTripPublic);
-  const visibleTrips = publicTrips;
+  const visibleTrips = await readPublicHubTrips();
+  const publicTrips = visibleTrips;
 
   return (
     <main className="travel-shell">
       <section className="travel-hero">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-9 lg:px-10">
           <div>
-            <Link className="travel-kicker inline-flex min-h-11 items-center text-sm" href="/">
-              TravelOS
-            </Link>
+            <StorefrontHomeLink />
           </div>
           <div className="grid gap-5 lg:grid-cols-[1fr_20rem] lg:items-end">
             <div className="min-w-0">

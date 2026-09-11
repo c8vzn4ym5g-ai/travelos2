@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StorefrontHomeLink } from "@/components/storefront-home-link";
 import { CoffeeWorldMap } from "@/components/coffee-world-map";
 import { getCoffeeShopDetailsByVisitDate } from "@/lib/coffee";
 import { readCoffeeContent } from "@/lib/coffee-store";
@@ -13,9 +14,12 @@ export default async function CoffeeMapPage() {
     <main className="min-h-screen bg-stone-50 text-zinc-950">
       <section className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8 lg:px-10">
-          <Link className="text-sm font-medium text-teal-700" href="/coffee">
-            Coffee Map
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <StorefrontHomeLink />
+            <Link className="inline-flex min-h-11 items-center text-sm font-medium text-teal-700" href="/coffee">
+              Coffee Map
+            </Link>
+          </div>
           <div>
             <p className="text-sm font-medium uppercase text-zinc-500">Map view</p>
             <h1 className="mt-2 text-4xl font-semibold tracking-normal sm:text-5xl">Coffee pins across countries</h1>

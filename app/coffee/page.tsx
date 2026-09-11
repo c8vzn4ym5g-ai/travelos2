@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StorefrontHomeLink } from "@/components/storefront-home-link";
 import { getCoffeeShopsByVisitDate, getCoffeeStats } from "@/lib/coffee";
 import { readCoffeeContent } from "@/lib/coffee-store";
 import type { CoffeeShopListItem } from "@/lib/types";
@@ -73,9 +74,7 @@ export default async function CoffeePage() {
     <main className="min-h-screen bg-stone-50 text-zinc-950">
       <section className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8 lg:px-10">
-          <Link className="inline-flex min-h-11 items-center text-sm font-medium text-teal-700" href="/">
-            TravelOS
-          </Link>
+          <StorefrontHomeLink />
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-sm font-medium uppercase text-zinc-500">Coffee Map</p>
@@ -87,9 +86,9 @@ export default async function CoffeePage() {
             </div>
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap gap-2">
-                <Link className="rounded-md bg-teal-700 px-4 py-3 text-center text-sm font-semibold text-white" href="/">
+                <StorefrontHomeLink className="inline-flex min-h-11 cursor-pointer items-center rounded-md bg-teal-700 px-4 py-3 text-center text-sm font-semibold text-white">
                   Home / 首頁
-                </Link>
+                </StorefrontHomeLink>
                 <Link className="rounded-md border border-zinc-300 px-4 py-3 text-center text-sm font-semibold text-zinc-950" href="/trips">
                   Trips / 遊記
                 </Link>

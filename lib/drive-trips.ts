@@ -1,4 +1,5 @@
 import { getDriveAccess, getWarehouseTripBundle, putWarehouseTrip } from "@/lib/drive-warehouse";
+import { invalidatePublicHubCache } from "@/lib/public-hub";
 import { VANITY_CREW_HELD_TRIP_IDS, prepareFamilyEditorTrips, prepareTripForWarehouse } from "@/lib/trip-series";
 import type { TripDetail } from "@/lib/types";
 
@@ -216,6 +217,7 @@ export async function writeDriveTrip(trip: TripDetail) {
   const payload = prepareTripForWarehouse(trip);
   const name = tripFileName(payload.id);
   const viaWarehouse = await putWarehouseTrip(name, JSON.stringify(payload));
+  invalidatePublicHubCache();
   if (viaWarehouse) {
     return payload;
   }

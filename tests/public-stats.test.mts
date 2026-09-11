@@ -87,3 +87,11 @@ test("Drive script lock, persistence, Taipei midnight, replay dedup, totals and 
   assert.equal(contents, "broken");
   assert.equal(locked, false);
 });
+
+test("public stats beacon follows App Router pathname and never patches history", () => {
+  const beacon = readFileSync(new URL("../components/public-stats-beacon.tsx", import.meta.url), "utf8");
+  assert.match(beacon, /usePathname/);
+  assert.match(beacon, /never throw into the storefront/);
+  assert.doesNotMatch(beacon, /history\.pushState/);
+  assert.doesNotMatch(beacon, /history\.replaceState/);
+});

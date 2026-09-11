@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ShareActions } from "@/components/share-actions";
+import { StorefrontHomeLink } from "@/components/storefront-home-link";
 import { getCoffeeShopBySlug, getCoffeeShopDetailsByVisitDate } from "@/lib/coffee";
 import { readCoffeeContent } from "@/lib/coffee-store";
 import { publicSiteUrl } from "@/lib/site-url";
@@ -97,9 +98,12 @@ export default async function CoffeeDetailPage({ params }: CoffeeDetailPageProps
       <section className="travel-hero">
         <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-7 sm:px-6 sm:py-10 lg:px-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link className="travel-kicker text-sm" href="/coffee">
-              Coffee Map
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <StorefrontHomeLink />
+              <Link className="travel-chip inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold" href="/coffee">
+                Coffee Map
+              </Link>
+            </div>
             <span className="travel-chip rounded-full px-4 py-2 text-sm font-semibold">{shop.mood}</span>
           </div>
           <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,26rem)] lg:items-start">

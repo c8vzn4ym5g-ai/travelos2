@@ -14,6 +14,7 @@ import { LaplandStorefrontGate } from "@/components/lapland-storefront-gate";
 import { LaplandStorefrontGlance } from "@/components/lapland-storefront-glance";
 import { LaplandVisualPath } from "@/components/lapland-visual-path";
 import { ShareActions } from "@/components/share-actions";
+import { StorefrontHomeLink } from "@/components/storefront-home-link";
 import { readContent } from "@/lib/editable-store";
 import { isLaplandPhoneUserAgent } from "@/lib/lapland-mobile";
 import { publicSiteUrl } from "@/lib/site-url";
@@ -347,9 +348,12 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
       <section className="travel-hero" data-music-zone={`${trip.title} ${trip.summary} ${trip.city} ${trip.country}`}>
         <div className="mx-auto flex max-w-6xl flex-col gap-7 px-4 py-7 sm:px-6 sm:py-10 lg:px-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link className="travel-kicker text-sm" href="/trips">
-              Trips
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <StorefrontHomeLink />
+              <Link className="travel-chip inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold" href="/trips">
+                旅程
+              </Link>
+            </div>
             <span className="travel-chip rounded-full px-4 py-2 text-sm font-semibold">{trip.visibility}</span>
           </div>
           <div className="travel-soft-panel rounded-[1.5rem] p-4 sm:p-5">

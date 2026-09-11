@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BookingBand } from "@/components/booking-band";
+import { StorefrontHomeLink } from "@/components/storefront-home-link";
 import { drivePageMetadata, getLaplandBooking, LAPLAND_COVER_PHOTO, LAPLAND_JOURNAL_PATH } from "@/lib/travelpayouts";
 
 export const metadata: Metadata = {
@@ -24,9 +25,7 @@ export default function DrivePage() {
       <section className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8 lg:px-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link className="inline-flex min-h-11 items-center text-sm font-medium text-teal-700" href="/">
-              TravelOS
-            </Link>
+            <StorefrontHomeLink />
             <Link
               className="inline-flex min-h-11 items-center rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950"
               href={LAPLAND_JOURNAL_PATH}

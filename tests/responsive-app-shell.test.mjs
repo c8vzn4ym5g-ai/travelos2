@@ -6,13 +6,21 @@ import test from "node:test";
 const root = resolve(import.meta.dirname, "..");
 
 test("primary mobile navigation exposes reliable touch targets", async () => {
-  const [home, family] = await Promise.all([
+  const [home, family, homeLink] = await Promise.all([
     readFile(resolve(root, "app/page.tsx"), "utf8"),
     readFile(resolve(root, "app/family/page.tsx"), "utf8"),
+    readFile(resolve(root, "components/storefront-home-link.tsx"), "utf8"),
   ]);
 
   assert.match(home, /min-h-11/);
   assert.match(family, /min-h-11/);
+  assert.match(homeLink, /← 首頁/);
+  assert.match(homeLink, /min-h-11/);
+  assert.match(homeLink, /action="\/"/);
+  assert.match(homeLink, /method="get"/);
+  assert.match(homeLink, /type="submit"/);
+  assert.doesNotMatch(homeLink, /from "next\/link"/);
+  assert.doesNotMatch(homeLink, /<a /);
 });
 
 test("the installable app supports both portrait and landscape use", async () => {
@@ -38,6 +46,10 @@ test("core travel, coffee, booking, and editor routes keep touch controls at 44p
   for (const source of routeSources) {
     assert.match(source, /min-h-11/);
   }
+
+  assert.match(routeSources[0], /StorefrontHomeLink/);
+  assert.match(routeSources[1], /StorefrontHomeLink/);
+  assert.match(routeSources[2], /StorefrontHomeLink/);
 
   assert.match(routeSources[4], /min-w-11/);
 });
