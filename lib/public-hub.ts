@@ -234,30 +234,46 @@ async function readHubTripsFromWarehouse(): Promise<HubTripCard[] | null> {
 async function loadPublicHubTrips() {
   const seed = seedPublicHubTrips();
   const previous = cacheStore().entry?.trips ?? [];
-  const preferPreviousOrSeed = () => (previous.length > seed.length ? previous : seed);
+
+  const commit = (trips: HubTripCard[], ttl: number) => {
+    cacheStore().entry = { at: Date.now(), ttl, trips };
+    return trips;
+  };
+
+  const finishFromDrive = (fromDrive: HubTripCard[]) => {
+    if (!fromDrive?.length) {
+      return null;
+    }
+    return commit(mergeSeedHubCards(fromDrive), PUBLIC_HUB_CACHE_TTL_MS);
+  };
+
+  // 1) Fast path with budget
   try {
     const fromDrive = await withBudget(PUBLIC_HUB_DRIVE_BUDGET_MS, readHubTripsFromWarehouse());
-    if (!fromDrive?.length) {
-      const trips = preferPreviousOrSeed();
-      cacheStore().entry = {
-        at: Date.now(),
-        ttl: trips === seed ? PUBLIC_HUB_SEED_TTL_MS : PUBLIC_HUB_CACHE_TTL_MS,
-        trips,
-      };
-      return trips;
-    }
-    const trips = mergeSeedHubCards(fromDrive);
-    cacheStore().entry = { at: Date.now(), ttl: PUBLIC_HUB_CACHE_TTL_MS, trips };
-    return trips;
+    const done = finishFromDrive(fromDrive);
+    if (done) return done;
   } catch {
-    const trips = preferPreviousOrSeed();
-    cacheStore().entry = {
-      at: Date.now(),
-      ttl: trips === seed ? PUBLIC_HUB_SEED_TTL_MS : PUBLIC_HUB_CACHE_TTL_MS,
-      trips,
-    };
-    return trips;
+    /* retry below */
   }
+
+  // 2) Cold isolate / slow Drive: uncapped retry — never publish Lapland-only seed as the hub
+  try {
+    const fromDrive = await readHubTripsFromWarehouse();
+    const done = finishFromDrive(fromDrive);
+    if (done) return done;
+  } catch {
+    /* fall through */
+  }
+
+  if (previous.length > seed.length) {
+    return commit(previous, PUBLIC_HUB_CACHE_TTL_MS);
+  }
+
+  // Last resort: keep previous even if small, else short-TTL seed (better than hanging)
+  if (previous.length) {
+    return commit(previous, PUBLIC_HUB_SEED_TTL_MS);
+  }
+  return commit(seed, PUBLIC_HUB_SEED_TTL_MS);
 }
 
 /** Isolate memory cache. Hubs must not call readContent() / full Drive trip trees. */
