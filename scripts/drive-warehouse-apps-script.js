@@ -1,7 +1,7 @@
 const FOLDER_ID = "1Sk2TqgpF6NxoNYdUKO4h8t84UA7KxChN";
 const TOKEN = "cCpNneNyv0_MTyPjAZMkJ3g69t0DfDE-GP84y26YGhU";
 // Capture display/original binaries use travelos__moments__photos__{momentId}__* names.
-// LockService is for op=index / op=item merge-on-write only. Binary POSTs stay parallel.
+// LockService protects op=index / op=item and the separate op=stats file. Binary POSTs stay parallel.
 
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
@@ -254,6 +254,9 @@ function doGet(e) {
     return json_({ error: "unauthorized" });
   }
   var op = (e.parameter && e.parameter.op) || "";
+  if (op === "stats") {
+    return withLock_(function () { return json_(publicStatsSummary_(readPublicStats_().data)); });
+  }
   if (op === "drive-access") {
     // Worker mints a short-lived Drive token so 15s iPhone videos can
     // resumable-PUT as binary. Bytes never ride JSON+base64 through this script.
@@ -321,6 +324,9 @@ function doPost(e) {
     return json_({ error: "unauthorized" });
   }
   var body = JSON.parse(e.postData.contents);
+  if (body.op === "stats") {
+    return withLock_(function () { return writePublicStats_(body); });
+  }
   if (body.op === "list") {
     return json_({ files: listFiles_() });
   }
@@ -341,4 +347,56 @@ function doPost(e) {
     return writeTrip_(body);
   }
   return createBinaryFile_(body);
+}
+
+// Isolated from moments.json, trip records, and media. All reads/writes hold the script lock.
+var PUBLIC_STATS_FILE_ = "travelos-public-stats-v1.json";
+function publicStatsDate_() {
+  return Utilities.formatDate(new Date(), "Asia/Taipei", "yyyy-MM-dd");
+}
+function readPublicStats_() {
+  var files = folder_().getFilesByName(PUBLIC_STATS_FILE_);
+  if (!files.hasNext()) return { file: null, data: { version: 1, since: null, visitors: {}, days: {} } };
+  var file = files.next();
+  // Fail closed on corrupt data; never replace existing statistics with zeroes.
+  var data = JSON.parse(file.getBlob().getDataAsString());
+  if (data.version !== 1 || !data.visitors || !data.days) throw new Error("Invalid stats file");
+  return { file: file, data: data };
+}
+function publicStatsSummary_(data) {
+  var today = publicStatsDate_();
+  var days = Object.keys(data.days).sort().map(function (date) {
+    var day = data.days[date];
+    return { date: date, uv: Object.keys(day.visitors).length, pv: day.pv };
+  });
+  var current = days.filter(function (day) { return day.date === today; })[0];
+  return {
+    todayUV: current ? current.uv : 0, todayPV: current ? current.pv : 0,
+    days: days, since: data.since, totalUVApprox: Object.keys(data.visitors).length,
+    goalUVApprox: Object.keys(data.visitors).filter(function (id) { return data.visitors[id] <= "2026-09-21"; }).length,
+    goal: 300, deadline: "2026-09-21", timezone: "Asia/Taipei"
+  };
+}
+function writePublicStats_(body) {
+  if (!/^[0-9a-f]{64}$/.test(String(body.visitor || "")) || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(body.event || ""))) {
+    return json_({ error: "invalid stats event" });
+  }
+  var stored = readPublicStats_();
+  var data = stored.data;
+  var date = publicStatsDate_(); // Trusted server time, never a client-supplied date.
+  // Deduplicate event replays, including a retry across Taipei midnight.
+  var duplicate = Object.keys(data.days).some(function (key) { return Boolean(data.days[key].events[body.event]); });
+  if (duplicate) return json_({ ok: true });
+  var day = data.days[date] || { visitors: {}, events: {}, pv: 0 };
+  day.visitors[body.visitor] = true;
+  day.events[body.event] = true;
+  day.pv += 1;
+  data.days[date] = day;
+  if (!data.visitors[body.visitor]) data.visitors[body.visitor] = date;
+  if (!data.since) data.since = date;
+  var contents = JSON.stringify(data);
+  // Update in place: do not trash the only copy before a replacement succeeds.
+  if (stored.file) stored.file.setContent(contents);
+  else folder_().createFile(PUBLIC_STATS_FILE_, contents, "application/json");
+  return json_({ ok: true });
 }

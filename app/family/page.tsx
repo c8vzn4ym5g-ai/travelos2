@@ -39,6 +39,8 @@ export default function FamilyWorkspacePage() {
         </div>
       </header>
 
+      <Link className="fam-pill fam-pill-sky mx-auto my-4 flex min-h-11 w-fit items-center px-5" href="/family/stats">🌱 小小足跡・看看訪客</Link>
+
       <FamilyUnlockPanel />
 
       <section className="fam-sheet">
