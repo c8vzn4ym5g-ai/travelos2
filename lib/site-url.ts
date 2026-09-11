@@ -49,7 +49,7 @@ export function canonicalSiteUrl(pathAndQuery = "/") {
  * Reads NEXT_PUBLIC_SITE_URL then SITE_URL. Defaults to Cloudflare workers.dev.
  * Ignores *.vercel.app so leftover Vercel dashboard env cannot advertise the spare.
  */
-export function resolvePublicSiteOrigin(env: EnvLike = process.env) {
+export function resolvePublicSiteOrigin(env: EnvLike = typeof process !== "undefined" && process.env ? process.env : {}) {
   for (const raw of [env.NEXT_PUBLIC_SITE_URL, env.SITE_URL]) {
     const origin = parseHttpOrigin(raw);
     if (origin && !isVercelAppOrigin(origin)) {
@@ -60,9 +60,14 @@ export function resolvePublicSiteOrigin(env: EnvLike = process.env) {
   return DEFAULT_PUBLIC_SITE_ORIGIN;
 }
 
-export const PUBLIC_SITE_ORIGIN = resolvePublicSiteOrigin();
+export const PUBLIC_SITE_ORIGIN = DEFAULT_PUBLIC_SITE_ORIGIN;
 
-export function publicSiteUrl(path = "/", env: EnvLike = process.env) {
+/** Server-preferred origin (reads env). Client code must not call this at module init. */
+export function publicSiteOriginFromEnv(env: EnvLike = typeof process !== "undefined" ? process.env : {}) {
+  return resolvePublicSiteOrigin(env);
+}
+
+export function publicSiteUrl(path = "/", env: EnvLike = typeof process !== "undefined" && process.env ? process.env : {}) {
   const origin = resolvePublicSiteOrigin(env);
   if (!path || path === "/") {
     return origin;

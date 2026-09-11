@@ -1,38 +1,84 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
 import { isPublicStorefront, PUBLIC_ORIGIN, UUID_PATTERN, VISITOR_COOKIE } from "@/lib/public-stats";
 
-/** Invisible, public-layout-only effect; never waits on warehouse I/O. */
+function readPathname() {
+  if (typeof window === "undefined") return "";
+  return window.location.pathname || "/";
+}
+
+/** Invisible public-layout beacon. Must never throw into the storefront. */
 export function PublicStatsBeacon() {
-  const pathname = usePathname();
   const previous = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!pathname || !isPublicStorefront(pathname)) {
-      previous.current = null;
-      return;
-    }
-    if (location.origin !== PUBLIC_ORIGIN || navigator.webdriver) return;
-    const send = () => {
-      if (document.visibilityState !== "visible" || previous.current === pathname) return;
+    const send = (pathname: string) => {
       try {
-        let visitor = document.cookie.split("; ").find(v => v.startsWith(`${VISITOR_COOKIE}=`))?.split("=")[1];
+        if (!pathname || !isPublicStorefront(pathname)) {
+          previous.current = null;
+          return;
+        }
+        if (window.location.origin !== PUBLIC_ORIGIN) return;
+        if (typeof navigator !== "undefined" && navigator.webdriver) return;
+        if (document.visibilityState !== "visible" || previous.current === pathname) return;
+
+        let visitor = document.cookie
+          .split("; ")
+          .find((part) => part.startsWith(`${VISITOR_COOKIE}=`))
+          ?.split("=")[1];
         if (!visitor || !UUID_PATTERN.test(visitor)) {
-          visitor = crypto.randomUUID();
-          document.cookie = `${VISITOR_COOKIE}=${visitor}; Path=/; Max-Age=31536000; SameSite=Lax; Secure`;
+          visitor =
+            typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+          // Only persist real UUID cookies; ephemeral ids still count this page once.
+          if (UUID_PATTERN.test(visitor)) {
+            document.cookie = `${VISITOR_COOKIE}=${visitor}; Path=/; Max-Age=31536000; SameSite=Lax; Secure`;
+          }
         }
-        if (!document.cookie.includes(`${VISITOR_COOKIE}=${visitor}`)) return;
         previous.current = pathname;
-        const body = JSON.stringify({ path: pathname, event: crypto.randomUUID() });
+        const eventId =
+          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        if (!UUID_PATTERN.test(eventId)) return;
+        const body = JSON.stringify({ path: pathname, event: eventId });
         if (!navigator.sendBeacon?.("/api/stats", new Blob([body], { type: "application/json" }))) {
-          void fetch("/api/stats", { method: "POST", body, headers: { "Content-Type": "application/json" }, keepalive: true }).catch(() => {});
+          void fetch("/api/stats", {
+            method: "POST",
+            body,
+            headers: { "Content-Type": "application/json" },
+            keepalive: true,
+          }).catch(() => {});
         }
-      } catch { /* Storage/network restrictions must never affect the storefront. */ }
+      } catch {
+        /* never affect storefront */
+      }
     };
-    const timer = window.setTimeout(send, 0);
-    document.addEventListener("visibilitychange", send);
-    return () => { clearTimeout(timer); document.removeEventListener("visibilitychange", send); };
-  }, [pathname]);
+
+    send(readPathname());
+    const onVisible = () => send(readPathname());
+    document.addEventListener("visibilitychange", onVisible);
+
+    // App Router soft navigations
+    const wrap = (type: "pushState" | "replaceState") => {
+      const original = history[type];
+      return function (this: History, ...args: Parameters<History["pushState"]>) {
+        const result = original.apply(this, args);
+        queueMicrotask(() => send(readPathname()));
+        return result;
+      };
+    };
+    history.pushState = wrap("pushState");
+    history.replaceState = wrap("replaceState");
+    window.addEventListener("popstate", onVisible);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("popstate", onVisible);
+    };
+  }, []);
+
   return null;
 }
