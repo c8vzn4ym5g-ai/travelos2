@@ -16,8 +16,11 @@ test("primary mobile navigation exposes reliable touch targets", async () => {
   assert.match(family, /min-h-11/);
   assert.match(homeLink, /← 首頁/);
   assert.match(homeLink, /min-h-11/);
-  assert.match(homeLink, /href="\/"/);
+  assert.match(homeLink, /action="\/"/);
+  assert.match(homeLink, /method="get"/);
+  assert.match(homeLink, /type="submit"/);
   assert.doesNotMatch(homeLink, /from "next\/link"/);
+  assert.doesNotMatch(homeLink, /<a /);
 });
 
 test("the installable app supports both portrait and landscape use", async () => {

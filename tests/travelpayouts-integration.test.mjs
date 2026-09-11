@@ -369,7 +369,7 @@ test("served family HTML omits Drive; public Lapland and Drive keep Drive plus b
   assert.doesNotMatch(tripsHtml, /id="travelpayouts-drive"/);
   assert.doesNotMatch(tripsHtml, /href="\/timeline"/);
   assert.match(tripsHtml, /← 首頁/);
-  assert.match(tripsHtml, /href="\/"/);
+  assert.match(tripsHtml, /action="\/"/);
 
   const laplandResponse = await fetch(`${base}${LAPLAND_JOURNAL_PATH}`);
   assert.equal(laplandResponse.ok, true);
@@ -377,7 +377,7 @@ test("served family HTML omits Drive; public Lapland and Drive keep Drive plus b
   assert.doesNotMatch(laplandHtml, /emrldtp\.cc/);
   assert.doesNotMatch(laplandHtml, /id="travelpayouts-drive"/);
   assert.match(laplandHtml, /← 首頁/);
-  assert.match(laplandHtml, /href="\/"/);
+  assert.match(laplandHtml, /action="\/"/);
   assert.match(laplandHtml, /data-booking-band/);
   assert.match(laplandHtml, /aviasales\.com\/search/);
   assert.match(laplandHtml, /search\.hotellook\.com/);

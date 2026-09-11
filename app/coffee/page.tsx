@@ -86,7 +86,7 @@ export default async function CoffeePage() {
             </div>
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap gap-2">
-                <StorefrontHomeLink className="inline-flex min-h-11 items-center rounded-md bg-teal-700 px-4 py-3 text-center text-sm font-semibold text-white">
+                <StorefrontHomeLink className="inline-flex min-h-11 cursor-pointer items-center rounded-md bg-teal-700 px-4 py-3 text-center text-sm font-semibold text-white">
                   Home / 首頁
                 </StorefrontHomeLink>
                 <Link className="rounded-md border border-zinc-300 px-4 py-3 text-center text-sm font-semibold text-zinc-950" href="/trips">

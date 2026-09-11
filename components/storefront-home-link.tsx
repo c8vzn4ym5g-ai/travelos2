@@ -4,11 +4,11 @@ export const STOREFRONT_HOME_LABEL = "← 首頁";
 
 /** Visible storefront chrome. Family uses the same copy on FamilyBackLink. */
 export const STOREFRONT_HOME_LINK_CLASS =
-  "inline-flex min-h-11 items-center rounded-full border border-[color:var(--line)] bg-white px-4 text-sm font-semibold text-[color:var(--pine)] shadow-sm";
+  "inline-flex min-h-11 cursor-pointer items-center rounded-full border border-[color:var(--line)] bg-white px-4 text-sm font-semibold text-[color:var(--pine)] shadow-sm";
 
 /**
- * Full-document home control. Next Link + Travelpayouts Drive click patches
- * have thrown Application error on iPhone when leaving /trips or /drive.
+ * Full-document home control. A GET form is not an <a>, so Travelpayouts Drive
+ * on /drive cannot patch the click the way it hijacks Next.js Links.
  */
 export function StorefrontHomeLink({
   children = STOREFRONT_HOME_LABEL,
@@ -18,8 +18,10 @@ export function StorefrontHomeLink({
   className?: string;
 }) {
   return (
-    <a className={className} href="/">
-      {children}
-    </a>
+    <form action="/" method="get">
+      <button className={className} type="submit">
+        {children}
+      </button>
+    </form>
   );
 }
