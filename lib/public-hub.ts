@@ -7,7 +7,7 @@ import type { Money, Photo, TripDetail } from "@/lib/types";
 
 export const PUBLIC_HUB_CACHE_TTL_MS = 120_000;
 export const PUBLIC_HUB_SEED_TTL_MS = 20_000;
-export const PUBLIC_HUB_DRIVE_BUDGET_MS = 1_800;
+export const PUBLIC_HUB_DRIVE_BUDGET_MS = 10_000;
 export const HUB_GALLERY_LIMIT = 4;
 
 export type HubPhoto = {
@@ -233,18 +233,30 @@ async function readHubTripsFromWarehouse(): Promise<HubTripCard[] | null> {
 
 async function loadPublicHubTrips() {
   const seed = seedPublicHubTrips();
+  const previous = cacheStore().entry?.trips ?? [];
+  const preferPreviousOrSeed = () => (previous.length > seed.length ? previous : seed);
   try {
     const fromDrive = await withBudget(PUBLIC_HUB_DRIVE_BUDGET_MS, readHubTripsFromWarehouse());
     if (!fromDrive?.length) {
-      cacheStore().entry = { at: Date.now(), ttl: PUBLIC_HUB_SEED_TTL_MS, trips: seed };
-      return seed;
+      const trips = preferPreviousOrSeed();
+      cacheStore().entry = {
+        at: Date.now(),
+        ttl: trips === seed ? PUBLIC_HUB_SEED_TTL_MS : PUBLIC_HUB_CACHE_TTL_MS,
+        trips,
+      };
+      return trips;
     }
     const trips = mergeSeedHubCards(fromDrive);
     cacheStore().entry = { at: Date.now(), ttl: PUBLIC_HUB_CACHE_TTL_MS, trips };
     return trips;
   } catch {
-    cacheStore().entry = { at: Date.now(), ttl: PUBLIC_HUB_SEED_TTL_MS, trips: seed };
-    return seed;
+    const trips = preferPreviousOrSeed();
+    cacheStore().entry = {
+      at: Date.now(),
+      ttl: trips === seed ? PUBLIC_HUB_SEED_TTL_MS : PUBLIC_HUB_CACHE_TTL_MS,
+      trips,
+    };
+    return trips;
   }
 }
 
