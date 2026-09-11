@@ -968,3 +968,12 @@ export async function getBinary(
     };
   });
 }
+
+/** Dedicated stats operations; never use the journal index or trip writer. */
+export async function readPublicStatsWarehouse(request?: DriveFetch): Promise<unknown> {
+  return getJson({ op: "stats", token: getDriveWarehouseToken() }, "Public stats GET", request);
+}
+
+export async function recordPublicStatsWarehouse(visitor: string, event: string, request?: DriveFetch): Promise<unknown> {
+  return postJson({ op: "stats", token: getDriveWarehouseToken(), visitor, event }, "Public stats POST", request);
+}

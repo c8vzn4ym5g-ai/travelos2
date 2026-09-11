@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
+import { PublicStatsBeacon } from "@/components/public-stats-beacon";
 import { CanonicalHost } from "@/components/canonical-host";
 import { TravelpayoutsDrive } from "@/components/travelpayouts-drive";
 import { resolvePublicSiteOrigin } from "@/lib/site-url";
@@ -68,6 +69,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body>
         <CanonicalHost />
+        <Suspense fallback={null}><PublicStatsBeacon /></Suspense>
         {children}
       </body>
     </html>
