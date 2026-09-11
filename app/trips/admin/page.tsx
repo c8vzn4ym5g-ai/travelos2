@@ -16,6 +16,7 @@ import { FAMILY_ADMIN_SESSION_KEY, familyPinHeaders, resolveFamilySession } from
 import { canonicalSiteUrl, isSpareVercelHost } from "@/lib/site-url";
 import { getTripPromoVideos } from "@/lib/promo-videos";
 import { formatEditorTripPickerLabel } from "@/lib/editor-trip-label";
+import { isTripPhotoVideo } from "@/lib/trip-photo";
 import { compareTripsByStartDateDesc, isTripPublic } from "@/lib/trip-visibility";
 import type { JournalEntry, Photo, TravelVisibility, TripDetail } from "@/lib/types";
 
@@ -60,7 +61,9 @@ function formatDate(value: string | null | undefined) {
 }
 
 function photoLabel(photo: Photo, index: number) {
-  return photo.caption?.trim() || photo.originalFilename || `照片 ${index + 1}`;
+  if (photo.caption?.trim()) return photo.caption.trim();
+  if (photo.originalFilename) return photo.originalFilename;
+  return isTripPhotoVideo(photo) ? `Video ${index + 1}` : `照片 ${index + 1}`;
 }
 
 function isRenderablePhoto(photo: Photo) {
@@ -74,11 +77,38 @@ function photoTime(photo: Photo) {
 
 function PhotoThumb({ photo, className = "h-28" }: { photo: Photo; className?: string }) {
   if (!isRenderablePhoto(photo)) {
-    return <div className={`${className} grid w-full place-items-center bg-stone-100 text-sm text-zinc-500`}>照片整理中</div>;
+    return <div className={`${className} grid w-full place-items-center bg-stone-100 text-sm text-zinc-500`}>{isTripPhotoVideo(photo) ? "影片整理中" : "照片整理中"}</div>;
+  }
+  if (isTripPhotoVideo(photo)) {
+    return (
+      <video
+        aria-label={photo.caption ?? photo.originalFilename}
+        className={`${className} w-full object-cover`}
+        controls
+        onClick={(event) => event.stopPropagation()}
+        playsInline
+        preload="metadata"
+        src={photo.storageKey}
+      />
+    );
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img alt={photo.caption ?? photo.originalFilename} className={`${className} w-full object-cover`} src={photo.storageKey} />
+  );
+}
+
+function PhotoCardMeta({ cover, index, photo }: { cover?: boolean; index: number; photo: Photo }) {
+  return (
+    <span className="block p-3">
+      <span className="block text-xs font-semibold text-sky-700">
+        工作編號 #{index + 1}
+        {cover ? "・封面" : ""}
+        {isTripPhotoVideo(photo) ? "・Video" : ""}
+      </span>
+      <span className="mt-1 block line-clamp-2 text-sm font-semibold text-zinc-800">{photoLabel(photo, index)}</span>
+      <span className="mt-1 block text-xs text-zinc-500">{formatDate(photo.takenAt)}</span>
+    </span>
   );
 }
 
@@ -603,9 +633,50 @@ export default function TravelAdminPage() {
             {tab === "photos" ? (
               <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
                 <div><form className="rounded-3xl border border-dashed border-sky-200 bg-white p-5" onSubmit={uploadPhoto}><h2 className="travel-display text-2xl font-semibold">少了照片才從這裡補</h2><p className="mt-2 text-sm text-zinc-600">原檔直接放入，不壓縮、不轉格式。</p><div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end"><input accept="image/*" className={`${inputClass} file:mr-3 file:rounded-full file:border-0 file:bg-sky-800 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white`} name="file" required type="file" /><button className={primaryButtonClass} disabled={uploading} type="submit">{uploading ? `放入中 ${uploadProgress ?? 0}%` : "放入原始照片"}</button></div></form>
-                  <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{activeTrip.photos.map((photo, index) => <button className={`overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition hover:-translate-y-0.5 ${selectedPhoto?.id === photo.id ? "border-sky-600 ring-4 ring-sky-100" : "border-sky-100"}`} key={photo.id} onClick={() => setSelectedPhotoId(photo.id)} type="button"><PhotoThumb className="h-36 sm:h-40" photo={photo} /><span className="block p-3"><span className="block text-xs font-semibold text-sky-700">工作編號 #{index + 1}{photo.id === activeTrip.coverPhotoId ? "・封面" : ""}</span><span className="mt-1 block line-clamp-2 text-sm font-semibold text-zinc-800">{photoLabel(photo, index)}</span><span className="mt-1 block text-xs text-zinc-500">{formatDate(photo.takenAt)}</span></span></button>)}</div>
+                  <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    {activeTrip.photos.map((photo, index) => {
+                      const selected = selectedPhoto?.id === photo.id;
+                      const cardClass = `overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition hover:-translate-y-0.5 ${selected ? "border-sky-600 ring-4 ring-sky-100" : "border-sky-100"}`;
+                      const meta = <PhotoCardMeta cover={photo.id === activeTrip.coverPhotoId} index={index} photo={photo} />;
+                      if (isTripPhotoVideo(photo)) {
+                        return (
+                          <article className={cardClass} key={photo.id}>
+                            <PhotoThumb className="h-36 sm:h-40" photo={photo} />
+                            <button className="block w-full text-left" onClick={() => setSelectedPhotoId(photo.id)} type="button">
+                              {meta}
+                            </button>
+                          </article>
+                        );
+                      }
+                      return (
+                        <button className={cardClass} key={photo.id} onClick={() => setSelectedPhotoId(photo.id)} type="button">
+                          <PhotoThumb className="h-36 sm:h-40" photo={photo} />
+                          {meta}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                {selectedPhoto ? <aside className="h-fit rounded-3xl border border-sky-100 bg-white p-5 shadow-sm xl:sticky xl:top-28"><PhotoThumb className="h-56 rounded-2xl" photo={selectedPhoto} /><p className="mt-4 text-xs font-semibold text-sky-700">工作編號 #{activeTrip.photos.findIndex((photo) => photo.id === selectedPhoto.id) + 1}</p><p className="mt-1 text-sm text-zinc-500">{formatDate(selectedPhoto.takenAt)}</p><label className="mt-4 block"><span className="travel-label text-sm font-semibold">這張照片想留下什麼話？</span><textarea className={`${inputClass} min-h-28`} onChange={(event) => updatePhotoCaption(selectedPhoto.id, event.target.value)} value={selectedPhoto.caption ?? ""} /></label><div className="mt-4 grid grid-cols-2 gap-2"><button className={secondaryButtonClass} onClick={() => updateActiveTrip((trip) => ({ ...trip, coverPhotoId: selectedPhoto.id }))} type="button">設為封面</button><button className={secondaryButtonClass} onClick={() => removePhoto(selectedPhoto.id)} type="button">移除照片</button><button className={secondaryButtonClass} disabled={activeTrip.photos[0]?.id === selectedPhoto.id} onClick={() => movePhoto(selectedPhoto.id, -1)} type="button">往前</button><button className={secondaryButtonClass} disabled={activeTrip.photos.at(-1)?.id === selectedPhoto.id} onClick={() => movePhoto(selectedPhoto.id, 1)} type="button">往後</button></div></aside> : null}
+                {selectedPhoto ? (
+                  <aside className="h-fit rounded-3xl border border-sky-100 bg-white p-5 shadow-sm xl:sticky xl:top-28">
+                    <PhotoThumb className="h-56 rounded-2xl" photo={selectedPhoto} />
+                    <p className="mt-4 text-xs font-semibold text-sky-700">
+                      工作編號 #{activeTrip.photos.findIndex((photo) => photo.id === selectedPhoto.id) + 1}
+                      {isTripPhotoVideo(selectedPhoto) ? "・Video" : ""}
+                    </p>
+                    <p className="mt-1 text-sm text-zinc-500">{formatDate(selectedPhoto.takenAt)}</p>
+                    <label className="mt-4 block">
+                      <span className="travel-label text-sm font-semibold">{isTripPhotoVideo(selectedPhoto) ? "這段影片想留下什麼話？" : "這張照片想留下什麼話？"}</span>
+                      <textarea className={`${inputClass} min-h-28`} onChange={(event) => updatePhotoCaption(selectedPhoto.id, event.target.value)} value={selectedPhoto.caption ?? ""} />
+                    </label>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <button className={secondaryButtonClass} onClick={() => updateActiveTrip((trip) => ({ ...trip, coverPhotoId: selectedPhoto.id }))} type="button">設為封面</button>
+                      <button className={secondaryButtonClass} onClick={() => removePhoto(selectedPhoto.id)} type="button">{isTripPhotoVideo(selectedPhoto) ? "移除影片" : "移除照片"}</button>
+                      <button className={secondaryButtonClass} disabled={activeTrip.photos[0]?.id === selectedPhoto.id} onClick={() => movePhoto(selectedPhoto.id, -1)} type="button">往前</button>
+                      <button className={secondaryButtonClass} disabled={activeTrip.photos.at(-1)?.id === selectedPhoto.id} onClick={() => movePhoto(selectedPhoto.id, 1)} type="button">往後</button>
+                    </div>
+                  </aside>
+                ) : null}
               </section>
             ) : null}
 
