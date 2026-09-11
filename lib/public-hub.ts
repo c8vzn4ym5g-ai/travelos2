@@ -240,7 +240,7 @@ async function loadPublicHubTrips() {
     return trips;
   };
 
-  const finishFromDrive = (fromDrive: HubTripCard[]) => {
+  const finishFromDrive = (fromDrive: HubTripCard[] | null) => {
     if (!fromDrive?.length) {
       return null;
     }
