@@ -138,7 +138,7 @@ function pickHubPhotos(rawPhotos: unknown, coverPhotoId: string | null, tripId: 
       continue;
     }
     const photo = item as { caption?: unknown; id?: unknown; storageKey?: unknown };
-    if (typeof photo.storageKey !== "string" || !isRenderablePhoto(photo)) {
+    if (typeof photo.storageKey !== "string" || !isRenderablePhoto({ storageKey: photo.storageKey })) {
       continue;
     }
     renderable.push(
