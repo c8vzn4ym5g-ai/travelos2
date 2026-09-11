@@ -5,6 +5,7 @@ import {
   VANITY_CREW_SERIES,
   prepareFamilyEditorTrips,
   prepareReaderChinese,
+  prepareTripForWarehouse,
   searchTripsBySeries,
   stripSeriesFromTitle,
   toTraditional,
@@ -104,6 +105,14 @@ test("maple journals keep Traditional titles from PUT; series stays 愛慕虛榮
   assert.equal(maple.length, 4);
   assert.ok(maple.every((trip) => trip.visibility === "private"));
   assert.ok(maple.every((trip) => !isTripPublic(trip)));
+  const sharedArashiyama = prepareFamilyEditorTrips([
+    { ...arashiyama, visibility: "shared" },
+  ])[0];
+  assert.equal(sharedArashiyama?.visibility, "shared");
+  assert.equal(isTripPublic(sharedArashiyama!), true);
+  const warehouseShared = prepareTripForWarehouse({ ...ginkaku, visibility: "shared" });
+  assert.equal(warehouseShared.visibility, "shared");
+  assert.equal(isTripPublic(warehouseShared), true);
   assert.ok(maple.every((trip) => trip.series === "愛慕虛榮團"));
   assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_arashiyama")?.title, "嵐山翠嵐");
   assert.equal(prepared.find((trip) => trip.id === "trip_kyoto_maple_ginkaku")?.title, "銀閣寺線");
