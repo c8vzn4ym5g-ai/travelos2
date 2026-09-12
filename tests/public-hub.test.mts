@@ -245,6 +245,50 @@ test("Cloudflare snapshot restores all shared cards after isolate eviction", asy
   }
 });
 
+test("slow edge restore cannot be overwritten by seed-only content in a cold isolate", async () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, "caches");
+  let snapshot: Response | undefined;
+  let finishRestore: (() => void) | undefined;
+  let slow = false;
+  let writes = 0;
+  Object.defineProperty(globalThis, "caches", { configurable: true, value: { default: {
+    put: async (_url: string, response: Response) => {
+      writes += 1;
+      snapshot = response.clone();
+    },
+    match: async () => {
+      const saved = snapshot?.clone();
+      if (slow) await new Promise<void>((resolve) => { finishRestore = resolve; });
+      return saved;
+    },
+  } } });
+  resetPublicHubCacheForTests();
+  setDriveWarehouseFetchForTests(async () => { throw new Error("Drive timeout"); });
+  try {
+    await cachePublicHubTrips(sharedLibrary());
+    resetPublicHubCacheForTests();
+    slow = true;
+    // The 500 ms lookup budget expires before the existing library is restored.
+    await cachePublicHubTrips(seedPublicHubTrips());
+    assert.equal(writes, 1, "seed content must not replace the lasting snapshot");
+    assert.equal((await snapshot!.clone().json()).trips.length, 11);
+    slow = false;
+    finishRestore?.();
+    await settle();
+    assert.equal((await readPublicHubTrips()).length, 11);
+    invalidatePublicHubCache();
+    assert.equal((await readPublicHubTrips()).length, 11);
+    await settle();
+    assert.equal((await readPublicHubTrips()).length, 11);
+  } finally {
+    finishRestore?.();
+    if (original) Object.defineProperty(globalThis, "caches", original);
+    else Reflect.deleteProperty(globalThis, "caches");
+    setDriveWarehouseFetchForTests(null);
+    resetPublicHubCacheForTests();
+  }
+});
+
 test("lighter Drive read paginates, selects latest files, keeps a cover and rejects partial results", async () => {
   let failFile = false;
   const requested: string[] = [];

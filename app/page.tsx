@@ -250,9 +250,6 @@ export default async function Home() {
               </Link>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link className="travel-label inline-flex min-h-11 items-center rounded-full border border-emerald-300 bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800" href="/family">
-                家庭編輯
-              </Link>
               <Link className="travel-label inline-flex min-h-11 items-center rounded-full border border-sky-200 bg-white/80 px-4 py-2 text-sm font-semibold text-sky-950 transition hover:bg-sky-50" href="/trips">
                 Travel
               </Link>
@@ -261,6 +258,9 @@ export default async function Home() {
               </Link>
               <Link className="travel-label inline-flex min-h-11 items-center rounded-full border border-indigo-200 bg-white/80 px-4 py-2 text-sm font-semibold text-indigo-950 transition hover:bg-indigo-50" href="/drive">
                 Drive
+              </Link>
+              <Link className="travel-label inline-flex min-h-11 items-center rounded-full border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-500 transition hover:bg-zinc-50 hover:text-zinc-700" href="/family">
+                家庭編輯
               </Link>
             </div>
           </nav>
