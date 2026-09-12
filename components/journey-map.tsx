@@ -6,6 +6,7 @@ import {
   buildJourneyItinerary,
   buildPosterLayout,
   getFirstWordingBlock,
+  getMapTiles,
   getStopCardContent,
   isLaplandPosterCity,
   isRenderablePhoto,
@@ -125,6 +126,7 @@ function QuietArrival({ cities }: { cities: { id: string; label: string; shortLa
 }
 
 function RegionalMap({
+  bounds,
   city,
   legendItems,
   onSelect,
@@ -132,6 +134,7 @@ function RegionalMap({
   selectedId,
   stops,
 }: {
+  bounds: ReturnType<typeof buildPosterLayout>["bounds"];
   city: string;
   legendItems: ReturnType<typeof buildPosterLayout>["legendItems"];
   onSelect: (id: string) => void;
@@ -179,7 +182,20 @@ function RegionalMap({
           </nav>
         </div>
       ) : (
-        <div className="min-h-[22rem] bg-[#e8f0e4] sm:min-h-[26rem] lg:min-h-[32rem]" />
+        <div aria-hidden="true" className="pointer-events-none min-h-[22rem] sm:min-h-[26rem] lg:min-h-[32rem]">
+          {getMapTiles(bounds).map((tile) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt=""
+              className="absolute max-w-none select-none"
+              data-map-tile
+              draggable={false}
+              key={tile.key}
+              src={tile.src}
+              style={tile.style}
+            />
+          ))}
+        </div>
       )}
       {usePoster ? null : (
         pins.map((pin) => {
@@ -188,7 +204,7 @@ function RegionalMap({
             <button
               aria-label={`Stop ${pin.number}: ${pin.label}`}
               aria-pressed={selected}
-              className={`absolute z-20 min-h-11 min-w-11 -translate-x-1/2 -translate-y-1/2 rounded-full bg-transparent text-transparent transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
+              className={`absolute z-20 min-h-11 min-w-11 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#0f4f48] font-bold text-white shadow-md transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 ${
                 selected ? "z-40 ring-4 ring-white/90 ring-offset-2 ring-offset-teal-800/30" : ""
               }`}
               data-map-pin={pin.number}
@@ -236,7 +252,9 @@ function RegionalMap({
           })}
         </ol>
       )}
-      <p className="sr-only">Map credit: {STREET_BASEMAP.attribution}</p>
+      <p className={usePoster ? "sr-only" : "absolute bottom-0 right-0 z-30 max-w-full bg-white/90 px-2 py-1 text-[0.6rem] text-slate-700"}>
+        Map credit: {STREET_BASEMAP.attribution}
+      </p>
     </div>
   );
 }
@@ -296,6 +314,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
         }
       >
         <RegionalMap
+          bounds={posterLayout.bounds}
           city={city}
           legendItems={posterLayout.legendItems}
           onSelect={setSelectedId}

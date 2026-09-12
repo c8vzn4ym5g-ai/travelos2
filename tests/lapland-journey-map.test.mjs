@@ -25,7 +25,7 @@ const root = resolve(import.meta.dirname, "..");
 const lapland = seedTripDetails.find((trip) => trip.id === "trip_lapland_2020");
 const hongKong = { latitude: 22.308, longitude: 113.9185 };
 
-test("JourneyMap hero is the generated itinerary poster, not a live tile collage", async () => {
+test("Lapland JourneyMap hero keeps the generated itinerary poster", async () => {
   const [source, model, page, pkg] = await Promise.all([
     readFile(resolve(root, "components/journey-map.tsx"), "utf8"),
     readFile(resolve(root, "lib/journey-map-model.ts"), "utf8"),
@@ -53,8 +53,9 @@ test("JourneyMap hero is the generated itinerary poster, not a live tile collage
   assert.match(source, /LAPLAND_GLANCE_HOTSPOTS/);
   assert.match(source, /LAPLAND_PATH_HEADING/);
   assert.doesNotMatch(source, /data-travelpayouts-drive|TravelpayoutsDrive|widgetId/);
-  assert.doesNotMatch(source, /getMapTiles/);
-  assert.doesNotMatch(source, /data-map-tile/);
+  const posterBranch = source.slice(source.indexOf("{usePoster ? ("), source.indexOf("getMapTiles(bounds)"));
+  assert.match(posterBranch, /data-map-poster-image/);
+  assert.doesNotMatch(posterBranch, /data-map-tile/);
   assert.doesNotMatch(source, /tile\.openstreetmap\.org/);
   assert.doesNotMatch(source, /basemaps\.cartocdn\.com/);
   assert.doesNotMatch(source, /maps\.googleapis|mt\d\.google|@googlemaps/);
