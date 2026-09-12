@@ -295,6 +295,54 @@ export async function getWarehouseTripBundle(request?: DriveFetch): Promise<Ware
   }
 }
 
+/** Parallel trip-file read for cold hubs, without loading editor/photo trees.
+ * Fail the entire read if any file is unavailable; a partial library is not a
+ * successful snapshot. The bundle endpoint remains the fallback.
+ */
+export async function getWarehouseTripCards(): Promise<WarehouseTripBundleItem[] | null> {
+  const access = await getDriveAccess();
+  if (!access) return null;
+  const request = resolveFetch();
+  const files: Array<{ id: string; name: string; modifiedTime?: string }> = [];
+  let pageToken = "";
+  do {
+    const query = new URLSearchParams({
+      q: `'${access.folderId}' in parents and trashed=false and name contains 'travelos__trip__'`,
+      fields: "nextPageToken,files(id,name,modifiedTime)",
+      pageSize: "1000",
+      ...(pageToken ? { pageToken } : {}),
+    });
+    const response = await request(`${DRIVE_FILE_MEDIA_URL}?${query}`, {
+      headers: { Authorization: `Bearer ${access.token}` }, cache: "no-store",
+    });
+    if (!response.ok) throw new DriveWarehouseError("Hub trip listing failed");
+    const page = await response.json() as { files?: typeof files; nextPageToken?: string };
+    files.push(...(page.files ?? []));
+    pageToken = page.nextPageToken ?? "";
+  } while (pageToken);
+  const latest = new Map<string, typeof files[number]>();
+  for (const file of files) {
+    if (!file.name.startsWith("travelos__trip__") || !file.name.endsWith(".json")) continue;
+    if ((file.modifiedTime ?? "") >= (latest.get(file.name)?.modifiedTime ?? "")) latest.set(file.name, file);
+  }
+  return Promise.all([...latest.values()].map(async (file) => {
+    const response = await request(`${DRIVE_FILE_MEDIA_URL}/${encodeURIComponent(file.id)}?alt=media`, {
+      headers: { Authorization: `Bearer ${access.token}` }, cache: "no-store",
+    });
+    if (!response.ok) throw new DriveWarehouseError("Hub trip file read failed");
+    const raw = await response.json() as Record<string, unknown>;
+    const trip = (typeof raw.id === "string" ? raw : raw.trip ?? raw.moment) as Record<string, unknown>;
+    if (!trip || typeof trip.id !== "string") throw new DriveWarehouseError("Invalid hub trip file");
+    const photos = Array.isArray(trip.photos) ? trip.photos : [];
+    const cover = photos.find((photo) => photo.id === trip.coverPhotoId) ?? photos[0];
+    const { id, slug, title, summary, city, country, startDate, endDate, rating, totalCost, visibility } = trip;
+    return { modifiedTime: file.modifiedTime, trip: {
+      id, slug, title, summary, city, country, startDate, endDate, rating, totalCost, visibility,
+      coverPhotoId: cover?.id ?? null, photos: cover ? [cover] : [],
+    } };
+  }));
+}
+
 /** Raw trip JSON. Never `op=item` — that wraps the file as `{ moment, updatedAt }` and breaks GET. */
 export async function putWarehouseTrip(
   name: string,

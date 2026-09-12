@@ -1,5 +1,7 @@
+import { afterResponse } from "@/lib/after-response";
+import { DEFAULT_PUBLIC_SITE_ORIGIN } from "@/lib/site-url";
 import { VANITY_CREW_HELD_TRIP_IDS } from "@/lib/trip-series";
-import { getWarehouseTripBundle, isDriveWarehouseConfigured } from "@/lib/drive-warehouse";
+import { getWarehouseTripBundle, getWarehouseTripCards, isDriveWarehouseConfigured } from "@/lib/drive-warehouse";
 import { HOME_SESSION_PHOTO_LIMIT } from "@/lib/home-session-photos";
 import { seedTripDetails } from "@/lib/trips";
 import { compareTripsByStartDateDesc, isTripPublic } from "@/lib/trip-visibility";
@@ -7,7 +9,7 @@ import type { Money, Photo, TripDetail } from "@/lib/types";
 
 export const PUBLIC_HUB_CACHE_TTL_MS = 120_000;
 export const PUBLIC_HUB_SEED_TTL_MS = 20_000;
-export const PUBLIC_HUB_DRIVE_BUDGET_MS = 10_000;
+export const PUBLIC_HUB_DRIVE_BUDGET_MS = 6_000;
 export const HUB_GALLERY_LIMIT = 4;
 
 export type HubPhoto = {
@@ -43,6 +45,8 @@ const cacheKey = "__travelosPublicHubTripCache";
 type GlobalHubCache = typeof globalThis & {
   [cacheKey]?: {
     entry: CacheEntry | null;
+    seenNonSeed: boolean;
+    revision: number;
     inflight: Promise<HubTripCard[]> | null;
   };
 };
@@ -50,7 +54,7 @@ type GlobalHubCache = typeof globalThis & {
 function cacheStore() {
   const globalStore = globalThis as GlobalHubCache;
   if (!globalStore[cacheKey]) {
-    globalStore[cacheKey] = { entry: null, inflight: null };
+    globalStore[cacheKey] = { entry: null, inflight: null, seenNonSeed: false, revision: 0 };
   }
   return globalStore[cacheKey];
 }
@@ -211,95 +215,124 @@ async function withBudget<T>(ms: number, work: Promise<T>): Promise<T> {
   }
 }
 
-async function readHubTripsFromWarehouse(): Promise<HubTripCard[] | null> {
-  if (!isDriveWarehouseConfigured()) {
-    return null;
-  }
+// Cache API survives isolate eviction within a Cloudflare data center. Keep the
+// snapshot longer than its freshness TTL so a Drive outage can use stale cards.
+const snapshotUrl = `${DEFAULT_PUBLIC_SITE_ORIGIN}/__cache/public-hub-v1`;
+function edgeCache(): Cache | undefined {
+  return (globalThis as typeof globalThis & { caches?: CacheStorage & { default?: Cache } }).caches?.default;
+}
 
-  const bundle = await getWarehouseTripBundle();
-  if (!bundle?.length) {
-    return null;
+function remember(trips: HubTripCard[], at = Date.now()) {
+  const store = cacheStore();
+  const seedIds = new Set(seedPublicHubTrips().map((trip) => trip.id));
+  const hasNonSeed = trips.some((trip) => !seedIds.has(trip.id));
+  // Includes seed-shaped warehouse responses: never replace a known library
+  // with the bootstrap list, even after invalidation or an overlapping refresh.
+  if (!hasNonSeed && (store.seenNonSeed || (store.entry?.trips.length ?? 0) > trips.length)) {
+    return store.entry?.trips ?? [];
   }
+  store.seenNonSeed ||= hasNonSeed;
+  store.entry = { at, ttl: PUBLIC_HUB_CACHE_TTL_MS, trips };
+  return trips;
+}
 
-  const cards: HubTripCard[] = [];
-  for (const item of bundle) {
-    const card = parseHubCard(item.trip ?? item);
-    if (card) {
-      cards.push(card);
+/** Feed the same shared trips seen by a successful content API read into the hub. */
+export async function cachePublicHubTrips(trips: unknown[]) {
+  if (!cacheStore().entry) await withBudget(500, restoreSnapshot()).catch(() => {});
+  const cards = preferLatestHubCards(trips.flatMap((trip) => {
+    const card = parseHubCard(trip);
+    return card ? [card] : [];
+  })).sort(compareTripsByStartDateDesc);
+  const store = cacheStore();
+  store.revision += 1;
+  const saved = remember(cards);
+  if (saved !== cards) return;
+  try {
+    await edgeCache()?.put(snapshotUrl, Response.json(store.entry, {
+      headers: { "Cache-Control": "public, max-age=2592000" },
+    }));
+  } catch { /* Memory remains usable if the edge cache is unavailable. */ }
+}
+
+async function restoreSnapshot() {
+  try {
+    const response = await edgeCache()?.match(snapshotUrl);
+    if (!response) return;
+    const entry = await response.json() as CacheEntry;
+    if (!Array.isArray(entry.trips) || !Number.isFinite(entry.at)) return;
+    if (!cacheStore().entry || entry.at > cacheStore().entry!.at) {
+      // Re-parse public fields; snapshots never contain private trips or journals.
+      const cards = entry.trips.flatMap((trip) => {
+        const card = parseHubCard(trip);
+        return card ? [card] : [];
+      });
+      remember(cards, entry.at);
     }
-  }
-  return cards.length > 0 ? preferLatestHubCards(cards) : null;
+  } catch { /* The request still has a bounded Drive attempt. */ }
 }
 
 async function loadPublicHubTrips() {
-  const seed = seedPublicHubTrips();
-  const previous = cacheStore().entry?.trips ?? [];
-
-  const commit = (trips: HubTripCard[], ttl: number) => {
-    cacheStore().entry = { at: Date.now(), ttl, trips };
-    return trips;
-  };
-
-  const finishFromDrive = (fromDrive: HubTripCard[] | null) => {
-    if (!fromDrive?.length) {
-      return null;
+  const store = cacheStore();
+  const revision = store.revision;
+  // Direct Drive reads fan out the trip files and keep only card fields; the
+  // existing bundle remains a compatibility fallback for warehouse deployments.
+  const read = async (work: ReturnType<typeof getWarehouseTripBundle>) => {
+    const bundle = await work;
+    if (!bundle?.length) throw new Error("hub-warehouse-unavailable");
+    const latest = new Map<string, Record<string, unknown>>();
+    for (const item of [...bundle].sort((a, b) => (a.modifiedTime ?? "").localeCompare(b.modifiedTime ?? ""))) {
+      const trip = unwrapTripRecord(item.trip ?? item);
+      if (typeof trip?.id === "string") latest.set(trip.id, trip);
     }
-    return commit(mergeSeedHubCards(fromDrive), PUBLIC_HUB_CACHE_TTL_MS);
+    const cards = [...latest.values()].flatMap((trip) => {
+      const card = parseHubCard(trip);
+      return card ? [card] : [];
+    });
+    // Match the content API's missing-seed merge, without resurrecting a seed
+    // that the warehouse explicitly marked private.
+    return [...cards, ...seedPublicHubTrips().filter((trip) => !latest.has(trip.id))];
   };
-
-  // 1) Fast path with budget
   try {
-    const fromDrive = await withBudget(PUBLIC_HUB_DRIVE_BUDGET_MS, readHubTripsFromWarehouse());
-    const done = finishFromDrive(fromDrive);
-    if (done) return done;
-  } catch {
-    /* retry below */
-  }
-
-  // 2) Cold isolate / slow Drive: uncapped retry — never publish Lapland-only seed as the hub
-  try {
-    const fromDrive = await readHubTripsFromWarehouse();
-    const done = finishFromDrive(fromDrive);
-    if (done) return done;
-  } catch {
-    /* fall through */
-  }
-
-  if (previous.length > seed.length) {
-    return commit(previous, PUBLIC_HUB_CACHE_TTL_MS);
-  }
-
-  // Last resort: keep previous even if small, else short-TTL seed (better than hanging)
-  if (previous.length) {
-    return commit(previous, PUBLIC_HUB_SEED_TTL_MS);
-  }
-  return commit(seed, PUBLIC_HUB_SEED_TTL_MS);
+    const cards = await withBudget(30_000, Promise.any([
+      read(getWarehouseTripCards()),
+      read(getWarehouseTripBundle()),
+    ]));
+    if (revision === store.revision) await cachePublicHubTrips(cards);
+  } catch { /* Preserve the last good entry; never commit a failure fallback. */ }
+  return store.entry?.trips ?? [];
 }
 
-/** Isolate memory cache. Hubs must not call readContent() / full Drive trip trees. */
+/** Stale-while-revalidate, with a single bounded wait on a truly cold request. */
 export async function readPublicHubTrips(): Promise<HubTripCard[]> {
   const store = cacheStore();
-  const now = Date.now();
-  if (store.entry && now - store.entry.at < store.entry.ttl) {
-    return store.entry.trips;
+  if (!store.entry) {
+    await withBudget(500, restoreSnapshot()).catch(() => {});
   }
-  if (store.inflight) {
-    return store.inflight;
+  if (store.entry && Date.now() - store.entry.at < store.entry.ttl) return store.entry.trips;
+  if (!isDriveWarehouseConfigured()) return store.entry?.trips ?? [];
+  if (!store.inflight) {
+    const pending = loadPublicHubTrips().finally(() => {
+      if (store.inflight === pending) store.inflight = null;
+    });
+    store.inflight = pending;
   }
-  store.inflight = loadPublicHubTrips().finally(() => {
-    store.inflight = null;
-  });
-  return store.inflight;
+  // Attach to every requesting Worker's lifetime, including concurrent callers.
+  const pending = store.inflight;
+  afterResponse(() => pending);
+  if (store.entry) return store.entry.trips;
+  return withBudget(PUBLIC_HUB_DRIVE_BUDGET_MS, pending)
+    .catch(() => store.entry?.trips ?? []);
 }
 
 export function invalidatePublicHubCache() {
   const store = cacheStore();
-  store.entry = null;
-  store.inflight = null;
+  store.revision += 1;
+  // Invalidation expires freshness, never the last good library or its history.
+  if (store.entry) store.entry.at = 0;
 }
 
 export function resetPublicHubCacheForTests() {
-  invalidatePublicHubCache();
+  delete (globalThis as GlobalHubCache)[cacheKey];
 }
 
 export function hubCardAsSessionTrip(trip: HubTripCard) {
