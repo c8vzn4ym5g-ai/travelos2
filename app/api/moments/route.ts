@@ -77,7 +77,6 @@ export async function POST(request: Request) {
     }
 
     if (!moment.command) {
-      scheduleMomentIndex(saved.moment.id);
       return Response.json({ content: saved.content, job: null, moment: saved.moment });
     }
 
@@ -89,11 +88,9 @@ export async function POST(request: Request) {
     });
     const withJob = await addJob(job);
     if (withJob.conflict) {
-      scheduleMomentIndex(saved.moment.id);
       return Response.json({ content: withJob.content, job: null, moment: saved.moment });
     }
 
-    scheduleMomentIndex(saved.moment.id);
     return Response.json({ content: withJob.content, job: withJob.job, moment: saved.moment });
   } catch (error) {
     return momentApiErrorResponse(error);
@@ -130,6 +127,8 @@ export async function PUT(request: Request) {
     if (!saved) {
       return Response.json({ error: "Moment not found" }, { status: 404 });
     }
+
+    scheduleMomentIndex(saved.moment.id);
 
     if (!saved.moment.command) {
       return Response.json({ content: saved.content, job: null, moment: saved.moment });

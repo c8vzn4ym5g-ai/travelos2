@@ -27,7 +27,7 @@ test("family bench is a private workshop table for raw Capture dumps", async () 
   assert.match(bench, /還沒有收下的。/);
   assert.match(bench, /href="\/family\/capture"/);
   assert.match(bench, /去 Capture 拍一張/);
-  assert.match(bench, /fetch\("\/api\/moments"/);
+  assert.match(bench, /targetId \? `\/api\/moments\?id=\$\{encodeURIComponent\(targetId\)\}` : "\/api\/moments"/);
   assert.match(bench, /MOMENTS_MS = 30000/);
   assert.match(bench, /SESSION_MS = 5000/);
   assert.match(bench, /sortMomentsNewestFirst/);
@@ -82,8 +82,8 @@ test("family bench is a private workshop table for raw Capture dumps", async () 
   assert.doesNotMatch(audioPlayer, /\scontrols\s/);
 
   assert.match(family, /入口/);
-  assert.match(family, />\s*Capture\s*</);
-  assert.match(family, />\s*Write\s*</);
+  assert.match(family, />\s*上傳素材\s*</);
+  assert.match(family, />\s*寫下回憶\s*</);
   assert.match(family, /href="\/family\/capture"/);
   assert.match(family, /href="\/trips\/write"/);
   assert.equal((family.match(/工作台/g) ?? []).length, 1);

@@ -39,7 +39,7 @@ test("capture does not create trips and photos append to a moment", async () => 
   assert.match(photosApi, /storeMomentBinary/);
   assert.match(photosApi, /kind: momentMediaKindFromFile/);
   assert.match(photosApi, /mimeType: file.type/);
-  assert.match(photosApi, /afterResponse\(async \(\) => \{/);
+  assert.doesNotMatch(photosApi, /scheduleMomentIndex\(/);
   assert.doesNotMatch(photosApi, /createWorkQueue/);
   assert.match(helpers, /MOMENTS_BLOB_PATH = "travelos\/moments.json"/);
   assert.match(helpers, /travelos\/moments\/items/);
@@ -105,7 +105,7 @@ test("family home has one Capture door and no retired second-app cards", async (
     readSource("app/family/family-unlock-panel.tsx"),
   ]);
 
-  assert.match(family, /FamilyUnlockPanel/);
+  assert.doesNotMatch(family, /FamilyUnlockPanel/, "family entrance does not render a password form");
   assert.match(family, />入口</);
   assert.match(family, />工作台</);
   assert.match(family, />編輯</);
@@ -140,7 +140,7 @@ test("family home has one Capture door and no retired second-app cards", async (
   assert.doesNotMatch(unlock, /chatgpt\.site/);
 });
 
-test("family session is required and capture does not add a PIN form", async () => {
+test("family session opens directly and capture does not add a PIN form", async () => {
   const [family, unlock, capture, bench, write, travelAdmin, coffeeAdmin] = await Promise.all([
     readSource("app/family/page.tsx"),
     readSource("app/family/family-unlock-panel.tsx"),
@@ -160,7 +160,7 @@ test("family session is required and capture does not add a PIN form", async () 
   assert.match(family, /href="\/family\/capture"/);
   assert.match(family, /href="\/trips\/write"/);
   assert.match(family, /href="\/family\/bench"/);
-  assert.match(family, /FamilyUnlockPanel/);
+  assert.doesNotMatch(family, /FamilyUnlockPanel/, "family entrance does not render a password form");
   assert.doesNotMatch(family, /FamilyEditableTrips/);
   assert.match(capture, /FAMILY_ADMIN_SESSION_KEY/);
   assert.match(capture, /resolveFamilySession/);
@@ -214,7 +214,15 @@ test("sit-and-write has no generated story and lists warehouse photos", async ()
   assert.match(write, /value=\{draft\}/);
   assert.match(write, /method: "PUT"/);
   assert.match(write, /\/api\/moments/);
-  assert.match(write, /aiSummary: null/);
+  assert.match(write, /transferWritingToTrip\(/);
+  const { transferWritingToTrip } = await import("../lib/write-photo-transfer.ts");
+  const transferred = transferWritingToTrip({
+    trip: { id: "trip_family", photos: [], journalEntries: [] },
+    photos: [], draft: "家人親自寫下的回憶。", sourceKey: "moment:family",
+    now: "2026-09-13T00:00:00Z",
+  });
+  assert.equal(transferred.journalEntries[0].body, "家人親自寫下的回憶。");
+  assert.equal(transferred.journalEntries[0].aiSummary, null);
   assert.match(write, /get\("job"\)/);
   assert.match(write, /photosFromMoments\(writingMoments\)/);
   assert.match(write, /usingFoundSet/);
@@ -294,7 +302,7 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   assert.match(prepare, /file\.type === "image\/jpeg" && file\.size <= skipCanvasMaxBytes/);
   const displayUpload = upload.slice(
     upload.indexOf("export async function uploadDisplayPhoto"),
-    upload.indexOf("export function uploadOriginalPhotoInBackground"),
+    upload.indexOf("export function createOriginalPhotoUploader"),
   );
   assert.match(displayUpload, /await prepareDisplayPhoto\(source, input\.signal\)/);
   assert.match(prepare, /return file;/);
@@ -326,7 +334,7 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   assert.match(capture, /captureErrorMessage\(error, CAPTURE_UPLOAD_FAILED_MESSAGE\)/);
 });
 
-test("background upload starts on add and Save does not wait on originals", async () => {
+test("uploads start on add; completed photos await durable originals without a full catalog wait", async () => {
   const [capture, upload, photosApi, prepare, store, warehouseRead, css] = await Promise.all([
     readSource("app/family/capture/page.tsx"),
     readSource("lib/capture-upload.ts"),
@@ -348,7 +356,7 @@ test("background upload starts on add and Save does not wait on originals", asyn
   );
   const displayUpload = upload.slice(
     upload.indexOf("export async function uploadDisplayPhoto"),
-    upload.indexOf("export function uploadOriginalPhotoInBackground"),
+    upload.indexOf("export function createOriginalPhotoUploader"),
   );
 
   assert.match(addBlock, /startBackgroundPhotoUpload\(photo\)/);
@@ -459,17 +467,24 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.match(displayUpload, /formData\.set\("file", display\)/);
   assert.match(displayUpload, /await prepareDisplayPhoto\(source, input\.signal\)/);
   assert.doesNotMatch(displayUpload, /formData\.set\("original"/);
-  assert.match(upload, /void fetch\("\/api\/moments\/photos"/);
-  assert.match(upload, /Originals are durable when they land; they must never block Capture/);
+  assert.match(upload, /createOriginalPhotoUploader/);
+  assert.match(upload, /await captureFetch\("\/api\/moments\/photos"/);
+  assert.match(upload, /createWorkQueue\(CAPTURE_ORIGINAL_CONCURRENCY\)/);
+  assert.match(upload, /OriginalPhotoUploadResult/);
+  assert.match(uploadFn, /await uploadOriginalPhoto\(/);
+  assert.ok(uploadFn.indexOf("await uploadOriginalPhoto(") < uploadFn.indexOf('originalPending: false, status: "uploaded"'), "completed badge follows durable original confirmation");
+  assert.match(uploadFn, /originalPending: true, status: "uploading"/);
+  assert.doesNotMatch(uploadFn, /await readMoments|await readContent|await hydrateDriveMoments/);
   assert.match(displayPost, /originalStorageKey: null/);
   assert.doesNotMatch(displayPost, /setPhotoOriginal/);
   assert.doesNotMatch(displayPost, /formData\.get\("original"\)/);
-  assert.match(displayPost, /afterResponse\(async \(\) => \{/);
-  assert.match(displayPost, /addPhotoToMoment\(momentId, photo\)/);
-  assert.doesNotMatch(displayPost, /if \(!content\) \{\s*return Response\.json\(\{ error: "Moment not found" \}/);
+  assert.doesNotMatch(displayPost, /scheduleMomentIndex\(/);
+  assert.match(displayPost, /await addPhotoToMoment\(momentId, photo\)/);
+  assert.match(displayPost, /if \(!content\) return Response\.json\(\{ error: "Moment not found" \}, \{ status: 404 \}\)/);
   assert.match(displayPost, /return Response\.json\(\{ photo \}\)/);
   assert.ok(displayPost.indexOf("storeMomentBinary") < displayPost.indexOf("return Response.json({ photo })"));
-  assert.ok(displayPost.indexOf("afterResponse") < displayPost.indexOf("return Response.json({ photo })"));
+  assert.ok(displayPost.indexOf("await addPhotoToMoment") < displayPost.indexOf("return Response.json({ photo })"), "photo metadata must persist before success");
+  assert.doesNotMatch(displayPost, /scheduleMomentIndex\(/, "catalog updates happen once on batch finalization");
   assert.match(photosApi, /setPhotoOriginal/);
   assert.match(store, /withWarehouseLock/);
   assert.match(store, /flushPhotoAppends/);
@@ -529,8 +544,10 @@ test("capture and save paths are not blocked by indexing, geocoding, or transcri
   ]);
 
   assert.match(store, /export function scheduleMomentIndex\(momentId: string\)/);
-  assert.match(store, /void indexSavedMoment\(momentId\)/);
-  assert.doesNotMatch(store, /await indexSavedMoment/);
+  const indexSchedule = store.slice(store.indexOf("export function scheduleMomentIndex"), store.indexOf("export function scheduleMomentTranscript"));
+  assert.match(indexSchedule, /momentIndexJobs/);
+  assert.match(indexSchedule, /afterResponse/);
+  assert.doesNotMatch(indexSchedule, /return\s+indexSavedMoment/);
   assert.match(store, /export function scheduleMomentTranscript\(/);
   assert.match(store, /afterResponse\(\(\) => runMomentTranscript\(momentId\)\)/);
   assert.match(store, /export function runMomentTranscript\(/);
@@ -545,9 +562,9 @@ test("capture and save paths are not blocked by indexing, geocoding, or transcri
   const transcriptApi = await readSource("app/api/moments/transcript/route.ts");
   assert.match(transcriptApi, /await runMomentTranscript/);
   assert.match(transcriptApi, /maxDuration = 60/);
-  assert.match(photosApi, /scheduleMomentIndex\(momentId\)/);
+  assert.doesNotMatch(photosApi, /scheduleMomentIndex\(momentId\)/);
   assert.doesNotMatch(photosApi, /await scheduleMomentIndex/);
-  assert.match(photosApi, /afterResponse\(async \(\) => \{/);
+  assert.doesNotMatch(photosApi, /scheduleMomentIndex\(/);
   assert.match(capture, /createWorkQueue/);
   assert.match(audioApi, /scheduleMomentTranscript\(momentId\)/);
   assert.doesNotMatch(audioApi, /await scheduleMomentTranscript/);
@@ -633,8 +650,8 @@ test("capture voice line is editable and language chips sit by the mic", async (
   assert.doesNotMatch(speech, /lang = ""/);
   assert.doesNotMatch(speech, /lang = "auto"/);
   assert.match(layout, /data-surface="family"/);
-  assert.match(layout, /M_PLUS_Rounded_1c/);
-  assert.match(layout, /Nunito/);
+  assert.doesNotMatch(layout, /next\/font\/google/);
+  assert.match(layout, /family-workshop/);
   assert.doesNotMatch(capture, /htmlFor="people"/);
   assert.doesNotMatch(capture, /settings page/i);
   assert.match(addBlock, /ingestCaptureFileList/);

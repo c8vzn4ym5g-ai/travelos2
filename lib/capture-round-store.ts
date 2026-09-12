@@ -7,6 +7,7 @@ export const CAPTURE_PHOTO_RETRY_BASE_MS = 1200;
 export type CaptureDockStatus = "queued" | "uploading" | "uploaded" | "failed";
 
 export type CaptureRoundPhotoMeta = {
+  originalPending?: boolean;
   id: string;
   lastModified: number;
   name: string;
@@ -180,6 +181,7 @@ export function reconcileCapturePhotosWithServer<
     file: { name: string };
     serverPhotoId: string | null;
     status: CaptureDockStatus;
+    originalPending?: boolean;
   },
 >(photos: T[], serverPhotos: Array<{ id: string; originalFilename: string }>) {
   if (serverPhotos.length === 0) {
@@ -188,6 +190,7 @@ export function reconcileCapturePhotosWithServer<
 
   const used = new Set<string>();
   const next = photos.map((photo) => {
+    if (photo.originalPending) { if (photo.serverPhotoId) used.add(photo.serverPhotoId); return photo; }
     if (photo.status === "uploaded" && photo.serverPhotoId) {
       used.add(photo.serverPhotoId);
       return photo;
@@ -209,6 +212,7 @@ export function reconcileCapturePhotosWithServer<
   const leftoverServer = serverPhotos.filter((item) => !used.has(item.id));
   let leftoverIndex = 0;
   return next.map((photo) => {
+    if (photo.originalPending) return photo;
     if (photo.status === "uploaded") {
       return photo;
     }

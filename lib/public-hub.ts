@@ -72,6 +72,7 @@ function toHubPhoto(photo: { caption?: string | null; id?: string; storageKey: s
 }
 
 export function slimTripToHubCard(trip: TripDetail): HubTripCard {
+  if (trip.visibility !== "private" && trip.publishedSnapshot) trip = trip.publishedSnapshot;
   const renderable = trip.photos.filter(isRenderablePhoto);
   const cover =
     (trip.coverPhotoId ? renderable.find((photo) => photo.id === trip.coverPhotoId) : undefined) ?? renderable[0] ?? null;
@@ -167,9 +168,12 @@ function pickHubPhotos(rawPhotos: unknown, coverPhotoId: string | null, tripId: 
 
 /** Card fields only. Do not keep journals, places, costs, or the full album. */
 export function parseHubCard(raw: unknown): HubTripCard | null {
-  const trip = unwrapTripRecord(raw);
+  let trip = unwrapTripRecord(raw);
   if (!trip) {
     return null;
+  }
+  if (trip.visibility !== "private" && trip.publishedSnapshot && typeof trip.publishedSnapshot === "object") {
+    trip = trip.publishedSnapshot as Record<string, unknown>;
   }
   const id = typeof trip.id === "string" ? trip.id : "";
   if (!id.startsWith("trip_") || heldTripIds.has(id)) {
@@ -295,10 +299,9 @@ async function loadPublicHubTrips() {
     return [...cards, ...seedPublicHubTrips().filter((trip) => !latest.has(trip.id))];
   };
   try {
-    const cards = await withBudget(30_000, Promise.any([
-      read(getWarehouseTripCards()),
-      read(getWarehouseTripBundle()),
-    ]));
+    const cards = await withBudget(30_000,
+      read(getWarehouseTripCards()).catch(() => read(getWarehouseTripBundle())),
+    );
     if (revision === store.revision) await cachePublicHubTrips(cards);
   } catch { /* Preserve the last good entry; never commit a failure fallback. */ }
   return store.entry?.trips ?? [];

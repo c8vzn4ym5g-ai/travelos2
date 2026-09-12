@@ -78,11 +78,11 @@ test("Lapland JourneyMap hero keeps the generated itinerary poster", async () =>
   assert.ok(hero.indexOf("LaplandPublicCut") < hero.indexOf("<JourneyMap"), "frozen poster sits after the public cut");
   assert.ok(hero.indexOf("LaplandMoreCut") < hero.indexOf("<JourneyMap"), "frozen poster sits behind the more tap");
   assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("LaplandStorefrontGlance"), "storefront glance sits under the map");
-  assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("featurePhotos"), "map must sit above the photo strip");
+  assert.doesNotMatch(hero, /featurePhotos/, "arbitrary repeated photo strip is removed");
   assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("JournalCostChip"), "map sits above the cost footnote");
   assert.match(hero, /<JournalCostChip/);
   assert.doesNotMatch(hero, /JournalCostHeroNote/);
-  assert.match(hero, /coverPhoto\.caption/);
+  assert.match(hero, /<ReaderPhoto photo=\{coverPhoto\}/, "cover captions stay owned by the reader media component");
 });
 
 test("long-haul is a quiet label, not an equal-size second map", async () => {

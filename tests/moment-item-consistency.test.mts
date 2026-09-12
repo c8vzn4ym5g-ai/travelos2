@@ -230,7 +230,8 @@ test("Drive photo flush writes the item shard and never loads the fat catalog", 
   const flushBlock = store.slice(flushStart, flushEnd);
   assert.match(flushBlock, /readMomentItem\(momentId, \{ allowIndex: false \}\)/);
   assert.match(flushBlock, /writeMomentItem/);
-  assert.match(flushBlock, /afterResponse\(\(\) => syncIndexBestEffort\(acceptedItems\)\)/);
+  assert.match(flushBlock, /saved = rememberDriveItemOverlay\(acceptedItems\)/);
+  assert.doesNotMatch(flushBlock, /afterResponse\(\(\) => syncIndexBestEffort\(acceptedItems\)\)/);
   assert.doesNotMatch(flushBlock, /hydrateDriveMoments/);
   assert.doesNotMatch(flushBlock, /persistHydratedMoments/);
   assert.doesNotMatch(flushBlock, /loadDriveIndex/);
@@ -792,7 +793,7 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
     });
   });
 
-  test("photo POST returns 200 after Drive binary even if index/item lock hangs", async () => {
+  test("photo POST waits for durable item writes but does not wait for the catalog", async () => {
     await withPinEnv(undefined, async () => {
       const files = new Map<string, { base64: string; mimeType: string; name: string }>();
       const items = new Map<string, string>();
@@ -807,6 +808,9 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
       let indexWrites = 0;
       let binaryWrites = 0;
       const releaseHang: Array<() => void> = [];
+      let releaseItems!: () => void;
+      const itemGate = new Promise<void>((resolve) => { releaseItems = resolve; });
+      let completedPhotos = 0;
 
       setDriveWarehouseFetchForTests((async (_input, init) => {
         const method = (init?.method ?? "GET").toUpperCase();
@@ -856,9 +860,7 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
         if (payload.op === "item") {
           itemWrites += 1;
           if (itemWrites > 1) {
-            await new Promise<void>((resolve) => {
-              releaseHang.push(resolve);
-            });
+            await itemGate;
           }
           items.set(payload.name ?? "", payload.text ?? "");
           return Response.json({ ok: true, name: payload.name });
@@ -899,10 +901,20 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
               type: "image/jpeg",
             }),
           );
-          return photos.POST(new Request("http://travelos.local/api/moments/photos", { body: photoData, method: "POST" }));
+          return photos.POST(new Request("http://travelos.local/api/moments/photos", { body: photoData, method: "POST" })).then((response) => {
+            completedPhotos += 1;
+            return response;
+          });
         });
 
         const started = Date.now();
+        while ((binaryWrites < 40 || itemWrites < 2) && Date.now() - started < 2000) {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+        }
+        assert.equal(binaryWrites, 40);
+        assert.ok(itemWrites >= 2, "the durable item write has started");
+        assert.equal(completedPhotos, 0, "binary upload alone must not report a saved photo");
+        releaseItems();
         const responses = await Promise.all(jobs);
         const elapsedMs = Date.now() - started;
         assert.equal(
@@ -911,6 +923,9 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
         );
         assert.ok(elapsedMs < 2000, `40 parallel photo POSTs should not wait on the index lock (${elapsedMs}ms)`);
         assert.equal(binaryWrites, 40);
+        const savedItems = [...items.values()].map((text) => JSON.parse(text).moment);
+        const savedMoment = savedItems.find((item) => item.id === created.moment.id);
+        assert.equal(savedMoment?.photos.length, 40, "all photo references exist in the durable item shard before success");
         const bodies = await Promise.all(
           responses.map((response) => response.json() as Promise<{ photo: { id: string; storageKey: string } }>),
         );
@@ -926,6 +941,7 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
         );
         assert.equal(photoGet.status, 200);
       } finally {
+        releaseItems();
         for (const resolve of releaseHang) {
           resolve();
         }

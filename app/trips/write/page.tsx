@@ -27,7 +27,10 @@ import {
 } from "@/lib/moment-index";
 import type { MomentContent } from "@/lib/moment-store";
 import { createTravelJob, momentPhotoPlayUrl } from "@/lib/moments";
-import type { JournalEntry, TravelJob, TravelMoment, TripDetail } from "@/lib/types";
+import type { TravelJob, TravelMoment, TripDetail } from "@/lib/types";
+import { selectWriteMoment } from "@/lib/write-moment-target";
+import { transferWritingToTrip } from "@/lib/write-photo-transfer";
+import { reviewPhotoDistance } from "@/lib/write-photo-mismatch";
 
 type MomentsResponse = {
   content: MomentContent;
@@ -43,10 +46,6 @@ type TripsResponse = {
 
 function nowIso() {
   return new Date().toISOString();
-}
-
-function makeId(prefix: string) {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function pinHeaders(pin: string) {
@@ -66,6 +65,7 @@ export default function SitAndWritePage() {
   const [hiddenPhotoIds, setHiddenPhotoIds] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const [attachTripId, setAttachTripId] = useState("");
+  const [confirmedDistanceKey, setConfirmedDistanceKey] = useState<string | null>(null);
   const [recoveredWrite, setRecoveredWrite] = useState(false);
   const [dayFilter, setDayFilter] = useState("");
   const [placeFilter, setPlaceFilter] = useState("");
@@ -107,7 +107,9 @@ export default function SitAndWritePage() {
     }
 
     const momentData = (await momentsResponse.json()) as MomentsResponse;
-    const requestedJobId = new URLSearchParams(window.location.search).get("job");
+    const parameters = new URLSearchParams(window.location.search);
+    const requestedJobId = parameters.get("job");
+    const requestedMomentId = parameters.get("moment");
     setMoments(momentData.content.moments);
     setJobs(momentData.content.jobs ?? []);
 
@@ -116,10 +118,13 @@ export default function SitAndWritePage() {
       setTrips(tripData.content.trips);
     }
 
-    setActiveJobId((current) => current ?? requestedJobId);
-    setActiveMomentId((current) => current ?? momentData.content.moments[0]?.id ?? null);
+    const selected = selectWriteMoment(momentData.content.moments, requestedMomentId);
+    setActiveJobId((current) => requestedMomentId !== null ? null : current ?? requestedJobId);
+    setActiveMomentId((current) => requestedMomentId !== null ? selected?.id ?? null : current ?? selected?.id ?? null);
     setMessage(
-      momentData.content.moments.length > 0
+      requestedMomentId !== null
+        ? selected ? "已打開這批照片。請在下方選擇旅程，再按儲存。" : "找不到指定的這批照片。請回工作台重新選擇，或從左側手動選一批。"
+        : momentData.content.moments.length > 0
         ? "照片在旁邊。空白處只放你自己寫的字。工作文字不會當成日記。"
         : "倉庫裡還沒有 Moment。先去 Capture 拍一張。",
     );
@@ -146,7 +151,7 @@ export default function SitAndWritePage() {
     return activeJob.momentIds.map((id) => byId.get(id)).filter((moment): moment is TravelMoment => Boolean(moment));
   }, [activeJob, moments]);
   const activeMoment = useMemo(
-    () => moments.find((moment) => moment.id === activeMomentId) ?? moments[0] ?? null,
+    () => moments.find((moment) => moment.id === activeMomentId) ?? null,
     [activeMomentId, moments],
   );
   const availableDays = useMemo(() => warehouseDays(moments), [moments]);
@@ -328,6 +333,11 @@ export default function SitAndWritePage() {
   }, [flushWriteDraft, recoveredWrite, writeDirty]);
 
   const visiblePhotos = writingPhotos.filter((photo) => !hiddenPhotoIds.includes(photo.id));
+  const chosenTrip = trips.find((trip) => trip.id === attachTripId);
+  const distanceReview = reviewPhotoDistance(visiblePhotos, chosenTrip?.coordinates);
+  const distanceReviewKey = JSON.stringify([writeKey, attachTripId, chosenTrip?.coordinates, visiblePhotos.map((photo) => [photo.id, photo.captureMetadata])]);
+  const distanceConfirmed = confirmedDistanceKey === distanceReviewKey;
+  useEffect(() => { setConfirmedDistanceKey(null); }, [distanceReviewKey]);
 
   function togglePhoto(photoId: string) {
     markWriteDirty();
@@ -385,6 +395,10 @@ export default function SitAndWritePage() {
   }
 
   async function saveWriting() {
+    if (attachTripId && distanceReview.length > 0 && !distanceConfirmed) {
+      setMessage("有照片的拍攝位置與旅程距離很遠。請先確認旅程，或取消選取不屬於這趟的照片。");
+      return;
+    }
     if (!activeJob && usingFoundSet && visibleWarehouseMoments.length === 0) {
       setMessage("這個日子或地點沒有 Moment。");
       return;
@@ -488,29 +502,14 @@ export default function SitAndWritePage() {
           throw new Error("That trip is not in TravelOS.");
         }
 
-        const timestamp = nowIso();
-        const entry: JournalEntry = {
-          aiSummary: null,
-          body: draft,
-          createdAt: timestamp,
-          entryDate: timestamp.slice(0, 10),
-          id: makeId("journal"),
-          mood: usingFoundSet || activeJob ? null : activeMoment?.note || null,
-          storyPhotoId: null,
-          title: timestamp.slice(0, 10),
-          tripId: trip.id,
-          updatedAt: timestamp,
-          weatherSummary: null,
-        };
-
-        const updatedTrip: TripDetail = {
-          ...trip,
-          journalEntries: [entry, ...trip.journalEntries],
-          updatedAt: timestamp,
-        };
+        const updatedTrip = transferWritingToTrip({
+          trip, photos: visiblePhotos, draft,
+          sourceKey: writeKey ?? `moment:${activeMoment!.id}`,
+          now: nowIso(),
+        });
 
         const tripResponse = await fetch("/api/trips/content", {
-          body: JSON.stringify({ trip: updatedTrip }),
+          body: JSON.stringify({ trip: updatedTrip, baseUpdatedAt: trip.updatedAt }),
           headers: {
             "content-type": "application/json",
             ...pinHeaders(sessionPin),
@@ -532,7 +531,7 @@ export default function SitAndWritePage() {
       }
       setRecoveredWrite(false);
       setWriteDirty(false);
-      setMessage(attachTripId ? "已保存你寫的字，並寫進選中的旅程。" : "已保存你寫的字。");
+      setMessage(attachTripId ? "文字和選中的照片已存入旅程草稿，可到遊記編輯繼續整理。" : "已保存你寫的字。");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "儲存失敗，請再試一次。");
     } finally {
@@ -779,13 +778,27 @@ export default function SitAndWritePage() {
                 </select>
               </label>
 
+              {attachTripId && distanceReview.length > 0 ? (
+                <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950" role="group" aria-label="確認照片與旅程">
+                  <p>有 {distanceReview.length} 張照片的拍攝位置，距離這個旅程的地圖標記超過 1,500 公里。請確認是否選錯旅程；跨國旅行也可能出現這種情況。</p>
+                  <label className="mt-2 flex min-h-11 cursor-pointer items-center gap-3">
+                    <input type="checkbox" checked={distanceConfirmed} onChange={(event) => setConfirmedDistanceKey(event.target.checked ? distanceReviewKey : null)} />
+                    <span>這批照片屬於這個旅程</span>
+                  </label>
+                </div>
+              ) : null}
               <p aria-live="polite" className="mt-3 text-sm leading-6 text-zinc-600">
                 {message}
               </p>
+              {attachTripId ? (
+                <Link className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-sky-900 underline underline-offset-4" href={`/trips/admin?trip=${encodeURIComponent(attachTripId)}`}>
+                  打開這篇遊記編輯
+                </Link>
+              ) : null}
 
               <button
                 className="mt-5 min-h-12 w-full rounded-2xl border border-sky-300 bg-sky-50 px-4 py-3 font-semibold text-sky-950 disabled:opacity-60 sm:w-auto"
-                disabled={saving}
+                disabled={saving || (Boolean(attachTripId) && distanceReview.length > 0 && !distanceConfirmed)}
                 onClick={() => void saveWriting()}
                 type="button"
               >

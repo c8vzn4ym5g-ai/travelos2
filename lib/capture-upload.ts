@@ -610,7 +610,7 @@ export async function createCaptureMoment(input: {
   id?: string;
   note?: string;
   pin: string;
-  time: string;
+  time: string | null;
 }) {
   const response = await captureFetch(
     "/api/moments",
@@ -648,7 +648,7 @@ export async function finalizeCaptureMoment(input: {
   momentId: string;
   note: string;
   pin: string;
-  time: string;
+  time: string | null;
   transcript?: string | null;
 }) {
   const response = await captureFetch(
@@ -966,6 +966,7 @@ async function uploadCaptureVideoOnce(input: {
 }
 
 export async function uploadDisplayPhoto(input: {
+  uploadId?: string;
   coordinates: GeoPoint | null;
   file: File;
   momentId: string;
@@ -983,6 +984,8 @@ export async function uploadDisplayPhoto(input: {
   }
 
   assertCaptureFileFits(input.file);
+  // One identity for all attempts; Capture supplies its persisted staged ID.
+  const uploadId = input.uploadId ?? makeMomentId("capture_photo");
   const source = withCaptureFileMime(input.file);
 
   let display: File;
@@ -1002,11 +1005,12 @@ export async function uploadDisplayPhoto(input: {
   const send = async (momentId: string) => {
     const formData = new FormData();
     formData.set("file", display);
+    formData.set("uploadId", uploadId);
     formData.set("momentId", momentId);
-    formData.set("takenAt", input.takenAt);
+    formData.set("fileModifiedAt", input.takenAt);
     if (input.coordinates) {
-      formData.set("latitude", String(input.coordinates.latitude));
-      formData.set("longitude", String(input.coordinates.longitude));
+      formData.set("uploadLatitude", String(input.coordinates.latitude));
+      formData.set("uploadLongitude", String(input.coordinates.longitude));
     }
 
     return captureFetch(
@@ -1040,29 +1044,64 @@ export async function uploadDisplayPhoto(input: {
   }
 }
 
-export function uploadOriginalPhotoInBackground(input: {
+export const CAPTURE_ORIGINAL_CONCURRENCY = 3;
+export const CAPTURE_ORIGINAL_MAX_OUTSTANDING = 120;
+export const CAPTURE_ORIGINAL_TIMEOUT_MS = 120_000;
+export const CAPTURE_AUDIO_TIMEOUT_MS = 120_000;
+
+export type OriginalPhotoUploadInput = {
   display: File;
   momentId: string;
   original: File;
   photoId: string;
   pin: string;
-}) {
-  if (!shouldKeepOriginal(input.original, input.display)) {
-    return;
-  }
+  signal?: AbortSignal;
+};
+export type OriginalPhotoUploadResult =
+  | { status: "uploaded" | "skipped"; photoId: string }
+  | { status: "failed"; photoId: string; error: string };
 
-  const formData = new FormData();
-  formData.set("momentId", input.momentId);
-  formData.set("original", input.original);
-  formData.set("photoId", input.photoId);
+/** One queue spans Capture rounds; results are awaitable without unhandled
+ * rejections for older callers that intentionally ignored the return value. */
+export function createOriginalPhotoUploader(options: { timeoutMs?: number } = {}) {
+  const queue = createWorkQueue(CAPTURE_ORIGINAL_CONCURRENCY);
+  const timeoutMs = options.timeoutMs ?? CAPTURE_ORIGINAL_TIMEOUT_MS;
+  return (input: OriginalPhotoUploadInput): Promise<OriginalPhotoUploadResult> => {
+    if (!shouldKeepOriginal(input.original, input.display)) {
+      return Promise.resolve({ status: "skipped", photoId: input.photoId });
+    }
+    if (queue.activeCount + queue.pendingCount >= CAPTURE_ORIGINAL_MAX_OUTSTANDING) {
+      return Promise.resolve({ status: "failed", photoId: input.photoId, error: "原檔待傳佇列已滿，請稍後重試。" });
+    }
+    const deadline = new AbortController();
+    const expiresAt = Date.now() + timeoutMs;
+    const timer = globalThis.setTimeout(() => deadline.abort(), timeoutMs);
+    const signal = mergeAbortSignals([input.signal, deadline.signal]);
+    return queue.enqueue(async (): Promise<OriginalPhotoUploadResult> => {
+      if (signal?.aborted || Date.now() >= expiresAt) throw new Error("原檔上傳已取消或逾時，請重試。");
+      const formData = new FormData();
+      formData.set("momentId", input.momentId);
+      formData.set("original", input.original);
+      formData.set("photoId", input.photoId);
+      const response = await captureFetch("/api/moments/photos", {
+        body: formData, headers: pinHeaders(input.pin), method: "POST", signal,
+      }, timeoutMs);
+      if (!response.ok) throw new Error(`原檔上傳失敗（${response.status}），請重試。`);
+      return { status: "uploaded", photoId: input.photoId };
+    }).catch((error: unknown): OriginalPhotoUploadResult => ({
+      status: "failed", photoId: input.photoId,
+      error: captureErrorMessage(error, "原檔上傳已取消或逾時，請重試。"),
+    })).finally(() => globalThis.clearTimeout(timer));
+  };
+}
 
-  void fetch("/api/moments/photos", {
-    body: formData,
-    headers: pinHeaders(input.pin),
-    method: "POST",
-  }).catch(() => {
-    // Originals are durable when they land; they must never block Capture.
-  });
+export const uploadOriginalPhotoInBackground = createOriginalPhotoUploader();
+
+/** Capture completion waits here; a failed original must keep the round retryable. */
+export async function uploadOriginalPhoto(input: OriginalPhotoUploadInput) {
+  const result = await uploadOriginalPhotoInBackground(input);
+  if (result.status === "failed") throw new Error(result.error);
+  return result;
 }
 
 export async function uploadMomentAudio(input: {
@@ -1072,6 +1111,7 @@ export async function uploadMomentAudio(input: {
   retryMoment?: (status: number) => Promise<string>;
   signal?: AbortSignal;
   transcript?: string | null;
+  timeoutMs?: number;
 }) {
   const send = async (momentId: string) => {
     const bytes = new Uint8Array(await input.blob.slice(0).arrayBuffer());
@@ -1083,17 +1123,18 @@ export async function uploadMomentAudio(input: {
     if (input.transcript?.trim()) {
       audioData.set("transcript", input.transcript.trim());
     }
-    return fetch("/api/moments/audio", {
+    return captureFetch("/api/moments/audio", {
       body: audioData,
       headers: pinHeaders(input.pin),
       method: "POST",
       signal: input.signal,
-    });
+    }, input.timeoutMs ?? CAPTURE_AUDIO_TIMEOUT_MS);
   };
 
   const { response } = await sendWithMomentRetry(send, input.momentId, input.retryMoment);
   if (!response.ok) {
-    throw new Error(await readError(response, "Audio upload failed."));
+    const body = await readJsonWithTimeout<{ error?: string }>(response, input.signal, Math.min(input.timeoutMs ?? 12_000, 12_000));
+    throw new Error(body.error ?? "Audio upload failed.");
   }
 }
 

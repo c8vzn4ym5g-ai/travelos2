@@ -14,7 +14,7 @@ test("family workshop wraps a family surface and does not restyle public Lapland
     readSource("app/family/layout.tsx"),
     readSource("app/family/family.css"),
     readSource("app/layout.tsx"),
-    readSource("app/manifest.ts"),
+    readSource("app/family/manifest.ts"),
     readSource("app/family/page.tsx"),
     readSource("app/family/capture/page.tsx"),
     readSource("app/family/bench/page.tsx"),
@@ -27,9 +27,10 @@ test("family workshop wraps a family surface and does not restyle public Lapland
 
   assert.match(layout, /data-surface="family"/);
   assert.match(layout, /family-workshop/);
-  assert.match(layout, /M_PLUS_Rounded_1c/);
-  assert.match(layout, /Nunito/);
-  assert.match(layout, /Caveat/);
+  assert.doesNotMatch(layout, /next\/font\/google/);
+  assert.match(familyCss, /--font-fam-rounded: ui-rounded/);
+  assert.match(familyCss, /--font-fam-nunito: ui-rounded/);
+  assert.match(familyCss, /--font-fam-caveat: "Segoe Print"/);
   assert.match(layout, /themeColor: "#F0F6E4"/);
   assert.match(familyCss, /--fam-paper: #f0f6e4/);
   assert.match(familyCss, /--fam-blush: #6eaa5a/);
@@ -60,9 +61,9 @@ test("family workshop wraps a family surface and does not restyle public Lapland
   assert.match(familyHome, /href="\/family\/trip"/);
   assert.match(familyHome, />說說</);
   assert.match(familyHome, /href="\/family\/talk"/);
-  assert.match(familyHome, /FamilyBackLink className="min-h-11" href="\/family"/);
+  assert.match(familyHome, /FamilyBackLink className="min-h-11" href="\/"/, "home returns to public home, not a self-link");
   assert.match(familyHome, /← 首頁/);
-  assert.doesNotMatch(familyHome, /FamilyBackLink className="min-h-11" href="\/">/);
+  assert.doesNotMatch(familyHome, /FamilyBackLink className="min-h-11" href="\/family">/);
   assert.match(familyCss, /\.fam-back:active/);
   assert.match(trip, />總表</);
   assert.match(trip, />表1</);

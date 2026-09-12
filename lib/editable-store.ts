@@ -5,6 +5,7 @@ import { isAdminPinValid, isFamilyPinRequired } from "./family-pin.ts";
 import { LAPLAND_WINTER_VILLAGE_CAPTION, LAPLAND_WINTER_VILLAGE_PHOTO_ID, seedTripDetails, withMissingSeedTrips } from "@/lib/trips";
 import { prepareFamilyEditorTrips } from "@/lib/trip-series";
 import type { MusicTrack, Photo, TripDetail } from "@/lib/types";
+import { prepareTripSave } from "@/lib/trip-publication";
 
 const DATA_BLOB_PATH = "travelos/content.json";
 const CONTENT_SCHEMA_VERSION = 15;
@@ -104,11 +105,11 @@ export async function addPhotoToTrip(tripId: string, photo: Photo) {
   const { content } = await readContent();
   const trips = content.trips.map((trip) =>
     trip.id === tripId
-      ? {
+      ? prepareTripSave(trip, {
           ...trip,
           photos: [photo, ...trip.photos],
           updatedAt: new Date().toISOString(),
-        }
+        })
       : trip,
   );
 
@@ -119,11 +120,11 @@ export async function addMusicTrackToTrip(tripId: string, musicTrack: MusicTrack
   const { content } = await readContent();
   const trips = content.trips.map((trip) =>
     trip.id === tripId
-      ? {
+      ? prepareTripSave(trip, {
           ...trip,
           musicTracks: [musicTrack, ...(trip.musicTracks ?? [])],
           updatedAt: new Date().toISOString(),
-        }
+        })
       : trip,
   );
 

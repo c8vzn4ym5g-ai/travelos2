@@ -55,7 +55,7 @@ test("Lapland storefront glance is independent cash-path copy under the map, aft
   assert.ok(hero.indexOf("<JourneyMap") < hero.indexOf("LaplandStorefrontGlance"), "glance sits under the map");
   assert.ok(hero.indexOf("LaplandStorefrontGlance") < hero.indexOf("LaplandVisualPath"), "visual path sits under why-go");
   assert.ok(hero.indexOf("LaplandVisualPath") < hero.indexOf("JournalCostChip"), "visual path is before the cost chip");
-  assert.ok(hero.indexOf("LaplandStorefrontGlance") < hero.indexOf("featurePhotos"), "glance is before the photo strip");
+  assert.doesNotMatch(hero, /featurePhotos/, "arbitrary duplicate photo strip is removed");
   assert.ok(hero.indexOf("<h1") < hero.indexOf("<JourneyMap"), "map still follows the title");
   assert.doesNotMatch(hero, /BookingBand/);
   assert.ok(page.indexOf("Trip memory") < page.indexOf("<BookingBand"), "booking stays with go-there");

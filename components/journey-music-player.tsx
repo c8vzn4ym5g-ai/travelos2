@@ -39,6 +39,7 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
     [tracks],
   );
   const [isOn, setIsOn] = useState(false);
+  const [playbackError, setPlaybackError] = useState(false);
   const [activeTrackId, setActiveTrackId] = useState(playableTracks[0]?.id ?? "");
   const [isWaitingForNext, setIsWaitingForNext] = useState(false);
   const [host, setHost] = useState<"hidden" | "slot" | "float">("hidden");
@@ -120,7 +121,10 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
             clearInterval(fadeTimer);
           }
         }, 120);
-      }).catch(() => setIsOn(false));
+      }).catch(() => {
+        setIsOn(false);
+        setPlaybackError(true);
+      });
     } else {
       audio.pause();
     }
@@ -222,13 +226,14 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
       data-journey-music=""
       data-music-host={host}
     >
-      <audio key={activeTrack.id} onEnded={handleTrackEnded} ref={audioRef} src={activeTrack.audioUrl} />
+      <audio key={activeTrack.id} onEnded={handleTrackEnded} preload="none" ref={audioRef} src={activeTrack.audioUrl} onError={() => { setIsOn(false); setPlaybackError(true); }} />
       <button
         aria-label={isOn ? "Turn journey music off" : "Turn journey music on"}
         className={`grid place-items-center rounded-full text-base font-semibold transition ${
           host === "slot" ? "h-8 w-8" : "h-10 w-10"
         } ${isOn ? "bg-teal-800 text-white" : "bg-zinc-950 text-white hover:bg-zinc-800"}`}
         onClick={() => {
+          setPlaybackError(false);
           setIsOn((current) => !current);
         }}
         title={isOn ? "Music on" : "Play music"}
@@ -236,6 +241,7 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
       >
         <span aria-hidden="true">{"\u266a"}</span>
       </button>
+      {playbackError ? <span role="status" className="max-w-40 text-xs">配樂暫時無法播放，輕點重試。</span> : null}
       <div
         className={
           host === "slot"

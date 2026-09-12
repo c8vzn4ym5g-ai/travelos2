@@ -1,4 +1,7 @@
 [data-surface="family"] {
+  --font-fam-rounded: ui-rounded, "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-fam-nunito: ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-fam-caveat: "Segoe Print", "Bradley Hand", "KaiTi", cursive;
   --fam-paper: #f0f6e4;
   --fam-paper-2: #e2efc8;
   --fam-white: #fbfcf7;

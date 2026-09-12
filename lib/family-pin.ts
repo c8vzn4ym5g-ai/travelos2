@@ -1,12 +1,9 @@
 export function isFamilyPinRequired() {
-  return process.env.TRAVELOS_REQUIRE_FAMILY_PIN === "1";
+  // Owner chose a direct family entrance on 2026-09-13, without recurring PINs.
+  return false;
 }
 
 export function isAdminPinValid(pin: string | null) {
-  if (!isFamilyPinRequired()) {
-    return true;
-  }
-
-  const expectedPin = process.env.TRAVELOS_ADMIN_PIN;
-  return Boolean(expectedPin && pin && pin === expectedPin);
+  void pin;
+  return true;
 }

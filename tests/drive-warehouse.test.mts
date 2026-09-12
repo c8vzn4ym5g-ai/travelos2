@@ -448,7 +448,8 @@ test("Apps Script locks only index/item writes so photo binaries stay parallel",
   assert.match(doPost, /if \(body\.op === "index"\) \{\s*return withLock_/);
   assert.match(doPost, /if \(body\.op === "item"\) \{\s*return withLock_/);
   assert.match(doPost, /if \(body\.op === "trip"\) \{\s*return writeTrip_/);
-  assert.equal((doPost.match(/withLock_\(/g) ?? []).length, 2);
+  assert.match(doPost, /if \(body\.op === "stats"\) \{\s*return withLock_/);
+  assert.equal((doPost.match(/withLock_\(/g) ?? []).length, 3);
   assert.match(doPost, /return createBinaryFile_\(body\)/);
   assert.doesNotMatch(doPost, /var body = JSON\.parse\(e\.postData\.contents\);\s*return withLock_/);
 

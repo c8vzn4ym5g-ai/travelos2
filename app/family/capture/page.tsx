@@ -41,7 +41,7 @@ import {
   updateMomentTranscript,
   uploadDisplayPhoto,
   uploadMomentAudio,
-  uploadOriginalPhotoInBackground,
+  uploadOriginalPhoto,
 } from "@/lib/capture-upload";
 import {
   CAPTURE_DOCK_RETRY_GUARD_MS,
@@ -71,6 +71,7 @@ import type { GeoPoint, TravelJob } from "@/lib/types";
 type UploadStatus = "queued" | "uploading" | "uploaded" | "failed";
 
 type StagedPhoto = {
+  originalPending?: boolean;
   abort: AbortController;
   errorMessage: string | null;
   file: File;
@@ -96,6 +97,19 @@ type StagedAudio = {
   transcript: string;
 };
 
+function CapturePhotoThumb({ photo, momentId }: { photo: StagedPhoto; momentId: string | null }) {
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const src = photo.previewUrl ?? (momentId && photo.serverPhotoId
+    ? `/api/moments/photos?${new URLSearchParams({ momentId, photoId: photo.serverPhotoId, variant: "thumb", retry: String(attempt) })}` : null);
+  if (!src || failed) return <div className="fam-thumb-fallback">
+    <p className="line-clamp-3">原檔已保存</p>
+    {src ? <button type="button" onClick={() => { setAttempt(attempt + 1); setFailed(false); }}>載入照片</button> : <p>{photo.file.name}</p>}
+  </div>;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img alt={photo.file.name} src={src} loading="lazy" onError={() => setFailed(true)} />;
+}
+
 function CaptureVideoThumb({ file, previewUrl }: { file: File; previewUrl: string | null }) {
   const [inlineFailed, setInlineFailed] = useState(false);
   const [open, setOpen] = useState(false);
@@ -120,7 +134,7 @@ function CaptureVideoThumb({ file, previewUrl }: { file: File; previewUrl: strin
   }
 
   return (
-    <button className="fam-thumb-fallback fam-thumb-hit" onClick={() => previewUrl && setOpen(true)} type="button">
+    <button className="fam-thumb-fallback fam-thumb-hit" disabled={!previewUrl} onClick={() => previewUrl && setOpen(true)} type="button">
       <FamGlyph name="play" />
       <p className="line-clamp-3">{file.name}</p>
       <span className="fam-sr">播放</span>
@@ -314,12 +328,12 @@ export default function CapturePage() {
   }, []);
 
   function createLiveMomentSession() {
-    return createMomentSession((time, momentId) =>
+    return createMomentSession((_time, momentId) =>
       createCaptureMoment({
-        coordinates: coordinatesRef.current,
+        coordinates: null,
         id: momentId,
         pin: sessionPin(pinRef.current),
-        time,
+        time: null,
       }),
     );
   }
@@ -347,6 +361,7 @@ export default function CapturePage() {
         name: photo.file.name,
         retryCount: photo.retryCount,
         serverPhotoId: photo.serverPhotoId,
+        originalPending: photo.originalPending,
         size: photo.file.size,
         status: photo.status,
         type: photo.file.type,
@@ -400,6 +415,7 @@ export default function CapturePage() {
   }
 
   function maybeAutoFinalize() {
+    if (audioRef.current && audioRef.current.status !== "uploaded") return;
     const list = photosRef.current;
     if (list.length === 0) {
       return;
@@ -417,16 +433,13 @@ export default function CapturePage() {
     }
     finalizedMomentRef.current = momentId;
     const classified = classifyCaptureNote(noteRef.current);
-    const time = list[0]?.file.lastModified
-      ? new Date(list[0].file.lastModified).toISOString()
-      : new Date().toISOString();
     void finalizeCaptureMoment({
       command: classified.command,
-      coordinates: coordinatesRef.current,
+      coordinates: null,
       momentId,
       note: classified.note,
       pin: sessionPin(pinRef.current),
-      time,
+      time: null,
       transcript: spokenRef.current || audioRef.current?.transcript || null,
     }).then((saved) => {
       setSavedJobId(saved.job?.id ?? null);
@@ -568,6 +581,7 @@ export default function CapturePage() {
                 : null,
           retryCount: item.retryCount,
           serverPhotoId: item.serverPhotoId,
+          originalPending: item.originalPending,
           status: item.status === "uploaded" && item.serverPhotoId ? "uploaded" : file ? "queued" : "failed",
           uploadGeneration: 0,
           uploadingSince: null,
@@ -786,7 +800,10 @@ export default function CapturePage() {
           return;
         }
 
-        const uploaded = await uploadDisplayPhoto({
+        const uploaded = photo.serverPhotoId
+          ? { display: new File([], "retry-display.jpg", { type: "image/jpeg" }), momentId, photo: { id: photo.serverPhotoId } }
+          : await uploadDisplayPhoto({
+          uploadId: photo.id,
           coordinates: coordinatesRef.current,
           file: photo.file,
           momentId,
@@ -822,15 +839,19 @@ export default function CapturePage() {
         }
 
         if (uploaded.photo?.id) {
-          patchPhoto(photo.id, { errorMessage: null, serverPhotoId: uploaded.photo.id, status: "uploaded" });
+          patchPhoto(photo.id, { errorMessage: null, serverPhotoId: uploaded.photo.id, originalPending: true, status: "uploading" });
           persistCaptureRound();
-          uploadOriginalPhotoInBackground({
+          if (!video) await uploadOriginalPhoto({
             display: uploaded.display,
             momentId: uploaded.momentId,
             original: photo.file,
             photoId: uploaded.photo.id,
             pin: sessionPin(pinRef.current),
+            signal: photo.abort.signal,
           });
+          if (!stillThisRun() || photo.abort.signal.aborted) return;
+          patchPhoto(photo.id, { errorMessage: null, originalPending: false, status: "uploaded" });
+          persistCaptureRound();
           maybeAutoFinalize();
           return;
         }
@@ -932,6 +953,9 @@ export default function CapturePage() {
           return;
         }
 
+        if (audioRef.current?.previewUrl === staged.previewUrl) {
+          audioRef.current = { ...audioRef.current, status: "uploaded", errorMessage: null };
+        }
         setAudio((current) => {
           if (current?.previewUrl !== staged.previewUrl) {
             return current;
@@ -946,6 +970,7 @@ export default function CapturePage() {
           return next;
         });
         persistSpokenLine(spokenRef.current);
+        maybeAutoFinalize();
       } catch (error) {
         if (staged.abort.signal.aborted) {
           return;
@@ -1355,11 +1380,11 @@ export default function CapturePage() {
       let keptMomentId = momentSession().momentId ?? (await ensureMoment(time));
       const saved = await finalizeCaptureMoment({
         command: classified.command,
-        coordinates: coordinatesRef.current,
+        coordinates: null,
         momentId: keptMomentId,
         note: classified.note,
         pin: sessionPin(pinRef.current),
-        time,
+        time: null,
         transcript: spokenRef.current || audioRef.current?.transcript || null,
       });
       createdJob = saved.job;
@@ -1506,14 +1531,7 @@ export default function CapturePage() {
                   <li className="fam-thumb" key={photo.id}>
                     {isCaptureVideoFile(photo.file) ? (
                       <CaptureVideoThumb file={photo.file} previewUrl={photo.previewUrl} />
-                    ) : photo.previewUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img alt="" src={photo.previewUrl} />
-                    ) : (
-                      <div className="fam-thumb-fallback">
-                        <p className="line-clamp-3">{photo.file.name}</p>
-                      </div>
-                    )}
+                    ) : <CapturePhotoThumb photo={photo} momentId={momentSessionRef.current?.momentId ?? null} />}
                     <div className="fam-thumb-actions">
                       <button onClick={() => retakePhoto(photo.id)} type="button">
                         重拍
@@ -1582,11 +1600,7 @@ export default function CapturePage() {
           </div>
         ) : recording && spoken ? (
           <SpokenLine onChange={applySpokenEdit} readOnly value={spoken} />
-        ) : (
-          <button className="fam-pill fam-pill-quiet mt-3 min-h-11 w-full" disabled type="button">
-            Remove audio
-          </button>
-        )}
+        ) : null}
 
         <label className="fam-field mt-5 block">
           <span className="fam-label">心情或交代 / Mood or a job</span>
@@ -1619,7 +1633,7 @@ export default function CapturePage() {
 
         <button
           className="fam-pill fam-pill-quiet mt-3 w-full"
-          disabled={!note.trim() && !spoken.trim()}
+          disabled={saving || (!note.trim() && !spoken.trim())}
           onClick={() => void saveMoment()}
           type="button"
         >

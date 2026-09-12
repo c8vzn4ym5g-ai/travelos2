@@ -148,7 +148,7 @@ test("talk translation uses m2m100 only, never a spoken LLM first", async () => 
   );
 });
 
-test("talk APIs work with PIN off and still lock when the flag is on", async () => {
+test("talk APIs stay usable despite a stale required PIN flag", async () => {
   const ai: FamilyTalkAi = {
     async run(model) {
       if (String(model).includes("whisper")) {
@@ -194,7 +194,8 @@ test("talk APIs work with PIN off and still lock when the flag is on", async () 
       }),
       ai,
     );
-    assert.equal(locked.status, 401);
+    assert.equal(locked.status, 200);
+    assert.deepEqual(await locked.json(), { source: "hello", translated: "請給我水" });
   });
 });
 

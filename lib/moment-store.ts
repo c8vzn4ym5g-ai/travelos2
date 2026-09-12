@@ -56,7 +56,8 @@ import {
   sortMomentsNewestFirst,
   uniqueMomentsById,
 } from "@/lib/moments";
-import type { MomentPhoto, TravelJob, TravelMoment } from "@/lib/types";
+import type { MomentPhoto, PhotoCaptureMetadata, TravelJob, TravelMoment } from "@/lib/types";
+import { captureMetadataPhotoFields } from "@/lib/original-capture-metadata";
 import {
   type MomentContent,
   MomentWarehouseUnavailableError,
@@ -191,6 +192,11 @@ export function resetMomentStoreForTests() {
   photoAppendFlush = null;
   transcriptInFlight.clear();
   transcriptJobs.clear();
+  pendingDriveIndex.clear();
+  driveIndexEpoch += 1;
+  driveIndexSync = null;
+  pendingMomentIndexes.clear();
+  momentIndexJobs.clear();
 }
 
 let warehouseWriteQueue: Promise<void> = Promise.resolve();
@@ -222,7 +228,7 @@ export function rememberUploadedDisplayPhoto(momentId: string, photo: MomentPhot
   });
 }
 
-export function rememberUploadedOriginal(momentId: string, photoId: string, originalStorageKey: string) {
+export function rememberUploadedOriginal(momentId: string, photoId: string, originalStorageKey: string, capture?: PhotoCaptureMetadata | null) {
   const current = getItemCache().get(momentId);
   if (!current) {
     return;
@@ -230,7 +236,7 @@ export function rememberUploadedOriginal(momentId: string, photoId: string, orig
 
   rememberItem({
     ...current,
-    photos: current.photos.map((photo) => (photo.id === photoId ? { ...photo, originalStorageKey } : photo)),
+    photos: current.photos.map((photo) => (photo.id === photoId ? { ...photo, originalStorageKey, ...captureMetadataPhotoFields(capture ?? null) } : photo)),
   });
 }
 
@@ -487,6 +493,18 @@ async function writeMomentItem(moment: TravelMoment) {
   return saved;
 }
 
+function rememberDriveItemOverlay(moments: TravelMoment[]): MomentContent {
+  const lastWrite = getLastIndexWrite();
+  const content = {
+    jobs: lastWrite?.jobs ?? [],
+    moments: overlayMoments(lastWrite?.moments ?? [], moments),
+    schemaVersion: MOMENTS_SCHEMA_VERSION,
+    updatedAt: new Date().toISOString(),
+  };
+  setLastIndexWrite(content);
+  return content;
+}
+
 async function syncIndexBestEffort(
   updatedMoments: TravelMoment[] = [],
   photoAppends: Array<{ momentId: string; photo: MomentPhoto }> = [],
@@ -504,27 +522,10 @@ async function syncIndexBestEffort(
           )
         : updatedMoments;
     const unique = uniqueMomentsById(patched);
-    try {
-      // Apps Script merge-on-write. Do not GET the fat catalog first.
-      await putIndex(
-        JSON.stringify({
-          moments: unique,
-          schemaVersion: MOMENTS_SCHEMA_VERSION,
-          updatedAt: new Date().toISOString(),
-        }),
-      );
-    } catch {
-      // Item shards stay the source of truth.
-    }
-    const lastWrite = getLastIndexWrite();
-    const content = {
-      jobs: lastWrite?.jobs ?? [],
-      moments: overlayMoments(lastWrite?.moments ?? [], unique),
-      schemaVersion: MOMENTS_SCHEMA_VERSION,
-      updatedAt: new Date().toISOString(),
-    };
-    setLastIndexWrite(content);
-    return content;
+    // A slow catalog RMW must not hold the item-write queue (audio/originals
+    // used to await it here). Coalesce latest item snapshots while it runs.
+    queueDriveIndexPatch(unique);
+    return rememberDriveItemOverlay(unique);
   }
 
   try {
@@ -553,6 +554,36 @@ async function syncIndexBestEffort(
       updatedAt: new Date().toISOString(),
     };
   }
+}
+
+const pendingDriveIndex = new Map<string, TravelMoment>();
+let driveIndexSync: Promise<void> | null = null;
+let driveIndexEpoch = 0;
+
+function queueDriveIndexPatch(moments: TravelMoment[]) {
+  for (const moment of moments) pendingDriveIndex.set(moment.id, moment);
+  if (!driveIndexSync) {
+    const epoch = driveIndexEpoch;
+    const pending = Promise.resolve().then(async () => {
+      while (epoch === driveIndexEpoch && pendingDriveIndex.size > 0) {
+        const batch = [...pendingDriveIndex.values()];
+        pendingDriveIndex.clear();
+        try {
+          await putIndex(JSON.stringify({ moments: batch, schemaVersion: MOMENTS_SCHEMA_VERSION, updatedAt: new Date().toISOString() }));
+        } catch {
+          // Shards are already durable. A later update can repair the catalog.
+        }
+      }
+    }).finally(() => {
+      if (driveIndexSync === pending) {
+        driveIndexSync = null;
+        if (pendingDriveIndex.size > 0) queueDriveIndexPatch([]);
+      }
+    });
+    driveIndexSync = pending;
+  }
+  const pending = driveIndexSync;
+  afterResponse(() => pending);
 }
 
 export async function readMoments(options: { hydrate?: boolean } = {}): Promise<{ content: MomentContent; status: MomentStoreStatus }> {
@@ -804,15 +835,9 @@ async function flushPhotoAppends() {
       let saved: MomentContent;
       if (acceptedItems.length > 0) {
         if (shouldUseDriveWarehouse()) {
-          afterResponse(() => syncIndexBestEffort(acceptedItems));
-          const lastWrite = getLastIndexWrite();
-          saved = {
-            jobs: lastWrite?.jobs ?? [],
-            moments: overlayMoments(lastWrite?.moments ?? [], acceptedItems),
-            schemaVersion: MOMENTS_SCHEMA_VERSION,
-            updatedAt: new Date().toISOString(),
-          };
-          setLastIndexWrite(saved);
+          // The shard is durable. Capture finalization publishes the batch to
+          // the catalog once; per-photo catalog RMW competes for its remote lock.
+          saved = rememberDriveItemOverlay(acceptedItems);
         } else {
           saved = await syncIndexBestEffort(
             acceptedItems,
@@ -869,7 +894,7 @@ export async function setMomentAudio(
   });
 }
 
-export async function setPhotoOriginal(momentId: string, photoId: string, originalStorageKey: string) {
+export async function setPhotoOriginal(momentId: string, photoId: string, originalStorageKey: string, capture?: PhotoCaptureMetadata | null) {
   return withWarehouseLock(async () => {
     const current = await readMomentItem(momentId);
     if (!current) {
@@ -881,7 +906,7 @@ export async function setPhotoOriginal(momentId: string, photoId: string, origin
       if (photo.id !== photoId) {
         return photo;
       }
-      nextPhoto = { ...photo, originalStorageKey };
+      nextPhoto = { ...photo, originalStorageKey, ...captureMetadataPhotoFields(capture ?? null) };
       return nextPhoto;
     });
 
@@ -890,7 +915,9 @@ export async function setPhotoOriginal(momentId: string, photoId: string, origin
     }
 
     const next = await writeMomentItem({ ...current, photos });
-    const content = await syncIndexBestEffort([next]);
+    const content = shouldUseDriveWarehouse()
+      ? rememberDriveItemOverlay([next])
+      : await syncIndexBestEffort([next]);
     return { content, photo: nextPhoto, moment: next };
   });
 }
@@ -912,8 +939,24 @@ export async function removePhotoFromMoment(momentId: string, photoId: string) {
   });
 }
 
+const pendingMomentIndexes = new Set<string>();
+const momentIndexJobs = new Map<string, Promise<void>>();
+
 export function scheduleMomentIndex(momentId: string) {
-  void indexSavedMoment(momentId);
+  pendingMomentIndexes.add(momentId);
+  if (!momentIndexJobs.has(momentId)) {
+    const pending = Promise.resolve().then(async () => {
+      while (pendingMomentIndexes.delete(momentId)) await indexSavedMoment(momentId);
+    }).finally(() => {
+      if (momentIndexJobs.get(momentId) === pending) {
+        momentIndexJobs.delete(momentId);
+        if (pendingMomentIndexes.has(momentId)) scheduleMomentIndex(momentId);
+      }
+    });
+    momentIndexJobs.set(momentId, pending);
+  }
+  const pending = momentIndexJobs.get(momentId)!;
+  afterResponse(() => pending);
 }
 
 export function scheduleMomentTranscript(momentId: string) {

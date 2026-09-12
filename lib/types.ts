@@ -79,6 +79,7 @@ export interface JournalEntry extends TimestampedRecord {
   body: string;
   entryDate: string;
   storyPhotoId?: string | null;
+  entryKind?: "plan" | "actual" | "public" | "unreviewed";
   voiceNoteUrl?: string | null;
   mood: string | null;
   weatherSummary: string | null;
@@ -90,6 +91,10 @@ export interface Photo {
   tripId: string;
   storageKey: string;
   originalFilename: string;
+  originalStorageKey?: string | null;
+  sourceMomentId?: string;
+  sourcePhotoId?: string;
+  captureMetadata?: PhotoCaptureMetadata | null;
   caption: string | null;
   takenAt: string | null;
   coordinates: GeoPoint | null;
@@ -136,6 +141,7 @@ export interface Cost {
 }
 
 export interface TripDetail extends Trip {
+  publishedSnapshot?: Omit<TripDetail, "publishedSnapshot">;
   journalEntries: JournalEntry[];
   photos: Photo[];
   places: Place[];
@@ -221,6 +227,14 @@ export interface CoffeeShopListItem {
 
 export type MomentMediaKind = "photo" | "video";
 
+export interface PhotoCaptureMetadata {
+  source: "exif";
+  localTakenAt: string | null;
+  takenAt: string | null;
+  offset: string | null;
+  coordinates: GeoPoint | null;
+}
+
 export interface MomentPhoto {
   id: string;
   momentId: string;
@@ -229,6 +243,12 @@ export interface MomentPhoto {
   originalFilename: string;
   takenAt: string | null;
   coordinates: GeoPoint | null;
+  /** Device location during upload; never a substitute for capture coordinates. */
+  uploadCoordinates?: GeoPoint | null;
+  /** File modification timestamp supplied by the picker, not verified EXIF. */
+  fileModifiedAt?: string | null;
+  captureMetadataStatus?: "unknown" | "verified";
+  captureMetadata?: PhotoCaptureMetadata | null;
   createdAt: string;
   kind?: MomentMediaKind;
   mimeType?: string | null;

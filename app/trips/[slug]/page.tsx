@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ReaderAlbum, ReaderFilm, ReaderPhoto } from "@/components/reader-media";
+import { getTripPromoVideos } from "@/lib/promo-videos";
+import { isTripPhotoVideo } from "@/lib/trip-photo";
 import { BookingBand } from "@/components/booking-band";
 import { JournalCostChip, JournalSpendPanel } from "@/components/journal-spend";
 import { JourneyMap } from "@/components/journey-map";
@@ -16,11 +20,11 @@ import { LaplandVisualPath } from "@/components/lapland-visual-path";
 import { ShareActions } from "@/components/share-actions";
 import { StorefrontHomeLink } from "@/components/storefront-home-link";
 import { readContent } from "@/lib/editable-store";
+import { publishedTrip } from "@/lib/trip-publication";
 import { isLaplandPhoneUserAgent } from "@/lib/lapland-mobile";
 import { publicSiteUrl } from "@/lib/site-url";
 import {
   forLaplandPublicPage,
-  garnishCaptionCredit,
   isLaplandStayJournal,
   isLaplandStorefrontSlug,
   laplandPublicStops,
@@ -32,7 +36,7 @@ import {
 import { getLaplandBooking } from "@/lib/travelpayouts";
 import { isTripPublic } from "@/lib/trip-visibility";
 import { getTripDetailsByStartDate } from "@/lib/trips";
-import type { JournalEntry, Money, Photo, Place } from "@/lib/types";
+import type { Money, Photo, Place } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -40,13 +44,9 @@ interface TripDetailPageProps {
   params: Promise<{ slug: string }>;
 }
 
-async function loadTripCatalog() {
-  try {
-    return (await readContent()).content.trips;
-  } catch {
-    return getTripDetailsByStartDate();
-  }
-}
+const loadTripCatalog = cache(async () => {
+    return (await readContent()).content.trips.flatMap(trip => { const visible = publishedTrip(trip); return visible ? [visible] : []; });
+});
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
   month: "short",
@@ -99,58 +99,9 @@ function isRenderablePhoto(photo: Photo) {
   return photo.storageKey.startsWith("http") || photo.storageKey.startsWith("/");
 }
 
-function getFirstSentence(text: string) {
-  const sentence = text.split(/\n\n|\. |! |\? /)[0]?.trim();
-  return sentence || text.slice(0, 140);
-}
-
 function clampWords(text: string, maxWords: number) {
   const words = text.trim().split(/\s+/).filter(Boolean);
-  if (words.length <= maxWords) {
-    return text;
-  }
-
-  return `${words.slice(0, maxWords).join(" ")}...`;
-}
-
-function getStoryKeywords(entry: JournalEntry) {
-  const text = `${entry.id} ${entry.title}`.toLowerCase();
-
-  if (text.includes("arrival") || text.includes("arctic")) {
-    return ["arctic", "circle", "arrival"];
-  }
-
-  if (text.includes("santa")) {
-    return ["santa", "village", "night", "dusk"];
-  }
-
-  if (text.includes("campfire") || text.includes("fire")) {
-    return ["campfire", "fire", "warmth"];
-  }
-
-  return text
-    .replace(/[^a-z0-9\s-]/g, " ")
-    .split(/\s+/)
-    .filter((word) => word.length > 3);
-}
-
-function getBestStoryPhoto(entry: JournalEntry, photos: Photo[], usedPhotoIds: Set<string>) {
-  const selectedPhoto = entry.storyPhotoId ? photos.find((photo) => photo.id === entry.storyPhotoId) : undefined;
-  if (selectedPhoto) {
-    return selectedPhoto;
-  }
-
-  const keywords = getStoryKeywords(entry);
-  const scoredPhotos = photos
-    .filter((photo) => !usedPhotoIds.has(photo.id))
-    .map((photo) => {
-      const searchable = `${photo.id} ${photo.originalFilename} ${photo.caption ?? ""}`.toLowerCase();
-      const score = keywords.reduce((total, keyword) => total + (searchable.includes(keyword) ? 1 : 0), 0);
-      return { photo, score };
-    })
-    .sort((first, second) => second.score - first.score);
-
-  return scoredPhotos.find((item) => item.score > 0)?.photo ?? photos.find((photo) => !usedPhotoIds.has(photo.id));
+  return words.length <= maxWords ? text : `${words.slice(0, maxWords).join(" ")}…`;
 }
 
 function SectionHeader({ kicker, title }: { kicker: string; title: string }) {
@@ -199,58 +150,6 @@ function PlaceRow({ place }: { place: LaplandPublicStop }) {
   );
 }
 
-function PhotoTile({ hideExactDate, photo }: { hideExactDate?: boolean; photo: Photo }) {
-  const canRenderPhoto = isRenderablePhoto(photo);
-  const garnishCredit = garnishCaptionCredit(photo.id);
-  const dateLine = hideExactDate
-    ? garnishCredit ?? LAPLAND_SEASON_LABEL
-    : photo.takenAt
-      ? formatDate(photo.takenAt)
-      : garnishCredit
-        ? garnishCredit
-        : "Date not set";
-
-  return (
-    <article className="travel-soft-panel overflow-hidden rounded-[1.5rem]" data-music-zone={`${photo.caption ?? ""} ${photo.originalFilename}`}>
-      {canRenderPhoto ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img alt={photo.caption ?? photo.originalFilename} className="h-56 w-full object-cover" src={photo.storageKey} />
-      ) : (
-        <div className="grid h-56 place-items-center bg-[color:var(--paper-soft)] p-4 text-center text-sm font-medium text-[color:var(--muted)]">
-          Photo pending upload
-        </div>
-      )}
-      <div className="p-4">
-        <p className="font-medium text-[color:var(--ink)]">{photo.caption ?? photo.originalFilename}</p>
-        <p className={`mt-2 text-sm ${garnishCredit ? "text-slate-500" : "travel-muted"}`}>{dateLine}</p>
-      </div>
-    </article>
-  );
-}
-
-function StoryMomentCard({ entry, index, photo }: { entry: JournalEntry; index: number; photo: Photo | undefined }) {
-  return (
-    <article className="travel-soft-panel grid overflow-hidden rounded-[1.25rem] lg:grid-cols-[11rem_1fr]" data-music-zone={`${entry.title} ${entry.body}`}>
-      <div className="bg-[color:var(--paper-soft)]">
-        {photo && isRenderablePhoto(photo) ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img alt={photo.caption ?? entry.title} className="h-40 w-full object-cover lg:h-full" src={photo.storageKey} />
-        ) : (
-          <div className="grid h-40 place-items-center p-4 text-center text-sm text-[color:var(--muted)] lg:h-full">Photo moment ready</div>
-        )}
-      </div>
-      <div className="p-4">
-        <p className="travel-kicker text-xs">Moment {index + 1}</p>
-        <h3 className="travel-hand mt-2 line-clamp-2 text-xl font-semibold leading-tight text-[color:var(--ink)]">{entry.title}</h3>
-        <p className="travel-muted mt-3 line-clamp-3 text-sm leading-6">{clampWords(getFirstSentence(entry.body), 34)}</p>
-        <p className="travel-kicker mt-4 text-xs">
-          {formatDate(entry.entryDate)} / {entry.mood ?? "memory"}
-        </p>
-      </div>
-    </article>
-  );
-}
-
 function MemoryChip({ label, tone, value }: { label: string; tone: string; value: string }) {
   return (
     <div className={`rounded-full border px-3 py-2 text-sm shadow-sm ${tone}`}>
@@ -274,8 +173,8 @@ export async function generateMetadata({ params }: TripDetailPageProps): Promise
   }
 
   const coverPhoto =
-    trip.photos.find((photo) => photo.id === trip.coverPhotoId && isRenderablePhoto(photo)) ??
-    trip.photos.find(isRenderablePhoto);
+    trip.photos.find((photo) => photo.id === trip.coverPhotoId && isRenderablePhoto(photo) && !isTripPhotoVideo(photo)) ??
+    trip.photos.find((photo) => isRenderablePhoto(photo) && !isTripPhotoVideo(photo));
   const title = `${trip.title} - ${trip.city}, ${trip.country}`;
   const description = storefrontMetaDescription(trip.summary, trip.slug);
 
@@ -310,22 +209,16 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
   const trip = isLaplandStorefrontSlug(found.slug) ? forLaplandPublicPage(found) : found;
 
   const coverPhoto =
-    trip.photos.find((photo) => photo.id === trip.coverPhotoId && isRenderablePhoto(photo)) ??
-    trip.photos.find(isRenderablePhoto);
-  const featurePhotos = trip.photos.filter(isRenderablePhoto).slice(0, 4);
+    trip.photos.find((photo) => photo.id === trip.coverPhotoId && isRenderablePhoto(photo) && !isTripPhotoVideo(photo)) ??
+    trip.photos.find((photo) => isRenderablePhoto(photo) && !isTripPhotoVideo(photo));
   const renderablePhotos = trip.photos.filter(isRenderablePhoto);
   const isLapland = isLaplandStorefrontSlug(trip.slug);
   const seasonLabel = isLapland ? LAPLAND_SEASON_LABEL : getSeasonLabel(trip.startDate);
   const heroSummary = clampWords(trip.summary, 88);
-  const usedStoryPhotoIds = new Set<string>();
-  const storyMoments = trip.journalEntries.map((entry, index) => {
-    const photo = getBestStoryPhoto(entry, renderablePhotos, usedStoryPhotoIds);
-    if (photo) {
-      usedStoryPhotoIds.add(photo.id);
-    }
-
-    return { entry, index, photo };
-  });
+  const storyMoments = trip.journalEntries.map((entry, index) => ({
+    entry, index,
+    photo: entry.storyPhotoId ? renderablePhotos.find(photo => photo.id === entry.storyPhotoId) : undefined,
+  }));
   const pageMoments = isLapland ? storyMoments.filter(({ entry }) => !isLaplandStayJournal(entry)) : storyMoments;
   const savedStops = isLapland ? laplandPublicStops(trip.places) : trip.places.map(toStopRow);
   const uaPhone = isLapland ? isLaplandPhoneUserAgent((await headers()).get("user-agent") ?? "") : false;
@@ -379,7 +272,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               </>
             )}
           </div>
-          {isLapland ? <LaplandPublicCut /> : null}
+          {isLapland ? <LaplandPublicCut /> : <ReaderFilm videos={getTripPromoVideos(trip.slug)} poster={coverPhoto?.storageKey} />}
           {isLapland && coverPhoto ? <LaplandCutStill photo={coverPhoto} /> : null}
           {isLapland ? (
             <LaplandMoreCut>
@@ -445,27 +338,8 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             )}
           </div>
           )}
-          {isLaplandStorefrontSlug(trip.slug) ? null : (
-          <div className="grid gap-4 lg:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)] lg:items-start">
-            {coverPhoto ? (
-              <div className="travel-photo overflow-hidden rounded-[1.75rem] bg-[color:var(--paper-soft)]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img alt={coverPhoto.caption ?? trip.title} className="aspect-[4/3] w-full object-cover" src={coverPhoto.storageKey} />
-              </div>
-            ) : null}
-            {featurePhotos.length > 1 ? (
-              <div className="grid grid-cols-2 gap-3">
-                {featurePhotos.map((photo) => (
-                  <article className="travel-soft-panel overflow-hidden rounded-2xl" data-music-zone={`${photo.caption ?? ""} ${photo.originalFilename}`} key={photo.id}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img alt={photo.caption ?? photo.originalFilename} className="h-32 w-full object-cover sm:h-40" src={photo.storageKey} />
-                    <p className="travel-muted p-3 text-xs leading-5 sm:text-sm">{photo.caption ?? photo.originalFilename}</p>
-                  </article>
-                ))}
-              </div>
-            ) : null}
-          </div>
-          )}
+          {!isLapland && coverPhoto ? <figure className="mx-auto w-full max-w-3xl overflow-hidden rounded-3xl"><ReaderPhoto photo={coverPhoto} priority /></figure> : null}
+
         </div>
       </section>
 
@@ -488,50 +362,26 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </dl>
           </section>
 
-          {trip.journalEntries.length > 0 && !isLaplandStorefrontSlug(trip.slug) ? (
-            <section className="travel-panel rounded-2xl p-4 sm:p-5">
-              <SectionHeader kicker="Story route" title="Read the journey through its key moments" />
-              <p className="travel-muted mt-3 line-clamp-2 text-sm leading-6">
-                A visitor should understand the emotional path quickly. Each moment keeps one photo and one short text preview.
-              </p>
-              <div className="mt-5 grid gap-3">
-                {storyMoments.map(({ entry, index, photo }) => (
-                  <StoryMomentCard entry={entry} index={index} key={entry.id} photo={photo} />
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          <section className="travel-panel rounded-3xl p-5 sm:p-7">
-            <SectionHeader kicker="Journal" title={isLaplandStorefrontSlug(trip.slug) ? "遊記 / Journal" : "Narrative notes"} />
-            <div className="mt-7 space-y-6">
-              {trip.journalEntries.map((entry) => (
-                <article className="border-b border-[color:var(--line)] pb-6 last:border-0 last:pb-0" data-music-zone={`${entry.title} ${entry.body}`} key={entry.id}>
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="font-semibold text-[color:var(--ink)]">{entry.title}</h3>
-                    <p className="travel-muted text-sm">
-                      {isLaplandStorefrontSlug(trip.slug) ? LAPLAND_SEASON_LABEL : formatDate(entry.entryDate)}
-                    </p>
-                  </div>
+          <section className="space-y-8" aria-label="旅程故事">
+            <SectionHeader kicker="Journal" title="旅途裡的故事" />
+            <nav aria-label="故事章節" className="flex flex-wrap gap-2">
+              {pageMoments.map(({entry}, index) => <a className="travel-chip min-h-11 rounded-full px-4 py-3 text-sm" href={`#story-${entry.id}`} key={entry.id}>{index + 1} · {entry.title}</a>)}
+            </nav>
+            {storyMoments.map(({entry, photo}, index) => (
+              <article className="scroll-mt-6 overflow-hidden rounded-3xl bg-white/70" data-music-zone={`${entry.title} ${entry.body}`} id={`story-${entry.id}`} key={entry.id}>
+                {photo ? <figure><ReaderPhoto photo={photo} />{photo.caption ? <figcaption className="px-5 pt-3 text-sm leading-6 text-[color:var(--muted)]">{photo.caption}</figcaption> : null}</figure> : null}
+                <div className="p-5 sm:p-8">
+                  <p className="travel-kicker text-xs">{String(index + 1).padStart(2, "0")} · {isLapland ? LAPLAND_SEASON_LABEL : formatDate(entry.entryDate)}</p>
+                  <h3 className="travel-hand mt-3 text-2xl font-semibold leading-snug">{entry.title}</h3>
                   <NarrativeBody body={entry.body} />
-                  <p className="travel-kicker mt-4 text-xs">
-                    {entry.mood ?? "Mood not set"} / {entry.weatherSummary ?? "Weather not set"}
-                  </p>
-                </article>
-              ))}
-            </div>
+                </div>
+              </article>
+            ))}
           </section>
 
           {isLaplandStorefrontSlug(trip.slug) ? <BookingBand destination={getLaplandBooking()} /> : null}
 
-          <section className="travel-panel rounded-3xl p-5 sm:p-7">
-            <SectionHeader kicker="Album" title="Photo memories" />
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              {trip.photos.map((photo) => (
-                <PhotoTile hideExactDate={isLaplandStorefrontSlug(trip.slug)} key={photo.id} photo={photo} />
-              ))}
-            </div>
-          </section>
+          <ReaderAlbum photos={renderablePhotos} />
 
           {isLaplandStorefrontSlug(trip.slug) ? (
             <footer className="travel-muted px-1 text-[0.7rem] leading-6" data-photo-credits="">
@@ -550,11 +400,11 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             <SectionHeader kicker="Story contents" title="On this page" />
             <div className="mt-4 grid gap-2">
               {pageMoments.map(({ entry, photo }, index) => (
-                <article className="grid grid-cols-[3.25rem_1fr] gap-3 rounded-2xl border border-[color:var(--line)] bg-white/60 p-2" key={entry.id}>
+                <a href={`#story-${entry.id}`} className="grid grid-cols-[3.25rem_1fr] gap-3 rounded-2xl border border-[color:var(--line)] bg-white/60 p-2" key={entry.id}>
                   <div className="overflow-hidden rounded-xl bg-[color:var(--paper-soft)]">
-                    {photo && isRenderablePhoto(photo) ? (
+                    {photo && isRenderablePhoto(photo) && !isTripPhotoVideo(photo) ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img alt={photo.caption ?? entry.title} className="h-14 w-full object-cover" src={photo.storageKey} />
+                      <img alt={photo.caption ?? entry.title} className="h-14 w-full object-cover" loading="lazy" src={photo.storageKey} />
                     ) : (
                       <div className="grid h-14 place-items-center text-xs text-[color:var(--muted)]">{index + 1}</div>
                     )}
@@ -563,7 +413,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                     <p className="travel-kicker text-[0.65rem]">Moment {index + 1}</p>
                     <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-[color:var(--ink)]">{entry.title}</p>
                   </div>
-                </article>
+                </a>
               ))}
             </div>
           </section>

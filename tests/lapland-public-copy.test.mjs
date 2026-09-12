@@ -86,7 +86,7 @@ test("public trip cost UI keeps a quiet chip and collapsed cost notes", async ()
   assert.doesNotMatch(page, /JournalCostHeroNote/);
   assert.doesNotMatch(page, /LAPLAND_COST_HERO_2026/);
   assert.doesNotMatch(page, /HK\$6,600/);
-  assert.match(page, /<JournalSpendPanel costs=\{trip\.costs\} slug=\{trip\.slug\} startDate=\{trip\.startDate\} totalCost=\{trip\.totalCost\} \/>/);
+  assert.match(page, /<JournalSpendPanel costs=\{trip\.costs(?: \?\? \[\])?\} slug=\{trip\.slug\} startDate=\{trip\.startDate\} totalCost=\{trip\.totalCost\} \/>/);
   assert.match(page, /<BookingBand destination=\{getLaplandBooking\(\)\} \/>/);
   assert.match(page, /<LaplandStorefrontGlance \/>/);
   assert.doesNotMatch(page, /Writing guide/);
@@ -213,9 +213,11 @@ test("Lapland winter-village photo uses Sana's Christmas-card caption", async ()
   assert.match(store, /savedSchemaVersion < 14 && seedTrip.id === "trip_lapland_2020"/);
   assert.match(store, /savedSchemaVersion < 15 && trip.id === "trip_lapland_2020"/);
   assert.match(page, /forLaplandPublicPage/);
-  assert.match(page, /hideExactDate=\{isLaplandStorefrontSlug\(trip\.slug\)\}/);
-  assert.match(page, /alt=\{coverPhoto\.caption \?\? trip\.title\}/);
-  assert.match(page, /\{photo\.caption \?\? photo\.originalFilename\}/);
+  const readerMedia = await readFile(resolve(root, "components/reader-media.tsx"), "utf8");
+  assert.match(page, /<ReaderAlbum photos=\{renderablePhotos\}/);
+  assert.doesNotMatch(readerMedia, /takenAt|createdAt/, "reader album does not expose exact dates");
+  assert.match(page, /<ReaderPhoto photo=\{coverPhoto\}/);
+  assert.match(readerMedia, /alt=\{photo\.caption \?\? photo\.originalFilename\}/);
   assert.doesNotMatch(page, /Unlock editor/);
   assert.doesNotMatch(page, /Edit trip/);
 });
@@ -291,7 +293,7 @@ test("Lapland public short is the exact Codex cut under Journey, not a substitut
   assert.match(cut, /unmuteLaplandHero/);
   assert.match(cut, /data-lapland-tap-for-sound=""/);
   assert.match(cut, /輕點開聲音 \/ Tap for sound/);
-  assert.match(cut, /absolute inset-0/);
+  assert.match(cut, /absolute left-1\/2 top-1\/2/, "sound cue stays centered without covering native controls");
   assert.match(playback, /NotAllowedError/);
   assert.match(playback, /video\.muted = false/);
   assert.match(playback, /video\.muted = true/);

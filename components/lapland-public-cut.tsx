@@ -82,7 +82,7 @@ export function LaplandPublicCut({
                   : "aspect-[9/16] w-full bg-black object-cover"
                 : "aspect-[9/16] w-full rounded-[1.25rem] bg-[color:var(--paper-soft)] object-contain"
             }
-            controls={!bleed}
+            controls
             onVolumeChange={hideCueIfAudible}
             playsInline
             poster={LAPLAND_HERO_POSTER_SRC}
@@ -93,7 +93,7 @@ export function LaplandPublicCut({
           {needsTapForSound ? (
             <button
               aria-label={LAPLAND_TAP_FOR_SOUND_LABEL}
-              className="absolute inset-0 z-10 flex items-center justify-center bg-transparent"
+              className="absolute left-1/2 top-1/2 z-10 flex min-h-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center bg-transparent"
               data-lapland-tap-for-sound=""
               onClick={handleTapForSound}
               type="button"

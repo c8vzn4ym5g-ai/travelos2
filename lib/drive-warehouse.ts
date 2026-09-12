@@ -49,6 +49,12 @@ const MAX_REDIRECTS = 5;
 type DriveFetch = typeof fetch;
 
 let testFetch: DriveFetch | null = null;
+export const DRIVE_WAREHOUSE_RPC_TIMEOUT_MS = 20_000;
+let testRpcTimeoutMs: number | null = null;
+
+export function setDriveWarehouseRpcTimeoutForTests(timeoutMs: number | null) {
+  testRpcTimeoutMs = timeoutMs;
+}
 
 export class DriveWarehouseError extends Error {
   constructor(message: string) {
@@ -67,6 +73,7 @@ export function isDriveWarehouseFetchOverridden() {
 
 export function resetDriveWarehouseForTests() {
   testFetch = null;
+  testRpcTimeoutMs = null;
   cachedDriveAccess = null;
 }
 
@@ -169,20 +176,55 @@ async function followRedirects(
   return response;
 }
 
+async function withRpcDeadline<T>(
+  action: string,
+  requestImpl: DriveFetch | undefined,
+  work: (request: DriveFetch) => Promise<T>,
+): Promise<T> {
+  const request = resolveFetch(requestImpl);
+  const controller = new AbortController();
+  const timeoutMs = testRpcTimeoutMs ?? DRIVE_WAREHOUSE_RPC_TIMEOUT_MS;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      const error = new DriveWarehouseError(`${action} timed out after ${timeoutMs}ms`);
+      reject(error);
+      controller.abort(error);
+    }, timeoutMs);
+  });
+  const boundedRequest: DriveFetch = (input, init) => {
+    controller.signal.throwIfAborted();
+    return request(input, {
+      ...init,
+      signal: init?.signal
+        ? AbortSignal.any([controller.signal, init.signal])
+        : controller.signal,
+    });
+  };
+  try {
+    // Racing the entire operation also bounds a stalled response body or a
+    // transport that does not honor AbortSignal. Never retry an uncertain write.
+    return await Promise.race([work(boundedRequest), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function getJson(
   params: Record<string, string>,
   action: string,
   requestImpl?: DriveFetch,
   options: { allowNotFound?: boolean } = {},
 ): Promise<unknown> {
-  const request = resolveFetch(requestImpl);
-  const url = warehouseUrl(params);
-  const first = await request(url, { cache: "no-store", method: "GET", redirect: "manual" });
-  const response = await followRedirects(request, first, url.toString(), { method: "GET" });
-  if (options.allowNotFound && response.status === 404) {
-    return null;
-  }
-  return readResponseJson(response, action);
+  return withRpcDeadline(action, requestImpl, async (request) => {
+    const url = warehouseUrl(params);
+    const first = await request(url, { cache: "no-store", method: "GET", redirect: "manual" });
+    const response = await followRedirects(request, first, url.toString(), { method: "GET" });
+    if (options.allowNotFound && response.status === 404) {
+      return null;
+    }
+    return readResponseJson(response, action);
+  });
 }
 
 async function postJson(
@@ -190,22 +232,23 @@ async function postJson(
   action: string,
   requestImpl?: DriveFetch,
 ): Promise<unknown> {
-  const request = resolveFetch(requestImpl);
-  const body = JSON.stringify(payload);
-  const headers = { "Content-Type": "application/json" };
-  const endpoint = getDriveWarehouseUrl();
-  const first = await request(endpoint, {
-    body,
-    headers,
-    method: "POST",
-    redirect: "manual",
+  return withRpcDeadline(action, requestImpl, async (request) => {
+    const body = JSON.stringify(payload);
+    const headers = { "Content-Type": "application/json" };
+    const endpoint = getDriveWarehouseUrl();
+    const first = await request(endpoint, {
+      body,
+      headers,
+      method: "POST",
+      redirect: "manual",
+    });
+    const response = await followRedirects(request, first, endpoint, {
+      body,
+      headers,
+      method: "POST",
+    });
+    return readResponseJson(response, action);
   });
-  const response = await followRedirects(request, first, endpoint, {
-    body,
-    headers,
-    method: "POST",
-  });
-  return readResponseJson(response, action);
 }
 
 function parseWarehouse(raw: unknown): MomentContent {
@@ -331,8 +374,11 @@ export async function getWarehouseTripCards(): Promise<WarehouseTripBundleItem[]
     });
     if (!response.ok) throw new DriveWarehouseError("Hub trip file read failed");
     const raw = await response.json() as Record<string, unknown>;
-    const trip = (typeof raw.id === "string" ? raw : raw.trip ?? raw.moment) as Record<string, unknown>;
+    let trip = (typeof raw.id === "string" ? raw : raw.trip ?? raw.moment) as Record<string, unknown>;
     if (!trip || typeof trip.id !== "string") throw new DriveWarehouseError("Invalid hub trip file");
+    if (trip.visibility !== "private" && trip.publishedSnapshot && typeof trip.publishedSnapshot === "object") {
+      trip = trip.publishedSnapshot as Record<string, unknown>;
+    }
     const photos = Array.isArray(trip.photos) ? trip.photos : [];
     const cover = photos.find((photo) => photo.id === trip.coverPhotoId) ?? photos[0];
     const { id, slug, title, summary, city, country, startDate, endDate, rating, totalCost, visibility } = trip;

@@ -68,6 +68,10 @@ export function mergeMomentPhoto(left: MomentPhoto, right: MomentPhoto): MomentP
   const rightCreated = Date.parse(right.createdAt) || Number.POSITIVE_INFINITY;
   const earlier = leftCreated <= rightCreated ? left : right;
   const later = earlier === left ? right : left;
+  const capture = later.captureMetadataStatus === "verified" && later.captureMetadata?.source === "exif"
+    ? later.captureMetadata
+    : earlier.captureMetadataStatus === "verified" && earlier.captureMetadata?.source === "exif"
+      ? earlier.captureMetadata : null;
 
   return {
     ...earlier,
@@ -82,6 +86,12 @@ export function mergeMomentPhoto(left: MomentPhoto, right: MomentPhoto): MomentP
     originalStorageKey: later.originalStorageKey || earlier.originalStorageKey,
     storageKey: later.storageKey || earlier.storageKey,
     takenAt: later.takenAt || earlier.takenAt,
+    ...(capture ? {
+      captureMetadata: capture,
+      captureMetadataStatus: "verified" as const,
+      coordinates: capture.coordinates,
+      takenAt: capture.takenAt,
+    } : {}),
   };
 }
 
@@ -411,7 +421,7 @@ export function createTravelMoment(
     photos: [],
     place: [],
     scenery: [],
-    time: input.time ?? createdAt,
+    time: input.time === undefined ? createdAt : input.time,
     topics: [],
     transcript: input.transcript ?? null,
     tripId: input.tripId ?? null,
@@ -454,7 +464,7 @@ export function normalizeTravelMoment(moment: TravelMoment): TravelMoment {
     photos: Array.isArray(moment.photos) ? moment.photos : [],
     place: Array.isArray(moment.place) ? moment.place : labels.place,
     scenery: Array.isArray(moment.scenery) ? moment.scenery : labels.scenery,
-    time: moment.time ?? moment.createdAt,
+    time: moment.time === undefined ? moment.createdAt : moment.time,
     topics: Array.isArray(moment.topics) ? moment.topics : labels.topics,
     transcript: moment.transcript ?? null,
     tripId: moment.tripId ?? null,

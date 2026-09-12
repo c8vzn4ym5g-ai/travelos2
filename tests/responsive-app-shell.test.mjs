@@ -24,7 +24,7 @@ test("primary mobile navigation exposes reliable touch targets", async () => {
 });
 
 test("the installable app supports both portrait and landscape use", async () => {
-  const manifest = await readFile(resolve(root, "app/manifest.ts"), "utf8");
+  const manifest = await readFile(resolve(root, "app/family/manifest.ts"), "utf8");
 
   assert.doesNotMatch(manifest, /orientation:\s*"portrait"/);
 });
@@ -54,11 +54,11 @@ test("core travel, coffee, booking, and editor routes keep touch controls at 44p
   assert.match(routeSources[4], /min-w-11/);
 });
 
-test("family workspace exposes its shared unlock form without dark content boxes", async () => {
+test("family workspace opens directly without password or dark content boxes", async () => {
   const family = await readFile(resolve(root, "app/family/page.tsx"), "utf8");
   const unlockPanel = await readFile(resolve(root, "app/family/family-unlock-panel.tsx"), "utf8");
 
-  assert.match(family, /FamilyUnlockPanel/);
+  assert.doesNotMatch(family, /FamilyUnlockPanel/, "family entrance does not render a password form");
   assert.match(unlockPanel, /輸入家庭編輯密碼/);
   assert.match(unlockPanel, /type=\{showPin \? "text" : "password"\}/);
   assert.match(unlockPanel, /顯示密碼/);
@@ -73,7 +73,7 @@ test("family workspace exposes its shared unlock form without dark content boxes
   assert.doesNotMatch(family, /bg-emerald-800/);
 });
 
-test("family workspace is the only PIN entry and department editors redirect upward", async () => {
+test("department editors contain no PIN input", async () => {
   const [travelAdmin, coffeeAdmin] = await Promise.all([
     readFile(resolve(root, "app/trips/admin/page.tsx"), "utf8"),
     readFile(resolve(root, "app/coffee/admin/page.tsx"), "utf8"),

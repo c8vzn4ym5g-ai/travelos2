@@ -11,7 +11,7 @@ async function readSource(path) {
 
 test("family PWA and editor stay on Cloudflare workers.dev, not Vercel seed", async () => {
   const [manifest, talk, middleware, layout, host, admin, store, contentApi, family] = await Promise.all([
-    readSource("app/manifest.ts"),
+    readSource("app/family/manifest.ts"),
     readSource("public/family/talk/manifest.webmanifest"),
     readSource("middleware.ts"),
     readSource("app/layout.tsx"),

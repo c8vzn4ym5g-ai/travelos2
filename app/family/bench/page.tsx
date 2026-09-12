@@ -15,6 +15,7 @@ import type { TravelMoment } from "@/lib/types";
 
 type MomentsResponse = {
   content: MomentContent;
+  moment?: TravelMoment;
 };
 
 type LoadState = "session" | "loading" | "ready" | "error";
@@ -128,7 +129,8 @@ export default function FamilyBenchPage() {
         setMessage("正在打開工作台…");
       }
 
-      const response = await fetch("/api/moments", {
+      const targetId = highlightedMomentId();
+      const response = await fetch(targetId ? `/api/moments?id=${encodeURIComponent(targetId)}` : "/api/moments", {
         cache: "no-store",
         headers: familyPinHeaders(sessionPin(pinValue)),
         signal: controller.signal,
@@ -145,7 +147,7 @@ export default function FamilyBenchPage() {
       }
 
       const data = (await response.json()) as MomentsResponse;
-      const next = sortMomentsNewestFirst(data.content.moments ?? []);
+      const next = sortMomentsNewestFirst(targetId ? (data.moment ? [data.moment] : []) : data.content.moments ?? []);
       setMoments((current) => (options.quiet ? mergeTranscripts(current, next) : next));
       setLoadState("ready");
       setMessage(next.length > 0 ? "" : "還沒有收下的。");
@@ -272,6 +274,7 @@ export default function FamilyBenchPage() {
           <p className="fam-script">family workshop</p>
           <h1 className="fam-title">工作台 / Bench</h1>
           <p className="fam-lede">{BENCH_INTRO}</p>
+          {highlightId ? <a className="fam-pill mt-4" href="/family/bench">查看其他批次</a> : null}
         </div>
       </header>
 

@@ -1,5 +1,19 @@
 # TravelOS Handoff
 
+## 2026-09-13 Family editing and capture acceptance candidate
+
+Canonical target remains the existing Cloudflare Worker. This candidate separates direct password-free family editing from published read-only snapshots; draft saves no longer update the public story. The family-only manifest is served explicitly at `/family/manifest.webmanifest`.
+
+Reader media is progressively expanded, mobile film controls remain usable, and working previews return to the same unsaved draft. Single-trip refresh and session snapshots avoid repeated whole-library navigation loads. Plan entries are excluded from published reader projections. Original photo capture metadata is separate from upload metadata; unknown capture times remain unknown. Write transfers actual photo references into the selected trip and flags strong location mismatches without guessing countries.
+
+Capture now waits for durable photo/original metadata before reporting success. Original uploads share a bounded queue; audio requests have deadlines. Per-photo/original writes no longer rewrite the full Drive catalog: the batch is finalized through the moment update, while partial batches recover through the saved moment ID. Drive catalog patches and indexing jobs coalesce. The existing Apps Script remote shared lock remains; real Worker throughput is a required post-deploy acceptance, not established by local tests.
+
+Validation before this candidate: 360 passed, 1 skipped, 0 failed; TypeScript and production build passed; lint 0 errors (existing warnings retained). Local real-Drive small-photo baseline 3–4 seconds, small audio 23–35 seconds. A 40-photo local run exposed catalog contention; a later run encountered a Google connection timeout. Neither is a passing performance acceptance. Complete three repeated mixed-media batches on the Worker and independent Drive readback before marking wife-ready.
+
+Obsidian mirror is immutable, private, one-way and on demand. Existing vault snapshot import succeeded; fresh live import follows final data verification. Editorial audit candidates have not yet been applied. Legacy local/spare versions contain unique originals and dirty work, so no whole-root deletion is safe. All synthetic acceptance records are isolated and must be cleaned by their exact recorded IDs, never by deleting family originals.
+
+Rollback reference before this release: a7e732ad75582a93de6eec63acf28f77169f7717. Status: implemented and locally tested, awaiting deployment and real-environment acceptance.
+
 ## 2026-09-10 R2 10042 must not block Worker deploy
 
 Live `r2_buckets` + `ensure-r2-media-bucket.mjs` exit 1 on API **10042**
@@ -857,3 +871,4 @@ Do normal development, tests, and builds in a Codex-writable working copy. After
 ## Next product work
 
 Continue the pending items in `docs/Tasks.md` by priority. Do not treat a zero count in another queue as proof that TravelOS is complete.
+`nLatest local gate before authorization pause: 368 passed, 1 skipped, 0 failed; lint 0 errors/18 warnings; production build (including types) exit0. Added stable photo retry identities, HEIC thumbnail fallback, focused Bench single-moment read and bounded20-second AppsScript RPCs including body/redirect/queue release. Auto-review rejected git staging/commit because it requires explicit commit authorization; Owner question for commit/push/deploy is pending. HEAD remains a7e732a; nothing committed, pushed or deployed. Owned local servers stopped and temporary browser tabs closed; viewport reset. Real Worker acceptance, editorial field application, live vault refresh, music audition and exact synthetic-data cleanup remain pending. Private local mission record lists every known test ID and experiment outcome.

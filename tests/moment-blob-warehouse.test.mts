@@ -261,7 +261,8 @@ test("live warehouse reader lists then fetches, keeps parallel Capture POSTs, an
   assert.match(capture, /startBackgroundPhotoUpload\(photo\)/);
   assert.match(capture, /createWorkQueue/);
   assert.match(upload, /CAPTURE_DUMP_LIMIT = 40/);
-  assert.match(upload, /fetch\("\/api\/moments\/photos"/);
+  assert.match(upload, /captureFetch\("\/api\/moments\/photos"/);
+  assert.match(upload, /CAPTURE_ORIGINAL_CONCURRENCY = 3/);
   assert.doesNotMatch(capture, /trip_lapland_2020/);
   assert.doesNotMatch(blob, /trip_lapland_2020/);
   assert.match(store, /putBinary/);

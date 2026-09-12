@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+test("a saved display cannot declare its pending original complete", () => {
+  const pending = { file: {name: "photo.jpg"}, serverPhotoId: "p1", status: "uploading" as const, originalPending: true };
+  const result = reconcileCapturePhotosWithServer([pending], [{id:"p1",originalFilename:"photo.jpg"}]);
+  assert.equal(result[0].status, "uploading");
+  assert.equal(result[0].originalPending, true);
+});
 import {
   CAPTURE_DOCK_RETRY_GUARD_MS,
   CAPTURE_PHOTO_HANG_MS,

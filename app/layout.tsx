@@ -36,7 +36,6 @@ export const metadata: Metadata = {
     icon: [{ sizes: "512x512", type: "image/png", url: iconUrl }],
     shortcut: [iconUrl],
   },
-  manifest: "/manifest.webmanifest",
   metadataBase: new URL(appUrl),
   openGraph: {
     description: appDescription,

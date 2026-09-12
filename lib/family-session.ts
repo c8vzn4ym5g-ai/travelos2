@@ -14,32 +14,9 @@ export function readFamilySessionPin() {
 }
 
 export async function fetchFamilyGate(): Promise<FamilyGate> {
-  try {
-    const response = await fetch("/api/family/gate", {
-      cache: "no-store",
-      signal: AbortSignal.timeout(FAMILY_GATE_TIMEOUT_MS),
-    });
-    if (!response.ok) {
-      return { required: true };
-    }
-
-    const data = (await response.json()) as Partial<FamilyGate>;
-    return { required: data.required === true };
-  } catch {
-    return { required: true };
-  }
+  return { required: false };
 }
 
 export async function resolveFamilySession() {
-  const pin = readFamilySessionPin();
-  if (pin) {
-    return { allowed: true as const, pin };
-  }
-
-  const gate = await fetchFamilyGate();
-  if (!gate.required) {
-    return { allowed: true as const, pin: "" };
-  }
-
-  return { allowed: false as const, pin: "" };
+  return { allowed: true as const, pin: "" };
 }

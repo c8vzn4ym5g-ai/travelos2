@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { FamGlyph } from "@/app/family/family-icons";
 import { FAMILY_ADMIN_SESSION_KEY, familyPinHeaders } from "@/lib/family-session";
 import { captureFileMime, driveFileIdFromStorageKey, isMomentVideo, momentPhotoPlayUrl } from "@/lib/moments";
 import type { MomentPhoto } from "@/lib/types";
+import { photoProvenanceDisplay } from "@/lib/photo-provenance-display";
 
 const THUMB_FETCH_MS = 55000;
 const VIDEO_FETCH_MS = 90000;
@@ -131,6 +133,7 @@ export function BenchPhotoThumb({ momentId, photo }: { momentId: string; photo: 
   }, [videoSrc]);
 
   const label = photo.originalFilename || (video ? "影片" : "照片");
+  const provenance = photoProvenanceDisplay(photo);
 
   async function playVideo() {
     if (!video || videoStatus === "loading") {
@@ -174,7 +177,8 @@ export function BenchPhotoThumb({ momentId, photo }: { momentId: string; photo: 
   }
 
   return (
-    <li className="fam-thumb" ref={nodeRef}>
+    <li className="min-w-0" ref={nodeRef}>
+      <div className="fam-thumb">
       {video && videoStatus === "ready" && videoSrc ? (
         <video controls playsInline preload="metadata" src={videoSrc} />
       ) : src ? (
@@ -193,6 +197,20 @@ export function BenchPhotoThumb({ momentId, photo }: { momentId: string; photo: 
         </button>
       ) : null}
       {video && videoStatus === "failed" ? <p className="fam-ref">這段還不能播，稍後再點一下。</p> : null}
+      </div>
+      <div className="mt-2 space-y-1 break-words text-xs leading-5 text-zinc-600" data-photo-provenance="">
+        <p>{provenance.location}</p>
+        <p>{provenance.captureTime}</p>
+        {provenance.uploadTime ? (
+          <details>
+            <summary className="min-h-8 cursor-pointer py-1">查看上傳時間</summary>
+            <p>上傳 {provenance.uploadTime}（台灣時間）</p>
+          </details>
+        ) : null}
+        <Link className="inline-flex min-h-11 items-center font-semibold text-sky-900 underline underline-offset-4" href={`/trips/write?moment=${encodeURIComponent(momentId)}`}>
+          選擇這批照片的旅程
+        </Link>
+      </div>
     </li>
   );
 }

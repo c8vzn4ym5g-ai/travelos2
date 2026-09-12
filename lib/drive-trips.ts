@@ -117,60 +117,87 @@ function preparedFromLoaded(loaded: Array<{ modifiedTime?: string; trip: TripDet
   return prepareFamilyEditorTrips(preferLatestDriveTrips(loaded));
 }
 
-async function readDriveTripsViaApi(): Promise<TripDetail[]> {
-  const access = await connection();
-  const query = new URLSearchParams({
-    q: `'${access.folderId}' in parents and trashed = false and name contains '${prefix}'`,
-    fields: "files(id,name,modifiedTime)",
-    pageSize: "1000",
-  });
-  const response = await fetch(`https://www.googleapis.com/drive/v3/files?${query}`, {
-    headers: { Authorization: `Bearer ${access.token}` },
-    cache: "no-store",
-  });
-  if (!response.ok) throw new Error("無法讀取家庭遊記。");
-  const listing = await response.json() as { files: DriveTripFile[] };
-  const files = selectDriveTripFilesForRead(listing.files ?? []);
-  const loaded: Array<{ modifiedTime?: string; trip: TripDetail } | null> = await Promise.all(files.map(async (file) => {
-    try {
-      const result = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {
-        headers: { Authorization: `Bearer ${access.token}` },
-        cache: "no-store",
-      });
-      if (!result.ok) {
-        return null;
-      }
-      const trip = parseDriveTripRecord(await result.json());
-      if (!trip) {
-        return null;
-      }
-      return { modifiedTime: file.modifiedTime, trip };
-    } catch {
-      return null;
-    }
-  }));
-  return preparedFromLoaded(loaded.filter((item): item is { modifiedTime?: string; trip: TripDetail } => item != null));
-}
-
-export async function readDriveTrips(): Promise<TripDetail[]> {
-  const bundle = await getWarehouseTripBundle();
-  if (bundle) {
-    const loaded = bundle.flatMap((item) => {
-      const trip = parseDriveTripRecord(item.trip ?? item);
-      if (!trip) {
-        return [];
-      }
-      return [{ modifiedTime: item.modifiedTime, trip }];
+async function readDriveTripsViaApi(request?: typeof fetch): Promise<TripDetail[]> {
+  const access = await getDriveAccess(request);
+  if (!access) throw new Error("家庭儲存暫時無法連接，請稍後再試。");
+  const read = request ?? fetch;
+  const headers = { Authorization: `Bearer ${access.token}` };
+  const allFiles: DriveTripFile[] = [];
+  let pageToken = "";
+  do {
+    const query = new URLSearchParams({
+      q: `'${access.folderId}' in parents and trashed = false and name contains '${prefix}'`,
+      fields: "nextPageToken,files(id,name,modifiedTime)", pageSize: "1000",
+      ...(pageToken ? { pageToken } : {}),
     });
-    if (loaded.length > 0) {
-      return preparedFromLoaded(loaded);
-    }
-  }
-  return readDriveTripsViaApi();
+    const response = await read(`https://www.googleapis.com/drive/v3/files?${query}`, { headers, cache: "no-store" });
+    if (!response.ok) throw new Error("無法讀取家庭遊記。");
+    const listing = await response.json() as { files?: DriveTripFile[]; nextPageToken?: string };
+    allFiles.push(...(listing.files ?? []));
+    pageToken = listing.nextPageToken ?? "";
+  } while (pageToken);
+  const loaded = await Promise.all(selectDriveTripFilesForRead(allFiles).map(async file => {
+    const result = await read(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(file.id)}?alt=media`, { headers, cache: "no-store" });
+    if (!result.ok) throw new Error("部分遊記暫時無法讀取，請稍後再試。");
+    const trip = parseDriveTripRecord(await result.json());
+    if (!trip) throw new Error("遊記資料未完整讀取，請稍後再試。");
+    return { modifiedTime: file.modifiedTime, trip };
+  }));
+  return preparedFromLoaded(loaded);
 }
 
+export async function readDriveTrips(request?: typeof fetch): Promise<TripDetail[]> {
+  try {
+    return await readDriveTripsViaApi(request);
+  } catch (directError) {
+    const bundle = await getWarehouseTripBundle(request);
+    if (!bundle) throw directError;
+    const loaded = bundle.map(item => {
+      const trip = parseDriveTripRecord(item.trip ?? item);
+      if (!trip) throw directError;
+      return { modifiedTime: item.modifiedTime, trip };
+    });
+    return preparedFromLoaded(loaded);
+  }
+}
 function tripFileName(tripId: string) {
   return `${prefix}${tripId.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
+}
+
+/** Read one authoritative trip without fetching the editor's complete library.
+ * Only an absent file is null; a failed read must not trigger a seed fallback.
+ */
+export async function readDriveTrip(tripId: string, request?: typeof fetch): Promise<TripDetail | null> {
+  if (!/^trip_[a-zA-Z0-9_-]+$/.test(tripId) || heldTripIdSet.has(tripId)) return null;
+  const access = await getDriveAccess(request);
+  if (!access) throw new Error("家庭儲存暫時無法連接，請稍後再試。");
+  const read = request ?? fetch;
+  const name = tripFileName(tripId);
+  const headers = { Authorization: `Bearer ${access.token}` };
+  const files: DriveTripFile[] = [];
+  let pageToken = "";
+  do {
+    const query = new URLSearchParams({
+      q: `'${access.folderId}' in parents and trashed = false and name = '${name}'`,
+      fields: "nextPageToken,files(id,name,modifiedTime)",
+      pageSize: "1000",
+      ...(pageToken ? { pageToken } : {}),
+    });
+    const response = await read(`https://www.googleapis.com/drive/v3/files?${query}`, { headers, cache: "no-store" });
+    if (!response.ok) throw new Error("無法讀取這篇家庭遊記。");
+    const listing = await response.json() as { files?: DriveTripFile[]; nextPageToken?: string };
+    files.push(...(listing.files ?? []).filter((file) => file.name === name));
+    pageToken = listing.nextPageToken ?? "";
+  } while (pageToken);
+  const file = selectLatestDriveTripFiles(files)[0];
+  if (!file) return null;
+  const response = await read(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(file.id)}?alt=media`, {
+    headers, cache: "no-store",
+  });
+  if (!response.ok) throw new Error("無法讀取這篇家庭遊記。");
+  const trip = parseDriveTripRecord(await response.json());
+  if (!trip || trip.id !== tripId) throw new Error("家庭遊記資料不一致，請稍後再試。");
+  return prepareFamilyEditorTrips([trip])[0] ?? null;
 }
 
 async function writeDriveTripViaApi(payload: TripDetail) {

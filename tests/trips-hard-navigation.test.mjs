@@ -12,7 +12,10 @@ for (const [entry, content] of [
   ["cover", /<img\b/],
 ]) {
   test(`trip card ${entry} submits a native GET form to the trip URL`, () => {
-    const form = forms.find((match) => content.test(match[2]));
+    const form = forms.find((match) => {
+      const buttonBody = match[2].match(/<button\b[^>]*>([\s\S]*?)<\/button>/)?.[1];
+      return buttonBody !== undefined && content.test(buttonBody);
+    });
     assert.ok(form, `${entry} must be inside a native form`);
     assert.match(form[1], /action=\{href\}/);
     assert.match(form[1], /method="get"/);

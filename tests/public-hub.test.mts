@@ -172,11 +172,20 @@ test("eleven cached trips survive invalidation, failed refresh and seed-shaped c
 test("stale requests return immediately while a single refresh is slow", async () => {
   resetPublicHubCacheForTests();
   let finish!: (response: Response) => void;
+  let preferredCalls = 0;
   let bundleCalls = 0;
   setDriveWarehouseFetchForTests(async (input) => {
-    if (new URL(String(input)).searchParams.get("op") === "drive-access") return Response.json({});
-    bundleCalls += 1;
-    return new Promise<Response>((resolve) => { finish = resolve; });
+    const url = new URL(String(input));
+    if (url.searchParams.get("op") === "drive-access") {
+      preferredCalls += 1;
+      return new Promise<Response>((resolve) => { finish = resolve; });
+    }
+    if (url.searchParams.get("op") === "trips") {
+      bundleCalls += 1;
+      return Response.json({ trips: [] });
+    }
+    if (url.searchParams.has("q")) return Response.json({ files: [{ id: "old", name: "travelos__trip__trip_old_response.json" }] });
+    return Response.json(fatTrip("trip_old_response"));
   });
   try {
     await cachePublicHubTrips(sharedLibrary());
@@ -185,12 +194,39 @@ test("stale requests return immediately while a single refresh is slow", async (
     const results = await Promise.all([readPublicHubTrips(), readPublicHubTrips()]);
     assert.ok(Date.now() - started < 1000);
     assert.ok(results.every((cards) => cards.length === 11));
-    assert.equal(bundleCalls, 1);
+    assert.equal(preferredCalls, 1);
+    assert.equal(bundleCalls, 0, "slow preferred read must not trigger a duplicate warehouse read");
     // An older in-flight response cannot overwrite a newer content API snapshot.
     await cachePublicHubTrips([...sharedLibrary(), fatTrip("trip_new_shared")]);
-    finish(Response.json({ trips: [{ trip: fatTrip("trip_old_response") }] }));
+    finish(Response.json({ token: "test", folderId: "test" }));
     await settle();
     assert.equal((await readPublicHubTrips()).length, 12);
+    assert.equal(bundleCalls, 0, "successful preferred read never needs the bundle");
+  } finally {
+    setDriveWarehouseFetchForTests(null);
+    resetPublicHubCacheForTests();
+  }
+});
+
+test("bundle compatibility fallback starts only after the preferred read fails", async () => {
+  resetPublicHubCacheForTests();
+  let finishAccess!: (response: Response) => void;
+  const operations: string[] = [];
+  setDriveWarehouseFetchForTests(async (input) => {
+    const operation = new URL(String(input)).searchParams.get("op") ?? "unexpected";
+    operations.push(operation);
+    if (operation === "drive-access") return new Promise<Response>((resolve) => { finishAccess = resolve; });
+    assert.equal(operation, "trips");
+    return Response.json({ trips: [{ trip: fatTrip("trip_fallback") }] });
+  });
+  try {
+    const pending = readPublicHubTrips();
+    await settle();
+    assert.deepEqual(operations, ["drive-access"]);
+    finishAccess(Response.json({}));
+    const cards = await pending;
+    assert.deepEqual(operations, ["drive-access", "trips"]);
+    assert.ok(cards.some(card => card.id === "trip_fallback"));
   } finally {
     setDriveWarehouseFetchForTests(null);
     resetPublicHubCacheForTests();
@@ -290,6 +326,8 @@ test("slow edge restore cannot be overwritten by seed-only content in a cold iso
 });
 
 test("lighter Drive read paginates, selects latest files, keeps a cover and rejects partial results", async () => {
+  // Let the preceding cache fallback finish before replacing the shared transport.
+  await new Promise<void>((resolve) => setImmediate(resolve));
   let failFile = false;
   const requested: string[] = [];
   setDriveWarehouseFetchForTests(async (input) => {

@@ -43,7 +43,7 @@ function withPinEnv(values: { pin?: string; required?: string }, run: () => Prom
     });
 }
 
-test("family PIN is off unless TRAVELOS_REQUIRE_FAMILY_PIN is exactly 1", () => {
+test("Owner direct family entrance stays password-free despite stale PIN environment", () => {
   return withPinEnv({ pin: "secret", required: undefined }, () => {
     assert.equal(isFamilyPinRequired(), false);
     assert.equal(isAdminPinValid(null), true);
@@ -55,9 +55,9 @@ test("family PIN is off unless TRAVELOS_REQUIRE_FAMILY_PIN is exactly 1", () => 
     }),
   ).then(() =>
     withPinEnv({ pin: "secret", required: "1" }, () => {
-      assert.equal(isFamilyPinRequired(), true);
-      assert.equal(isAdminPinValid(null), false);
-      assert.equal(isAdminPinValid("wrong"), false);
+      assert.equal(isFamilyPinRequired(), false);
+      assert.equal(isAdminPinValid(null), true);
+      assert.equal(isAdminPinValid("wrong"), true);
       assert.equal(isAdminPinValid("secret"), true);
     }),
   );
@@ -155,7 +155,7 @@ test("GET /api/moments can be listed newest first for the family bench", async (
   });
 });
 
-test("moments APIs still return 401 for a missing or wrong PIN when the flag is on", async () => {
+test("stale required flag cannot block entry; invalid uploads still return 400 and missing audio 404", async () => {
   await withPinEnv({ pin: "family-secret", required: "1" }, async () => {
     const [{ GET, POST }, photos, audio, gate] = await Promise.all([
       import("../app/api/moments/route.ts"),
@@ -166,17 +166,17 @@ test("moments APIs still return 401 for a missing or wrong PIN when the flag is 
 
     const gateResponse = await gate.GET();
     assert.equal(gateResponse.status, 200);
-    assert.deepEqual(await gateResponse.json(), { required: true });
+    assert.deepEqual(await gateResponse.json(), { required: false });
 
     const missing = await GET(new Request("http://travelos.local/api/moments"));
-    assert.equal(missing.status, 401);
+    assert.equal(missing.status, 200);
 
     const wrong = await GET(
       new Request("http://travelos.local/api/moments", {
         headers: { "x-travelos-admin-pin": "nope" },
       }),
     );
-    assert.equal(wrong.status, 401);
+    assert.equal(wrong.status, 200);
 
     const ok = await GET(
       new Request("http://travelos.local/api/moments", {
@@ -192,7 +192,7 @@ test("moments APIs still return 401 for a missing or wrong PIN when the flag is 
         method: "POST",
       }),
     );
-    assert.equal(postMissing.status, 401);
+    assert.equal(postMissing.status, 200);
 
     const photoMissing = await photos.POST(
       new Request("http://travelos.local/api/moments/photos", {
@@ -200,7 +200,8 @@ test("moments APIs still return 401 for a missing or wrong PIN when the flag is 
         method: "POST",
       }),
     );
-    assert.equal(photoMissing.status, 401);
+    assert.equal(photoMissing.status, 400);
+    assert.match((await photoMissing.json()).error, /required/i);
 
     const audioMissing = await audio.POST(
       new Request("http://travelos.local/api/moments/audio", {
@@ -208,19 +209,19 @@ test("moments APIs still return 401 for a missing or wrong PIN when the flag is 
         method: "POST",
       }),
     );
-    assert.equal(audioMissing.status, 401);
+    assert.equal(audioMissing.status, 400);
+    assert.match((await audioMissing.json()).error, /required/i);
 
     const audioGetMissing = await audio.GET(
       new Request("http://travelos.local/api/moments/audio?momentId=moment_locked"),
     );
-    assert.equal(audioGetMissing.status, 401);
+    assert.equal(audioGetMissing.status, 404);
   });
 });
 
-test("family and capture clients discover the PIN gate and do not add a Capture PIN form", async () => {
-  const [gate, pin, session, unlock, capture, bench, write, talk, family, tripsAdmin, coffeeAdmin] = await Promise.all([
+test("family and capture clients enter directly without PIN form or gate fetch", async () => {
+  const [gate, session, unlock, capture, bench, write, talk, family, tripsAdmin, coffeeAdmin] = await Promise.all([
     readSource("app/api/family/gate/route.ts"),
-    readSource("lib/family-pin.ts"),
     readSource("lib/family-session.ts"),
     readSource("app/family/family-unlock-panel.tsx"),
     readSource("app/family/capture/page.tsx"),
@@ -232,16 +233,11 @@ test("family and capture clients discover the PIN gate and do not add a Capture 
     readSource("app/coffee/admin/page.tsx"),
   ]);
 
-  assert.match(pin, /TRAVELOS_REQUIRE_FAMILY_PIN === "1"/);
-  assert.match(pin, /if \(!isFamilyPinRequired\(\)\) \{\s*return true;/);
   assert.match(gate, /isFamilyPinRequired\(\)/);
-  assert.match(session, /fetch\("\/api\/family\/gate"/);
-  assert.match(session, /AbortSignal\.timeout\(FAMILY_GATE_TIMEOUT_MS\)/);
+  assert.doesNotMatch(session, /fetch\(/, "session resolution cannot block on a gate request");
   assert.match(session, /export async function resolveFamilySession/);
-  assert.match(unlock, /fetchFamilyGate/);
-  assert.match(unlock, /id="family-pin"/);
-  assert.match(unlock, /type=\{showPin \? "text" : "password"\}/);
-  assert.match(unlock, /開啟家庭入口/);
+  assert.doesNotMatch(family, /<FamilyUnlockPanel/);
+  assert.doesNotMatch(tripsAdmin, /type="password"/);
   assert.match(family, /href="\/family\/capture"/);
   assert.match(family, /href="\/family\/bench"/);
   assert.match(family, /href="\/family\/talk"/);
@@ -296,4 +292,20 @@ test("public Lapland stays independent of the family PIN gate", async () => {
   assert.doesNotMatch(page, /moment-store/);
   assert.doesNotMatch(gate, /trip_lapland_2020/);
   assert.doesNotMatch(seed, /TRAVELOS_REQUIRE_FAMILY_PIN/);
+});
+
+test("gate/network failure cannot interrupt repeated family-editor-return session resolution", async () => {
+  const { resolveFamilySession, fetchFamilyGate } = await import("../lib/family-session.ts");
+  const previousFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls += 1; throw new Error("gate offline"); };
+  try {
+    for (const route of ["/family", "/trips/admin", "/trips/finished", "/family"]) {
+      assert.deepEqual(await resolveFamilySession(), { allowed: true, pin: "" }, route);
+    }
+    assert.deepEqual(await fetchFamilyGate(), { required: false });
+    assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
 });

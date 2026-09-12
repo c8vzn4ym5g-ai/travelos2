@@ -34,18 +34,18 @@ test("same Lapland URL keeps notebook layout in source and switches to a dedicat
   assert.match(mobile, /StorefrontHomeLink/);
   assert.match(mobile, /data-lapland-mobile-storefront=""/);
   assert.match(mobile, /data-lapland-mobile-hero=""/);
-  assert.match(mobile, /data-lapland-mobile-still=""/);
+  assert.doesNotMatch(mobile, /data-lapland-mobile-still|LaplandVisualPath/, "phone does not repeat the hero or eagerly dump the full visual-path album");
+  assert.match(mobile, /bottom-\[72px\]/, "title and date leave a native video control lane");
   assert.match(mobile, /<LaplandPublicCut bleed phoneFold/);
   assert.match(mobile, /line-clamp-2/);
   assert.match(mobile, /text-lg font-semibold/);
   assert.match(mobile, /data-lapland-mobile-album=""/);
   assert.match(mobile, /<LaplandMoreCut>/);
-  assert.ok(mobile.indexOf("data-lapland-mobile-hero") < mobile.indexOf("data-lapland-mobile-still"), "still follows the bleed cut");
-  assert.ok(mobile.indexOf("data-lapland-mobile-still") < mobile.indexOf("<LaplandVisualPath"), "visual beats follow the still");
-  assert.ok(mobile.indexOf("<LaplandVisualPath") < mobile.indexOf("data-lapland-mobile-album"), "album follows visual beats");
+  assert.ok(mobile.indexOf("data-lapland-mobile-hero") < mobile.indexOf('aria-label="旅程故事"'), "film leads directly into the story");
+  assert.match(mobile, /<ReaderAlbum photos=\{albumPhotos\}/, "all original media remain available in the optional album");
   assert.ok(mobile.indexOf("data-lapland-mobile-album") < mobile.indexOf("<LaplandMoreCut>"), "album sits before more");
   assert.ok(mobile.indexOf("<LaplandMoreCut>") < mobile.indexOf("Trip memory"), "overview sits behind more");
-  assert.ok(mobile.indexOf("<LaplandMoreCut>") < mobile.indexOf("遊記 / Journal"), "journal essay sits behind more");
+  assert.ok(mobile.indexOf('aria-label="旅程故事"') < mobile.indexOf("data-lapland-mobile-album"), "complete interleaved story precedes optional album");
   assert.ok(mobile.indexOf("<LaplandMoreCut>") < mobile.indexOf("<LaplandStorefrontGlance"), "why-go essay sits behind more");
   assert.doesNotMatch(mobile, /Coordinates|Journal entries|Saved places/);
   assert.match(cut, /bleed = false/);
@@ -54,6 +54,8 @@ test("same Lapland URL keeps notebook layout in source and switches to a dedicat
   assert.match(cut, /data-lapland-cut-bleed=\{bleed \? "" : undefined\}/);
   assert.match(cut, /object-cover/);
   assert.doesNotMatch(cut, /controls=\{false\}/);
+  assert.match(cut, /^\s+controls\s*$/m, "both phone and desktop retain native pause and seek controls");
+  assert.doesNotMatch(cut, /absolute inset-0 z-10/, "sound cue cannot intercept taps across the whole video");
   assert.match(page, /<LaplandPublicCut \/>/);
   assert.doesNotMatch(page, /phoneFold/);
 

@@ -1,4 +1,3 @@
-import { afterResponse } from "@/lib/after-response";
 import {
   DriveWarehouseError,
   driveObjectName,
@@ -19,7 +18,6 @@ import {
   isAdminPinValid,
   momentApiErrorResponse,
   rememberUploadedDisplayPhoto,
-  scheduleMomentIndex,
 } from "@/lib/moment-store";
 import { captureFileMime, makeMomentId } from "@/lib/moments";
 import type { GeoPoint, MomentPhoto } from "@/lib/types";
@@ -62,7 +60,9 @@ async function finishVideoPhoto(input: {
 }): Promise<MomentPhoto> {
   const now = new Date().toISOString();
   const photo: MomentPhoto = {
-    coordinates: input.coordinates,
+    coordinates: null,
+    uploadCoordinates: input.coordinates,
+    fileModifiedAt: input.takenAt || null,
     createdAt: now,
     id: makeMomentId("moment_photo"),
     kind: "video",
@@ -71,19 +71,11 @@ async function finishVideoPhoto(input: {
     originalFilename: input.filename,
     originalStorageKey: null,
     storageKey: driveStorageKey(input.fileId),
-    takenAt: input.takenAt ? new Date(input.takenAt).toISOString() : now,
+    takenAt: null,
   };
   rememberUploadedDisplayPhoto(input.momentId, photo);
-  afterResponse(async () => {
-    try {
-      const content = await addPhotoToMoment(input.momentId, photo);
-      if (content) {
-        scheduleMomentIndex(input.momentId);
-      }
-    } catch {
-      // LockService index/item writes are best-effort after the binary PUT.
-    }
-  });
+  const content = await addPhotoToMoment(input.momentId, photo);
+  if (!content) throw new Error("Moment not found");
   return photo;
 }
 
