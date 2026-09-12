@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
-import { setDriveWarehouseFetchForTests } from "../lib/drive-warehouse.ts";
+import { getWarehouseTripCards, setDriveWarehouseFetchForTests } from "../lib/drive-warehouse.ts";
 import {
   HUB_GALLERY_LIMIT,
+  cachePublicHubTrips,
+  invalidatePublicHubCache,
   mergeSeedHubCards,
   parseHubCard,
   readPublicHubTrips,
@@ -83,7 +85,7 @@ test("seed hub list is the public journeys and merge keeps Drive cards first", (
   assert.ok(merged.some((trip) => trip.id === seed[0].id));
 });
 
-test("readPublicHubTrips serves seed when warehouse is empty and caches the slim list", async () => {
+test("readPublicHubTrips does not invent a seed-only library when warehouse is empty", async () => {
   resetPublicHubCacheForTests();
   let calls = 0;
   setDriveWarehouseFetchForTests(async () => {
@@ -93,9 +95,9 @@ test("readPublicHubTrips serves seed when warehouse is empty and caches the slim
   try {
     const first = await readPublicHubTrips();
     const second = await readPublicHubTrips();
-    assert.equal(first.length, seedPublicHubTrips().length);
-    assert.equal(second, first);
-    assert.equal(calls, 1);
+    assert.equal(first.length, 0);
+    assert.equal(second.length, 0);
+    assert.ok(calls >= 1);
   } finally {
     setDriveWarehouseFetchForTests(null);
     resetPublicHubCacheForTests();
@@ -139,4 +141,159 @@ test("home and trips hubs do not load the full editable store on each hit", asyn
   assert.match(hub, /PUBLIC_HUB_DRIVE_BUDGET_MS/);
   assert.doesNotMatch(hub, /prepareFamilyEditorTrips/);
   assert.doesNotMatch(hub, /readDriveTrips/);
+});
+
+const sharedLibrary = () => [
+  ...Array.from({ length: 10 }, (_, index) => ({ ...fatTrip(`trip_shared_${index}`), visibility: "shared" })),
+  ...seedPublicHubTrips(),
+];
+
+const settle = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+test("eleven cached trips survive invalidation, failed refresh and seed-shaped content", async () => {
+  resetPublicHubCacheForTests();
+  setDriveWarehouseFetchForTests(async () => { throw new Error("Drive dead"); });
+  try {
+    await cachePublicHubTrips(sharedLibrary());
+    invalidatePublicHubCache();
+    const previous = await readPublicHubTrips();
+    assert.equal(previous.length, 11);
+    await settle();
+    await cachePublicHubTrips(seedPublicHubTrips());
+    assert.deepEqual(await readPublicHubTrips(), previous);
+    await cachePublicHubTrips([]);
+    assert.deepEqual(await readPublicHubTrips(), previous);
+  } finally {
+    setDriveWarehouseFetchForTests(null);
+    resetPublicHubCacheForTests();
+  }
+});
+
+test("stale requests return immediately while a single refresh is slow", async () => {
+  resetPublicHubCacheForTests();
+  let finish!: (response: Response) => void;
+  let bundleCalls = 0;
+  setDriveWarehouseFetchForTests(async (input) => {
+    if (new URL(String(input)).searchParams.get("op") === "drive-access") return Response.json({});
+    bundleCalls += 1;
+    return new Promise<Response>((resolve) => { finish = resolve; });
+  });
+  try {
+    await cachePublicHubTrips(sharedLibrary());
+    invalidatePublicHubCache();
+    const started = Date.now();
+    const results = await Promise.all([readPublicHubTrips(), readPublicHubTrips()]);
+    assert.ok(Date.now() - started < 1000);
+    assert.ok(results.every((cards) => cards.length === 11));
+    assert.equal(bundleCalls, 1);
+    // An older in-flight response cannot overwrite a newer content API snapshot.
+    await cachePublicHubTrips([...sharedLibrary(), fatTrip("trip_new_shared")]);
+    finish(Response.json({ trips: [{ trip: fatTrip("trip_old_response") }] }));
+    await settle();
+    assert.equal((await readPublicHubTrips()).length, 12);
+  } finally {
+    setDriveWarehouseFetchForTests(null);
+    resetPublicHubCacheForTests();
+  }
+});
+
+test("cold HTML wait is bounded and late Drive success populates the next request", async () => {
+  resetPublicHubCacheForTests();
+  let finish!: (response: Response) => void;
+  setDriveWarehouseFetchForTests(async (input) => {
+    if (new URL(String(input)).searchParams.get("op") === "drive-access") return Response.json({});
+    return new Promise<Response>((resolve) => { finish = resolve; });
+  });
+  try {
+    const started = Date.now();
+    const cards = await readPublicHubTrips();
+    assert.deepEqual(cards, []);
+    assert.ok(Date.now() - started < 8000, "cold response must not wait 45 seconds");
+    finish(Response.json({ trips: sharedLibrary().map((trip) => ({ trip })) }));
+    await settle();
+    assert.equal((await readPublicHubTrips()).length, 11);
+  } finally {
+    setDriveWarehouseFetchForTests(null);
+    resetPublicHubCacheForTests();
+  }
+});
+
+test("Cloudflare snapshot restores all shared cards after isolate eviction", async () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, "caches");
+  let snapshot: Response | undefined;
+  Object.defineProperty(globalThis, "caches", { configurable: true, value: { default: {
+    put: async (_url: string, response: Response) => { snapshot = response.clone(); },
+    match: async () => snapshot?.clone(),
+  } } });
+  resetPublicHubCacheForTests();
+  setDriveWarehouseFetchForTests(async () => { throw new Error("Drive dead"); });
+  try {
+    await cachePublicHubTrips(sharedLibrary());
+    assert.ok(snapshot);
+    assert.equal((await snapshot.clone().text()).includes("journalEntries"), false);
+    resetPublicHubCacheForTests();
+    // Even a new isolate receiving seed-shaped content must preserve the edge snapshot.
+    await cachePublicHubTrips(seedPublicHubTrips());
+    assert.equal((await readPublicHubTrips()).length, 11);
+    resetPublicHubCacheForTests();
+    assert.equal((await readPublicHubTrips()).length, 11);
+  } finally {
+    if (original) Object.defineProperty(globalThis, "caches", original);
+    else Reflect.deleteProperty(globalThis, "caches");
+    setDriveWarehouseFetchForTests(null);
+    resetPublicHubCacheForTests();
+  }
+});
+
+test("lighter Drive read paginates, selects latest files, keeps a cover and rejects partial results", async () => {
+  let failFile = false;
+  const requested: string[] = [];
+  setDriveWarehouseFetchForTests(async (input) => {
+    const url = new URL(String(input));
+    if (url.searchParams.get("op") === "drive-access") return Response.json({ token: "test", folderId: "test" });
+    if (url.searchParams.has("q")) {
+      return Response.json(url.searchParams.has("pageToken") ? {
+        files: [{ id: "new", name: "travelos__trip__trip_one.json", modifiedTime: "2026-09-12" }],
+      } : {
+        files: [{ id: "old", name: "travelos__trip__trip_one.json", modifiedTime: "2026-09-11" }],
+        nextPageToken: "page2",
+      });
+    }
+    requested.push(url.pathname);
+    return failFile ? new Response("unavailable", { status: 503 }) : Response.json(fatTrip("trip_one"));
+  });
+  try {
+    const bundle = await getWarehouseTripCards();
+    assert.equal(bundle?.length, 1);
+    assert.deepEqual(requested, ["/drive/v3/files/new"]);
+    const trip = bundle![0].trip as ReturnType<typeof fatTrip>;
+    assert.equal(trip.photos.length, 1);
+    assert.equal(trip.photos[0].id, "trip_one_cover");
+    assert.equal("journalEntries" in trip, false);
+    failFile = true;
+    await assert.rejects(getWarehouseTripCards(), /file read failed/);
+  } finally {
+    setDriveWarehouseFetchForTests(null);
+  }
+});
+
+test("latest private duplicate wins before public filtering; missing seeds still match content API", async () => {
+  resetPublicHubCacheForTests();
+  setDriveWarehouseFetchForTests(async (input) => {
+    if (new URL(String(input)).searchParams.get("op") === "drive-access") return Response.json({});
+    return Response.json({ trips: [
+      { trip: fatTrip("trip_duplicate", "private"), modifiedTime: "2026-09-12" },
+      { trip: fatTrip("trip_duplicate"), modifiedTime: "2026-09-11" },
+      { trip: fatTrip("trip_shared_current") },
+    ] });
+  });
+  try {
+    const cards = await readPublicHubTrips();
+    assert.equal(cards.some((trip) => trip.id === "trip_duplicate"), false);
+    assert.ok(cards.some((trip) => trip.id === "trip_shared_current"));
+    assert.ok(cards.some((trip) => trip.id === seedPublicHubTrips()[0].id));
+  } finally {
+    setDriveWarehouseFetchForTests(null);
+    resetPublicHubCacheForTests();
+  }
 });

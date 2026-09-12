@@ -1,3 +1,5 @@
+import { afterResponse } from "@/lib/after-response";
+import { cachePublicHubTrips } from "@/lib/public-hub";
 import { isAdminPinValid, readContent, writeContent } from "@/lib/editable-store";
 import type { TripDetail } from "@/lib/types";
 import { writeDriveTrip } from "@/lib/drive-trips";
@@ -17,6 +19,7 @@ export async function GET(request: Request) {
 
   try {
     const { content, status } = await readContent();
+    if (status.source !== "seed") afterResponse(() => cachePublicHubTrips(content.trips));
     return Response.json(
       { content, status },
       {

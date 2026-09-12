@@ -1,3 +1,4 @@
+import { PublicHubRetry } from "@/components/public-hub-retry";
 import Link from "next/link";
 import { StorefrontHomeLink } from "@/components/storefront-home-link";
 import { isLaplandStorefrontSlug, LAPLAND_SEASON_LABEL } from "@/lib/lapland-storefront-copy";
@@ -139,8 +140,7 @@ export default async function TripsPage() {
             visibleTrips.map((trip) => <TripCard key={trip.id} trip={trip} />)
           ) : (
             <div className="travel-panel rounded-3xl p-8 text-center">
-              <h2 className="travel-hand text-2xl font-semibold">目前沒有公開旅行</h2>
-              <p className="travel-muted mt-3 text-sm">私人旅行仍保留在家庭編輯中，不會顯示在公開頁面。</p>
+              <PublicHubRetry />
             </div>
           )}
         </div>

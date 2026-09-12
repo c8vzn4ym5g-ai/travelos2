@@ -1,3 +1,4 @@
+import { PublicHubRetry } from "@/components/public-hub-retry";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SessionPhotoCarousel } from "@/components/session-photo-carousel";
@@ -206,7 +207,7 @@ export default async function Home() {
       .catch(() => ({ shops: [], updatedAt: "" })),
   ]);
   const coffeeStats = getCoffeeStats(coffeeResult.shops);
-  const visibleTrips = publicTrips.slice(0, 3);
+  const visibleTrips = publicTrips;
   const latestCoffee = getCoffeeShopsByVisitDate(coffeeResult.shops).slice(0, 3);
   const travelPhotoStrip = getTravelSessionPhotos(publicTrips.map(hubCardAsSessionTrip));
   const coffeePhotoStrip = getCoffeeSessionPhotos(coffeeResult.shops);
@@ -282,6 +283,7 @@ export default async function Home() {
             </Link>
           </div>
           <div className="mt-5 space-y-4">
+            {visibleTrips.length === 0 && <PublicHubRetry />}
             {visibleTrips.map((trip) => (
               <LatestTripItem key={trip.id} trip={trip} />
             ))}
