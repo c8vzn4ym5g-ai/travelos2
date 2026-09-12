@@ -251,7 +251,7 @@ test("Drive photo flush writes the item shard and never loads the fat catalog", 
 
   const route = await readSource("app/api/moments/route.ts");
   assert.match(route, /searchParams.get\("hydrate"\)\?\.trim\(\) === "1"/);
-  assert.match(route, /readMoments\(\{ hydrate \}\)/);
+  assert.match(route, /readMoments\(\{ hydrate, requireCatalog: true \}\)/);
 
   const readMomentsStart = store.indexOf("export async function readMoments");
   const readMomentsBlock = store.slice(readMomentsStart, store.indexOf("export async function writeWarehouse"));

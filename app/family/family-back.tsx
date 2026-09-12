@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 export function FamilyBackLink({
@@ -11,8 +10,8 @@ export function FamilyBackLink({
   href: string;
 }) {
   return (
-    <Link className={`fam-back ${className}`.trim()} href={href}>
+    <a className={`fam-back ${className}`.trim()} href={href}>
       {children}
-    </Link>
+    </a>
   );
 }

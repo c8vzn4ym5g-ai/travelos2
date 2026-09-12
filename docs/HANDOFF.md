@@ -1,5 +1,14 @@
 # TravelOS Handoff
 
+## 2026-09-13 Deployed acceptance and final integration
+
+Owner explicitly authorized database changes, commit, push and deploy. cffa70f deployed successfully through workflow 34723893156. Actual Worker acceptance: three sequential batches of 40 x 311406-byte JPEGs plus synthetic audio completed in 143017 / 152642 / 170886 ms; audio 8897 / 20168 / 14742 ms. Independent Drive shard reads confirmed 40 photos and audio in each. HEIC 1764955 bytes: 10936 ms; video 8946351 bytes: 8697 ms, both read back. This is bounded fixture performance, not a real phone/weak-network claim.
+
+Live private save/readback/stale-update conflict and browser preview-return-save passed. Browser found Write relied on the full catalog and could misreport an unavailable catalog as empty: final integration fetches an explicit batch directly and reports catalog failures truthfully. Family back links use native navigation after an observed stalled client transition. Film version selection and exclusive video/music playback are integrated. Final source gate: 380 passed, 1 skipped, 0 failed; production build passed. Follow deployment with exact-batch Write-to-private-trip verification.
+
+Editorial 16-field patch applied and verified across four existing public trips with private backups. Apps Script version 6 adds locked, allowlisted test cleanup; version 5 remains rollback. Synthetic cleanup and fresh Obsidian import remain integration steps. Old local originals remain preserved; music mood and actual handset acceptance must not be claimed from structural checks.
+
+
 ## 2026-09-13 Family editing and capture acceptance candidate
 
 Canonical target remains the existing Cloudflare Worker. This candidate separates direct password-free family editing from published read-only snapshots; draft saves no longer update the public story. The family-only manifest is served explicitly at `/family/manifest.webmanifest`.
@@ -872,3 +881,4 @@ Do normal development, tests, and builds in a Codex-writable working copy. After
 
 Continue the pending items in `docs/Tasks.md` by priority. Do not treat a zero count in another queue as proof that TravelOS is complete.
 `nLatest local gate before authorization pause: 368 passed, 1 skipped, 0 failed; lint 0 errors/18 warnings; production build (including types) exit0. Added stable photo retry identities, HEIC thumbnail fallback, focused Bench single-moment read and bounded20-second AppsScript RPCs including body/redirect/queue release. Auto-review rejected git staging/commit because it requires explicit commit authorization; Owner question for commit/push/deploy is pending. HEAD remains a7e732a; nothing committed, pushed or deployed. Owned local servers stopped and temporary browser tabs closed; viewport reset. Real Worker acceptance, editorial field application, live vault refresh, music audition and exact synthetic-data cleanup remain pending. Private local mission record lists every known test ID and experiment outcome.
+

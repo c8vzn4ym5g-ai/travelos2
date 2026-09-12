@@ -253,10 +253,11 @@ async function loadListedMomentItems(): Promise<TravelMoment[]> {
   }
 }
 
-async function loadDriveIndex(): Promise<MomentContent> {
+async function loadDriveIndex(requireCatalog = false): Promise<MomentContent> {
   try {
     return await getIndex();
-  } catch {
+  } catch (error) {
+    if (requireCatalog) throw error;
     // Dead or empty Drive index must not 503 Capture. Item files + last write stay the source of truth.
     return getLastIndexWrite() ?? createEmptyWarehouse();
   }
@@ -336,13 +337,13 @@ export async function rebuildDriveMomentIndex() {
   });
 }
 
-async function readIndexRaw(): Promise<MomentContent> {
+async function readIndexRaw(requireCatalog = false): Promise<MomentContent> {
   if (!isMomentWarehouseConfigured()) {
     return withNormalizedContent(getMemoryContent());
   }
 
   if (shouldUseDriveWarehouse()) {
-    const loaded = await loadDriveIndex();
+    const loaded = await loadDriveIndex(requireCatalog);
     const lastWrite = getLastIndexWrite();
     const mergedMoments = overlayMoments(loaded.moments, [
       ...(lastWrite?.moments ?? []),
@@ -586,8 +587,8 @@ function queueDriveIndexPatch(moments: TravelMoment[]) {
   afterResponse(() => pending);
 }
 
-export async function readMoments(options: { hydrate?: boolean } = {}): Promise<{ content: MomentContent; status: MomentStoreStatus }> {
-  const content = await readIndexRaw();
+export async function readMoments(options: { hydrate?: boolean; requireCatalog?: boolean } = {}): Promise<{ content: MomentContent; status: MomentStoreStatus }> {
+  const content = await readIndexRaw(options.requireCatalog);
   let moments = uniqueMomentsById(overlayMoments(content.moments, [...getItemCache().values()]));
   const hydrate = options.hydrate === true && shouldUseDriveWarehouse();
 

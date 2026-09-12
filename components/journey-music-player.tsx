@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import { createPortal } from "react-dom";
 import type { MusicTrack } from "@/lib/types";
+import { coordinateReaderPlayback } from "@/lib/reader-playback";
 
 type JourneyMusicPlayerProps = {
   tracks: MusicTrack[];
@@ -34,6 +35,7 @@ function clearTimer(timerRef: MutableRefObject<ReturnType<typeof setTimeout> | n
 }
 
 export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
+  useEffect(() => coordinateReaderPlayback(document), []);
   const playableTracks = useMemo(
     () => tracks.filter((track) => track.enabled && track.audioUrl.trim().length > 0),
     [tracks],
@@ -226,7 +228,7 @@ export function JourneyMusicPlayer({ tracks }: JourneyMusicPlayerProps) {
       data-journey-music=""
       data-music-host={host}
     >
-      <audio key={activeTrack.id} onEnded={handleTrackEnded} preload="none" ref={audioRef} src={activeTrack.audioUrl} onError={() => { setIsOn(false); setPlaybackError(true); }} />
+      <audio data-journey-audio="" key={activeTrack.id} onEnded={handleTrackEnded} onPause={() => setIsOn(false)} preload="none" ref={audioRef} src={activeTrack.audioUrl} onError={() => { setIsOn(false); setPlaybackError(true); }} />
       <button
         aria-label={isOn ? "Turn journey music off" : "Turn journey music on"}
         className={`grid place-items-center rounded-full text-base font-semibold transition ${

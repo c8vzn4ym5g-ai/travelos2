@@ -993,7 +993,12 @@ test("40 multi-megabyte JPEGs compress then start 40 display POSTs in parallel",
 
     await Promise.resolve();
     await Promise.resolve();
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    // File decoding yields to I/O; observe all requests starting, rather than
+    // assuming a loaded CI host completes that work in twenty milliseconds.
+    const startDeadline = Date.now() + 5_000;
+    while (posted.length < 40 && Date.now() < startDeadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
     assert.equal(posted.length, 40, "all 40 compressed POSTs start before any of them finish");
     assert.equal(release.length, 40);
     assert.equal(

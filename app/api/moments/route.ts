@@ -46,7 +46,7 @@ export async function GET(request: Request) {
     }
 
     const hydrate = new URL(request.url).searchParams.get("hydrate")?.trim() === "1";
-    const { content, status } = await readMoments({ hydrate });
+    const { content, status } = await readMoments({ hydrate, requireCatalog: true });
     scheduleMissingMomentTranscripts(content.moments);
     return Response.json({ content, status });
   } catch (error) {

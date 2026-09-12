@@ -28,10 +28,11 @@ export function ReaderAlbum({ photos }: { photos: Photo[] }) {
 
 export function ReaderFilm({ videos, poster }: { videos: PromoVideo[]; poster?: string }) {
   const [failed, setFailed] = useState(false);
-  const video = videos[0];
+  const [selected, setSelected] = useState(0);
+  const video = videos[selected] ?? videos[0];
   if (!video) return null;
-  if (failed) return <p role="status" className="travel-muted text-center text-sm">短片暫時無法播放，先往下看這段旅程。</p>;
   return <section aria-label="旅程短片" className="mx-auto w-full max-w-md overflow-hidden rounded-3xl bg-black">
-    <video aria-label={video.title} className="max-h-[72vh] w-full object-contain" controls playsInline preload="none" poster={poster} src={video.src} onError={() => setFailed(true)} />
+    {videos.length > 1 ? <div aria-label="選擇短片版本" className="flex flex-wrap gap-2 p-3">{videos.map((item, index) => <button aria-pressed={item === video} className={`min-h-11 min-w-0 max-w-full rounded-xl px-3 py-2 text-left text-sm leading-6 break-words ${item === video ? "bg-white text-black" : "bg-white/15 text-white"}`} key={item.src} onClick={() => { setSelected(index); setFailed(false); }} type="button">{item.title}</button>)}</div> : null}
+    {failed ? <p role="status" className="p-4 text-center text-sm text-white">短片暫時無法播放。<button className="ml-2 min-h-11 underline" onClick={() => setFailed(false)} type="button">重試</button></p> : <video key={video.src} aria-label={video.title} className="max-h-[72vh] w-full object-contain" controls playsInline preload="none" poster={poster} src={video.src} onError={() => setFailed(true)} />}
   </section>;
 }

@@ -319,11 +319,67 @@ function doGet(e) {
   });
 }
 
+// Exact disposable acceptance records reviewed on 2026-09-13. Do not accept a
+// prefix or caller-supplied arbitrary family IDs as deletion authorization.
+var ACCEPTANCE_PRUNE_IDS_ = [
+  "moment_speed_acceptance_20260913", "moment_speed_1789250848485_1",
+  "moment_speed_1789251537444_1", "moment_speed_small_after_20260913",
+  "moment_media_acceptance_1789251880247", "moment_1789252532261_0nyxml",
+  "moment_speed_1789253708602_1", "moment_speed_1789253708602_2", "moment_speed_1789253708602_3",
+  "moment_1789256270193_cx4hjy", "moment_media_acceptance_1789256320150"
+];
+
+function pruneAcceptanceCatalog_(body) {
+  var ids = body.momentIds;
+  if (!Array.isArray(ids) || !ids.length || ids.some(function (id) {
+    return ACCEPTANCE_PRUNE_IDS_.indexOf(id) < 0;
+  })) return json_({ error: "unreviewed acceptance ID" });
+  var folder = folder_();
+  var files = folder.getFilesByName("moments.json");
+  if (!files.hasNext()) return json_({ error: "catalog missing" });
+  var file = files.next();
+  if (files.hasNext()) return json_({ error: "ambiguous catalog" });
+  var original = file.getBlob().getDataAsString();
+  var catalog = JSON.parse(original);
+  if (!Array.isArray(catalog.moments) || !Array.isArray(catalog.jobs)) {
+    return json_({ error: "unexpected catalog structure" });
+  }
+  var removedIds = [];
+  var kept = catalog.moments.filter(function (moment) {
+    if (ids.indexOf(moment.id) < 0) return true;
+    removedIds.push(moment.id);
+    return false;
+  });
+  var mixedJob = false;
+  var jobs = catalog.jobs.filter(function (job) {
+    var refs = (job.momentIds || []).concat(job.sourceMomentId ? [job.sourceMomentId] : []);
+    if (!refs.some(function (id) { return ids.indexOf(id) >= 0; })) return true;
+    if (refs.some(function (id) { return ids.indexOf(id) < 0; })) mixedJob = true;
+    return false;
+  });
+  if (mixedJob) return json_({ error: "job mixes acceptance and retained moments" });
+  var result = { ok: true, removedMomentIds: removedIds, removedJobs: catalog.jobs.length - jobs.length, retainedMoments: kept.length, applied: false };
+  if (body.apply !== true || (!removedIds.length && result.removedJobs === 0)) return json_(result);
+  // This entire function runs under the same lock as index/item writes. Backup
+  // must succeed before replacing content; no file or binary is permanently deleted.
+  var backup = file.makeCopy("travelos__maintenance__catalog_backup__" + Date.now() + ".json", folder);
+  result.backupFileId = backup.getId();
+  catalog.moments = kept;
+  catalog.jobs = jobs;
+  catalog.updatedAt = new Date().toISOString();
+  file.setContent(JSON.stringify(catalog, null, 2));
+  result.applied = true;
+  return json_(result);
+}
+
 function doPost(e) {
   if (!tokenOk_(e)) {
     return json_({ error: "unauthorized" });
   }
   var body = JSON.parse(e.postData.contents);
+  if (body.op === "prune-acceptance") {
+    return withLock_(function () { return pruneAcceptanceCatalog_(body); });
+  }
   if (body.op === "stats") {
     return withLock_(function () { return writePublicStats_(body); });
   }

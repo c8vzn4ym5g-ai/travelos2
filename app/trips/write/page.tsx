@@ -29,16 +29,9 @@ import type { MomentContent } from "@/lib/moment-store";
 import { createTravelJob, momentPhotoPlayUrl } from "@/lib/moments";
 import type { TravelJob, TravelMoment, TripDetail } from "@/lib/types";
 import { selectWriteMoment } from "@/lib/write-moment-target";
+import { loadWriteMoments } from "@/lib/write-moment-load";
 import { transferWritingToTrip } from "@/lib/write-photo-transfer";
 import { reviewPhotoDistance } from "@/lib/write-photo-mismatch";
-
-type MomentsResponse = {
-  content: MomentContent;
-  status: {
-    configured: boolean;
-    source: "blob" | "drive" | "memory";
-  };
-};
 
 type TripsResponse = {
   content: TravelOSContent;
@@ -70,6 +63,8 @@ export default function SitAndWritePage() {
   const [dayFilter, setDayFilter] = useState("");
   const [placeFilter, setPlaceFilter] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [tripLoadMessage, setTripLoadMessage] = useState("");
   const [message, setMessage] = useState("選一個 Moment 或工作，看著照片慢慢寫。這裡不會代寫。");
 
   useEffect(() => {
@@ -97,34 +92,31 @@ export default function SitAndWritePage() {
 
   const load = useCallback(async () => {
     const sessionPin = window.sessionStorage.getItem(FAMILY_ADMIN_SESSION_KEY) ?? pin;
-    const [momentsResponse, tripsResponse] = await Promise.all([
-      fetch("/api/moments", { cache: "no-store", headers: pinHeaders(sessionPin) }),
-      fetch("/api/trips/content", { cache: "no-store", headers: pinHeaders(sessionPin) }),
-    ]);
-
-    if (!momentsResponse.ok) {
-      throw new Error("Could not load moments.");
-    }
-
-    const momentData = (await momentsResponse.json()) as MomentsResponse;
     const parameters = new URLSearchParams(window.location.search);
     const requestedJobId = parameters.get("job");
     const requestedMomentId = parameters.get("moment");
-    setMoments(momentData.content.moments);
-    setJobs(momentData.content.jobs ?? []);
+    setLoading(true);
+    setMessage(requestedMomentId !== null ? "正在讀取這批照片…" : "正在讀取照片清單…");
+    setTripLoadMessage("旅程清單讀取中，照片與文字可以先整理。");
+    // Loading the destination list must not hold back the batch opened from Bench.
+    void fetch("/api/trips/content", { cache: "no-store", headers: pinHeaders(sessionPin) })
+      .then(async response => {
+        if (!response.ok) throw new Error("trip-list-unavailable");
+        const tripData = (await response.json()) as TripsResponse;
+        setTrips(tripData.content.trips);
+        setTripLoadMessage("");
+      }).catch(() => setTripLoadMessage("旅程清單暫時無法讀取；可以先編輯這批照片的文字，稍後重新整理再轉成遊記。"));
+    const momentData = await loadWriteMoments(requestedMomentId, pinHeaders(sessionPin));
+    setMoments(momentData.moments);
+    setJobs(momentData.jobs);
 
-    if (tripsResponse.ok) {
-      const tripData = (await tripsResponse.json()) as TripsResponse;
-      setTrips(tripData.content.trips);
-    }
-
-    const selected = selectWriteMoment(momentData.content.moments, requestedMomentId);
+    const selected = selectWriteMoment(momentData.moments, requestedMomentId);
     setActiveJobId((current) => requestedMomentId !== null ? null : current ?? requestedJobId);
     setActiveMomentId((current) => requestedMomentId !== null ? selected?.id ?? null : current ?? selected?.id ?? null);
     setMessage(
       requestedMomentId !== null
         ? selected ? "已打開這批照片。請在下方選擇旅程，再按儲存。" : "找不到指定的這批照片。請回工作台重新選擇，或從左側手動選一批。"
-        : momentData.content.moments.length > 0
+        : momentData.moments.length > 0
         ? "照片在旁邊。空白處只放你自己寫的字。工作文字不會當成日記。"
         : "倉庫裡還沒有 Moment。先去 Capture 拍一張。",
     );
@@ -135,7 +127,8 @@ export default function SitAndWritePage() {
       return;
     }
 
-    load().catch(() => setMessage("Could not load TravelOS moments."));
+    load().catch(error => setMessage(error instanceof Error ? error.message : "暫時無法讀取照片，請重新整理再試。"))
+      .finally(() => setLoading(false));
   }, [authenticated, load]);
 
   const activeJob = useMemo(
@@ -778,6 +771,8 @@ export default function SitAndWritePage() {
                 </select>
               </label>
 
+              {tripLoadMessage ? <p aria-live="polite" className="mt-2 text-sm leading-6 text-zinc-600">{tripLoadMessage}</p> : null}
+
               {attachTripId && distanceReview.length > 0 ? (
                 <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950" role="group" aria-label="確認照片與旅程">
                   <p>有 {distanceReview.length} 張照片的拍攝位置，距離這個旅程的地圖標記超過 1,500 公里。請確認是否選錯旅程；跨國旅行也可能出現這種情況。</p>
@@ -798,7 +793,7 @@ export default function SitAndWritePage() {
 
               <button
                 className="mt-5 min-h-12 w-full rounded-2xl border border-sky-300 bg-sky-50 px-4 py-3 font-semibold text-sky-950 disabled:opacity-60 sm:w-auto"
-                disabled={saving || (Boolean(attachTripId) && distanceReview.length > 0 && !distanceConfirmed)}
+                disabled={loading || saving || (Boolean(attachTripId) && !chosenTrip) || (Boolean(attachTripId) && distanceReview.length > 0 && !distanceConfirmed)}
                 onClick={() => void saveWriting()}
                 type="button"
               >

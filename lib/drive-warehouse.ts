@@ -267,12 +267,14 @@ function parseWarehouse(raw: unknown): MomentContent {
   }
 
   const record = raw as {
+    error?: unknown;
     jobs?: unknown;
     moments?: unknown;
     schemaVersion?: unknown;
     text?: unknown;
     updatedAt?: unknown;
   };
+  if (record.error) throw new DriveWarehouseError("Drive warehouse index is unavailable");
   if (typeof record.text === "string") {
     return parseWarehouse(record.text);
   }

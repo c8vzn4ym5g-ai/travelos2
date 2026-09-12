@@ -429,7 +429,7 @@ function stripWithLockCalls(source: string) {
   return out;
 }
 
-test("Apps Script locks only index/item writes so photo binaries stay parallel", async () => {
+test("Apps Script locks index/item/stats/prune writes while photo binaries stay parallel", async () => {
   const script = await readSource("scripts/drive-warehouse-apps-script.js");
   const doPost = extractNamedFunction(script, "doPost");
   const withLock = extractNamedFunction(script, "withLock_");
@@ -449,7 +449,8 @@ test("Apps Script locks only index/item writes so photo binaries stay parallel",
   assert.match(doPost, /if \(body\.op === "item"\) \{\s*return withLock_/);
   assert.match(doPost, /if \(body\.op === "trip"\) \{\s*return writeTrip_/);
   assert.match(doPost, /if \(body\.op === "stats"\) \{\s*return withLock_/);
-  assert.equal((doPost.match(/withLock_\(/g) ?? []).length, 3);
+  assert.match(doPost, /if \(body\.op === "prune-acceptance"\) \{\s*return withLock_/);
+  assert.equal((doPost.match(/withLock_\(/g) ?? []).length, 4);
   assert.match(doPost, /return createBinaryFile_\(body\)/);
   assert.doesNotMatch(doPost, /var body = JSON\.parse\(e\.postData\.contents\);\s*return withLock_/);
 
@@ -654,7 +655,7 @@ test("Drive adapter is server-only and Capture still dumps photos in parallel", 
   assert.match(audioApi, /isTrustedMomentAudioUrl/);
   assert.match(upload, /CAPTURE_DUMP_LIMIT = 40/);
   assert.match(capture, /createWorkQueue/);
-  assert.match(write, /"blob" \| "drive" \| "memory"/);
+  assert.match(write, /loadWriteMoments\(requestedMomentId/);
   assert.match(tripsContent, /readContent/);
   assert.doesNotMatch(tripsContent, /drive-warehouse/);
   assert.doesNotMatch(tripsContent, /moment-store/);
