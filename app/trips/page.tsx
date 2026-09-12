@@ -1,5 +1,4 @@
 import { PublicHubRetry } from "@/components/public-hub-retry";
-import Link from "next/link";
 import { StorefrontHomeLink } from "@/components/storefront-home-link";
 import { isLaplandStorefrontSlug, LAPLAND_SEASON_LABEL } from "@/lib/lapland-storefront-copy";
 import { readPublicHubTrips, type HubTripCard } from "@/lib/public-hub";
@@ -57,16 +56,19 @@ function TripCard({ trip }: { trip: HubTripCard }) {
 
   return (
     <article className="travel-panel grid overflow-hidden rounded-3xl transition hover:-translate-y-0.5 hover:shadow-[0_28px_70px_rgba(20,45,40,0.16)] lg:grid-cols-[14rem_1fr]">
-      <Link aria-label={`Open ${trip.title}`} className="block bg-[color:var(--paper-soft)]" href={href}>
-        {coverPhoto ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img alt={coverPhoto.caption ?? trip.title} className="h-48 w-full object-cover sm:h-56 lg:h-64" src={coverPhoto.storageKey} />
-        ) : (
-          <div className="grid h-48 place-items-center bg-[color:var(--paper-soft)] p-4 text-sm font-medium text-[color:var(--muted)] sm:h-56 lg:h-64">
-            Photo pending
-          </div>
-        )}
-      </Link>
+      {/* Native GET forms give every card entry point full-document navigation. */}
+      <form action={href} method="get" className="bg-[color:var(--paper-soft)]">
+        <button aria-label={`Open ${trip.title}`} className="block w-full cursor-pointer text-left" type="submit">
+          {coverPhoto ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img alt={coverPhoto.caption ?? trip.title} className="h-48 w-full object-cover sm:h-56 lg:h-64" src={coverPhoto.storageKey} />
+          ) : (
+            <span className="grid h-48 place-items-center bg-[color:var(--paper-soft)] p-4 text-sm font-medium text-[color:var(--muted)] sm:h-56 lg:h-64">
+              Photo pending
+            </span>
+          )}
+        </button>
+      </form>
 
       <div className="p-5 sm:p-7">
         <div className="grid gap-5 xl:grid-cols-[1fr_10rem]">
@@ -74,9 +76,11 @@ function TripCard({ trip }: { trip: HubTripCard }) {
             <p className="travel-kicker text-xs">
               {trip.country} / {trip.city}
             </p>
-            <h2 className="travel-hand mt-2 text-2xl font-semibold leading-tight text-[color:var(--ink)] sm:text-3xl">
-              <Link href={href}>{trip.title}</Link>
-            </h2>
+            <form action={href} method="get">
+              <h2 className="travel-hand mt-2 text-2xl font-semibold leading-tight text-[color:var(--ink)] sm:text-3xl">
+                <button className="cursor-pointer text-left" type="submit">{trip.title}</button>
+              </h2>
+            </form>
             <p className="travel-muted mt-3 text-sm leading-7">{trip.summary}</p>
           </div>
 
@@ -94,9 +98,11 @@ function TripCard({ trip }: { trip: HubTripCard }) {
 
         <div className="mt-6 flex flex-col gap-3 border-t border-[color:var(--line)] pt-5 text-sm text-[color:var(--muted)] sm:flex-row sm:items-center sm:justify-between">
           <span>{isLaplandStorefrontSlug(trip.slug) ? LAPLAND_SEASON_LABEL : formatDateRange(trip.startDate, trip.endDate)}</span>
-          <Link className="travel-primary inline-flex min-h-11 items-center justify-center rounded-full px-5 py-2 text-center font-semibold sm:px-5 sm:py-2" href={href}>
-            {ui.read}
-          </Link>
+          <form action={href} method="get">
+            <button className="travel-primary inline-flex min-h-11 w-full cursor-pointer items-center justify-center rounded-full px-5 py-2 text-center font-semibold sm:w-auto sm:px-5 sm:py-2" type="submit">
+              {ui.read}
+            </button>
+          </form>
         </div>
       </div>
     </article>
