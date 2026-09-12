@@ -228,7 +228,9 @@ function remember(trips: HubTripCard[], at = Date.now()) {
   const hasNonSeed = trips.some((trip) => !seedIds.has(trip.id));
   // Includes seed-shaped warehouse responses: never replace a known library
   // with the bootstrap list, even after invalidation or an overlapping refresh.
-  if (!hasNonSeed && (store.seenNonSeed || (store.entry?.trips.length ?? 0) > trips.length)) {
+  // A cold isolate cannot know whether a slow/missing edge lookup hides a known
+  // library. Leave it loading instead of committing seeds over that snapshot.
+  if (!hasNonSeed && (!store.entry || store.seenNonSeed || store.entry.trips.length > trips.length)) {
     return store.entry?.trips ?? [];
   }
   store.seenNonSeed ||= hasNonSeed;
