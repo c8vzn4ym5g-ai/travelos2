@@ -21,6 +21,7 @@ import { FAMILY_ADMIN_SESSION_KEY, familyPinHeaders, resolveFamilySession } from
 import { canonicalSiteUrl, isSpareVercelHost } from "@/lib/site-url";
 import { getTripPromoVideos } from "@/lib/promo-videos";
 import { formatEditorTripPickerLabel } from "@/lib/editor-trip-label";
+import { formatCalendarDate, formatJournalDate, formatPhotoDate } from "@/lib/editor-calendar-date";
 import { isTripPhotoVideo } from "@/lib/trip-photo";
 import { compareTripsByStartDateDesc, isTripPublic } from "@/lib/trip-visibility";
 import type { JournalEntry, Photo, TripDetail } from "@/lib/types";
@@ -59,10 +60,7 @@ function toDateInput(value: string) {
 }
 
 function formatDate(value: string | null | undefined) {
-  if (!value) return "時間尚未整理";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
-  return new Intl.DateTimeFormat("zh-TW", { year: "numeric", month: "long", day: "numeric" }).format(date);
+  return formatCalendarDate(value);
 }
 
 function photoLabel(photo: Photo, index: number) {
@@ -112,7 +110,7 @@ function PhotoCardMeta({ cover, index, photo }: { cover?: boolean; index: number
         {isTripPhotoVideo(photo) ? "・Video" : ""}
       </span>
       <span className="mt-1 block line-clamp-2 text-sm font-semibold text-zinc-800">{photoLabel(photo, index)}</span>
-      <span className="mt-1 block text-xs text-zinc-500">{formatDate(photo.takenAt)}</span>
+      <span className="mt-1 block text-xs text-zinc-500">{formatPhotoDate(photo)}</span>
     </span>
   );
 }
@@ -408,7 +406,7 @@ export default function TravelAdminPage() {
       const entry: JournalEntry = {
         id: makeId("journal"), tripId: activeTrip.id,
         title: photo ? photoLabel(photo, index) : "旅途中這一刻", body: "",
-        entryDate: photo?.takenAt?.slice(0, 10) || activeTrip.startDate || now.slice(0, 10),
+        entryDate: photo?.captureMetadata?.localTakenAt?.slice(0, 10) || photo?.takenAt?.slice(0, 10) || activeTrip.startDate || now.slice(0, 10),
         storyPhotoId: photo?.id ?? null, mood: null, weatherSummary: null, aiSummary: null, voiceNoteUrl: null,
         createdAt: now, updatedAt: now,
       };
@@ -709,7 +707,7 @@ export default function TravelAdminPage() {
                       <div className="grid lg:grid-cols-[18rem_1fr]">
                         <div className="relative min-h-48 overflow-hidden bg-stone-100">{photo ? <PhotoThumb className="h-full min-h-64" photo={photo} /> : <div className="grid min-h-64 place-items-center px-6 text-center text-sm font-semibold text-zinc-500">這一段還沒有照片</div>}<button className="absolute bottom-3 left-3 min-h-11 rounded-full bg-black/70 px-4 py-2 text-xs font-semibold text-white" onClick={() => openPicker({ kind: "journal", entryId: entry.id })} type="button">{photo ? "這張不對，換一張" : "補一張照片"}</button></div>
                         <div className="p-5 sm:p-6">
-                          <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold text-sky-700">草稿第 {index + 1} 段・{formatDate(photo?.takenAt ?? entry.entryDate)}</p><label className="mt-2 block"><span className="text-xs text-zinc-500">段落標題 · 可直接修改</span><input aria-label="段落標題" className={`${inputClass} font-semibold`} onChange={(event) => updateJournalEntry(entry.id, { title: event.target.value })} value={entry.title} /></label></div><div className="flex gap-2"><button aria-label="往前移" className={secondaryButtonClass} disabled={index === 0} onClick={() => moveJournalEntry(index, -1)} type="button">↑</button><button aria-label="往後移" className={secondaryButtonClass} disabled={index === activeTrip.journalEntries.length - 1} onClick={() => moveJournalEntry(index, 1)} type="button">↓</button></div></div>
+                          <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold text-sky-700">草稿第 {index + 1} 段・{formatJournalDate(entry.entryDate, photo)}</p><label className="mt-2 block"><span className="text-xs text-zinc-500">段落標題 · 可直接修改</span><input aria-label="段落標題" className={`${inputClass} font-semibold`} onChange={(event) => updateJournalEntry(entry.id, { title: event.target.value })} value={entry.title} /></label></div><div className="flex gap-2"><button aria-label="往前移" className={secondaryButtonClass} disabled={index === 0} onClick={() => moveJournalEntry(index, -1)} type="button">↑</button><button aria-label="往後移" className={secondaryButtonClass} disabled={index === activeTrip.journalEntries.length - 1} onClick={() => moveJournalEntry(index, 1)} type="button">↓</button></div></div>
                           <label className="mt-4 block"><span className="travel-label text-sm font-semibold text-zinc-700">這一段是什麼？</span><select aria-label={`段落分類：${entry.title}`} className={inputClass} value={journalEntryKind(entry)} onChange={event => updateJournalEntry(entry.id, { entryKind: event.target.value as JournalEntry["entryKind"] })}>{JOURNAL_ENTRY_KINDS.map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}</select></label>
                           <p className="mt-2 text-xs leading-6 text-zinc-500">行前計畫保留在家庭紀錄。分類不代表地圖與住宿已核對，變更的安排也要一起確認。</p>
                           <label className="mt-5 block"><span className="travel-label text-base font-semibold text-zinc-800">這一段想怎麼改？</span><textarea className={`${inputClass} min-h-40 leading-7`} onChange={(event) => updateJournalEntry(entry.id, { body: event.target.value })} placeholder="原稿可以直接改；只補一句也可以。" value={entry.body} /></label>
@@ -758,7 +756,7 @@ export default function TravelAdminPage() {
                       工作編號 #{activeTrip.photos.findIndex((photo) => photo.id === selectedPhoto.id) + 1}
                       {isTripPhotoVideo(selectedPhoto) ? "・Video" : ""}
                     </p>
-                    <p className="mt-1 text-sm text-zinc-500">{formatDate(selectedPhoto.takenAt)}</p>
+                    <p className="mt-1 text-sm text-zinc-500">{formatPhotoDate(selectedPhoto)}</p>
                     <label className="mt-4 block">
                       <span className="travel-label text-sm font-semibold">{isTripPhotoVideo(selectedPhoto) ? "這段影片想留下什麼話？" : "這張照片想留下什麼話？"}</span>
                       <textarea className={`${inputClass} min-h-28`} onChange={(event) => updatePhotoCaption(selectedPhoto.id, event.target.value)} value={selectedPhoto.caption ?? ""} />
@@ -783,7 +781,7 @@ export default function TravelAdminPage() {
         <p aria-live="polite" className="mt-6 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-zinc-600 shadow-sm">{message}<span className="ml-2 text-xs font-normal text-zinc-400">{storeSource === "blob" ? "雲端工作台" : storeSource === "drive" ? "家庭共用儲存" : "初始內容"}</span></p>
       </section>
 
-      {pickerTarget && activeTrip ? <div aria-modal="true" className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 sm:items-center sm:p-6" role="dialog"><section className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-t-3xl bg-[#f8f3ea] shadow-2xl sm:rounded-3xl"><div className="flex items-start justify-between gap-4 border-b border-sky-100 bg-white px-5 py-4"><div><h2 className="travel-display text-2xl font-semibold">{pickerTarget.kind === "new" ? "系統先挑出尚未使用的照片" : "先看這一段附近的照片"}</h2><p className="mt-1 text-sm text-zinc-600">不用從頭翻相簿。先看少量建議；真的找不到，再查看全部照片。</p></div><button className={secondaryButtonClass} onClick={() => setPickerTarget(null)} type="button">關閉</button></div><div className="max-h-[72vh] overflow-y-auto p-4 sm:p-6"><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{pickerPhotos.map((photo) => { const index = activeTrip.photos.findIndex((item) => item.id === photo.id); return <button className="overflow-hidden rounded-2xl border border-sky-100 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-500" key={photo.id} onClick={() => choosePhoto(photo)} type="button"><PhotoThumb className="h-40 sm:h-44" photo={photo} /><span className="block p-3"><span className="block text-xs font-semibold text-sky-700">工作編號 #{index + 1}</span><span className="mt-1 block line-clamp-2 text-sm font-semibold">{photoLabel(photo, index)}</span><span className="mt-1 block text-xs text-zinc-500">{formatDate(photo.takenAt)}</span><span className="mt-3 block rounded-full bg-sky-800 px-3 py-2 text-center text-xs font-semibold text-white">選擇這張照片</span></span></button>; })}</div>{!showAllPickerPhotos && activeTrip.photos.length > pickerPhotos.length ? <button className={`${secondaryButtonClass} mt-5 w-full`} onClick={() => setShowAllPickerPhotos(true)} type="button">建議裡沒有，再查看全部 {activeTrip.photos.length} 張</button> : null}{pickerTarget.kind === "new" ? <button className={`${secondaryButtonClass} mt-3 w-full`} onClick={() => choosePhoto(null)} type="button">這一段沒有照片，直接寫一句</button> : null}</div></section></div> : null}
+      {pickerTarget && activeTrip ? <div aria-modal="true" className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 sm:items-center sm:p-6" role="dialog"><section className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-t-3xl bg-[#f8f3ea] shadow-2xl sm:rounded-3xl"><div className="flex items-start justify-between gap-4 border-b border-sky-100 bg-white px-5 py-4"><div><h2 className="travel-display text-2xl font-semibold">{pickerTarget.kind === "new" ? "系統先挑出尚未使用的照片" : "先看這一段附近的照片"}</h2><p className="mt-1 text-sm text-zinc-600">不用從頭翻相簿。先看少量建議；真的找不到，再查看全部照片。</p></div><button className={secondaryButtonClass} onClick={() => setPickerTarget(null)} type="button">關閉</button></div><div className="max-h-[72vh] overflow-y-auto p-4 sm:p-6"><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{pickerPhotos.map((photo) => { const index = activeTrip.photos.findIndex((item) => item.id === photo.id); return <button className="overflow-hidden rounded-2xl border border-sky-100 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-500" key={photo.id} onClick={() => choosePhoto(photo)} type="button"><PhotoThumb className="h-40 sm:h-44" photo={photo} /><span className="block p-3"><span className="block text-xs font-semibold text-sky-700">工作編號 #{index + 1}</span><span className="mt-1 block line-clamp-2 text-sm font-semibold">{photoLabel(photo, index)}</span><span className="mt-1 block text-xs text-zinc-500">{formatPhotoDate(photo)}</span><span className="mt-3 block rounded-full bg-sky-800 px-3 py-2 text-center text-xs font-semibold text-white">選擇這張照片</span></span></button>; })}</div>{!showAllPickerPhotos && activeTrip.photos.length > pickerPhotos.length ? <button className={`${secondaryButtonClass} mt-5 w-full`} onClick={() => setShowAllPickerPhotos(true)} type="button">建議裡沒有，再查看全部 {activeTrip.photos.length} 張</button> : null}{pickerTarget.kind === "new" ? <button className={`${secondaryButtonClass} mt-3 w-full`} onClick={() => choosePhoto(null)} type="button">這一段沒有照片，直接寫一句</button> : null}</div></section></div> : null}
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-sky-100 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur sm:hidden"><button className={`${primaryButtonClass} w-full`} disabled={saving || dirtyTripIds.size === 0} onClick={() => void saveAllChanges()} type="button">{saving ? "儲存中…" : dirtyTripIds.size > 0 ? `儲存全部變更（${dirtyTripIds.size}）` : "全部已儲存"}</button></div>
       </fieldset>
