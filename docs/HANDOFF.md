@@ -1,5 +1,16 @@
 # TravelOS Handoff
 
+## 2026-09-13 Final core-flow acceptance (supersedes earlier pending stages)
+
+Deployed application code: 21e041bd9a6bb1519186247571682ef62bfbc2e3; workflow 34727360769 successfully built Next/OpenNext and deployed Cloudflare. Full suite: 390 passed, 1 skipped, 0 failed; TypeScript passed. Actual Chrome Capture HEIC → focused Bench → Write → private trip → editor → preview succeeded. Photo loaded at naturalWidth 1600; entryDate and rendered label both preserve 2019-10-20. Native return to family works. All eleven public reader routes returned 200. Actual narrow reader layout/album controls passed; physical iPhone, weak network and full musical audition remain unverified.
+
+Test cleanup completed in durable Drive: all 11 synthetic moments and the one private acceptance trip removed, 212 test files recoverably trashed, zero permanent deletes; 130 retained moment rows preserved. The Worker still held one deleted test moment in its in-memory overlay. This documentation-only release refreshes the Worker; verify /api/moments after deployment excludes moment_1789256270193_cx4hjy. Do not write a cached test row back.
+
+Fresh live-cloud Obsidian import after test-trip removal: 20 trips, 5 new revisions, 15 unchanged, zero conflicts. Existing private vault projects/travel-os/generated; immutable one-way on-demand mirror, not a notebook dependency for capture/editing. No synthetic trip imported. User-authored notes preserved.
+
+Core flow is ready for family trial after final cache readback. This does not assert exhaustive editorial/music/physical-device acceptance. Old local and Vercel spare versions retained because unique originals/unsynchronized changes make blanket deletion unsafe. Owner authorized DB changes, commit, push and deployment; passwords and payments excluded. No background monitors or local servers remain.
+
+
 ## 2026-09-13 Deployed acceptance and final integration
 
 Owner explicitly authorized database changes, commit, push and deploy. cffa70f deployed successfully through workflow 34723893156. Actual Worker acceptance: three sequential batches of 40 x 311406-byte JPEGs plus synthetic audio completed in 143017 / 152642 / 170886 ms; audio 8897 / 20168 / 14742 ms. Independent Drive shard reads confirmed 40 photos and audio in each. HEIC 1764955 bytes: 10936 ms; video 8946351 bytes: 8697 ms, both read back. This is bounded fixture performance, not a real phone/weak-network claim.
@@ -881,4 +892,3 @@ Do normal development, tests, and builds in a Codex-writable working copy. After
 
 Continue the pending items in `docs/Tasks.md` by priority. Do not treat a zero count in another queue as proof that TravelOS is complete.
 `nLatest local gate before authorization pause: 368 passed, 1 skipped, 0 failed; lint 0 errors/18 warnings; production build (including types) exit0. Added stable photo retry identities, HEIC thumbnail fallback, focused Bench single-moment read and bounded20-second AppsScript RPCs including body/redirect/queue release. Auto-review rejected git staging/commit because it requires explicit commit authorization; Owner question for commit/push/deploy is pending. HEAD remains a7e732a; nothing committed, pushed or deployed. Owned local servers stopped and temporary browser tabs closed; viewport reset. Real Worker acceptance, editorial field application, live vault refresh, music audition and exact synthetic-data cleanup remain pending. Private local mission record lists every known test ID and experiment outcome.
-
