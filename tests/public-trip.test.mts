@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, {beforeEach} from 'node:test';
+import {resetPublicHubCacheForTests} from '../lib/public-hub.ts';
+beforeEach(()=>resetPublicHubCacheForTests());
 import { readPublicTripBySlug } from '../lib/public-trip.ts';
 const publicTrip = {id:'trip_selected',slug:'selected',title:'已公開內容',visibility:'public',photos:[],journalEntries:[],places:[]};
 function transport(options: {private?:boolean; missing?:boolean; fail?:boolean; renamed?:boolean} = {}) {
@@ -19,4 +21,20 @@ function transport(options: {private?:boolean; missing?:boolean; fail?:boolean; 
 test('reader loads only selected trip and preserves published snapshot',async()=>{const {request,urls}=transport();const trip=await readPublicTripBySlug('selected',request);assert.equal(trip?.title,'已公開內容');assert.equal(trip?.publishedSnapshot,undefined);assert.equal(urls.filter(x=>x.searchParams.has('alt')).length,1);});
 test('stale public index never exposes a now-private trip or unpublished slug',async()=>{assert.equal(await readPublicTripBySlug('selected',transport({private:true}).request),null);assert.equal(await readPublicTripBySlug('selected',transport({renamed:true}).request),null);});
 test('unknown slug stops at index; transport errors remain errors',async()=>{const missing=transport({missing:true});assert.equal(await readPublicTripBySlug('absent',missing.request),null);assert.equal(missing.urls.length,1);await assert.rejects(readPublicTripBySlug('selected',transport({fail:true}).request));});
-test('reader total budget also bounds index body read and aborts it',async()=>{let signal:AbortSignal|null|undefined;const request:typeof fetch=async(_input,init)=>{signal=init?.signal;return new Response(new ReadableStream({start(){}}));};await assert.rejects(readPublicTripBySlug('selected',request,20),/逾時/);assert.equal(signal?.aborted,true);});
+test('reader total budget also bounds index body read and aborts it',async()=>{let signal:AbortSignal|null|undefined;const request:typeof fetch=async(_input,init)=>{signal=init?.signal;return new Response(new ReadableStream({start(controller){signal?.addEventListener('abort',()=>controller.error(new Error('aborted')),{once:true});}}));};await assert.rejects(readPublicTripBySlug('selected',request,20),/逾時/);assert.equal(signal?.aborted,true);});
+
+test('opening a listed trip reuses public cards without a second index RPC',async()=>{
+  const {cachePublicHubTrips,resetPublicHubCacheForTests}=await import('../lib/public-hub.ts');
+  resetPublicHubCacheForTests();await cachePublicHubTrips([publicTrip]);
+  const {request,urls}=transport();
+  try { assert.ok(await readPublicTripBySlug('selected',request));assert.equal(urls.some(x=>x.searchParams.get('op')==='public-hub'),false); }
+  finally {resetPublicHubCacheForTests();}
+});
+
+test('new isolate restores public card snapshot before reading only the selected file',async()=>{
+  const {cachePublicHubTrips,resetPublicHubCacheForTests}=await import('../lib/public-hub.ts');
+  const original=Object.getOwnPropertyDescriptor(globalThis,'caches');let snapshot:Response|undefined;
+  Object.defineProperty(globalThis,'caches',{configurable:true,value:{default:{put:async(_url:string,response:Response)=>{snapshot=response.clone();},match:async()=>snapshot?.clone()}}});
+  try {await cachePublicHubTrips([publicTrip]);resetPublicHubCacheForTests();const {request,urls}=transport({private:true});assert.equal(await readPublicTripBySlug('selected',request),null);assert.equal(urls.some(x=>x.searchParams.get('op')==='public-hub'),false);}
+  finally {if(original)Object.defineProperty(globalThis,'caches',original);else Reflect.deleteProperty(globalThis,'caches');resetPublicHubCacheForTests();}
+});

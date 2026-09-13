@@ -933,3 +933,7 @@ Continue the pending items in `docs/Tasks.md` by priority. Do not treat a zero c
 
 
 Reading follow-up local release gate:419passed,1skipped,0failed;changed lint and production build/typecheck passed. Await exact Cloudflare deployment and live acceptance.
+
+Live0d6d216still hit8-second timeout while selected contentAPI returned2146ms. Follow-up index-only reader now reuses existing memory/edge public projection before a durable-index lookup; cache miss never triggers full-library fallback. Selected file still freshly checks publication. Six focused cases pass including preexistingcard avoidsindexRPC,edge snapshot restoration,and coldtotaldeadline. Finalrelease/liveacceptance pending; earlierlocaltimings donotproveCloudflare.
+
+Index reuse release gate:421passed1skipped0failed;productioncompile/typecheck success. Build embeddedlint couldnotresolve localplugin; separatelycorrectNODE_PATH changed-source lint passed. CI mustconfirmfullenvironmentbuild.

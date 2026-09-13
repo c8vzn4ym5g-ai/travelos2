@@ -352,6 +352,25 @@ export function invalidatePublicHubCache() {
   if (store.entry) store.entry.at = 0;
 }
 
+/** Slug lookup only: reuse public cards, never start the legacy full-library read.
+ * A missing cached slug is checked against the durable index so newly published
+ * journeys do not wait for cache expiry. The selected file rechecks publication.
+ */
+export async function readPublicHubIndexForSlug(slug: string, request?: typeof fetch): Promise<HubTripCard[]> {
+  if (!cacheStore().entry) await withBudget(500, restoreSnapshot()).catch(() => {});
+  const cached = cacheStore().entry;
+  if (cached?.trips.some(card => card.slug === slug)) return cached.trips;
+  const revision = cacheStore().revision;
+  const raw = await getWarehousePublicHub(request) as {trips?: unknown[]};
+  if (!Array.isArray(raw?.trips)) throw new Error("公開遊記目錄暫時無法讀取，請再試一次。");
+  const cards = preferLatestHubCards(raw.trips.flatMap(record => {
+    const card = parseHubCard(record);
+    return card ? [card] : [];
+  })).sort(compareTripsByStartDateDesc);
+  if (cacheStore().revision === revision) remember(cards, Date.now(), true);
+  return cards;
+}
+
 /** A verified empty projection is distinct from an unavailable read. */
 export async function readPublicHubState(): Promise<{trips: HubTripCard[]; ready: boolean}> {
   const trips = await readPublicHubTrips();
