@@ -3,9 +3,14 @@ export type PromoVideo = {
   caption: string;
   src: string;
   mood: string;
+  poster?: string;
+  credit?: { label: string; href: string };
 };
 
 const promoByTripSlug: Record<string, PromoVideo[]> = {
+  "kyoto-maple-higashiyama": [
+    { title: "東山秋色 · 25 秒", caption: "朱色與楓紅、音羽之瀧，最後坐進茶屋。", src: "/travelos/films/higashiyama-autumn.mp4", poster: "/travelos/films/higashiyama-autumn.jpg", mood: "秋日慢步", credit: { label: "配樂：Yoiyami · First Light Particles（CC0）", href: "https://opengameart.org/node/182244" } },
+  ],
   "scotland-edinburgh-whisky-2019": [
     { title: "蘇格蘭冬日・老城版", caption: "石牆、冷風與愛丁堡老城。", src: "/travelos/promo/scotland-a.mp4", mood: "慢板冬季" },
     { title: "蘇格蘭冬日・威士忌版", caption: "從老城走進琥珀色酒鄉。", src: "/travelos/promo/scotland-b.mp4", mood: "慢板暖色" },
@@ -38,5 +43,5 @@ export const coffeePromoVideos: PromoVideo[] = [
 ];
 
 export function getTripPromoVideos(slug: string) {
-  return (promoByTripSlug[slug] ?? []).map(video => ({ ...video, src: `/api/trips/media?name=travelos__promo__${video.src.split("/").pop()}` }));
+  return (promoByTripSlug[slug] ?? []).map(video => ({ ...video, src: video.src.startsWith("/travelos/films/") ? video.src : `/api/trips/media?name=travelos__promo__${video.src.split("/").pop()}` }));
 }

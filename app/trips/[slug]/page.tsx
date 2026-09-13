@@ -3,6 +3,7 @@ import { cache } from "react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ReaderDetails } from "@/components/reader-details";
 import { ReaderAlbum, ReaderFilm, ReaderPhoto } from "@/components/reader-media";
 import { getTripPromoVideos } from "@/lib/promo-videos";
 import { isTripPhotoVideo } from "@/lib/trip-photo";
@@ -256,13 +257,17 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                 旅程
               </Link>
             </div>
-            <span className="travel-chip rounded-full px-4 py-2 text-sm font-semibold">{trip.visibility}</span>
+            {isLapland ? <span className="travel-chip rounded-full px-4 py-2 text-sm font-semibold">{trip.visibility}</span> : null}
           </div>
           <div className="travel-soft-panel rounded-[1.5rem] p-4 sm:p-5">
             <p className="travel-kicker text-sm">
               {isLaplandStorefrontSlug(trip.slug) ? "Finland / Rovaniemi · Helsinki" : `${trip.country} / ${trip.city}`}
             </p>
             <h1 className="travel-hand mt-3 text-4xl font-semibold leading-tight sm:text-6xl">{trip.title}</h1>
+
+          </div>
+          {isLapland ? <LaplandPublicCut /> : <ReaderFilm videos={getTripPromoVideos(trip.slug)} poster={coverPhoto?.storageKey} />}
+          {!isLapland && coverPhoto && getTripPromoVideos(trip.slug).length === 0 ? <figure className="mx-auto w-full max-w-3xl overflow-hidden rounded-3xl"><ReaderPhoto photo={coverPhoto} priority /></figure> : null}
             {isLapland ? null : (
               <>
                 <p className="travel-muted mt-4 max-w-4xl text-base leading-8 sm:text-lg">{heroSummary}</p>
@@ -271,8 +276,6 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                 </div>
               </>
             )}
-          </div>
-          {isLapland ? <LaplandPublicCut /> : <ReaderFilm videos={getTripPromoVideos(trip.slug)} poster={coverPhoto?.storageKey} />}
           {isLapland && coverPhoto ? <LaplandCutStill photo={coverPhoto} /> : null}
           {isLapland ? (
             <LaplandMoreCut>
@@ -310,42 +313,14 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                 )}
               </div>
             </LaplandMoreCut>
-          ) : (
-            <JourneyMap
-              center={trip.coordinates}
-              city={trip.city}
-              country={trip.country}
-              journalEntries={trip.journalEntries}
-              photos={trip.photos}
-              places={trip.places}
-              route={trip.travelRoute ?? []}
-              title={trip.title}
-            />
-          )}
-          {isLapland ? null : (
-          <div className="flex flex-wrap items-center gap-2">
-            {[
-              ["Season", seasonLabel, "border-sky-100 bg-sky-50 text-sky-950"],
-              ["Mood", trip.journalEntries[0]?.mood ?? "Memory", "border-rose-100 bg-rose-50 text-rose-950"],
-              ["Photos", `${trip.photos.length}`, "border-amber-100 bg-amber-50 text-amber-950"],
-            ].map(([label, value, tone]) => (
-              <MemoryChip key={label} label={label} tone={tone} value={value} />
-            ))}
-            {trip.totalCost ? (
-              <JournalCostChip amount={formatMoney(trip.totalCost)} slug={trip.slug} />
-            ) : (
-              <MemoryChip label="Cost" tone="border-teal-100 bg-teal-50 text-teal-950" value="Not tracked" />
-            )}
-          </div>
-          )}
-          {!isLapland && coverPhoto ? <figure className="mx-auto w-full max-w-3xl overflow-hidden rounded-3xl"><ReaderPhoto photo={coverPhoto} priority /></figure> : null}
+          ) : null}
 
         </div>
       </section>
 
       <section className="mx-auto grid max-w-6xl gap-5 px-4 py-7 sm:px-6 sm:py-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:px-10">
-        <div className="space-y-5">
-          <section className="travel-panel rounded-2xl p-4 sm:p-5">
+        <div className="min-w-0 space-y-5">
+          {isLapland ? <section className="travel-panel rounded-2xl p-4 sm:p-5">
             <SectionHeader kicker="Overview" title="Trip memory" />
             <dl className="mt-4 grid gap-3 sm:grid-cols-4">
               {[
@@ -360,16 +335,18 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                 </div>
               ))}
             </dl>
-          </section>
+          </section> : null}
 
           <section className="space-y-8" aria-label="旅程故事">
             <SectionHeader kicker="Journal" title="旅途裡的故事" />
+            <ReaderDetails title={`選擇章節（${pageMoments.length}）`}>
             <nav aria-label="故事章節" className="flex flex-wrap gap-2">
-              {pageMoments.map(({entry}, index) => <a className="travel-chip min-h-11 rounded-full px-4 py-3 text-sm" href={`#story-${entry.id}`} key={entry.id}>{index + 1} · {entry.title}</a>)}
+              {pageMoments.map(({entry}, index) => <a className="travel-chip min-h-11 max-w-full break-words rounded-full px-4 py-3 text-sm" href={`#story-${entry.id}`} key={entry.id}>{index + 1} · {entry.title}</a>)}
             </nav>
+            </ReaderDetails>
             {storyMoments.map(({entry, photo}, index) => (
               <article className="scroll-mt-6 overflow-hidden rounded-3xl bg-white/70" data-music-zone={`${entry.title} ${entry.body}`} id={`story-${entry.id}`} key={entry.id}>
-                {photo ? <figure><ReaderPhoto photo={photo} />{photo.caption ? <figcaption className="px-5 pt-3 text-sm leading-6 text-[color:var(--muted)]">{photo.caption}</figcaption> : null}</figure> : null}
+                {photo ? <figure><ReaderPhoto photo={photo} /></figure> : null}
                 <div className="p-5 sm:p-8">
                   <p className="travel-kicker text-xs">{String(index + 1).padStart(2, "0")} · {isLapland ? LAPLAND_SEASON_LABEL : formatDate(entry.entryDate)}</p>
                   <h3 className="travel-hand mt-3 text-2xl font-semibold leading-snug">{entry.title}</h3>
@@ -395,8 +372,8 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           ) : null}
         </div>
 
-        <aside className="space-y-5 lg:sticky lg:top-5">
-          <section className="travel-panel rounded-2xl p-4">
+        <aside className="min-w-0 space-y-5 lg:sticky lg:top-5">
+          <section className="travel-panel hidden rounded-2xl p-4 lg:block">
             <SectionHeader kicker="Story contents" title="On this page" />
             <div className="mt-4 grid gap-2">
               {pageMoments.map(({ entry, photo }, index) => (
@@ -417,6 +394,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
               ))}
             </div>
           </section>
+          {isLapland ? <>
           <section className="travel-panel rounded-2xl p-4">
             <SectionHeader kicker="Places" title="Saved stops" />
             <div className="mt-4">
@@ -426,6 +404,15 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </div>
           </section>
           <JournalSpendPanel costs={trip.costs ?? []} slug={trip.slug} startDate={trip.startDate} totalCost={trip.totalCost} />
+          </> : <>
+            <ReaderDetails title="地圖與行程參考">
+              <p className="travel-muted text-sm leading-7">這裡保留旅程地圖與停點；行前安排不代表每站都已到訪。</p>
+              <JourneyMap center={trip.coordinates} city={trip.city} country={trip.country} journalEntries={trip.journalEntries} photos={trip.photos} places={trip.places} route={trip.travelRoute ?? []} title={trip.title} />
+              {savedStops.map(place => <PlaceRow key={place.id} place={place} />)}
+            </ReaderDetails>
+            {trip.totalCost || (trip.costs ?? []).length > 0 ? <ReaderDetails title="旅費紀錄"><JournalSpendPanel costs={trip.costs ?? []} slug={trip.slug} startDate={trip.startDate} totalCost={trip.totalCost} /></ReaderDetails> : null}
+          </>}
+
         </aside>
       </section>
     </main>
