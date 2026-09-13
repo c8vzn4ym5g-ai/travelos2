@@ -11,6 +11,19 @@ const saved = {
   journalEntries: [{ id: "entry", body: "家人今天剛修改的回憶。" }],
 };
 
+for (const phase of ["access", "listing", "media-body"]) test(`single trip eight-second budget also bounds stalled ${phase}`, { timeout: 1000 }, async () => {
+  const signals: AbortSignal[] = [];
+  const request: typeof fetch = async (input, init) => {
+    if (init?.signal) signals.push(init.signal);
+    const url = new URL(String(input));
+    if (url.searchParams.get("op") === "drive-access") return phase === "access" ? new Promise<Response>((_, reject) => { init?.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true }); }) : Response.json({ token: "test", folderId: "family" });
+    if (url.searchParams.has("q")) return phase === "listing" ? new Promise<Response>(() => {}) : Response.json({ files: [{ id: "file", name }] });
+    return new Response(new ReadableStream({ start() {} }), { headers: { "content-type": "application/json" } });
+  };
+  await assert.rejects(trips.readDriveTrip(id, request, 20), /逾時/);
+  assert.ok(signals.every((signal) => signal.aborted));
+});
+
 test("library opens from parallel file reads without waiting for the whole-library script", async () => {
   const operations: string[] = [];
   const request: typeof fetch = async input => {

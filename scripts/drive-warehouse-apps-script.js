@@ -249,11 +249,53 @@ function createBinaryFile_(body) {
   return json_({ id: file.getId(), name: file.getName() });
 }
 
+var EDITOR_CATALOG_NAME_ = "travelos__editor_catalog.json";
+
+function editorCatalogFile_() {
+  var files = folder_().getFilesByName(EDITOR_CATALOG_NAME_);
+  if (!files.hasNext()) return null;
+  var file = files.next();
+  if (files.hasNext()) throw new Error("ambiguous editor catalog");
+  return file;
+}
+
+function readEditorCatalog_() {
+  var file = editorCatalogFile_();
+  if (!file) return { error: "editor catalog not initialized" };
+  var record = JSON.parse(file.getBlob().getDataAsString());
+  if (!Array.isArray(record.trips)) throw new Error("invalid editor catalog");
+  return { trips: record.trips };
+}
+
+function writeEditorCatalog_(body) {
+  if (!Array.isArray(body.trips)) return json_({ error: "trip catalog patch required" });
+  var patch = body.trips.map(function (trip) {
+    if (!trip || typeof trip.id !== "string" || trip.id.indexOf("trip_") !== 0 || typeof trip.title !== "string" || !trip.title) throw new Error("invalid trip catalog entry");
+    return { id: trip.id, title: trip.title, startDate: String(trip.startDate || ""), endDate: String(trip.endDate || ""), updatedAt: String(trip.updatedAt || "") };
+  });
+  var file = editorCatalogFile_();
+  var current = file ? JSON.parse(file.getBlob().getDataAsString()) : { trips: [] };
+  if (!Array.isArray(current.trips)) throw new Error("invalid editor catalog");
+  var byId = {};
+  current.trips.forEach(function (trip) { byId[trip.id] = trip; });
+  patch.forEach(function (trip) {
+    var existing = byId[trip.id];
+    // Delayed saves cannot roll a newer title/version backwards.
+    if (!existing || (Date.parse(trip.updatedAt) || 0) >= (Date.parse(existing.updatedAt) || 0)) byId[trip.id] = trip;
+  });
+  var trips = Object.keys(byId).map(function (id) { return byId[id]; });
+  var text = JSON.stringify({ trips: trips });
+  if (file) file.setContent(text);
+  else folder_().createFile(EDITOR_CATALOG_NAME_, text, "application/json");
+  return json_({ ok: true, count: trips.length });
+}
+
 function doGet(e) {
   if (!tokenOk_(e)) {
     return json_({ error: "unauthorized" });
   }
   var op = (e.parameter && e.parameter.op) || "";
+  if (op === "editor-catalog") return json_(readEditorCatalog_());
   if (op === "stats") {
     return withLock_(function () { return json_(publicStatsSummary_(readPublicStats_().data)); });
   }
@@ -377,6 +419,9 @@ function doPost(e) {
     return json_({ error: "unauthorized" });
   }
   var body = JSON.parse(e.postData.contents);
+  if (body.op === "editor-catalog") {
+    return withLock_(function () { return writeEditorCatalog_(body); });
+  }
   if (body.op === "prune-acceptance") {
     return withLock_(function () { return pruneAcceptanceCatalog_(body); });
   }

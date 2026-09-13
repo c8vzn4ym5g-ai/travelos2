@@ -1,5 +1,16 @@
 # TravelOS Handoff
 
+## 2026-09-13 Owner regression: catalog-first editor
+
+Owner reproduced family → editor taking 30–60 seconds and showing no itinerary. Root reproduced at 61 seconds: “目前沒有行程” alongside “目前無法打開旅行內容”. This supersedes the previous core-ready judgment for cold editor entry. A later successful API read does not refute that failure.
+
+Owner explicitly requested a directory first and only the chosen trip loaded. Editor now GETs /api/trips/catalog (five header fields only), displays catalog cards, and issues GET /api/trips/content?id=... only on selection or explicit requested-trip deep link. Returning to the directory retains loaded drafts without refetching all trips. Catalog failures and single-trip failures have explicit retry states; errors never render as an empty library. Selected reads have an eight-second total budget. Full-library content API remains for existing other workflows; it is no longer the editor entry path.
+
+Catalog is derived private metadata in travelos__editor_catalog.json. Apps Script merges single-row updates under its existing lock and rejects older timestamps. Source trip originals remain authoritative. A saved trip retains its success ACK/version even if catalog update fails, with a warning and one bounded repair attempt. No password, payment, or access change.
+
+Local verification: 403 passed, 1 skipped, 0 failed; TypeScript and production build passed. Tests cover catalog-only requests, exact single-trip selection, timeout, mismatched content rejection, same-lock catalog merge and durable-save ACK preservation. Deployment and live directory/selection/back acceptance are the remaining release gate; do not claim them from local tests.
+
+
 ## 2026-09-13 Final core-flow acceptance (supersedes earlier pending stages)
 
 Deployed application code: 21e041bd9a6bb1519186247571682ef62bfbc2e3; workflow 34727360769 successfully built Next/OpenNext and deployed Cloudflare. Full suite: 390 passed, 1 skipped, 0 failed; TypeScript passed. Actual Chrome Capture HEIC → focused Bench → Write → private trip → editor → preview succeeded. Photo loaded at naturalWidth 1600; entryDate and rendered label both preserve 2019-10-20. Native return to family works. All eleven public reader routes returned 200. Actual narrow reader layout/album controls passed; physical iPhone, weak network and full musical audition remain unverified.

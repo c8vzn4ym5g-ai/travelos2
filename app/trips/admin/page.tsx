@@ -7,7 +7,8 @@ import { JOURNAL_ENTRY_KINDS, journalEntryKind } from "@/lib/journal-entry-kind"
 import { TripDraftPreview } from "@/components/trip-draft-preview";
 import { ShortVideoGallery } from "@/components/short-video-gallery";
 import { reconcileSavedTrips, reconcileUploadedPhoto } from "@/lib/editor-save";
-import { recalledEditorLibrary, rememberEditorLibrary, rememberSavedEditorTrips } from "@/lib/editor-session-cache";
+import { rememberEditorLibrary, rememberSavedEditorTrips } from "@/lib/editor-session-cache";
+import { loadEditorLibrary, loadSelectedEditorTrip, type EditorCatalogItem } from "@/lib/editor-library-load";
 import { exportTripToObsidian } from "@/lib/obsidian-export";
 import type { TravelOSContent } from "@/lib/editable-store";
 import {
@@ -26,10 +27,6 @@ import { isTripPhotoVideo } from "@/lib/trip-photo";
 import { compareTripsByStartDateDesc, isTripPublic } from "@/lib/trip-visibility";
 import type { JournalEntry, Photo, TripDetail } from "@/lib/types";
 
-type TravelContentResponse = {
-  content: TravelOSContent;
-  status: { configured: boolean; source: "blob" | "drive" | "seed" };
-};
 type EditorTab = "story" | "photos" | "videos" | "details";
 type PickerTarget = { kind: "new" } | { kind: "journal"; entryId: string } | null;
 
@@ -175,11 +172,16 @@ export default function TravelAdminPage() {
   const [authenticated, setAuthenticated] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [trips, setTrips] = useState<TripDetail[]>([]);
+  const [catalog, setCatalog] = useState<EditorCatalogItem[]>([]);
+  const [tripLoadError, setTripLoadError] = useState(false);
+  const [tripReadAttempt, setTripReadAttempt] = useState(0);
   const [activeTripId, setActiveTripId] = useState<string | null>(null);
   const [tab, setTab] = useState<EditorTab>("story");
   const [draftPreview, setDraftPreview] = useState(false);
   const editorScrollRef = useRef(0);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [catalogWarning, setCatalogWarning] = useState("");
   const [saving, setSaving] = useState(false);
   const [dirtyTripIds, setDirtyTripIds] = useState<Set<string>>(new Set());
   const [recoveredTripIds, setRecoveredTripIds] = useState<string[]>([]);
@@ -222,55 +224,20 @@ export default function TravelAdminPage() {
   }, [router]);
 
   const loadContent = useCallback(async (options?: { silent?: boolean }) => {
+    setLoadFailed(false);
     if (isSpareVercelHost(window.location.host)) {
       window.location.replace(canonicalSiteUrl(`${window.location.pathname}${window.location.search}`));
       return;
     }
-    const cached = !options?.silent ? recalledEditorLibrary(sessionPin(pin)) : null;
-    if (cached) {
-      baseVersionsRef.current = new Map(cached.trips.map(trip => [trip.id, trip.updatedAt]));
-      const applied = applyTripLocalDrafts(cached.trips);
-      setTrips(applied.trips);
-      setDirtyTripIds(new Set(applied.restoredIds));
-      setRecoveredTripIds(applied.restoredIds);
-      const requested = requestedTripId();
-      setActiveTripId(current => current ?? (requested && applied.trips.some(trip => trip.id === requested) ? requested : applied.trips[0]?.id ?? null));
-      setStoreSource(cached.source);
-      setLoading(false);
-      setMessage("已開啟游記，正在核對這一篇的最新內容。");
-      return;
-    }
-    if (!options?.silent) {
-      setLoading(true);
-    }
-    const response = await fetch("/api/trips/content", {
-      cache: "no-store",
-      headers: pinHeaders(sessionPin(pin)),
-    });
-    if (response.status === 401) {
-      setRedirecting(true);
-      router.replace("/family");
-      return;
-    }
-    if (!response.ok) throw new Error("無法讀取旅行內容");
-    const data = (await response.json()) as TravelContentResponse;
-    const sorted = [...data.content.trips].sort(compareTripsByStartDateDesc);
-    baseVersionsRef.current = new Map(sorted.map(trip => [trip.id, trip.updatedAt]));
-    rememberEditorLibrary(sessionPin(pin), sorted, data.status.source);
+    if (!options?.silent) setLoading(true);
+    const data = await loadEditorLibrary(pinHeaders(sessionPin(pin)));
+    setCatalog(data.trips);
     const requested = requestedTripId();
-    const applied = applyTripLocalDrafts(sorted);
-    setTrips(applied.trips);
-    setDirtyTripIds(new Set(applied.restoredIds));
-    setRecoveredTripIds(applied.restoredIds);
-    setActiveTripId((current) => current ?? (requested && applied.trips.some((trip) => trip.id === requested) ? requested : applied.trips[0]?.id ?? null));
-    setStoreSource(data.status.source);
-    setMessage(
-      applied.restoredIds.length > 0
-        ? "有未保存草稿 · 已幫你找回。記得按儲存。"
-        : "草稿已經整理好。直接看、改一句，或錄一句話就可以。",
-    );
+    if (requested && data.trips.some(trip => trip.id === requested)) setActiveTripId(requested);
+    setStoreSource("drive");
+    setMessage("選一篇遊記後才讀取內容。");
     setLoading(false);
-  }, [pin, router]);
+  }, [pin]);
 
   useEffect(() => {
     if (!authenticated) {
@@ -278,6 +245,7 @@ export default function TravelAdminPage() {
     }
 
     loadContent().catch(() => {
+      setLoadFailed(true);
       setMessage("目前無法打開旅行內容。");
       setLoading(false);
     });
@@ -285,20 +253,26 @@ export default function TravelAdminPage() {
 
   useEffect(() => {
     if (!authenticated || !activeTripId) return;
+    if (tripsRef.current.some(trip => trip.id === activeTripId)) return;
     let cancelled = false;
-    void fetch(`/api/trips/content?id=${encodeURIComponent(activeTripId)}`, {
-      cache: "no-store", headers: pinHeaders(sessionPin(pin)),
-    }).then(async response => {
-      if (!response.ok) throw new Error("read");
-      const data = await response.json() as {trip: TripDetail};
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    setTripLoadError(false);
+    void loadSelectedEditorTrip(activeTripId, pinHeaders(sessionPin(pin)), controller.signal).then(trip => {
       if (cancelled) return;
-      rememberSavedEditorTrips(sessionPin(pin), [data.trip]);
-      if (!dirtyTripIdsRef.current.has(data.trip.id)) baseVersionsRef.current.set(data.trip.id, data.trip.updatedAt);
-      setTrips(current => current.map(trip => trip.id === data.trip.id && !dirtyTripIdsRef.current.has(trip.id) ? data.trip : trip));
-    }).catch(() => { if (!cancelled) setMessage("暫時無法核對最新版本；目前內容仍保留。"); });
-    return () => { cancelled = true; };
-  }, [activeTripId, authenticated, pin]);
-
+      const data = {trip};
+      baseVersionsRef.current.set(data.trip.id, data.trip.updatedAt);
+      const applied = applyTripLocalDrafts([data.trip]);
+      setTrips(current => [...current.filter(trip => trip.id !== data.trip.id), ...applied.trips]);
+      if (applied.restoredIds.length) {
+        setDirtyTripIds(current => new Set([...current, ...applied.restoredIds]));
+        setRecoveredTripIds(current => [...new Set([...current, ...applied.restoredIds])]);
+      }
+      setMessage(applied.restoredIds.length ? "有未保存草稿，已幫你找回。" : "已開啟這篇遊記。");
+    }).catch(() => { if (!cancelled) setTripLoadError(true); })
+      .finally(() => { clearTimeout(timer); });
+    return () => { cancelled = true; clearTimeout(timer); controller.abort(); };
+  }, [activeTripId, authenticated, pin, tripReadAttempt]);
   useEffect(() => {
     tripsRef.current = trips;
     dirtyTripIdsRef.current = dirtyTripIds;
@@ -356,8 +330,11 @@ export default function TravelAdminPage() {
 
   useEffect(() => () => mediaStreamRef.current?.getTracks().forEach((track) => track.stop()), []);
 
-  const sortedTrips = useMemo(() => [...trips].sort(compareTripsByStartDateDesc), [trips]);
-  const activeTrip = sortedTrips.find((trip) => trip.id === activeTripId) ?? sortedTrips[0] ?? null;
+  const sortedTrips = useMemo(() => catalog.map(item => {
+    const draft = trips.find(trip => trip.id === item.id);
+    return draft ? { ...item, title: draft.title, startDate: draft.startDate, endDate: draft.endDate } : item;
+  }).sort(compareTripsByStartDateDesc), [catalog, trips]);
+  const activeTrip = trips.find((trip) => trip.id === activeTripId) ?? null;
   const selectedPhoto = activeTrip?.photos.find((photo) => photo.id === selectedPhotoId) ?? activeTrip?.photos[0] ?? null;
   const promoVideos = activeTrip ? getTripPromoVideos(activeTrip.slug) : [];
   const pickerPhotos = useMemo(() => {
@@ -435,6 +412,7 @@ export default function TravelAdminPage() {
   }
 
   async function persistTrips(drafts: TripDetail[], publish = false) {
+    setCatalogWarning("");
     const savedTrips: TripDetail[] = [];
     for (const trip of drafts) {
       const response = await fetch("/api/trips/content", {
@@ -442,9 +420,11 @@ export default function TravelAdminPage() {
         headers: { "content-type": "application/json", ...pinHeaders(sessionPin(pin)) },
         body: JSON.stringify({ trip, baseUpdatedAt: baseVersionsRef.current.get(trip.id), publish }),
       });
-      const data = (await response.json()) as { trip?: TripDetail; error?: string };
+      const data = (await response.json()) as { trip?: TripDetail; error?: string; warning?: string };
       if (!response.ok || !data.trip) throw new Error(data.error ?? `「${trip.title}」儲存失敗`);
       savedTrips.push(data.trip);
+      if (data.warning) setCatalogWarning(data.warning);
+      setCatalog(current => current.map(item => item.id === data.trip!.id ? {id:data.trip!.id, title:data.trip!.title, startDate:data.trip!.startDate, endDate:data.trip!.endDate, updatedAt:data.trip!.updatedAt} : item));
       baseVersionsRef.current.set(data.trip.id, data.trip.updatedAt);
       rememberSavedEditorTrips(sessionPin(pin), [data.trip]);
     }
@@ -601,10 +581,12 @@ export default function TravelAdminPage() {
     for (const tripId of recoveredTripIds) {
       clearTripLocalDraft(tripId);
     }
+    const discarded = new Set(recoveredTripIds);
+    tripsRef.current = tripsRef.current.filter(trip => !discarded.has(trip.id));
+    setTrips(tripsRef.current);
+    setDirtyTripIds(current => new Set([...current].filter(id => !discarded.has(id))));
     setRecoveredTripIds([]);
-    loadContent({ silent: true }).catch(() => {
-      setMessage("目前無法打開旅行內容。");
-    });
+    setTripReadAttempt(value => value + 1);
   }
 
   function removePhoto(photoId: string) {
@@ -628,7 +610,11 @@ export default function TravelAdminPage() {
   }
 
   if (loading) {
-    return <main className="travel-body grid min-h-screen place-items-center bg-[#f8f3ea] px-6 text-zinc-950"><p className="travel-display text-2xl font-semibold">正在打開遊記編輯…</p></main>;
+    return <main className="travel-body grid min-h-screen place-items-center bg-[#f8f3ea] px-6 text-zinc-950"><div className="text-center"><p className="travel-display text-2xl font-semibold">正在讀取行程…</p><Link className={`${secondaryButtonClass} mt-6`} href="/family">← 家庭入口</Link></div></main>;
+  }
+
+  if (loadFailed && trips.length === 0) {
+    return <main className="travel-body grid min-h-screen place-items-center bg-[#f8f3ea] px-6 text-zinc-950"><div className="max-w-md text-center"><h1 className="travel-display text-2xl font-semibold">行程暫時未能載入</h1><p role="alert" className="mt-3 leading-7">這次讀取未完成，並不代表沒有行程。請重新讀取。</p><button className={`${primaryButtonClass} mt-6`} type="button" onClick={() => void loadContent().catch(() => { setLoadFailed(true); setLoading(false); })}>重新讀取行程</button><Link className={`${secondaryButtonClass} mt-4`} href="/family">← 家庭入口</Link></div></main>;
   }
 
   if (draftPreview && activeTrip) {
@@ -645,20 +631,22 @@ export default function TravelAdminPage() {
         <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Link className={secondaryButtonClass} href="/family">← 家庭入口</Link>
-            <button className={secondaryButtonClass} disabled={!activeTrip} onClick={() => { editorScrollRef.current = window.scrollY; setDraftPreview(true); window.scrollTo(0, 0); }} type="button">預覽工作稿</button>
-            {activeTrip && isTripPublic(activeTrip) ? <Link className={secondaryButtonClass} href={`/trips/${activeTrip.publishedSnapshot?.slug ?? activeTrip.slug}`}>查看公開頁</Link> : <span className="rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-zinc-600">私人草稿</span>}
+            {activeTripId ? <button className={secondaryButtonClass} type="button" onClick={() => { flushLocalDrafts(); setActiveTripId(null); }}>← 遊記目錄</button> : null}
+            {activeTrip ? <><button className={secondaryButtonClass} onClick={() => { editorScrollRef.current = window.scrollY; setDraftPreview(true); window.scrollTo(0, 0); }} type="button">預覽工作稿</button>
+            {isTripPublic(activeTrip) ? <Link className={secondaryButtonClass} href={`/trips/${activeTrip.publishedSnapshot?.slug ?? activeTrip.slug}`}>查看公開頁</Link> : <span className="rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-zinc-600">私人草稿</span>}</> : null}
           </div>
           <p className="travel-hand mt-6 text-lg text-sky-800">family travel journal</p>
           <h1 className="travel-display mt-1 text-3xl font-semibold sm:text-5xl">遊記編輯</h1>
-          <p className="mt-3 max-w-2xl text-base leading-7 text-zinc-600">草稿、照片和文字已經整理好。家人只要看一遍，改想改的地方，或錄一句當時的感想。</p>
+          <p className="mt-3 max-w-2xl text-base leading-7 text-zinc-600">先選一篇遊記，再查看照片、修改文字或補上感想。</p>
         </div>
       </header>
 
-      <div className="sticky top-0 z-30 border-b border-sky-100 bg-[#f8f3ea]/95 shadow-sm backdrop-blur">
+      {activeTripId ? <div className="sticky top-0 z-30 border-b border-sky-100 bg-[#f8f3ea]/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <label className="min-w-0 flex-1">
             <span className="sr-only">選擇行程</span>
-            <select className="min-h-11 w-full rounded-2xl border border-sky-200 bg-white px-4 text-sm font-semibold text-zinc-900 lg:max-w-xl" onChange={(event) => { flushLocalDrafts(); setActiveTripId(event.target.value); }} value={activeTrip?.id ?? ""}>
+            <select className="min-h-11 w-full rounded-2xl border border-sky-200 bg-white px-4 text-sm font-semibold text-zinc-900 lg:max-w-xl" onChange={(event) => { flushLocalDrafts(); setTripLoadError(false); setActiveTripId(event.target.value || null); }} value={activeTripId ?? ""}>
+              <option value="">選擇一篇遊記</option>
               {sortedTrips.map((trip) => <option key={trip.id} value={trip.id}>{formatEditorTripPickerLabel(trip.title, trip.startDate)}</option>)}
             </select>
           </label>
@@ -685,9 +673,11 @@ export default function TravelAdminPage() {
             </div>
           ) : null}
         </div>
-      </div>
+      </div> : null}
 
       <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+        {!activeTripId && dirtyTripIds.size > 0 ? <div className="mb-4 flex flex-wrap items-center gap-3"><p>{dirtyTripIds.size} 篇遊記尚未儲存，修改仍保留。</p><button className={primaryButtonClass} type="button" onClick={() => void saveAllChanges()}>儲存全部變更</button></div> : null}
+        {catalogWarning ? <p role="status" className="mb-4 rounded-2xl bg-amber-50 p-4 text-amber-900">{catalogWarning}</p> : null}
         {activeTrip ? (
           <>
             <div className="overflow-x-auto pb-2"><nav aria-label="編輯內容" className="flex min-w-max gap-2">{tabs.map((item) => <button className={`travel-label min-h-11 rounded-full px-5 py-2.5 text-sm font-semibold transition ${tab === item.id ? "bg-sky-800 text-white" : "border border-sky-200 bg-white text-sky-900"}`} key={item.id} onClick={() => setTab(item.id)} type="button">{item.label}</button>)}</nav></div>
@@ -776,14 +766,14 @@ export default function TravelAdminPage() {
 
             {tab === "details" ? <section className="mt-5 rounded-3xl border border-sky-100 bg-white p-5 shadow-sm sm:p-7"><h2 className="travel-display text-2xl font-semibold">系統整理好的行程資料</h2><p className="mt-2 text-sm leading-6 text-zinc-600">這些只是背景資訊。看草稿、寫感想時不需要填。</p><dl className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><div className="rounded-2xl bg-sky-50 p-4"><dt className="text-xs font-semibold text-zinc-500">時間</dt><dd className="mt-1 font-semibold">{formatDate(activeTrip.startDate)}－{formatDate(activeTrip.endDate)}</dd></div><div className="rounded-2xl bg-sky-50 p-4"><dt className="text-xs font-semibold text-zinc-500">地方</dt><dd className="mt-1 font-semibold">{activeTrip.city}・{activeTrip.country}</dd></div><div className="rounded-2xl bg-sky-50 p-4"><dt className="text-xs font-semibold text-zinc-500">狀態</dt><dd className="mt-1 font-semibold">{isTripPublic(activeTrip) ? "公開" : "私人草稿"}</dd></div><div className="rounded-2xl bg-sky-50 p-4"><dt className="text-xs font-semibold text-zinc-500">系統整理</dt><dd className="mt-1 font-semibold">{activeTrip.places.length} 個地點・{(activeTrip.travelRoute ?? []).length} 段路線</dd></div></dl><details className="mt-6 rounded-2xl border border-sky-100 p-4"><summary className="min-h-11 cursor-pointer py-2 font-semibold text-sky-900">真的需要時才修改基本資料</summary><div className="mt-4 grid gap-4 sm:grid-cols-2"><Field label="行程名稱" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, title: value }))} value={activeTrip.title} /><Field label="公開網址名稱" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, slug: value }))} value={activeTrip.slug} /><Field label="城市" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, city: value }))} value={activeTrip.city} /><Field label="國家" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, country: value }))} value={activeTrip.country} /><Field label="開始日期" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, startDate: value }))} type="date" value={toDateInput(activeTrip.startDate)} /><Field label="結束日期" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, endDate: value }))} type="date" value={toDateInput(activeTrip.endDate)} /><label className="block sm:col-span-2"><span className="travel-label text-sm font-semibold text-zinc-700">行程簡介</span><textarea className={`${inputClass} min-h-28`} onChange={(event) => updateActiveTrip((trip) => ({ ...trip, summary: event.target.value }))} value={activeTrip.summary} /></label><p className="text-sm leading-7 text-zinc-600 sm:col-span-2">儲存只更新家庭草稿。完成後，請使用上方「公開這篇遊記」或「更新公開版」。</p></div></details></section> : null}
           </>
-        ) : <div className="rounded-3xl border border-sky-100 bg-white p-8 text-center"><h2 className="travel-display text-2xl font-semibold">目前沒有行程</h2></div>}
+        ) : activeTripId ? <div className="rounded-3xl border border-sky-100 bg-white p-8 text-center"><h2 className="travel-display text-2xl font-semibold">{tripLoadError ? "這篇遊記暫時未能載入" : "正在讀取這篇遊記…"}</h2>{tripLoadError ? <button className={`${primaryButtonClass} mt-4`} type="button" onClick={() => setTripReadAttempt(value => value + 1)}>重新讀取這篇</button> : null}</div> : <div><h2 className="travel-display mb-4 text-2xl font-semibold">遊記目錄</h2><div className="grid gap-3 sm:grid-cols-2">{sortedTrips.map(trip => <button key={trip.id} type="button" className="min-w-0 rounded-3xl border border-sky-100 bg-white p-5 text-left shadow-sm hover:bg-sky-50" onClick={() => { setTripLoadError(false); setActiveTripId(trip.id); }}><span className="block break-words text-lg font-semibold">{trip.title}</span><span className="mt-2 block text-sm text-zinc-600">{formatDate(trip.startDate)}</span></button>)}</div>{catalog.length === 0 ? <p>目前沒有行程。</p> : null}</div>}
 
         <p aria-live="polite" className="mt-6 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-zinc-600 shadow-sm">{message}<span className="ml-2 text-xs font-normal text-zinc-400">{storeSource === "blob" ? "雲端工作台" : storeSource === "drive" ? "家庭共用儲存" : "初始內容"}</span></p>
       </section>
 
       {pickerTarget && activeTrip ? <div aria-modal="true" className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 sm:items-center sm:p-6" role="dialog"><section className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-t-3xl bg-[#f8f3ea] shadow-2xl sm:rounded-3xl"><div className="flex items-start justify-between gap-4 border-b border-sky-100 bg-white px-5 py-4"><div><h2 className="travel-display text-2xl font-semibold">{pickerTarget.kind === "new" ? "系統先挑出尚未使用的照片" : "先看這一段附近的照片"}</h2><p className="mt-1 text-sm text-zinc-600">不用從頭翻相簿。先看少量建議；真的找不到，再查看全部照片。</p></div><button className={secondaryButtonClass} onClick={() => setPickerTarget(null)} type="button">關閉</button></div><div className="max-h-[72vh] overflow-y-auto p-4 sm:p-6"><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{pickerPhotos.map((photo) => { const index = activeTrip.photos.findIndex((item) => item.id === photo.id); return <button className="overflow-hidden rounded-2xl border border-sky-100 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-500" key={photo.id} onClick={() => choosePhoto(photo)} type="button"><PhotoThumb className="h-40 sm:h-44" photo={photo} /><span className="block p-3"><span className="block text-xs font-semibold text-sky-700">工作編號 #{index + 1}</span><span className="mt-1 block line-clamp-2 text-sm font-semibold">{photoLabel(photo, index)}</span><span className="mt-1 block text-xs text-zinc-500">{formatPhotoDate(photo)}</span><span className="mt-3 block rounded-full bg-sky-800 px-3 py-2 text-center text-xs font-semibold text-white">選擇這張照片</span></span></button>; })}</div>{!showAllPickerPhotos && activeTrip.photos.length > pickerPhotos.length ? <button className={`${secondaryButtonClass} mt-5 w-full`} onClick={() => setShowAllPickerPhotos(true)} type="button">建議裡沒有，再查看全部 {activeTrip.photos.length} 張</button> : null}{pickerTarget.kind === "new" ? <button className={`${secondaryButtonClass} mt-3 w-full`} onClick={() => choosePhoto(null)} type="button">這一段沒有照片，直接寫一句</button> : null}</div></section></div> : null}
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-sky-100 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur sm:hidden"><button className={`${primaryButtonClass} w-full`} disabled={saving || dirtyTripIds.size === 0} onClick={() => void saveAllChanges()} type="button">{saving ? "儲存中…" : dirtyTripIds.size > 0 ? `儲存全部變更（${dirtyTripIds.size}）` : "全部已儲存"}</button></div>
+      {activeTripId || dirtyTripIds.size > 0 ? <div className="fixed inset-x-0 bottom-0 z-40 border-t border-sky-100 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur sm:hidden"><button className={`${primaryButtonClass} w-full`} disabled={saving || dirtyTripIds.size === 0} onClick={() => void saveAllChanges()} type="button">{saving ? "儲存中…" : dirtyTripIds.size > 0 ? `儲存全部變更（${dirtyTripIds.size}）` : "全部已儲存"}</button></div> : null}
       </fieldset>
     </main>
   );

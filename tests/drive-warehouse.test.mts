@@ -450,7 +450,8 @@ test("Apps Script locks index/item/stats/prune writes while photo binaries stay 
   assert.match(doPost, /if \(body\.op === "trip"\) \{\s*return writeTrip_/);
   assert.match(doPost, /if \(body\.op === "stats"\) \{\s*return withLock_/);
   assert.match(doPost, /if \(body\.op === "prune-acceptance"\) \{\s*return withLock_/);
-  assert.equal((doPost.match(/withLock_\(/g) ?? []).length, 4);
+  assert.match(doPost, /if \(body\.op === "editor-catalog"\) \{\s*return withLock_/);
+  assert.equal((doPost.match(/withLock_\(/g) ?? []).length, 5);
   assert.match(doPost, /return createBinaryFile_\(body\)/);
   assert.doesNotMatch(doPost, /var body = JSON\.parse\(e\.postData\.contents\);\s*return withLock_/);
 

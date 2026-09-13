@@ -2,7 +2,7 @@ import { afterResponse } from "@/lib/after-response";
 import { cachePublicHubTrips } from "@/lib/public-hub";
 import { isAdminPinValid, readContent, writeContent } from "@/lib/editable-store";
 import type { TripDetail } from "@/lib/types";
-import { readDriveTrip, writeDriveTrip } from "@/lib/drive-trips";
+import { readDriveTrip, saveDriveTripWithCatalog } from "@/lib/drive-trips";
 import { seedTripDetails } from "@/lib/trips";
 import { isBlobConfigured } from "@/lib/editable-store";
 import { prepareTripSave } from "@/lib/trip-publication";
@@ -66,10 +66,11 @@ export async function POST(request: Request) {
 
     const newDraft = { ...body.trip, visibility: "private" as const, publishedSnapshot: undefined };
     if (!isBlobConfigured()) {
-      const savedTrip = await writeDriveTrip(newDraft);
+      const { trip: savedTrip, warning } = await saveDriveTripWithCatalog(newDraft);
       return Response.json({
         content: { ...content, trips: [savedTrip, ...content.trips], updatedAt: savedTrip.updatedAt },
         trip: savedTrip,
+        ...(warning ? { warning } : {}),
       });
     }
     const savedContent = await writeContent([newDraft, ...content.trips]);
@@ -106,12 +107,13 @@ export async function PUT(request: Request) {
 
     const updatedTrip = prepareTripSave(current!, { ...body.trip, updatedAt: new Date().toISOString() }, body.publish === true);
     if (!isBlobConfigured()) {
-      const savedTrip = await writeDriveTrip(updatedTrip);
+      const { trip: savedTrip, warning } = await saveDriveTripWithCatalog(updatedTrip);
       const trips = content.trips.map((trip) => (trip.id === savedTrip.id ? savedTrip : trip));
       await cachePublicHubTrips(trips);
       return Response.json({
         content: { ...content, trips, updatedAt: savedTrip.updatedAt },
         trip: savedTrip,
+        ...(warning ? { warning } : {}),
       });
     }
 

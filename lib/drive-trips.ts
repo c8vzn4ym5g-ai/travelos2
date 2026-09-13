@@ -2,6 +2,9 @@ import { getDriveAccess, getWarehouseTripBundle, putWarehouseTrip } from "@/lib/
 import { invalidatePublicHubCache } from "@/lib/public-hub";
 import { VANITY_CREW_HELD_TRIP_IDS, prepareFamilyEditorTrips, prepareTripForWarehouse } from "@/lib/trip-series";
 import type { TripDetail } from "@/lib/types";
+import { withDriveReadBudget } from "@/lib/drive-read-budget";
+import { patchEditorTripCatalog } from "@/lib/editor-trip-catalog";
+import { afterResponse } from "@/lib/after-response";
 
 const prefix = "travelos__trip__";
 const heldTripFileNames = new Set(VANITY_CREW_HELD_TRIP_IDS.map((id) => `${prefix}${id}.json`));
@@ -167,8 +170,12 @@ function tripFileName(tripId: string) {
 /** Read one authoritative trip without fetching the editor's complete library.
  * Only an absent file is null; a failed read must not trigger a seed fallback.
  */
-export async function readDriveTrip(tripId: string, request?: typeof fetch): Promise<TripDetail | null> {
+export async function readDriveTrip(tripId: string, request?: typeof fetch, timeoutMs?: number): Promise<TripDetail | null> {
   if (!/^trip_[a-zA-Z0-9_-]+$/.test(tripId) || heldTripIdSet.has(tripId)) return null;
+  return withDriveReadBudget(request, (read) => readDriveTripWithinBudget(tripId, read), timeoutMs);
+}
+
+async function readDriveTripWithinBudget(tripId: string, request: typeof fetch): Promise<TripDetail | null> {
   const access = await getDriveAccess(request);
   if (!access) throw new Error("家庭儲存暫時無法連接，請稍後再試。");
   const read = request ?? fetch;
@@ -240,13 +247,23 @@ async function writeDriveTripViaApi(payload: TripDetail) {
   return payload;
 }
 
-export async function writeDriveTrip(trip: TripDetail) {
+export async function saveDriveTripWithCatalog(trip: TripDetail): Promise<{ trip: TripDetail; warning?: string }> {
   const payload = prepareTripForWarehouse(trip);
   const name = tripFileName(payload.id);
   const viaWarehouse = await putWarehouseTrip(name, JSON.stringify(payload));
   invalidatePublicHubCache();
-  if (viaWarehouse) {
-    return payload;
+  const saved = viaWarehouse ? payload : await writeDriveTripViaApi(payload);
+  try {
+    await patchEditorTripCatalog([saved]);
+    return { trip: saved };
+  } catch {
+    afterResponse(async () => {
+      try { await patchEditorTripCatalog([saved]); } catch { /* Saved trip remains authoritative; one bounded repair attempt only. */ }
+    });
+    return { trip: saved, warning: "遊記已儲存；目錄更新稍有延遲，稍後重新整理即可。" };
   }
-  return writeDriveTripViaApi(payload);
+}
+
+export async function writeDriveTrip(trip: TripDetail) {
+  return (await saveDriveTripWithCatalog(trip)).trip;
 }

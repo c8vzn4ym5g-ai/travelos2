@@ -299,6 +299,14 @@ export async function getIndex(request?: DriveFetch): Promise<MomentContent> {
   return parseWarehouse(raw);
 }
 
+export function getWarehouseEditorCatalog(request?: DriveFetch): Promise<unknown> {
+  return getJson({ op: "editor-catalog", token: getDriveWarehouseToken() }, "Editor catalog GET", request);
+}
+
+export function putWarehouseEditorCatalog(trips: unknown[], request?: DriveFetch): Promise<unknown> {
+  return postJson({ op: "editor-catalog", trips, token: getDriveWarehouseToken() }, "Editor catalog POST", request);
+}
+
 export async function putIndex(text: string, request?: DriveFetch): Promise<{ ok: true; name: string }> {
   const raw = await postJson(
     { op: "index", text, token: getDriveWarehouseToken() },
