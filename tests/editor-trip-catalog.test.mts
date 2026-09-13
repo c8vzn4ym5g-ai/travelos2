@@ -10,6 +10,30 @@ import type { TripDetail } from "../lib/types.ts";
 
 const row = { id: "trip_family", title: "家人的新標題", startDate: "2026-01-01", endDate: "2026-01-02", updatedAt: "2026-09-13T10:00:00Z" };
 
+test("public projection repair preserves a saved trip and retries sync by id only", async () => {
+  let writes = 0; let repairs = 0;
+  setDriveWarehouseFetchForTests(async (_input, init) => {
+    const payload = JSON.parse(String(init?.body));
+    if (payload.op === "trip") { writes++; return Response.json({ ok: true, publicHubWarning: true }); }
+    if (payload.op === "public-hub-sync") {
+      repairs++;
+      assert.equal(payload.id, row.id);
+      assert.equal(payload.text, undefined, "repair rereads the saved trip, not an old client payload");
+      return Response.json({ error: "temporarily unavailable" });
+    }
+    assert.equal(payload.op, "editor-catalog");
+    return Response.json({ ok: true });
+  });
+  try {
+    const result = await saveDriveTripWithCatalog({ ...row, photos: [], journalEntries: [] } as unknown as TripDetail);
+    assert.equal(result.trip.updatedAt, row.updatedAt);
+    assert.match(result.warning ?? "", /已儲存.*公開/);
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(writes, 1);
+    assert.equal(repairs, 2);
+  } finally { resetDriveWarehouseForTests(); }
+});
+
 test("durable trip save keeps its ACK and version when the derived catalog fails", async () => {
   let saved: unknown;
   let catalogCalls = 0;

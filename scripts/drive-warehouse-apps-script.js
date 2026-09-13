@@ -204,6 +204,7 @@ function writeTrip_(body) {
     return json_({ error: "invalid trip name" });
   }
   upsertNamed_(name, body.text || "{}", "application/json");
+  try { syncPublicHubTrip_(JSON.parse(body.text || "{}")); } catch (err) { return json_({ok:true,name:name,publicHubWarning:true}); }
   return json_({ ok: true, name: name });
 }
 
@@ -290,11 +291,69 @@ function writeEditorCatalog_(body) {
   return json_({ ok: true, count: trips.length });
 }
 
+var PUBLIC_HUB_NAME_ = "travelos__public_hub.json";
+function publicHubFile_() {
+  var files = folder_().getFilesByName(PUBLIC_HUB_NAME_);
+  if (!files.hasNext()) return null;
+  var file = files.next();
+  if (files.hasNext()) throw new Error("ambiguous public hub");
+  return file;
+}
+function publicHubCard_(raw) {
+  var trip = raw && (raw.id ? raw : raw.trip || raw.moment);
+  if (!trip || (trip.visibility !== "public" && trip.visibility !== "shared")) return null;
+  if (trip.publishedSnapshot) trip = trip.publishedSnapshot;
+  if (!trip || (trip.visibility !== "public" && trip.visibility !== "shared") || !trip.id || ["trip_kyoto_maple_tofukuji_path","trip_kyoto_maple"].indexOf(trip.id) >= 0) return null;
+  var photos = (trip.photos || []).filter(function (p) { return p && typeof p.storageKey === "string" && /^(https?:\/\/|\/)/.test(p.storageKey); });
+  var cover = photos.filter(function(p) { return p.id === trip.coverPhotoId; })[0] || photos[0];
+  photos = (cover ? [cover] : []).concat(photos.filter(function(p) { return p !== cover; }).slice(0,4));
+  return { id: trip.id, title: trip.title || "", slug: trip.slug || trip.id.replace(/_/g,"-"), city: trip.city || "", country: trip.country || "", summary: trip.summary || "", startDate: trip.startDate || "", endDate: trip.endDate || "", rating: trip.rating == null ? null : trip.rating, totalCost: trip.totalCost || null, visibility: trip.visibility, coverPhotoId: cover ? cover.id : null, photos: photos.map(function(p) { return {id:p.id,caption:p.caption || null,storageKey:p.storageKey}; }) };
+}
+function readPublicHub_() {
+  var file = publicHubFile_();
+  if (!file) return {error:"public hub not initialized"};
+  var data = JSON.parse(file.getBlob().getDataAsString());
+  if (!Array.isArray(data.trips)) throw new Error("invalid public hub");
+  return data;
+}
+function writePublicHub_(trips) {
+  var file = publicHubFile_();
+  var text = JSON.stringify({trips:trips,at:Date.now()});
+  if (file) file.setContent(text); else folder_().createFile(PUBLIC_HUB_NAME_,text,"application/json");
+}
+function initializePublicHub_(body) {
+  if (publicHubFile_()) return json_({error:"public hub already initialized"});
+  var records = listTrips_();
+  if (records.length !== body.expectedTripCount) return json_({error:"trip count changed"});
+  var latest = {};
+  records.sort(function(a,b) { return String(a.modifiedTime || "").localeCompare(String(b.modifiedTime || "")); }).forEach(function(record) {
+    var trip = record.trip || record;
+    if (!trip.id) throw new Error("invalid trip");
+    latest[trip.id] = trip;
+  });
+  var cards = Object.keys(latest).map(function(id) { return publicHubCard_(latest[id]); }).filter(Boolean);
+  writePublicHub_(cards);
+  return json_({ok:true,count:cards.length});
+}
+function syncPublicHubTrip_(raw) {
+  var current = readPublicHub_();
+  if (!Array.isArray(current.trips)) throw new Error("public hub not initialized");
+  var card = publicHubCard_(raw);
+  var old = current.trips.filter(function(t) {return t.id === raw.id;})[0] || null;
+  // Ordinary draft edits have an unchanged published projection: no index write.
+  if (JSON.stringify(old) === JSON.stringify(card)) return;
+  var cards = current.trips.filter(function(t) {return t.id !== raw.id;});
+  if (card) cards.push(card);
+  writePublicHub_(cards);
+}
+
+
 function doGet(e) {
   if (!tokenOk_(e)) {
     return json_({ error: "unauthorized" });
   }
   var op = (e.parameter && e.parameter.op) || "";
+  if (op === "public-hub") return json_(readPublicHub_());
   if (op === "editor-catalog") return json_(readEditorCatalog_());
   if (op === "stats") {
     return withLock_(function () { return json_(publicStatsSummary_(readPublicStats_().data)); });
@@ -419,6 +478,15 @@ function doPost(e) {
     return json_({ error: "unauthorized" });
   }
   var body = JSON.parse(e.postData.contents);
+  if (body.op === "public-hub-sync") return withLock_(function () {
+    if (!/^trip_[a-zA-Z0-9_-]+$/.test(String(body.id || ""))) return json_({error:"invalid trip id"});
+    var files = folder_().getFilesByName("travelos__trip__" + body.id + ".json");
+    if (!files.hasNext()) return json_({error:"trip not found"});
+    var raw = JSON.parse(files.next().getBlob().getDataAsString());
+    if (files.hasNext()) return json_({error:"ambiguous trip"});
+    syncPublicHubTrip_(raw); return json_({ok:true});
+  });
+  if (body.op === "public-hub-init") return withLock_(function () { return initializePublicHub_(body); });
   if (body.op === "editor-catalog") {
     return withLock_(function () { return writeEditorCatalog_(body); });
   }
@@ -445,7 +513,7 @@ function doPost(e) {
     });
   }
   if (body.op === "trip") {
-    return writeTrip_(body);
+    return withLock_(function () { return writeTrip_(body); });
   }
   return createBinaryFile_(body);
 }

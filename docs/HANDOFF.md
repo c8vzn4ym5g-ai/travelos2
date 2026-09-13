@@ -1,5 +1,15 @@
 # TravelOS Handoff
 
+## 2026-09-13 Public library cold-load regression
+
+Owner's iPhone screenshot shows /trips Total 0/Public 0 and indefinite Loading journeys. Warm live reads still returned eleven cards; they do not refute this cold-region failure. Existing public hub cache was memory/region-local, with cold full-trip fanout exceeding the six-second HTML budget.
+
+Public pages now use readPublicHubState to distinguish a verified empty library from an unavailable read. Recovery performs two bounded refresh attempts and exposes a native GET reload button; it stops claiming ongoing loading after 20 seconds. Both home and library use this state.
+
+The new private durable travelos__public_hub.json contains public card fields and up to five photo references, never journals or unpublished draft bodies. Apps Script initializes it only through an explicit count-guarded operation. Trip saves update the projection under the trip lock, using publishedSnapshot; private trips are removed. Draft edits that do not change the public projection do not rewrite the index. Fallback saves/failed projection acknowledgements repair by rereading the saved trip ID, preserve durable save success and return a warning if repair fails. Ordinary cold public reads fetch one projection instead of all trip files; legacy fallback and last-good regional cache remain available.
+
+Local gate: 409 passed, 1 skipped, 0 failed; TypeScript passed, changed-source lint zero errors/one existing unused-helper warning; production build passed. Regression coverage includes actual empty-page render, bounded retry rerenders, valid zero library, cold one-index read, published-versus-draft projection, unpublication removal, and durable-save warning/one repair. Apps Script v8 deployment, one-time initialization, application release and real browser acceptance pending at this checkpoint. No passwords/payments or original travel records changed.
+
 ## 2026-09-13 Owner regression: catalog-first editor
 
 Owner reproduced family → editor taking 30–60 seconds and showing no itinerary. Root reproduced at 61 seconds: “目前沒有行程” alongside “目前無法打開旅行內容”. This supersedes the previous core-ready judgment for cold editor entry. A later successful API read does not refute that failure.

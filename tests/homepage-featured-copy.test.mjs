@@ -17,7 +17,7 @@ test("homepage featured strip uses first-glance promo copy and the public journa
   assert.match(home, /href=\{LAPLAND_JOURNAL_PATH\}/);
   assert.match(home, /description: FEATURED_JOURNAL_DEK/);
   assert.match(home, /title: FEATURED_JOURNAL_TITLE/);
-  assert.match(home, /readPublicHubTrips/);
+  assert.match(home, /readPublicHubState/);
   assert.match(home, /getTravelSessionPhotos/);
   assert.match(home, /getCoffeeSessionPhotos/);
   assert.doesNotMatch(home, /readContent/);
@@ -36,7 +36,7 @@ test("home photo carousels are hard-capped and family 首頁 exits to the public
   ]);
 
   assert.match(home, /from "@\/lib\/home-session-photos"/);
-  assert.match(home, /readPublicHubTrips/);
+  assert.match(home, /readPublicHubState/);
   assert.doesNotMatch(home, /from "@\/lib\/editable-store"/);
   assert.match(carousel, /HOME_SESSION_PHOTO_LIMIT/);
   assert.match(carousel, /photos\.slice\(0, HOME_SESSION_PHOTO_LIMIT\)/);

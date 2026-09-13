@@ -1,7 +1,7 @@
 import { PublicHubRetry } from "@/components/public-hub-retry";
 import { StorefrontHomeLink } from "@/components/storefront-home-link";
 import { isLaplandStorefrontSlug, LAPLAND_SEASON_LABEL } from "@/lib/lapland-storefront-copy";
-import { readPublicHubTrips, type HubTripCard } from "@/lib/public-hub";
+import { readPublicHubState, type HubTripCard } from "@/lib/public-hub";
 import type { Money } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -110,7 +110,7 @@ function TripCard({ trip }: { trip: HubTripCard }) {
 }
 
 export default async function TripsPage() {
-  const visibleTrips = await readPublicHubTrips();
+  const { trips: visibleTrips, ready } = await readPublicHubState();
   const publicTrips = visibleTrips;
 
   return (
@@ -129,11 +129,11 @@ export default async function TripsPage() {
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div className="travel-soft-panel rounded-3xl px-5 py-4">
                 <p className="travel-muted text-xs">Total</p>
-                <p className="mt-2 text-3xl font-semibold text-[color:var(--pine)]">{visibleTrips.length}</p>
+                <p className="mt-2 text-3xl font-semibold text-[color:var(--pine)]">{ready ? visibleTrips.length : "—"}</p>
               </div>
               <div className="travel-soft-panel rounded-3xl px-5 py-4">
                 <p className="travel-muted text-xs">Public</p>
-                <p className="mt-2 text-3xl font-semibold text-[color:var(--pine)]">{publicTrips.length}</p>
+                <p className="mt-2 text-3xl font-semibold text-[color:var(--pine)]">{ready ? publicTrips.length : "—"}</p>
               </div>
             </div>
           </div>
@@ -146,7 +146,7 @@ export default async function TripsPage() {
             visibleTrips.map((trip) => <TripCard key={trip.id} trip={trip} />)
           ) : (
             <div className="travel-panel rounded-3xl p-8 text-center">
-              <PublicHubRetry />
+              {ready ? <p>尚無已發布的旅程。</p> : <PublicHubRetry />}
             </div>
           )}
         </div>

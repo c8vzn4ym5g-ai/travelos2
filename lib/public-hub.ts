@@ -1,7 +1,7 @@
 import { afterResponse } from "@/lib/after-response";
 import { DEFAULT_PUBLIC_SITE_ORIGIN } from "@/lib/site-url";
 import { VANITY_CREW_HELD_TRIP_IDS } from "@/lib/trip-series";
-import { getWarehouseTripBundle, getWarehouseTripCards, isDriveWarehouseConfigured } from "@/lib/drive-warehouse";
+import { getWarehouseTripBundle, getWarehouseTripCards, getWarehousePublicHub, isDriveWarehouseConfigured } from "@/lib/drive-warehouse";
 import { HOME_SESSION_PHOTO_LIMIT } from "@/lib/home-session-photos";
 import { seedTripDetails } from "@/lib/trips";
 import { compareTripsByStartDateDesc, isTripPublic } from "@/lib/trip-visibility";
@@ -35,6 +35,7 @@ export type HubTripCard = {
 };
 
 type CacheEntry = {
+  authoritative?: boolean;
   at: number;
   ttl: number;
   trips: HubTripCard[];
@@ -226,7 +227,7 @@ function edgeCache(): Cache | undefined {
   return (globalThis as typeof globalThis & { caches?: CacheStorage & { default?: Cache } }).caches?.default;
 }
 
-function remember(trips: HubTripCard[], at = Date.now()) {
+function remember(trips: HubTripCard[], at = Date.now(), authoritative = false) {
   const store = cacheStore();
   const seedIds = new Set(seedPublicHubTrips().map((trip) => trip.id));
   const hasNonSeed = trips.some((trip) => !seedIds.has(trip.id));
@@ -234,11 +235,11 @@ function remember(trips: HubTripCard[], at = Date.now()) {
   // with the bootstrap list, even after invalidation or an overlapping refresh.
   // A cold isolate cannot know whether a slow/missing edge lookup hides a known
   // library. Leave it loading instead of committing seeds over that snapshot.
-  if (!hasNonSeed && (!store.entry || store.seenNonSeed || store.entry.trips.length > trips.length)) {
+  if (!authoritative && !hasNonSeed && (!store.entry || store.seenNonSeed || store.entry.trips.length > trips.length)) {
     return store.entry?.trips ?? [];
   }
   store.seenNonSeed ||= hasNonSeed;
-  store.entry = { at, ttl: PUBLIC_HUB_CACHE_TTL_MS, trips };
+  store.entry = { at, ttl: PUBLIC_HUB_CACHE_TTL_MS, trips, authoritative };
   return trips;
 }
 
@@ -272,7 +273,7 @@ async function restoreSnapshot() {
         const card = parseHubCard(trip);
         return card ? [card] : [];
       });
-      remember(cards, entry.at);
+      remember(cards, entry.at, entry.authoritative === true);
     }
   } catch { /* The request still has a bounded Drive attempt. */ }
 }
@@ -280,6 +281,21 @@ async function restoreSnapshot() {
 async function loadPublicHubTrips() {
   const store = cacheStore();
   const revision = store.revision;
+  try {
+    const raw = await withBudget(PUBLIC_HUB_DRIVE_BUDGET_MS, getWarehousePublicHub()) as {trips?: unknown[]};
+    if (!Array.isArray(raw?.trips)) throw new Error("hub-projection-unavailable");
+    const cards = preferLatestHubCards(raw.trips.flatMap(raw => {
+      const card = parseHubCard(raw);
+      return card ? [card] : [];
+    })).sort(compareTripsByStartDateDesc);
+    if (revision === store.revision) {
+      remember(cards, Date.now(), true);
+      try {
+        await edgeCache()?.put(snapshotUrl, Response.json(store.entry, { headers: { "Cache-Control": "public, max-age=2592000" } }));
+      } catch { /* Keep the in-memory projection when edge storage is unavailable. */ }
+    }
+    return store.entry?.trips ?? [];
+  } catch { /* Compatibility fallback; public GET never initializes a catalog. */ }
   // Direct Drive reads fan out the trip files and keep only card fields; the
   // existing bundle remains a compatibility fallback for warehouse deployments.
   const read = async (work: ReturnType<typeof getWarehouseTripBundle>) => {
@@ -334,6 +350,12 @@ export function invalidatePublicHubCache() {
   store.revision += 1;
   // Invalidation expires freshness, never the last good library or its history.
   if (store.entry) store.entry.at = 0;
+}
+
+/** A verified empty projection is distinct from an unavailable read. */
+export async function readPublicHubState(): Promise<{trips: HubTripCard[]; ready: boolean}> {
+  const trips = await readPublicHubTrips();
+  return { trips, ready: cacheStore().entry !== null };
 }
 
 export function resetPublicHubCacheForTests() {

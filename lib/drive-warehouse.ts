@@ -299,6 +299,15 @@ export async function getIndex(request?: DriveFetch): Promise<MomentContent> {
   return parseWarehouse(raw);
 }
 
+export async function syncWarehousePublicHubTrip(id: string): Promise<void> {
+  const raw = await postJson({op:"public-hub-sync",id,token:getDriveWarehouseToken()},"Public hub sync") as {ok?: boolean};
+  if (raw?.ok !== true) throw new DriveWarehouseError("Public hub sync failed");
+}
+
+export function getWarehousePublicHub(): Promise<unknown> {
+  return getJson({ op: "public-hub", token: getDriveWarehouseToken() }, "Public hub GET");
+}
+
 export function getWarehouseEditorCatalog(request?: DriveFetch): Promise<unknown> {
   return getJson({ op: "editor-catalog", token: getDriveWarehouseToken() }, "Editor catalog GET", request);
 }
@@ -404,18 +413,18 @@ export async function putWarehouseTrip(
   name: string,
   text: string,
   request?: DriveFetch,
-): Promise<boolean> {
+): Promise<boolean | "public-hub-pending"> {
   try {
     const raw = await postJson(
       { name, op: "trip", text, token: getDriveWarehouseToken() },
       "Drive warehouse trip POST",
       request,
     );
-    const record = raw as { error?: unknown; ok?: unknown };
+    const record = raw as { error?: unknown; ok?: unknown; publicHubWarning?: unknown };
     if (typeof record?.error === "string") {
       return false;
     }
-    return record?.ok !== false;
+    return record?.publicHubWarning === true ? "public-hub-pending" : record?.ok !== false;
   } catch {
     return false;
   }

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
-import { getWarehouseTripCards, setDriveWarehouseFetchForTests } from "../lib/drive-warehouse.ts";
+import { getWarehouseTripCards, setDriveWarehouseFetchForTests as setTransport } from "../lib/drive-warehouse.ts";
 import {
   HUB_GALLERY_LIMIT,
   cachePublicHubTrips,
@@ -15,6 +15,10 @@ import {
   slimTripToHubCard,
 } from "../lib/public-hub.ts";
 import { seedTripDetails } from "../lib/trips.ts";
+
+function setDriveWarehouseFetchForTests(request: typeof fetch | null) {
+  setTransport(request ? async (input, init) => new URL(String(input)).searchParams.get("op") === "public-hub" ? Response.json({error:"legacy deployment"}) : request(input, init) : null);
+}
 
 const root = resolve(import.meta.dirname, "..");
 
@@ -132,7 +136,7 @@ test("home and trips hubs do not load the full editable store on each hit", asyn
     readFile(resolve(root, "app/trips/page.tsx"), "utf8"),
   ]);
   for (const source of [home, trips]) {
-    assert.match(source, /readPublicHubTrips/);
+    assert.match(source, /readPublicHub(?:Trips|State)/);
     assert.doesNotMatch(source, /readContent/);
     assert.doesNotMatch(source, /from "@\/lib\/editable-store"/);
   }

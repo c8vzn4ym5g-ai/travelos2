@@ -5,7 +5,7 @@ import { SessionPhotoCarousel } from "@/components/session-photo-carousel";
 import { getCoffeeShopsByVisitDate, getCoffeeStats } from "@/lib/coffee";
 import { readCoffeeContent } from "@/lib/coffee-store";
 import { getCoffeeSessionPhotos, getTravelSessionPhotos } from "@/lib/home-session-photos";
-import { hubCardAsSessionTrip, readPublicHubTrips, type HubTripCard } from "@/lib/public-hub";
+import { hubCardAsSessionTrip, readPublicHubState, type HubTripCard } from "@/lib/public-hub";
 import { LAPLAND_COVER_PHOTO, LAPLAND_JOURNAL_PATH } from "@/lib/travelpayouts";
 import type { CoffeeShopListItem } from "@/lib/types";
 
@@ -200,13 +200,14 @@ function LatestTripItem({ trip }: { trip: HubTripCard }) {
 }
 
 export default async function Home() {
-  const [publicTrips, coffeeResult] = await Promise.all([
-    readPublicHubTrips(),
+  const [publicHub, coffeeResult] = await Promise.all([
+    readPublicHubState(),
     readCoffeeContent()
       .then((result) => result.content)
       .catch(() => ({ shops: [], updatedAt: "" })),
   ]);
   const coffeeStats = getCoffeeStats(coffeeResult.shops);
+  const publicTrips = publicHub.trips;
   const visibleTrips = publicTrips;
   const latestCoffee = getCoffeeShopsByVisitDate(coffeeResult.shops).slice(0, 3);
   const travelPhotoStrip = getTravelSessionPhotos(publicTrips.map(hubCardAsSessionTrip));
@@ -280,7 +281,7 @@ export default async function Home() {
             </Link>
           </div>
           <div className="mt-5 space-y-4">
-            {visibleTrips.length === 0 && <PublicHubRetry />}
+            {visibleTrips.length === 0 && (publicHub.ready ? <p>尚無已發布的旅程。</p> : <PublicHubRetry href="/" />)}
             {visibleTrips.map((trip) => (
               <LatestTripItem key={trip.id} trip={trip} />
             ))}

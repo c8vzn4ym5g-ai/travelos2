@@ -1,4 +1,4 @@
-import { getDriveAccess, getWarehouseTripBundle, putWarehouseTrip } from "@/lib/drive-warehouse";
+import { getDriveAccess, getWarehouseTripBundle, putWarehouseTrip, syncWarehousePublicHubTrip } from "@/lib/drive-warehouse";
 import { invalidatePublicHubCache } from "@/lib/public-hub";
 import { VANITY_CREW_HELD_TRIP_IDS, prepareFamilyEditorTrips, prepareTripForWarehouse } from "@/lib/trip-series";
 import type { TripDetail } from "@/lib/types";
@@ -251,16 +251,27 @@ export async function saveDriveTripWithCatalog(trip: TripDetail): Promise<{ trip
   const payload = prepareTripForWarehouse(trip);
   const name = tripFileName(payload.id);
   const viaWarehouse = await putWarehouseTrip(name, JSON.stringify(payload));
-  invalidatePublicHubCache();
   const saved = viaWarehouse ? payload : await writeDriveTripViaApi(payload);
+  let publicWarning = "";
+  if (!viaWarehouse || viaWarehouse === "public-hub-pending") {
+    try { await syncWarehousePublicHubTrip(saved.id); }
+    catch {
+      publicWarning = "遊記已儲存；公開目錄同步稍有延遲。";
+      afterResponse(async () => {
+        try { await syncWarehousePublicHubTrip(saved.id); invalidatePublicHubCache(); }
+        catch { /* One repair attempt; the durable trip is not written again. */ }
+      });
+    }
+  }
+  invalidatePublicHubCache();
   try {
     await patchEditorTripCatalog([saved]);
-    return { trip: saved };
+    return { trip: saved, ...(publicWarning ? { warning: publicWarning } : {}) };
   } catch {
     afterResponse(async () => {
       try { await patchEditorTripCatalog([saved]); } catch { /* Saved trip remains authoritative; one bounded repair attempt only. */ }
     });
-    return { trip: saved, warning: "遊記已儲存；目錄更新稍有延遲，稍後重新整理即可。" };
+    return { trip: saved, warning: publicWarning || "遊記已儲存；目錄更新稍有延遲，稍後重新整理即可。" };
   }
 }
 
