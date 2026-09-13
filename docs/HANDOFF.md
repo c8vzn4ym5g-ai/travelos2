@@ -7,6 +7,9 @@ General public readers now lead with film (or cover photo), then summary and pho
 Higashiyama adds the reviewed authentic-photo 25-second 720x1280 H264/AAC film and poster as static assets, with download and verified CC0 music credit. Existing promo routes and retry/native playback behavior remain intact. No original travel data mutations.
 
 Local gate: 413 passed, 1 skipped, 0 failed; TypeScript, changed-source lint and production build passed. Chrome 375px visible width: no horizontal overflow, video duration25 and actual playing time advanced, chapter3 anchor reached its photo/story, map absent until opened and removed on close, album displayed all six photos. Deployment acceptance pending. Physical iPhone/network and subjective musical fit remain unverified.
+
+Live acceptance caught a remaining reader defect in release7171a91: a cold detail GET took40,856ms and returned only the loading shell. This invalidates the preceding reading-ready interpretation. Detail page and metadata still called readContent for every trip. Follow-up replaces both with shared cached readPublicTripBySlug: durable public index then selected file only, publishedSnapshot guard, total8-second read budget; storage failures stay errors rather than empty/not-found. Focused11/11 passed; a new process read real Higashiyama3stories/6photos in4,127ms. No originaldata mutation. Follow-up release gate in progress.
+
 ## 2026-09-13 Public library cold-load regression
 
 Owner's iPhone screenshot shows /trips Total 0/Public 0 and indefinite Loading journeys. Warm live reads still returned eleven cards; they do not refute this cold-region failure. Existing public hub cache was memory/region-local, with cold full-trip fanout exceeding the six-second HTML budget.
@@ -927,3 +930,6 @@ Continue the pending items in `docs/Tasks.md` by priority. Do not treat a zero c
 `nLatest local gate before authorization pause: 368 passed, 1 skipped, 0 failed; lint 0 errors/18 warnings; production build (including types) exit0. Added stable photo retry identities, HEIC thumbnail fallback, focused Bench single-moment read and bounded20-second AppsScript RPCs including body/redirect/queue release. Auto-review rejected git staging/commit because it requires explicit commit authorization; Owner question for commit/push/deploy is pending. HEAD remains a7e732a; nothing committed, pushed or deployed. Owned local servers stopped and temporary browser tabs closed; viewport reset. Real Worker acceptance, editorial field application, live vault refresh, music audition and exact synthetic-data cleanup remain pending. Private local mission record lists every known test ID and experiment outcome.
 
 
+
+
+Reading follow-up local release gate:419passed,1skipped,0failed;changed lint and production build/typecheck passed. Await exact Cloudflare deployment and live acceptance.

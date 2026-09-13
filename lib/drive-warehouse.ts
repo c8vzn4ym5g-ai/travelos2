@@ -304,8 +304,8 @@ export async function syncWarehousePublicHubTrip(id: string): Promise<void> {
   if (raw?.ok !== true) throw new DriveWarehouseError("Public hub sync failed");
 }
 
-export function getWarehousePublicHub(): Promise<unknown> {
-  return getJson({ op: "public-hub", token: getDriveWarehouseToken() }, "Public hub GET");
+export function getWarehousePublicHub(request?: DriveFetch): Promise<unknown> {
+  return getJson({ op: "public-hub", token: getDriveWarehouseToken() }, "Public hub GET", request);
 }
 
 export function getWarehouseEditorCatalog(request?: DriveFetch): Promise<unknown> {

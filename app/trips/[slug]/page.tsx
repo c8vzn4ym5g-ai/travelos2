@@ -20,8 +20,7 @@ import { LaplandStorefrontGlance } from "@/components/lapland-storefront-glance"
 import { LaplandVisualPath } from "@/components/lapland-visual-path";
 import { ShareActions } from "@/components/share-actions";
 import { StorefrontHomeLink } from "@/components/storefront-home-link";
-import { readContent } from "@/lib/editable-store";
-import { publishedTrip } from "@/lib/trip-publication";
+import { readPublicTripBySlug } from "@/lib/public-trip";
 import { isLaplandPhoneUserAgent } from "@/lib/lapland-mobile";
 import { publicSiteUrl } from "@/lib/site-url";
 import {
@@ -45,9 +44,7 @@ interface TripDetailPageProps {
   params: Promise<{ slug: string }>;
 }
 
-const loadTripCatalog = cache(async () => {
-    return (await readContent()).content.trips.flatMap(trip => { const visible = publishedTrip(trip); return visible ? [visible] : []; });
-});
+const loadPublicTrip = cache(readPublicTripBySlug);
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
   month: "short",
@@ -166,8 +163,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: TripDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const trips = await loadTripCatalog();
-  const trip = trips.find((item) => item.slug === slug);
+  const trip = await loadPublicTrip(slug);
 
   if (!trip || !isTripPublic(trip)) {
     return {};
@@ -200,8 +196,7 @@ export async function generateMetadata({ params }: TripDetailPageProps): Promise
 
 export default async function TripDetailPage({ params }: TripDetailPageProps) {
   const { slug } = await params;
-  const trips = await loadTripCatalog();
-  const found = trips.find((item) => item.slug === slug);
+  const found = await loadPublicTrip(slug);
 
   if (!found || !isTripPublic(found)) {
     notFound();
@@ -419,3 +414,5 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     </LaplandStorefrontGate>
   );
 }
+
+
