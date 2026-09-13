@@ -8,8 +8,11 @@ Owner explicitly requested a directory first and only the chosen trip loaded. Ed
 
 Catalog is derived private metadata in travelos__editor_catalog.json. Apps Script merges single-row updates under its existing lock and rejects older timestamps. Source trip originals remain authoritative. A saved trip retains its success ACK/version even if catalog update fails, with a warning and one bounded repair attempt. No password, payment, or access change.
 
-Local verification: 403 passed, 1 skipped, 0 failed; TypeScript and production build passed. Tests cover catalog-only requests, exact single-trip selection, timeout, mismatched content rejection, same-lock catalog merge and durable-save ACK preservation. Deployment and live directory/selection/back acceptance are the remaining release gate; do not claim them from local tests.
+Local verification: 403 passed, 1 skipped, 0 failed; TypeScript and production build passed. Tests cover catalog-only requests, exact single-trip selection, timeout, mismatched content rejection, same-lock catalog merge and durable-save ACK preservation. Release code 954a4eaa378f0d3a139120d7ee2eaad89ee86638 deployed through workflow 34729541006; Next/OpenNext and actual Cloudflare deploy passed. Live directory/selection/back acceptance subsequently passed as recorded below.
 
+
+
+Live readback: catalog20rows/3006bytes, sequential reads2525/1489/1624ms; chosen Kyushu1514ms,17entries/80photos. Browser directory contained zero images/textareas, choosing Kyushu displayed body plus19places/7routelegs. Temporary unsaved title survived directory return/reopen (observed392ms); original title restored without cloud save. Independent fresh tab showed original title and all saved, no recovered test draft. Apps ScriptVersion7 uses sameendpoint; exactcatalog source initialization verified against20currenttrips, zero originaltrip edits. User's main Chrome page was subsequently on Bangkok, so root stopped interacting with it and used a separate cleanup tab, then closed only that tab. No user originals or passwords/payments changed. This handoff-only commit does not change deployed application code; skip redundant deployment.
 
 ## 2026-09-13 Final core-flow acceptance (supersedes earlier pending stages)
 
