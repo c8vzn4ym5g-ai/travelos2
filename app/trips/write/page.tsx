@@ -19,14 +19,15 @@ import {
   findFoundSetJob,
   foundSetCommand,
   hasWarehouseFoundSet,
-  momentCalendarDay,
+  momentCalendarDayLabel,
   momentPlaceLabels,
   photosFromMoments,
   warehouseDays,
   warehousePlaces,
 } from "@/lib/moment-index";
 import type { MomentContent } from "@/lib/moment-store";
-import { createTravelJob, momentPhotoPlayUrl } from "@/lib/moments";
+import { createTravelJob, isMomentVideo, momentPhotoPlayUrl } from "@/lib/moments";
+import { loadWritingTrips } from "@/lib/write-trip-load";
 import type { TravelJob, TravelMoment, TripDetail } from "@/lib/types";
 import { selectWriteMoment } from "@/lib/write-moment-target";
 import { loadWriteMoments } from "@/lib/write-moment-load";
@@ -90,6 +91,16 @@ export default function SitAndWritePage() {
     };
   }, [router]);
 
+  const loadTrips = useCallback(async () => {
+    setTripLoadMessage("旅程清單讀取中，照片與文字可以先整理。");
+    try {
+      setTrips(await loadWritingTrips(pinHeaders(pin)));
+      setTripLoadMessage("");
+    } catch {
+      setTripLoadMessage("旅程清單暫時無法讀取。按下方重試，不會清除正在寫的文字。");
+    }
+  }, [pin]);
+
   const load = useCallback(async () => {
     const sessionPin = window.sessionStorage.getItem(FAMILY_ADMIN_SESSION_KEY) ?? pin;
     const parameters = new URLSearchParams(window.location.search);
@@ -97,15 +108,8 @@ export default function SitAndWritePage() {
     const requestedMomentId = parameters.get("moment");
     setLoading(true);
     setMessage(requestedMomentId !== null ? "正在讀取這批照片…" : "正在讀取照片清單…");
-    setTripLoadMessage("旅程清單讀取中，照片與文字可以先整理。");
     // Loading the destination list must not hold back the batch opened from Bench.
-    void fetch("/api/trips/content", { cache: "no-store", headers: pinHeaders(sessionPin) })
-      .then(async response => {
-        if (!response.ok) throw new Error("trip-list-unavailable");
-        const tripData = (await response.json()) as TripsResponse;
-        setTrips(tripData.content.trips);
-        setTripLoadMessage("");
-      }).catch(() => setTripLoadMessage("旅程清單暫時無法讀取；可以先編輯這批照片的文字，稍後重新整理再轉成遊記。"));
+    void loadTrips();
     const momentData = await loadWriteMoments(requestedMomentId, pinHeaders(sessionPin));
     setMoments(momentData.moments);
     setJobs(momentData.jobs);
@@ -120,7 +124,7 @@ export default function SitAndWritePage() {
         ? "照片在旁邊。空白處只放你自己寫的字。工作文字不會當成日記。"
         : "倉庫裡還沒有 Moment。先去 Capture 拍一張。",
     );
-  }, [pin]);
+  }, [pin, loadTrips]);
 
   useEffect(() => {
     if (!authenticated) {
@@ -665,7 +669,7 @@ export default function SitAndWritePage() {
                     onClick={() => openMoment(moment.id)}
                     type="button"
                   >
-                    <span className="block font-semibold">{momentCalendarDay(moment)}</span>
+                    <span className="block font-semibold">{momentCalendarDayLabel(moment)}</span>
                     <span className="mt-1 block text-xs text-zinc-500">
                       {places.length > 0 ? places.join(" · ") : "no place yet"} / {moment.photos.length} photos
                       {moment.note ? ` / ${moment.note}` : ""}
@@ -707,7 +711,7 @@ export default function SitAndWritePage() {
                     return (
                       <figure className={`overflow-hidden rounded-2xl bg-stone-100 ${visible ? "" : "opacity-40"}`} key={photo.id}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img alt="" className="h-40 w-full object-cover" src={momentPhotoPlayUrl(photo.momentId, photo.id)} />
+                        {isMomentVideo(photo) ? <video aria-label={photo.originalFilename} className="h-40 w-full object-contain" controls playsInline preload="none" src={momentPhotoPlayUrl(photo.momentId, photo.id)} /> : <img alt={photo.originalFilename} loading="lazy" className="h-40 w-full object-cover" src={momentPhotoPlayUrl(photo.momentId, photo.id, { variant: "thumb" })} />}
                         <button
                           className="flex min-h-11 w-full items-center justify-center bg-white text-xs font-semibold text-zinc-800"
                           onClick={() => togglePhoto(photo.id)}
@@ -772,6 +776,7 @@ export default function SitAndWritePage() {
               </label>
 
               {tripLoadMessage ? <p aria-live="polite" className="mt-2 text-sm leading-6 text-zinc-600">{tripLoadMessage}</p> : null}
+              {tripLoadMessage.includes("暫時無法") ? <button className="my-2 min-h-11 rounded-full border px-4" onClick={() => void loadTrips()} type="button">重新讀取旅程清單</button> : null}
 
               {attachTripId && distanceReview.length > 0 ? (
                 <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950" role="group" aria-label="確認照片與旅程">

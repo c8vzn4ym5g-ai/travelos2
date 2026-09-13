@@ -1,4 +1,4 @@
-import type { GeoPoint, TravelMoment } from "@/lib/types";
+import type { GeoPoint, MomentPhoto, TravelMoment } from "@/lib/types";
 
 export const TRAVEL_CALENDAR_TIME_ZONE = "Asia/Taipei";
 
@@ -49,17 +49,40 @@ export function shiftCalendarDay(day: string, deltaDays: number) {
   return shifted.toISOString().slice(0, 10);
 }
 
+function verifiedCapture(photo: MomentPhoto) {
+  return photo.captureMetadataStatus === "verified" && photo.captureMetadata?.source === "exif" ? photo.captureMetadata : null;
+}
+
+function verifiedCaptureDays(moment: Pick<TravelMoment, "photos">) {
+  return [...new Set(moment.photos.flatMap(photo => {
+    const local = verifiedCapture(photo)?.localTakenAt;
+    return local ? [local.slice(0, 10)] : [];
+  }))];
+}
+
 export function momentCapturedAt(moment: Pick<TravelMoment, "createdAt" | "photos" | "time">) {
+  const captured = moment.photos.map(verifiedCapture).find(metadata => metadata?.takenAt || metadata?.localTakenAt);
+  if (captured) return captured.takenAt || captured.localTakenAt!;
+  // Legacy records have no verified origin; preserve their fallback without promoting it to EXIF.
   const photoTime = moment.photos.find((photo) => photo.takenAt)?.takenAt;
   return moment.time || photoTime || moment.createdAt;
 }
 
 export function momentCalendarDay(moment: Pick<TravelMoment, "createdAt" | "photos" | "time">) {
+  const captureDays = verifiedCaptureDays(moment);
+  if (captureDays.length > 1) return "多個拍攝日期";
+  if (captureDays.length === 1) return captureDays[0];
+  if (moment.photos.some(photo => verifiedCapture(photo)?.takenAt)) return "拍攝日期待確認";
   return calendarDayInTimeZone(momentCapturedAt(moment));
 }
 
+export function momentCalendarDayLabel(moment: Pick<TravelMoment, "createdAt" | "photos" | "time">) {
+  const day = momentCalendarDay(moment);
+  return verifiedCaptureDays(moment).length || day === "拍攝日期待確認" ? day : `${day}（紀錄時間；拍攝日未確認）`;
+}
+
 export function momentCoordinates(moment: Pick<TravelMoment, "coordinates" | "photos">): GeoPoint | null {
-  const candidates = [moment.coordinates, ...moment.photos.map((photo) => photo.coordinates)];
+  const candidates = [...moment.photos.map(photo => verifiedCapture(photo)?.coordinates), moment.coordinates, ...moment.photos.map((photo) => photo.coordinates)];
   return candidates.find((point) => isUsablePoint(point)) ?? null;
 }
 
@@ -100,25 +123,27 @@ export function placeLabelFromCoordinates(point: GeoPoint, knownPlaces: KnownPla
   return `${point.latitude.toFixed(2)}, ${point.longitude.toFixed(2)}`;
 }
 
-export function momentPlaceLabels(moment: Pick<TravelMoment, "coordinates" | "photos" | "place">) {
+export function momentPlaceLabels(moment: Pick<TravelMoment, "coordinates" | "photos" | "place">, knownPlaces: KnownPlace[] = DEFAULT_KNOWN_PLACES) {
+  const captured = moment.photos.map(photo => verifiedCapture(photo)?.coordinates).filter(isUsablePoint);
+  if (captured.length) return [...new Set(captured.map(point => placeLabelFromCoordinates(point, knownPlaces)))];
   if (moment.place.length > 0) {
     return moment.place;
   }
 
   const coordinates = momentCoordinates(moment);
-  return coordinates ? [placeLabelFromCoordinates(coordinates)] : [];
+  return coordinates ? [placeLabelFromCoordinates(coordinates, knownPlaces)] : [];
 }
 
 export function indexTravelMoment(moment: TravelMoment, knownPlaces: KnownPlace[] = DEFAULT_KNOWN_PLACES): TravelMoment {
   const capturedAt = momentCapturedAt(moment);
   const coordinates = momentCoordinates(moment);
-  const place = moment.place.length > 0 ? moment.place : coordinates ? [placeLabelFromCoordinates(coordinates, knownPlaces)] : [];
+  const place = momentPlaceLabels(moment, knownPlaces);
 
   return {
     ...moment,
     coordinates: coordinates ?? moment.coordinates,
     place,
-    time: moment.time || capturedAt,
+    time: verifiedCaptureDays(moment).length > 1 ? moment.time : capturedAt,
   };
 }
 
@@ -147,7 +172,7 @@ export function warehouseDays(moments: TravelMoment[]) {
 }
 
 export function warehousePlaces(moments: TravelMoment[]) {
-  return [...new Set(moments.flatMap(momentPlaceLabels))].sort((first, second) => first.localeCompare(second));
+  return [...new Set(moments.flatMap(moment => momentPlaceLabels(moment)))].sort((first, second) => first.localeCompare(second));
 }
 
 export function hasWarehouseFoundSet(filters: { day?: string; place?: string }) {

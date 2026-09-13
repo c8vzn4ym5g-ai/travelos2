@@ -10,8 +10,10 @@ export function FamilyBackLink({
   href: string;
 }) {
   return (
-    <a className={`fam-back ${className}`.trim()} href={href}>
-      {children}
-    </a>
+    <form action={href} className="inline-flex" method="get">
+      <button className={`fam-back ${className}`.trim()} type="submit">
+        {children}
+      </button>
+    </form>
   );
 }

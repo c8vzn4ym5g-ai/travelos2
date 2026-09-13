@@ -1,4 +1,4 @@
-import { isMomentVideo } from "./moments.ts";
+import { driveFileIdFromStorageKey, isMomentVideo, momentPhotoPlayUrl } from "./moments.ts";
 import type { JournalEntry, MomentPhoto, Photo, TripDetail } from "./types.ts";
 
 /** Manual destination only. Preserve source references and never turn upload time into a memory. */
@@ -11,9 +11,11 @@ export function transferWritingToTrip(input: { trip: TripDetail; photos: MomentP
     const existing = photos.find((photo) => photo.id === source.id || photo.storageKey === source.storageKey || (photo.sourceMomentId === source.momentId && photo.sourcePhotoId === source.id));
     if (existing) { selectedIds.push(existing.id); continue; }
     const capture = source.captureMetadataStatus === "verified" && source.captureMetadata?.source === "exif" ? source.captureMetadata : null;
+    const fileId = driveFileIdFromStorageKey(source.storageKey);
     const photo: Photo = {
-      id: source.id, tripId: trip.id, storageKey: source.storageKey,
-      originalStorageKey: source.originalStorageKey, originalFilename: source.originalFilename,
+      id: source.id, tripId: trip.id,
+      storageKey: fileId ? momentPhotoPlayUrl(source.momentId, source.id, { fileId, variant: "thumb" }) : source.storageKey,
+      originalStorageKey: source.originalStorageKey || source.storageKey, originalFilename: source.originalFilename,
       sourceMomentId: source.momentId, sourcePhotoId: source.id,
       caption: null, takenAt: capture?.takenAt ?? null, coordinates: capture?.coordinates ?? null,
       cameraMake: null, cameraModel: null, createdAt: source.createdAt,

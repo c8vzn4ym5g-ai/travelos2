@@ -33,3 +33,28 @@ test("multiple capture days or missing capture evidence leave event date undecid
   assert.equal(result.journalEntries[0].entryDate, "");
   assert.equal(result.photos.length, 2);
 });
+
+test("Drive HEIC transfer displays a thumbnail while keeping the source original", () => {
+  const source = { ...photo, storageKey: "drive:heic-file", originalStorageKey: null };
+  const result = transferWritingToTrip({ ...input, photos: [source] });
+  const transferred = result.photos[0];
+  const url = new URL(transferred.storageKey, "https://travelos.test");
+  assert.equal(url.pathname, "/api/moments/photos");
+  assert.equal(url.searchParams.get("momentId"), "batch");
+  assert.equal(url.searchParams.get("photoId"), "source");
+  assert.equal(url.searchParams.get("variant"), "thumb");
+  assert.equal(url.searchParams.get("file"), "heic-file");
+  assert.equal(transferred.originalStorageKey, "drive:heic-file");
+  assert.equal(source.storageKey, "drive:heic-file");
+  const again = transferWritingToTrip({ ...input, trip: result, photos: [source] });
+  assert.equal(again.photos.length, 1);
+  assert.equal(again.journalEntries[0].storyPhotoId, transferred.id);
+});
+
+test("separate preserved original survives thumbnail conversion and web images retain their URL", () => {
+  const result = transferWritingToTrip({ ...input, photos: [{ ...photo, storageKey: "drive:display-jpeg", originalStorageKey: "drive:source-heic" }] });
+  assert.equal(result.photos[0].originalStorageKey, "drive:source-heic");
+  const web = transferWritingToTrip({ ...input, photos: [{ ...photo, storageKey: "https://example.test/display.jpg", originalStorageKey: null }] });
+  assert.equal(web.photos[0].storageKey, "https://example.test/display.jpg");
+  assert.equal(web.photos[0].originalStorageKey, "https://example.test/display.jpg");
+});
