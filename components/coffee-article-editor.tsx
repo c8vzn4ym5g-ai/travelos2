@@ -1,5 +1,5 @@
 "use client";
-import Link from 'next/link';
+
 import {useState} from 'react';
 import type {CoffeeShop} from '@/lib/types';
 
@@ -7,7 +7,7 @@ export function CoffeeArticleEditor({shop,onChange,onSave,onAdvanced,busy,messag
   const [reading,setReading]=useState(false);
   const field='w-full min-w-0 rounded-xl border border-stone-200 bg-white/50 p-3 text-inherit outline-none focus:border-teal-700';
   return <main className="min-h-screen bg-[#f7f4ed] pb-16 text-[#283d33]">
-    <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 bg-[#f7f4ed]/95 px-4 py-3 backdrop-blur"><Link className="inline-flex min-h-11 items-center" href="/coffee/admin?view=list">← 咖啡記事</Link><div className="flex flex-wrap gap-2"><button className="min-h-11 rounded-full border border-stone-300 px-4" type="button" onClick={()=>setReading(!reading)}>{reading?'返回編輯':'閱讀效果'}</button><button className="min-h-11 rounded-full bg-[#285447] px-5 text-white disabled:opacity-50" type="button" onClick={onSave} disabled={busy}>{busy?'儲存中…':'儲存修改'}</button></div></header>
+    <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 bg-[#f7f4ed]/95 px-4 py-3 backdrop-blur"><a className="inline-flex min-h-11 items-center" href="/coffee/admin?view=list">← 咖啡記事</a><div className="flex flex-wrap gap-2"><button className="min-h-11 rounded-full border border-stone-300 px-4" type="button" onClick={()=>setReading(!reading)}>{reading?'返回編輯':'閱讀效果'}</button><button className="min-h-11 rounded-full bg-[#285447] px-5 text-white disabled:opacity-50" type="button" onClick={onSave} disabled={busy}>{busy?'儲存中…':'儲存修改'}</button></div></header>
     <article className="mx-auto max-w-3xl px-5 py-8 sm:px-8 sm:py-12">
       <div className="mb-5 flex flex-wrap justify-between gap-3 text-sm text-stone-500"><span>{shop.city} · 咖啡記事{shop.visibility==='private'?' · 草稿':''}</span><span role="status">{message}</span></div>
       {reading?<h1 className="mb-7 whitespace-pre-wrap break-words font-serif text-3xl leading-snug sm:text-5xl">{shop.name}</h1>:<textarea aria-label="文章標題" className={`${field} mb-7 font-serif text-3xl leading-snug sm:text-4xl`} rows={2} value={shop.name} onChange={e=>onChange({...shop,name:e.target.value})}/>}
@@ -21,3 +21,4 @@ export function CoffeeArticleEditor({shop,onChange,onSave,onAdvanced,busy,messag
     </article>
   </main>;
 }
+
