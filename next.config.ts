@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   ...(process.env.TRAVELOS_PACKAGE_ONLY === "1" ? {
+    output: "standalone",
     typescript: { ignoreBuildErrors: true },
     eslint: { ignoreDuringBuilds: true },
   } : {}),
