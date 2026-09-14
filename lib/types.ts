@@ -48,6 +48,9 @@ export interface Trip extends TimestampedRecord {
   city: string;
   startDate: string;
   endDate: string;
+  publicDateLabel?: string;
+  showEntryDates?: boolean;
+  closingNote?: string;
   coverPhotoId: string | null;
   visibility: TravelVisibility;
   series?: string | null;
@@ -87,6 +90,7 @@ export interface JournalEntry extends TimestampedRecord {
 }
 
 export interface Photo {
+  mimeType?: string;
   id: string;
   tripId: string;
   storageKey: string;

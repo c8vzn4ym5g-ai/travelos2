@@ -686,9 +686,9 @@ function parseDriveAccess(raw: unknown): DriveAccess | null {
   };
 }
 
-export async function getDriveAccess(request?: DriveFetch, refresh = false): Promise<DriveAccess | null> {
+export async function getDriveAccess(request?: DriveFetch, refresh = false, sharedCache = !request): Promise<DriveAccess | null> {
   if (refresh) cachedDriveAccess = null;
-  if (!request && !testFetch && cachedDriveAccess && cachedDriveAccess.exp > Date.now()) {
+  if (sharedCache && !testFetch && cachedDriveAccess && cachedDriveAccess.exp > Date.now()) {
     return cachedDriveAccess.access;
   }
   const raw = await getJson(
@@ -698,7 +698,7 @@ export async function getDriveAccess(request?: DriveFetch, refresh = false): Pro
     { allowNotFound: true },
   );
   const parsed = parseDriveAccess(raw);
-  if (parsed && !request && !testFetch) {
+  if (parsed && sharedCache && !testFetch) {
     cachedDriveAccess = { access: parsed, exp: Date.now() + DRIVE_ACCESS_TTL_MS };
   }
   return parsed;

@@ -7,11 +7,28 @@ import { readEditorTripRecord } from "@/lib/editor-trip-read";
 import { seedTripDetails } from "@/lib/trips";
 import { isBlobConfigured } from "@/lib/editable-store";
 import { prepareTripSave } from "@/lib/trip-publication";
+import { readEditorTripCatalog } from "@/lib/editor-trip-catalog";
 
 export const runtime = "nodejs";
 
 function tripError(error: unknown, fallback: string) {
   return error instanceof Error && error.message.trim() ? error.message : fallback;
+}
+
+async function addressConflict(trip: TripDetail, creating: boolean) {
+  const catalog = await readEditorTripCatalog();
+  const known = [...catalog, ...seedTripDetails];
+  if (known.some(item => (creating && item.id === trip.id) || (item.id !== trip.id && item.slug === trip.slug))) {
+    return "Another trip already uses this address";
+  }
+  // New templates reserve the UUID-derived address; legacy free-form addresses
+  // cannot be proven unique when the deployed catalog omits their slugs.
+  const generated = /^trip_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(trip.id)
+    && trip.slug === trip.id.replaceAll("_", "-");
+  if (!generated && catalog.some(item => item.id !== trip.id && !item.slug)) {
+    return "目錄尚未提供完整遊記網址；請保留原網址後儲存。";
+  }
+  return null;
 }
 
 export async function GET(request: Request) {
@@ -60,20 +77,19 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (!isBlobConfigured()) {
+      const conflict = await addressConflict(body.trip, true);
+      if (conflict) return Response.json({ error: conflict }, { status: 409 });
+      if (await readEditorTripRecord(body.trip.id)) return Response.json({ error: "A trip with this ID already exists" }, { status: 409 });
+      const { trip, warning } = await saveDriveTripWithCatalog({ ...body.trip, visibility: "private", publishedSnapshot: undefined });
+      return Response.json({ trip, ...(warning ? { warning } : {}) });
+    }
     const { content } = await readContent();
     if (content.trips.some((trip) => trip.id === body.trip?.id || trip.slug === body.trip?.slug)) {
       return Response.json({ error: "A trip with this title/address already exists" }, { status: 409 });
     }
 
     const newDraft = { ...body.trip, visibility: "private" as const, publishedSnapshot: undefined };
-    if (!isBlobConfigured()) {
-      const { trip: savedTrip, warning } = await saveDriveTripWithCatalog(newDraft);
-      return Response.json({
-        content: { ...content, trips: [savedTrip, ...content.trips], updatedAt: savedTrip.updatedAt },
-        trip: savedTrip,
-        ...(warning ? { warning } : {}),
-      });
-    }
     const savedContent = await writeContent([newDraft, ...content.trips]);
     return Response.json({ content: savedContent, trip: newDraft });
   } catch (error) {
@@ -93,6 +109,20 @@ export async function PUT(request: Request) {
   }
 
   try {
+    if (!isBlobConfigured()) {
+      const current = await readEditorTripRecord(body.trip.id) ?? seedTripDetails.find(item => item.id === body.trip!.id);
+      if (!current) return Response.json({ error: "Trip not found" }, { status: 404 });
+      if (body.baseUpdatedAt && current.updatedAt !== body.baseUpdatedAt) {
+        return Response.json({ error: "家人已更新這篇游記。你的修改仍保留，請先對照最新版本再儲存。" }, { status: 409 });
+      }
+      if (current.slug !== body.trip.slug) {
+        const conflict = await addressConflict(body.trip, false);
+        if (conflict) return Response.json({ error: conflict }, { status: 409 });
+      }
+      const draft = prepareTripSave(current, { ...body.trip, updatedAt: new Date().toISOString() }, body.publish === true);
+      const { trip, warning } = await saveDriveTripWithCatalog(draft);
+      return Response.json({ trip, ...(warning ? { warning } : {}) });
+    }
     const { content } = await readContent();
     if (!content.trips.some((trip) => trip.id === body.trip?.id)) {
       return Response.json({ error: "Trip not found" }, { status: 404 });
@@ -107,16 +137,6 @@ export async function PUT(request: Request) {
     }
 
     const updatedTrip = prepareTripSave(current!, { ...body.trip, updatedAt: new Date().toISOString() }, body.publish === true);
-    if (!isBlobConfigured()) {
-      const { trip: savedTrip, warning } = await saveDriveTripWithCatalog(updatedTrip);
-      const trips = content.trips.map((trip) => (trip.id === savedTrip.id ? savedTrip : trip));
-      await cachePublicHubTrips(trips);
-      return Response.json({
-        content: { ...content, trips, updatedAt: savedTrip.updatedAt },
-        trip: savedTrip,
-        ...(warning ? { warning } : {}),
-      });
-    }
 
     const trips = content.trips.map((trip) => (trip.id === updatedTrip.id ? updatedTrip : trip));
     const savedContent = await writeContent(trips);

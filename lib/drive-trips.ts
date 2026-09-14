@@ -172,11 +172,11 @@ function tripFileName(tripId: string) {
  */
 export async function readDriveTrip(tripId: string, request?: typeof fetch, timeoutMs?: number): Promise<TripDetail | null> {
   if (!/^trip_[a-zA-Z0-9_-]+$/.test(tripId) || heldTripIdSet.has(tripId)) return null;
-  return withDriveReadBudget(request, (read) => readDriveTripWithinBudget(tripId, read), timeoutMs);
+  return withDriveReadBudget(request, (read) => readDriveTripWithinBudget(tripId, read, !request), timeoutMs);
 }
 
-async function readDriveTripWithinBudget(tripId: string, request: typeof fetch): Promise<TripDetail | null> {
-  const access = await getDriveAccess(request);
+async function readDriveTripWithinBudget(tripId: string, request: typeof fetch, sharedAccessCache: boolean): Promise<TripDetail | null> {
+  const access = await getDriveAccess(request, false, sharedAccessCache);
   if (!access) throw new Error("家庭儲存暫時無法連接，請稍後再試。");
   const read = request ?? fetch;
   const name = tripFileName(tripId);

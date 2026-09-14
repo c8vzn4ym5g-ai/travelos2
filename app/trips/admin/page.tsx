@@ -25,7 +25,8 @@ import {
 } from "@/lib/editor-local-draft";
 import { FAMILY_ADMIN_SESSION_KEY, familyPinHeaders, resolveFamilySession } from "@/lib/family-session";
 import { canonicalSiteUrl, isSpareVercelHost } from "@/lib/site-url";
-import { getTripPromoVideos } from "@/lib/promo-videos";
+import { journeyVideos } from "@/lib/journey-videos";
+import { PhotoStoryFilm } from "@/components/photo-story-film";
 import { formatEditorTripPickerLabel } from "@/lib/editor-trip-label";
 import { formatCalendarDate, formatJournalDate, formatPhotoDate } from "@/lib/editor-calendar-date";
 import { isTripPhotoVideo } from "@/lib/trip-photo";
@@ -343,7 +344,7 @@ export default function TravelAdminPage() {
   }).sort(compareTripsByStartDateDesc), [catalog, trips]);
   const activeTrip = trips.find((trip) => trip.id === activeTripId) ?? null;
   const selectedPhoto = activeTrip?.photos.find((photo) => photo.id === selectedPhotoId) ?? activeTrip?.photos[0] ?? null;
-  const promoVideos = activeTrip ? getTripPromoVideos(activeTrip.slug) : [];
+  const promoVideos = activeTrip ? journeyVideos(activeTrip) : [];
   const pickerPhotos = useMemo(() => {
     if (!activeTrip || !pickerTarget) return [];
     const usedPhotoIds = new Set(activeTrip.journalEntries.map((entry) => entry.storyPhotoId).filter(Boolean));
@@ -489,42 +490,35 @@ export default function TravelAdminPage() {
   async function uploadPhoto(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!activeTrip) return;
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    const file = formData.get("file");
-    if (!(file instanceof File) || file.size === 0) return;
-    setUploading(true);
-    setUploadProgress(0);
-    setMessage("正在放入原始照片…");
+    const form=event.currentTarget;
+    const original=new FormData(form);
+    const files=original.getAll("file").filter((file):file is File=>file instanceof File&&file.size>0);
+    if(!files.length)return;
+    setUploading(true);setUploadProgress(0);
+    let completed=0;
     try {
-      const submitted = tripsRef.current;
-      const drafts = trips.filter((trip) => dirtyTripIds.has(trip.id));
-      if (drafts.length > 0) await persistTrips(drafts);
-      formData.set("tripId", activeTrip.id);
-      const data = await uploadTripPhotoWithProgress(formData, sessionPin(pin), setUploadProgress);
-      const reconciled = reconcileUploadedPhoto(tripsRef.current, submitted, data.content.trips, activeTrip.id, data.photo.id);
-      tripsRef.current = reconciled.trips;
-      setTrips(reconciled.trips);
-      rememberEditorLibrary(sessionPin(pin), data.content.trips, "drive");
-      const remoteTrip = data.content.trips.find(trip => trip.id === activeTrip.id);
-      if (remoteTrip) baseVersionsRef.current.set(remoteTrip.id, remoteTrip.updatedAt);
-      setSelectedPhotoId(data.photo.id);
-      for (const trip of drafts) {
-        if (reconciled.acknowledged.includes(trip.id)) clearTripLocalDraft(trip.id);
+      const drafts=tripsRef.current.filter(trip=>dirtyTripIdsRef.current.has(trip.id));
+      if(drafts.length) await persistTrips(drafts);
+      for(const file of files){
+        setMessage(`正在放入素材 ${completed+1} / ${files.length}：${file.name}`);
+        const submitted=tripsRef.current;
+        const payload=new FormData();payload.set('tripId',activeTrip.id);payload.set('file',file);
+        const data=await uploadTripPhotoWithProgress(payload,sessionPin(pin),setUploadProgress);
+        const reconciled=reconcileUploadedPhoto(tripsRef.current,submitted,data.content.trips,activeTrip.id,data.photo.id);
+        tripsRef.current=reconciled.trips;setTrips(reconciled.trips);
+        rememberSavedEditorTrips(sessionPin(pin),data.content.trips);
+        const remoteTrip=data.content.trips.find(trip=>trip.id===activeTrip.id);
+        if(remoteTrip)baseVersionsRef.current.set(remoteTrip.id,remoteTrip.updatedAt);
+        setSelectedPhotoId(data.photo.id);
+        for(const id of reconciled.acknowledged)clearTripLocalDraft(id);
+        setDirtyTripIds(current=>new Set([...current].filter(id=>!reconciled.acknowledged.includes(id))));
+        setRecoveredTripIds(current=>current.filter(id=>!reconciled.acknowledged.includes(id)));
+        completed++;
       }
-      setDirtyTripIds(current => new Set([...current].filter(id => !reconciled.acknowledged.includes(id))));
-      setRecoveredTripIds(current => current.filter(id => !reconciled.acknowledged.includes(id)));
-      setStoreSource("drive");
-      form.reset();
-      setMessage("照片已保留原檔並放入這個行程。沒有壓縮或轉格式。");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "照片上傳失敗。");
-    } finally {
-      setUploading(false);
-      setUploadProgress(null);
-    }
+      setStoreSource('drive');form.reset();setMessage(`已放入 ${completed} 個原始素材。回到版面後，可按「依素材整理初稿」。`);
+    } catch(error){setMessage(`已放入 ${completed} / ${files.length} 個素材。${error instanceof Error?error.message:'其餘尚未放入，請再試一次。'}`);}
+    finally{setUploading(false);setUploadProgress(null);}
   }
-
   async function startRecording(entryId: string) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -728,7 +722,7 @@ export default function TravelAdminPage() {
 
             {tab === "photos" ? (
               <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-                <div><form className="rounded-3xl border border-dashed border-sky-200 bg-white p-5" onSubmit={uploadPhoto}><h2 className="travel-display text-2xl font-semibold">少了照片才從這裡補</h2><p className="mt-2 text-sm text-zinc-600">選擇照片，補進這段旅程。</p><div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end"><input accept="image/*" className={`${inputClass} file:mr-3 file:rounded-full file:border-0 file:bg-sky-800 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white`} name="file" required type="file" /><button className={primaryButtonClass} disabled={uploading} type="submit">{uploading ? `放入中 ${uploadProgress ?? 0}%` : "放入原始照片"}</button></div></form>
+                <div><form className="rounded-3xl border border-dashed border-sky-200 bg-white p-5" onSubmit={uploadPhoto}><h2 className="travel-display text-2xl font-semibold">素材收集區</h2><p className="mt-2 text-sm text-zinc-600">照片與影片可以一次選多個；先放進來，再回版面整理。</p><div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end"><input accept="image/*,video/*" multiple className={`${inputClass} file:mr-3 file:rounded-full file:border-0 file:bg-sky-800 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white`} name="file" required type="file" /><button className={primaryButtonClass} disabled={uploading} type="submit">{uploading ? `放入中 ${uploadProgress ?? 0}%` : "放入這批素材"}</button></div></form>
                   <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                     {activeTrip.photos.map((photo, index) => {
                       const selected = selectedPhoto?.id === photo.id;
@@ -776,11 +770,11 @@ export default function TravelAdminPage() {
               </section>
             ) : null}
 
-            {tab === "videos" ? <section className="mt-5">{promoVideos.length > 0 ? <ShortVideoGallery videos={promoVideos} /> : <div className="rounded-3xl border border-dashed border-sky-200 bg-white p-8 text-center text-zinc-600">這個行程目前沒有短片草稿。</div>}</section> : null}
+            {tab === "videos" ? <section className="mt-5"><button type="button" className={secondaryButtonClass} onClick={()=>setTab("photos")}>放入影片或照片</button><PhotoStoryFilm photos={activeTrip.photos.filter(photo=>!isTripPhotoVideo(photo))} />{promoVideos.length > 0 ? <ShortVideoGallery videos={promoVideos} /> : <div className="rounded-3xl border border-dashed border-sky-200 bg-white p-8 text-center text-zinc-600">還沒有影片也可以，先用照片播放小影集。</div>}</section> : null}
 
             {tab === "details" ? <section className="mt-5 rounded-3xl border border-sky-100 bg-white p-5 shadow-sm sm:p-7"><h2 className="travel-display text-2xl font-semibold">系統整理好的行程資料</h2><p className="mt-2 text-sm leading-6 text-zinc-600">這些只是背景資訊。看草稿、寫感想時不需要填。</p><dl className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><div className="rounded-2xl bg-sky-50 p-4"><dt className="text-xs font-semibold text-zinc-500">時間</dt><dd className="mt-1 font-semibold">{formatDate(activeTrip.startDate)}－{formatDate(activeTrip.endDate)}</dd></div><div className="rounded-2xl bg-sky-50 p-4"><dt className="text-xs font-semibold text-zinc-500">地方</dt><dd className="mt-1 font-semibold">{activeTrip.city}・{activeTrip.country}</dd></div><div className="rounded-2xl bg-sky-50 p-4"><dt className="text-xs font-semibold text-zinc-500">狀態</dt><dd className="mt-1 font-semibold">{isTripPublic(activeTrip) ? "公開" : "私人草稿"}</dd></div><div className="rounded-2xl bg-sky-50 p-4"><dt className="text-xs font-semibold text-zinc-500">系統整理</dt><dd className="mt-1 font-semibold">{activeTrip.places.length} 個地點・{(activeTrip.travelRoute ?? []).length} 段路線</dd></div></dl><details className="mt-6 rounded-2xl border border-sky-100 p-4"><summary className="min-h-11 cursor-pointer py-2 font-semibold text-sky-900">真的需要時才修改基本資料</summary><div className="mt-4 grid gap-4 sm:grid-cols-2"><Field label="行程名稱" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, title: value }))} value={activeTrip.title} /><Field label="公開網址名稱" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, slug: value }))} value={activeTrip.slug} /><Field label="城市" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, city: value }))} value={activeTrip.city} /><Field label="國家" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, country: value }))} value={activeTrip.country} /><Field label="開始日期" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, startDate: value }))} type="date" value={toDateInput(activeTrip.startDate)} /><Field label="結束日期" onChange={(value) => updateActiveTrip((trip) => ({ ...trip, endDate: value }))} type="date" value={toDateInput(activeTrip.endDate)} /><label className="block sm:col-span-2"><span className="travel-label text-sm font-semibold text-zinc-700">行程簡介</span><textarea className={`${inputClass} min-h-28`} onChange={(event) => updateActiveTrip((trip) => ({ ...trip, summary: event.target.value }))} value={activeTrip.summary} /></label><p className="text-sm leading-7 text-zinc-600 sm:col-span-2">儲存只更新家庭草稿。完成後，請使用上方「公開這篇遊記」或「更新公開版」。</p></div></details></section> : null}
           </div>
-        ) : activeTripId ? <div className="rounded-3xl border border-sky-100 bg-white p-8 text-center"><h2 className="travel-display text-2xl font-semibold">{tripLoadError ? "這篇遊記暫時未能載入" : "正在讀取這篇遊記…"}</h2>{tripLoadError ? <button className={`${primaryButtonClass} mt-4`} type="button" onClick={() => setTripReadAttempt(value => value + 1)}>重新讀取這篇</button> : null}</div> : <div><h2 className="travel-display mb-4 text-2xl font-semibold">遊記目錄</h2><div className="grid gap-3 sm:grid-cols-2">{sortedTrips.map(trip => <button key={trip.id} type="button" className="min-w-0 rounded-3xl border border-sky-100 bg-white p-5 text-left shadow-sm hover:bg-sky-50" onClick={() => { setTripLoadError(false); setActiveTripId(trip.id); }}><span className="block break-words text-lg font-semibold">{trip.title}</span><span className="mt-2 block text-sm text-zinc-600">{formatDate(trip.startDate)}</span></button>)}</div>{catalog.length === 0 ? <p>目前沒有行程。</p> : null}</div>}
+        ) : activeTripId ? <div className="rounded-3xl border border-sky-100 bg-white p-8 text-center"><h2 className="travel-display text-2xl font-semibold">{tripLoadError ? "這篇遊記暫時未能載入" : "正在讀取這篇遊記…"}</h2>{tripLoadError ? <button className={`${primaryButtonClass} mt-4`} type="button" onClick={() => setTripReadAttempt(value => value + 1)}>重新讀取這篇</button> : null}</div> : <div><div className="jt-actions"><h2 className="travel-display mb-4 text-2xl font-semibold">遊記目錄</h2><Link href="/trips/new" prefetch={false} className={primaryButtonClass}>＋ 開一本遊記</Link></div><div className="grid gap-3 sm:grid-cols-2">{sortedTrips.map(trip => <button key={trip.id} type="button" className="min-w-0 rounded-3xl border border-sky-100 bg-white p-5 text-left shadow-sm hover:bg-sky-50" onClick={() => { setTripLoadError(false); setActiveTripId(trip.id); }}><span className="block break-words text-lg font-semibold">{trip.title}</span><span className="mt-2 block text-sm text-zinc-600">{formatDate(trip.startDate)}</span></button>)}</div>{catalog.length === 0 ? <p>目前沒有行程。</p> : null}</div>}
 
         {activeTrip ? <EditorLivePreview trip={activeTrip} /> : null}
         <p aria-live="polite" className="editor-status mt-6 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-zinc-600 shadow-sm">{message}<span className="ml-2 text-xs font-normal text-zinc-400">{storeSource === "blob" ? "雲端工作台" : storeSource === "drive" ? "家庭共用儲存" : "初始內容"}</span></p>

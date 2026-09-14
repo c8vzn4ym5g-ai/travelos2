@@ -33,7 +33,7 @@ export function JourneyLibrary({ trips, home = false }: { trips: HubTripCard[]; 
       <div className="jl-grid">{shown.map((trip, index) => <article className="jl-card" key={trip.id}>
         <Link prefetch={false} href={href(trip)} onClick={remember} aria-label={`閱讀 ${trip.title}`}>
           <div className="jl-card-image">{trip.coverPhoto ? <img src={trip.coverPhoto.storageKey} alt={trip.coverPhoto.caption || trip.title} loading={index < 2 && !home ? "eager" : "lazy"} decoding="async" /> : <span>Travel journal</span>}<span className="jl-card-arrow" aria-hidden="true">↗</span></div>
-          <div className="jl-card-copy"><p className="jl-eyebrow">{trip.country} · {trip.city}</p><h3>{trip.title}</h3><p className="jl-card-summary">{trip.summary}</p><div className="jl-card-foot"><span>{trip.startDate ? trip.startDate.slice(0, 7).replace("-", " / ") : "旅途記憶"}</span><span>閱讀故事 →</span></div></div>
+          <div className="jl-card-copy"><p className="jl-eyebrow">{trip.country} · {trip.city}</p><h3>{trip.title}</h3><p className="jl-card-summary">{trip.summary}</p><div className="jl-card-foot"><span>旅途記憶</span><span>閱讀故事 →</span></div></div>
         </Link>
       </article>)}</div>
       {shown.length === 0 ? <div className="jl-empty"><h3>還沒找到這段旅程</h3><p>換個城市名稱，或看看全部收藏。</p><button className="jl-button" onClick={() => { setCountry("全部"); setQuery(""); }} type="button">查看全部旅程</button></div> : null}
