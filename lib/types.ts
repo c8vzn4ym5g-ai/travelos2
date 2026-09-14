@@ -178,6 +178,7 @@ export type CoffeeMood =
   | "other";
 
 export interface CoffeePhoto {
+  mimeType?: string | null;
   id: string;
   coffeeShopId: string;
   storageKey: string;
@@ -189,6 +190,12 @@ export interface CoffeePhoto {
 
 export interface CoffeeShop extends TimestampedRecord {
   visibility?: "public" | "private";
+  journalEntries?: JournalEntry[];
+  closingNote?: string;
+  publicDateLabel?: string;
+  showEntryDates?: boolean;
+  coverPhotoId?: string | null;
+  publishedSnapshot?: Omit<CoffeeShop, "publishedSnapshot">;
   id: string;
   userId: string;
   name: string;

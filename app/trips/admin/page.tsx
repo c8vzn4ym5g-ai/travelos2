@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { JOURNAL_ENTRY_KINDS, journalEntryKind } from "@/lib/journal-entry-kind";
 import { EditorLivePreview } from "@/components/editor-live-preview";
+import { CategoryCatalog } from "@/components/category-catalog";
 import { VisualJournalEditor } from "@/components/visual-journal-editor";
 import { JournalReader } from "@/components/journal-reader";
 import { EditorCover } from "@/components/editor-cover";
@@ -172,7 +173,13 @@ function uploadTripPhotoWithProgress(formData: FormData, pin: string, onProgress
   });
 }
 
-export default function TravelAdminPage() {
+export default function TravelAdminPage(){
+  const [selection,setSelection]=useState<string|null|undefined>(undefined);
+  useEffect(()=>setSelection(new URLSearchParams(window.location.search).get('trip')),[]);
+  if(selection===undefined)return <p className="p-8" role="status">正在開啟旅行故事…</p>;
+  return selection?<TravelAdminEditor/>:<CategoryCatalog category="trips" initialMode="edit"/>;
+}
+function TravelAdminEditor() {
   const router = useRouter();
   const [pin, setPin] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
@@ -620,7 +627,7 @@ export default function TravelAdminPage() {
     return <main className="travel-body grid min-h-screen place-items-center bg-[#f8f3ea] px-6 text-zinc-950"><div className="max-w-md text-center"><h1 className="travel-display text-2xl font-semibold">行程暫時未能載入</h1><p role="alert" className="mt-3 leading-7">這次讀取未完成，並不代表沒有行程。請重新讀取。</p><button className={`${primaryButtonClass} mt-6`} type="button" onClick={() => void loadContent().catch(() => { setLoadFailed(true); setLoading(false); })}>重新讀取行程</button><Link className={`${secondaryButtonClass} mt-4`} href="/family">← 家庭入口</Link></div></main>;
   }
 
-  if (activeTrip && !advancedEditor) return <VisualJournalEditor key={activeTrip.id} trip={activeTrip} onChange={next=>updateActiveTrip(()=>next)} onSave={()=>void saveAllChanges()} onPublish={()=>void publishActiveTrip()} onLibrary={()=>{flushLocalDrafts();setActiveTripId(null);}} onAdvanced={nextTab=>{editorScrollRef.current=window.scrollY;setTab(nextTab);setAdvancedEditor(true);window.scrollTo(0,0);}} dirty={dirtyTripIds.has(activeTrip.id)} busy={saving||uploading} message={message} />;
+  if (activeTrip && !advancedEditor) return <VisualJournalEditor key={activeTrip.id} trip={activeTrip} onChange={next=>updateActiveTrip(()=>next)} onSave={()=>void saveAllChanges()} onPublish={()=>void publishActiveTrip()} onLibrary={()=>{flushLocalDrafts();window.location.assign("/trips?mode=edit");}} onAdvanced={nextTab=>{editorScrollRef.current=window.scrollY;setTab(nextTab);setAdvancedEditor(true);window.scrollTo(0,0);}} dirty={dirtyTripIds.has(activeTrip.id)} busy={saving||uploading} message={message} />;
 
   if ((draftPreview || publishedPreview) && activeTrip) {
     return <JournalReader trip={publishedPreview ? publishedTrip(activeTrip) ?? activeTrip : activeTrip} previewLabel={publishedPreview ? "目前公開版" : "工作稿 · 尚未公開"} onBack={() => {
@@ -638,7 +645,7 @@ export default function TravelAdminPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Link className={secondaryButtonClass} href="/family">← 家庭入口</Link>
             {advancedEditor && activeTrip ? <button className={primaryButtonClass} type="button" onClick={()=>{setAdvancedEditor(false);requestAnimationFrame(()=>window.scrollTo(0,editorScrollRef.current));}}>← 回到版面編輯</button> : null}
-            {activeTripId ? <button className={secondaryButtonClass} type="button" onClick={() => { flushLocalDrafts(); setActiveTripId(null); }}>← 遊記目錄</button> : null}
+            {activeTripId ? <button className={secondaryButtonClass} type="button" onClick={() => { flushLocalDrafts(); window.location.assign("/trips?mode=edit"); }}>← 遊記目錄</button> : null}
             {activeTrip ? <><button className={secondaryButtonClass} onClick={() => { editorScrollRef.current = window.scrollY; setDraftPreview(true); window.scrollTo(0, 0); }} type="button">預覽工作稿</button>
             {isTripPublic(activeTrip) ? <button type="button" className={secondaryButtonClass} onClick={() => { flushLocalDrafts(); editorScrollRef.current = window.scrollY; setPublishedPreview(true); window.scrollTo(0, 0); }}>查看目前公開版</button> : <span className="rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-zinc-600">私人草稿</span>}</> : null}
           </div>
@@ -785,4 +792,5 @@ export default function TravelAdminPage() {
     </main>
   );
 }
+
 

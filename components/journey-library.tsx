@@ -40,9 +40,11 @@ export function JourneyLibrary({ trips, home = false }: { trips: HubTripCard[]; 
     </section>
   </>;
 }
-export function JournalHeader({ home = false }: { home?: boolean }) {
-  return <header className="jl-header"><Link href="/" prefetch={false} className="jl-brand">TravelOS<span>旅途 · 日常 · 記憶</span></Link><nav aria-label="主導覽"><Link href="/trips" prefetch={false} aria-current={!home ? "page" : undefined}>旅行故事</Link><Link href="/coffee" prefetch={false}>咖啡時光</Link><Link className="jl-edit-link" href="/family" prefetch={false}>家庭編輯 ↗</Link></nav></header>;
+export function JournalHeader({ home = false, category = "trips" }: { home?: boolean; category?: "trips" | "coffee" | "food" }) {
+  return <header className="jl-header"><Link href="/" prefetch={false} className="jl-brand">TravelOS<span>旅途 · 日常 · 記憶</span></Link><nav aria-label="主導覽"><Link href="/trips" prefetch={false} aria-current={!home && category === "trips" ? "page" : undefined}>旅行故事</Link><Link href="/coffee" prefetch={false} aria-current={category === "coffee" ? "page" : undefined}>咖啡記憶</Link><Link href="/food" prefetch={false} aria-current={category === "food" ? "page" : undefined}>美食記事</Link><Link className="jl-edit-link" href="/family" prefetch={false}>家庭編輯 ↗</Link></nav></header>;
 }
 export function LibrarySkeleton() {
   return <div className="jl-skeleton" role="status"><p>正在打開旅行收藏…</p><div /><div /><div /></div>;
 }
+
+

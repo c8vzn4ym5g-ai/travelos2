@@ -3,16 +3,17 @@ import { FamIconWell } from "./family-icons";
 import { FamilyBackLink } from "./family-back";
 
 const departments = [
+  {album:"blush" as const,editHref:"/food?mode=edit",editLabel:"編輯美食內容",title:"美食記事",viewHref:"/food"},
   {
     album: "sky" as const,
-    editHref: "/trips/admin",
+    editHref: "/trips?mode=edit",
     editLabel: "編輯旅行內容",
     title: "旅行遊記",
     viewHref: "/trips",
   },
   {
     album: "blush" as const,
-    editHref: "/coffee/admin",
+    editHref: "/coffee?mode=edit",
     editLabel: "編輯咖啡內容",
     title: "咖啡記憶",
     viewHref: "/coffee",
@@ -126,4 +127,5 @@ export default function FamilyWorkspacePage() {
     </main>
   );
 }
+
 

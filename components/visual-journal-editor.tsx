@@ -1,6 +1,6 @@
 "use client";
 import {useEffect, useRef, useState} from "react";
-import {JournalReader} from "@/components/journal-reader";
+import {JournalReader,type ReaderNavigation} from "@/components/journal-reader";
 import {ReaderPhoto} from "@/components/reader-media";
 import {projectJournalForReader} from "@/lib/journal-entry-kind";
 import {publishedTrip} from "@/lib/trip-publication";
@@ -11,9 +11,9 @@ import {arrangeJournal,addJournalStory} from "@/lib/journal-template";
 import {EditorDateLabel} from "@/components/editor-date-label";
 
 export type ReaderEditTarget = {kind:"title"|"summary"|"cover"|"details"|"album"|"film"|"map"|"date"|"closing"} | {kind:"entry";id:string} | {kind:"photo";id:string;entryId?:string};
-export function VisualJournalEditor({trip,onChange,onSave,onPublish,onLibrary,onAdvanced,dirty,busy,message}: {
+export function VisualJournalEditor({trip,onChange,onSave,onPublish,onLibrary,onAdvanced,dirty,busy,message,libraryLabel="遊記目錄",readerNavigation}: {
   trip:TripDetail; onChange:(next:TripDetail)=>void; onSave:()=>void; onPublish:()=>void;
-  onLibrary:()=>void; onAdvanced:(tab:"story"|"photos"|"videos"|"details")=>void; dirty:boolean;busy:boolean;message:string;
+  onLibrary:()=>void; onAdvanced:(tab:"story"|"photos"|"videos"|"details")=>void; dirty:boolean;busy:boolean;message:string;libraryLabel?:string;readerNavigation?:ReaderNavigation;
 }) {
   const [mode,setMode]=useState<"edit"|"preview"|"published">("edit");
   const [target,setTarget]=useState<ReaderEditTarget|null>(null);
@@ -72,10 +72,10 @@ export function VisualJournalEditor({trip,onChange,onSave,onPublish,onLibrary,on
   }
   const choices=trip.photos.filter(p=>!isTripPhotoVideo(p)&&(!query||`${p.caption} ${p.originalFilename}`.toLowerCase().includes(query.toLowerCase())));
   return <div className="vj-workspace">
-    <header className="vj-toolbar"><button type="button" onClick={onLibrary}>← 遊記目錄</button><strong>版面編輯</strong><div className="vj-modes" aria-label="版面模式">{([["edit","直接編輯"],["preview","讀者效果"],["published","目前公開"]] as const).map(([id,label])=><button type="button" key={id} aria-pressed={mode===id} disabled={id==="published"&&!publishedTrip(trip)} onClick={()=>setMode(id)}>{label}</button>)}</div><button type="button" disabled={busy||!dirty} onClick={onSave}>{busy?"儲存中…":"儲存工作稿"}</button><button type="button" className="vj-publish" disabled={busy} onClick={onPublish}>更新公開版</button></header>
-    <div className="vj-note"><span>{mode==="edit"?"點文字或照片即可修改":mode==="preview"?"讀者效果":"目前公開版本"}</span><button type="button" onClick={()=>onAdvanced("story")}>段落排序</button><span role="status">{dirty?"工作稿尚未儲存":message}</span></div>
+    <header className="vj-toolbar"><button type="button" onClick={onLibrary}>← {libraryLabel}</button><strong>版面編輯</strong><div className="vj-modes" aria-label="版面模式">{([["edit","直接編輯"],["preview","讀者效果"],["published","目前公開"]] as const).map(([id,label])=><button type="button" key={id} aria-pressed={mode===id} disabled={id==="published"&&!publishedTrip(trip)} onClick={()=>setMode(id)}>{label}</button>)}</div><button type="button" disabled={busy||!dirty} onClick={onSave}>{busy?"儲存中…":"儲存工作稿"}</button><button type="button" className="vj-publish" disabled={busy} onClick={onPublish}>更新公開版</button></header>
+    <div className="vj-note"><span>{mode==="edit"?"點文字或照片即可修改":mode==="preview"?"讀者效果":"目前公開版本"}</span><button type="button" onClick={()=>onAdvanced("story")}>段落排序</button><span role="status">{message || (dirty?"工作稿尚未儲存":"")}</span></div>
     {arrangement&&mode==='edit'?<p className="jt-arranged" role="status">{arrangement}</p>:null}
-    <JournalReader trip={visible} onBack={onLibrary} previewLabel={mode==="published"?"目前公開":"工作稿"} editor={mode==="edit"?{onEdit:open,onArrange:()=>{const next=arrangeJournal(trip,new Date().toISOString());onChange(next);setArrangement(`已加入 ${next.journalEntries.length-trip.journalEntries.length} 段照片初稿，原內容保留。`);},onAddStory:()=>{const next=addJournalStory(trip,`journal_${crypto.randomUUID()}`,new Date().toISOString());onChange(next);setHeading("新的故事");setValue("");setTarget({kind:"entry",id:next.journalEntries[next.journalEntries.length-1].id});}}:undefined} hideHeader />
+    <JournalReader navigation={readerNavigation} trip={visible} onBack={onLibrary} previewLabel={mode==="published"?"目前公開":"工作稿"} editor={mode==="edit"?{onEdit:open,onArrange:()=>{const next=arrangeJournal(trip,new Date().toISOString());onChange(next);setArrangement(`已加入 ${next.journalEntries.length-trip.journalEntries.length} 段照片初稿，原內容保留。`);},onAddStory:()=>{const next=addJournalStory(trip,`journal_${crypto.randomUUID()}`,new Date().toISOString());onChange(next);setHeading("新的故事");setValue("");setTarget({kind:"entry",id:next.journalEntries[next.journalEntries.length-1].id});}}:undefined} hideHeader />
     {target?<div className="vj-overlay"><div className="vj-dialog" role="dialog" aria-modal="true" aria-label="修改這個位置" tabIndex={-1} ref={dialog}><header><h2>{target.kind==="cover"?"封面・第一張照片":target.kind==="entry"?"修改這段故事":target.kind==="photo"?"修改照片":target.kind==="title"?"修改遊記標題":target.kind==="date"?"公開日期":target.kind==="closing"?"旅程收尾":"修改開場介紹"}</h2><button type="button" onClick={()=>setTarget(null)}>取消</button></header>
       {target.kind==='date'?<EditorDateLabel startDate={trip.startDate} {...dateSettings} onChange={setDateSettings} />:null}
       {target.kind==="title"||target.kind==="summary"||target.kind==="entry"||target.kind==='closing'?<div className="vj-fields">{entry?<label>段落標題<input value={heading} onChange={e=>setHeading(e.target.value)} /></label>:null}<label>{target.kind==="title"?"遊記標題":target.kind==="summary"?"開場介紹":target.kind==='closing'?'旅程收尾':"段落內容"}<textarea autoFocus rows={target.kind==="title"?2:9} value={value} onChange={e=>setValue(e.target.value)} /></label></div>:null}
