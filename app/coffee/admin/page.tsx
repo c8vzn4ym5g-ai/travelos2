@@ -324,6 +324,7 @@ export default function CoffeeAdminPage() {
   const [message, setMessage] = useState("Enter admin PIN to edit coffee content.");
   const [saving, setSaving] = useState(false);
   const [advanced, setAdvanced] = useState(false);
+  const [readingAll,setReadingAll]=useState(false);
   const [uploadingShopId, setUploadingShopId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [activeShopId, setActiveShopId] = useState<string | null>(null);
@@ -564,8 +565,7 @@ export default function CoffeeAdminPage() {
     }
   }
 
-  if (authenticated && !activeShop && !advanced) return <main className="min-h-screen bg-[#f7f4ed] px-5 py-8 text-[#283d33]"><div className="mx-auto max-w-4xl"><Link href="/coffee" prefetch={false} className="inline-flex min-h-11 items-center">← 咖啡時光</Link><h1 className="my-6 font-serif text-3xl sm:text-4xl">我的咖啡記事</h1><div className="grid gap-5 sm:grid-cols-2">{sortedShops.map(shop=><a href={`/coffee/admin?shop=${encodeURIComponent(shop.id)}`} key={shop.id} className="overflow-hidden rounded-2xl border border-stone-200 bg-white">{shop.photos[0]?.storageKey.startsWith('/') || shop.photos[0]?.storageKey.startsWith('http') ? <img src={shop.photos[0].storageKey} alt={shop.photos[0].caption??shop.name} loading="lazy" className="h-52 w-full object-cover"/>:null}<div className="p-5"><span className="text-sm text-stone-500">{shop.visibility==='private'?'草稿 · 可編輯':'咖啡記事 · 可編輯'}</span><h2 className="mt-2 text-xl leading-8">{shop.name}</h2><p className="mt-3 text-sm leading-7 text-stone-600">{shop.comments}</p><span className="mt-4 inline-block text-sm font-semibold">打開編輯 →</span></div></a>)}</div>{!sortedShops.length?<p role="status" className="my-6">{message}</p>:null}<button type="button" className="mt-6 min-h-11 rounded-full border border-stone-300 px-5" onClick={addNewCoffeeShop}>＋ 新增咖啡記事</button></div></main>;
-  if (authenticated && activeShop && !advanced) return <CoffeeArticleEditor shop={activeShop} onChange={next=>updateShop(activeShop.id,()=>next)} onSave={()=>void saveShops().catch(()=>{setSaving(false);setMessage("尚未儲存，請再試一次。");})} onAdvanced={()=>setAdvanced(true)} busy={saving} message={message} />;
+  if (authenticated && !advanced) return <main className="min-h-screen bg-[#f7f4ed] text-[#283d33]"><header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 bg-[#f7f4ed]/95 px-5 py-3 backdrop-blur"><Link href="/coffee" prefetch={false} className="inline-flex min-h-11 items-center">咖啡記事</Link><div className="flex flex-wrap gap-2"><button type="button" className="min-h-11 rounded-full border border-stone-300 px-4" onClick={()=>setReadingAll(!readingAll)}>{readingAll?'返回編輯':'閱讀效果'}</button><button type="button" disabled={saving} className="min-h-11 rounded-full bg-[#285447] px-5 text-white disabled:opacity-50" onClick={()=>void saveShops().catch(()=>{setSaving(false);setMessage('尚未儲存，請再試一次。');})}>{saving?'儲存中…':'儲存修改'}</button></div><span role="status" className="text-sm text-stone-500">{message}</span></header><div className="divide-y divide-stone-300">{sortedShops.map(shop=><CoffeeArticleEditor key={shop.id} shop={shop} embedded readingMode={readingAll} onChange={next=>updateShop(shop.id,()=>next)} onSave={()=>void saveShops()} onAdvanced={()=>{setActiveShopId(shop.id);setAdvanced(true);}} busy={saving} message={message}/>)}</div></main>;
   return (
     <main className="min-h-screen bg-[#f7f2ea] text-zinc-950">
       <section className="border-b border-stone-200 bg-white/85">
@@ -765,6 +765,7 @@ export default function CoffeeAdminPage() {
     </main>
   );
 }
+
 
 
 

@@ -92,7 +92,7 @@ export default async function CoffeePage() {
                 <Link className="rounded-md border border-zinc-300 px-4 py-3 text-center text-sm font-semibold text-zinc-950" href="/trips">
                   Trips / 遊記
                 </Link>
-                <Link className="rounded-md bg-teal-800 px-4 py-3 text-center text-sm font-semibold text-white" href="/coffee/admin" prefetch={false}>我的咖啡記事・編輯草稿</Link>
+                <Link className="rounded-md bg-teal-800 px-4 py-3 text-center text-sm font-semibold text-white" href="/coffee/admin" prefetch={false}>編輯</Link>
 <Link className="rounded-md border border-zinc-300 px-4 py-3 text-center text-sm font-semibold text-zinc-950" href="/coffee/map">
                   Map view
                 </Link>
@@ -125,4 +125,5 @@ export default async function CoffeePage() {
     </main>
   );
 }
+
 
