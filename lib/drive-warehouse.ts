@@ -430,6 +430,16 @@ export async function putWarehouseTrip(
   }
 }
 
+/** Read one named trip through the existing warehouse RPC, without access-token/list/media round trips. */
+export async function getWarehouseTripRecord(name: string, request?: DriveFetch): Promise<unknown> {
+  const raw = await getJson({ name, op: "item", token: getDriveWarehouseToken() }, "Selected trip GET", request);
+  if (raw && typeof raw === "object" && "error" in raw) {
+    if (raw.error === "not found") return null;
+    throw new DriveWarehouseError("這篇遊記暫時無法讀取。");
+  }
+  return raw;
+}
+
 export async function putItem(name: string, text: string, request?: DriveFetch): Promise<{ ok: true; name: string }> {
   const raw = await postJson(
     { name, op: "item", text, token: getDriveWarehouseToken() },
@@ -676,7 +686,8 @@ function parseDriveAccess(raw: unknown): DriveAccess | null {
   };
 }
 
-export async function getDriveAccess(request?: DriveFetch): Promise<DriveAccess | null> {
+export async function getDriveAccess(request?: DriveFetch, refresh = false): Promise<DriveAccess | null> {
+  if (refresh) cachedDriveAccess = null;
   if (!request && !testFetch && cachedDriveAccess && cachedDriveAccess.exp > Date.now()) {
     return cachedDriveAccess.access;
   }

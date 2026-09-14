@@ -1,3 +1,4 @@
+import { JournalReader } from "@/components/journal-reader";
 import type { Metadata } from "next";
 import { cache } from "react";
 import { headers } from "next/headers";
@@ -42,9 +43,10 @@ export const dynamic = "force-dynamic";
 
 interface TripDetailPageProps {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ id?: string }>;
 }
 
-const loadPublicTrip = cache(readPublicTripBySlug);
+const loadPublicTrip = cache((slug: string, id?: string) => readPublicTripBySlug(slug, undefined, undefined, id));
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
   month: "short",
@@ -161,9 +163,9 @@ export function generateStaticParams() {
   return getTripDetailsByStartDate().map((trip) => ({ slug: trip.slug }));
 }
 
-export async function generateMetadata({ params }: TripDetailPageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: TripDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const trip = await loadPublicTrip(slug);
+  const trip = await loadPublicTrip(slug, (await searchParams)?.id);
 
   if (!trip || !isTripPublic(trip)) {
     return {};
@@ -194,15 +196,16 @@ export async function generateMetadata({ params }: TripDetailPageProps): Promise
   };
 }
 
-export default async function TripDetailPage({ params }: TripDetailPageProps) {
+export default async function TripDetailPage({ params, searchParams }: TripDetailPageProps) {
   const { slug } = await params;
-  const found = await loadPublicTrip(slug);
+  const found = await loadPublicTrip(slug, (await searchParams)?.id);
 
   if (!found || !isTripPublic(found)) {
     notFound();
   }
 
   const trip = isLaplandStorefrontSlug(found.slug) ? forLaplandPublicPage(found) : found;
+  if (!isLaplandStorefrontSlug(trip.slug)) return <JournalReader trip={trip} />;
 
   const coverPhoto =
     trip.photos.find((photo) => photo.id === trip.coverPhotoId && isRenderablePhoto(photo) && !isTripPhotoVideo(photo)) ??
@@ -414,5 +417,6 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     </LaplandStorefrontGate>
   );
 }
+
 
 

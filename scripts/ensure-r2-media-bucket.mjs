@@ -10,6 +10,7 @@
  * or leave the dashboard bucket in place (Workers Scripts Edit can bind it).
  */
 import { resolve } from "node:path";
+import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import {
   inspectAccountId,
@@ -182,6 +183,10 @@ const isDirectRun =
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
 
 if (isDirectRun) {
+  if (!/^\s*"r2_buckets"\s*:/m.test(readFileSync("wrangler.jsonc", "utf8"))) {
+    console.log("No R2 binding configured; no bucket operation needed.");
+    process.exit(0);
+  }
   main().catch((error) => {
     console.error(redactCloudflareText(error instanceof Error ? error.message : String(error)));
     process.exit(1);

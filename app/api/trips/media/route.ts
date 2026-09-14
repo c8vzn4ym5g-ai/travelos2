@@ -37,9 +37,14 @@ async function resolveMediaContentType(input: {
 }
 
 export async function GET(request: Request) {
+  try { return await readMedia(request); }
+  catch { return new Response(null, { status: 503, headers: { "Cache-Control": "no-store" } }); }
+}
+
+async function readMedia(request: Request) {
   if (!isAdminPinValid(request.headers.get("x-travelos-admin-pin"))) return new Response(null, { status: 401 });
   const url = new URL(request.url);
-  const access = await getDriveAccess();
+  let access = await getDriveAccess();
   if (!access) return new Response(null, { status: 503 });
   const headers: Record<string, string> = { Authorization: `Bearer ${access.token}` };
   let id = url.searchParams.get("id");
@@ -56,7 +61,14 @@ export async function GET(request: Request) {
   if (!id || !/^[a-zA-Z0-9_-]+$/.test(id)) return new Response(null, { status: 404 });
   const range = request.headers.get("range");
   if (range) headers.Range = range;
-  const media = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, { headers });
+  let media = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, { headers, signal: AbortSignal.timeout(30000) });
+  if (media.status === 401) {
+    access = await getDriveAccess(undefined, true);
+    if (!access) return new Response(null, { status: 503, headers: { "Cache-Control": "no-store" } });
+    headers.Authorization = `Bearer ${access.token}`;
+    media = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, { headers, signal: AbortSignal.timeout(30000) });
+  }
+  if (!media.ok) return new Response(null, { status: media.status, headers: { "Cache-Control": "no-store" } });
   const outputHeaders = new Headers({ "Cache-Control": "private, max-age=86400" });
   for (const key of ["content-type", "content-length", "content-range", "accept-ranges"]) {
     const value = media.headers.get(key);

@@ -5,6 +5,7 @@ import { CanonicalHost } from "@/components/canonical-host";
 import { TravelpayoutsDrive } from "@/components/travelpayouts-drive";
 import { resolvePublicSiteOrigin } from "@/lib/site-url";
 import "./globals.css";
+import "./journal.css";
 
 const appName = "TravelOS";
 const appDescription = "A personal travel journal, coffee map, photo album, and memory system.";
@@ -60,7 +61,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="zh-Hant">
       <head>
         <Suspense fallback={null}>
           <TravelpayoutsDrive />
@@ -74,3 +75,4 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     </html>
   );
 }
+

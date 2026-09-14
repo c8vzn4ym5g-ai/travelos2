@@ -41,6 +41,7 @@ export default function FamilyWorkspacePage() {
       <Link className="fam-pill fam-pill-sky mx-auto my-4 flex min-h-11 w-fit items-center px-5" href="/family/stats">🌱 小小足跡・看看訪客</Link>
 
 
+      <div className="family-workspace-grid">
       <section className="fam-sheet">
         <h2 className="fam-section">入口</h2>
         <div className="mt-4 grid grid-cols-2 gap-3">
@@ -121,6 +122,8 @@ export default function FamilyWorkspacePage() {
           </ol>
         </article>
       </section>
+      </div>
     </main>
   );
 }
+

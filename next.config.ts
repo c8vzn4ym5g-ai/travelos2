@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  ...(process.env.TRAVELOS_PACKAGE_ONLY === "1" ? {
+    typescript: { ignoreBuildErrors: true },
+    eslint: { ignoreDuringBuilds: true },
+  } : {}),
   async redirects() {
     return [
       {

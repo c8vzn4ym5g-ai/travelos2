@@ -1,7 +1,7 @@
 import { afterResponse } from "@/lib/after-response";
 import { DEFAULT_PUBLIC_SITE_ORIGIN } from "@/lib/site-url";
 import { VANITY_CREW_HELD_TRIP_IDS } from "@/lib/trip-series";
-import { getWarehouseTripBundle, getWarehouseTripCards, getWarehousePublicHub, isDriveWarehouseConfigured } from "@/lib/drive-warehouse";
+import { getWarehousePublicHub, isDriveWarehouseConfigured } from "@/lib/drive-warehouse";
 import { HOME_SESSION_PHOTO_LIMIT } from "@/lib/home-session-photos";
 import { seedTripDetails } from "@/lib/trips";
 import { compareTripsByStartDateDesc, isTripPublic } from "@/lib/trip-visibility";
@@ -282,7 +282,9 @@ async function loadPublicHubTrips() {
   const store = cacheStore();
   const revision = store.revision;
   try {
-    const raw = await withBudget(PUBLIC_HUB_DRIVE_BUDGET_MS, getWarehousePublicHub()) as {trips?: unknown[]};
+    // The UI wait is bounded below; keep the same RPC alive so a late valid
+    // index fills the cache instead of being discarded and fetched again.
+    const raw = await getWarehousePublicHub() as {trips?: unknown[]};
     if (!Array.isArray(raw?.trips)) throw new Error("hub-projection-unavailable");
     const cards = preferLatestHubCards(raw.trips.flatMap(raw => {
       const card = parseHubCard(raw);
@@ -295,31 +297,7 @@ async function loadPublicHubTrips() {
       } catch { /* Keep the in-memory projection when edge storage is unavailable. */ }
     }
     return store.entry?.trips ?? [];
-  } catch { /* Compatibility fallback; public GET never initializes a catalog. */ }
-  // Direct Drive reads fan out the trip files and keep only card fields; the
-  // existing bundle remains a compatibility fallback for warehouse deployments.
-  const read = async (work: ReturnType<typeof getWarehouseTripBundle>) => {
-    const bundle = await work;
-    if (!bundle?.length) throw new Error("hub-warehouse-unavailable");
-    const latest = new Map<string, Record<string, unknown>>();
-    for (const item of [...bundle].sort((a, b) => (a.modifiedTime ?? "").localeCompare(b.modifiedTime ?? ""))) {
-      const trip = unwrapTripRecord(item.trip ?? item);
-      if (typeof trip?.id === "string") latest.set(trip.id, trip);
-    }
-    const cards = [...latest.values()].flatMap((trip) => {
-      const card = parseHubCard(trip);
-      return card ? [card] : [];
-    });
-    // Match the content API's missing-seed merge, without resurrecting a seed
-    // that the warehouse explicitly marked private.
-    return [...cards, ...seedPublicHubTrips().filter((trip) => !latest.has(trip.id))];
-  };
-  try {
-    const cards = await withBudget(30_000,
-      read(getWarehouseTripCards()).catch(() => read(getWarehouseTripBundle())),
-    );
-    if (revision === store.revision) await cachePublicHubTrips(cards);
-  } catch { /* Preserve the last good entry; never commit a failure fallback. */ }
+  } catch { /* Keep the last good cards; never fan out every trip to repair a public read. */ }
   return store.entry?.trips ?? [];
 }
 
@@ -394,3 +372,4 @@ export function isHubPhotoRenderable(photo: HubPhoto) {
 }
 
 export { HOME_SESSION_PHOTO_LIMIT };
+

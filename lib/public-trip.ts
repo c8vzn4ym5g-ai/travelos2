@@ -1,4 +1,5 @@
-import { readDriveTrip } from '@/lib/drive-trips';
+import { parseDriveTripRecord } from '@/lib/drive-trips';
+import { getWarehouseTripRecord } from '@/lib/drive-warehouse';
 import { withDriveReadBudget } from '@/lib/drive-read-budget';
 import { readPublicHubIndexForSlug } from '@/lib/public-hub';
 import { publishedTrip } from '@/lib/trip-publication';
@@ -11,14 +12,15 @@ export async function readPublicTripBySlug(
   slug: string,
   request?: typeof fetch,
   timeoutMs?: number,
+  selectedId?: string,
 ): Promise<TripDetail | null> {
   let stage = 'public-index';
   try { return await withDriveReadBudget(request, async read => {
-    const cards = await readPublicHubIndexForSlug(slug, read);
-    const card = cards.find(card => card.slug === slug);
-    if (!card) return null;
+    const cards = selectedId ? [] : await readPublicHubIndexForSlug(slug, read);
+    const card = selectedId ? { id: selectedId, slug } : cards.find(card => card.slug === slug);
+    if (!card || !/^trip_[a-zA-Z0-9_-]+$/.test(card.id)) return null;
     stage = 'selected-trip';
-    const stored = await readDriveTrip(card.id, read, timeoutMs);
+    const stored = parseDriveTripRecord(await getWarehouseTripRecord(`travelos__trip__${card.id}.json`, read));
     if (!stored) return null;
     const visible = publishedTrip(stored);
     // An old index must never reveal a subsequently private trip or draft slug.

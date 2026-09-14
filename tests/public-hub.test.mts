@@ -240,8 +240,10 @@ test("bundle compatibility fallback starts only after the preferred read fails",
 test("cold HTML wait is bounded and late Drive success populates the next request", async () => {
   resetPublicHubCacheForTests();
   let finish!: (response: Response) => void;
-  setDriveWarehouseFetchForTests(async (input) => {
-    if (new URL(String(input)).searchParams.get("op") === "drive-access") return Response.json({});
+  let calls = 0;
+  setTransport(async (input) => {
+    assert.equal(new URL(String(input)).searchParams.get("op"), "public-hub");
+    calls++;
     return new Promise<Response>((resolve) => { finish = resolve; });
   });
   try {
@@ -252,6 +254,7 @@ test("cold HTML wait is bounded and late Drive success populates the next reques
     finish(Response.json({ trips: sharedLibrary().map((trip) => ({ trip })) }));
     await settle();
     assert.equal((await readPublicHubTrips()).length, 11);
+    assert.equal(calls, 1, "late index must be reused without a second read");
   } finally {
     setDriveWarehouseFetchForTests(null);
     resetPublicHubCacheForTests();

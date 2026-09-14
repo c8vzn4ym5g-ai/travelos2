@@ -2,7 +2,8 @@ import { afterResponse } from "@/lib/after-response";
 import { cachePublicHubTrips } from "@/lib/public-hub";
 import { isAdminPinValid, readContent, writeContent } from "@/lib/editable-store";
 import type { TripDetail } from "@/lib/types";
-import { readDriveTrip, saveDriveTripWithCatalog } from "@/lib/drive-trips";
+import { saveDriveTripWithCatalog } from "@/lib/drive-trips";
+import { readEditorTripRecord } from "@/lib/editor-trip-read";
 import { seedTripDetails } from "@/lib/trips";
 import { isBlobConfigured } from "@/lib/editable-store";
 import { prepareTripSave } from "@/lib/trip-publication";
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
   try {
     const id = new URL(request.url).searchParams.get("id");
     if (id && !isBlobConfigured()) {
-      const stored = await readDriveTrip(id);
+      const stored = await readEditorTripRecord(id);
       const trip = stored ?? seedTripDetails.find(item => item.id === id);
       if (!trip) return Response.json({ error: "Trip not found" }, { status: 404 });
       return Response.json({ trip }, { headers: { "Cache-Control": "private, no-store" } });

@@ -7,11 +7,15 @@ import type { PromoVideo } from "@/lib/promo-videos";
 
 
 export function ReaderPhoto({ photo, priority = false }: { photo: Photo; priority?: boolean }) {
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const src = attempt && photo.storageKey.startsWith("/api/") ? photo.storageKey + (photo.storageKey.includes("?") ? "&" : "?") + "retry=" + attempt : photo.storageKey;
+  if (failed) return <div role="status" className="grid min-h-48 place-items-center gap-3 bg-stone-100 p-6 text-center"><p>這張照片未能載入</p><button className="min-h-11 rounded-full border bg-white px-5 py-3" type="button" onClick={() => { setAttempt(Date.now()); setFailed(false); }}>重新載入照片</button></div>;
   return isTripPhotoVideo(photo) ? (
     <video aria-label={photo.caption ?? photo.originalFilename} className="max-h-[70vh] w-full bg-black object-contain" controls playsInline preload="none" src={photo.storageKey} />
   ) : (
     // eslint-disable-next-line @next/next/no-img-element
-    <img alt={photo.caption ?? photo.originalFilename} className="max-h-[70vh] w-full object-contain" decoding="async" loading={priority ? "eager" : "lazy"} src={photo.storageKey} />
+    <img key={src} alt={photo.caption ?? photo.originalFilename} className="max-h-[70vh] w-full object-contain" decoding="async" loading={priority ? "eager" : "lazy"} src={src} onError={() => setFailed(true)} />
   );
 }
 
