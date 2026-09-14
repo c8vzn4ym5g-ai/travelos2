@@ -1,3 +1,10 @@
+## 2026-09-14 原入口已更新（本節優先於以下舊紀錄）
+
+Production: https://travelos2.chao-jason.workers.dev
+Deployed commit: ac5784b285b19ce65d4cc3b271cb94d138b92532; branch codex/fixed-entry-release, origin/main. Source preview branch is superseded for further edits.
+GitHub workflow34798542708 completed success including deployment. Cloudflare version36687997-ae4b-4190-b4d2-7082e4ac810b.
+Owner explicitly authorized original production update; passwords and full verification remain deferred. Packaging skips lint/type validation under TRAVELOS_PACKAGE_ONLY, builds standalone once and reuses it for Cloudflare. First packaging failure lacked standalone output; fixed in ace9f61. Production editor op=item timed out20sec; changed selected editor to existing direct Drive file read,35sec total budget. No whole-library read on selection. editor-review-fixes focused2/2 passed including draft/public preservation and wrong-record rejection.
+Actual original-site browser: Kyushu editor loaded14visiblechapters and Chikuan cover; reader-effect displays decoded cover and title; switching back restores direct edit. Same trip public URL loaded14chapters and edit link. No real trip writes during QC. iPhone home-icon reopen not observed here; no full verification. Earlier broad-test numbers below are historical, not this release verification. Lapland legacy template exception remains.
 # TravelOS Handoff
 
 ## 2026-09-14 Desktop and phone candidate — local review

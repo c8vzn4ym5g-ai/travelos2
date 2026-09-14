@@ -8,6 +8,9 @@ export type PromoVideo = {
 };
 
 const promoByTripSlug: Record<string, PromoVideo[]> = {
+  "finland-lapland-winter-journal": [
+    { title: "北極圈的十二月", caption: "那年冬天的旅行記憶。", src: encodeURI("/travelos/lapland/Lapland_那年冬天_WinterWarm_Q.mp4"), poster: "/travelos/lapland/stills/cover_IMG_3619.jpeg", mood: "冬日" },
+  ],
   "kyoto-maple-higashiyama": [
     { title: "東山秋色 · 25 秒", caption: "朱色與楓紅、音羽之瀧，最後坐進茶屋。", src: "/travelos/films/higashiyama-autumn.mp4", poster: "/travelos/films/higashiyama-autumn.jpg", mood: "秋日慢步", credit: { label: "配樂：Yoiyami · First Light Particles（CC0）", href: "https://opengameart.org/node/182244" } },
   ],
@@ -43,5 +46,5 @@ export const coffeePromoVideos: PromoVideo[] = [
 ];
 
 export function getTripPromoVideos(slug: string) {
-  return (promoByTripSlug[slug] ?? []).map(video => ({ ...video, src: video.src.startsWith("/travelos/films/") ? video.src : `/api/trips/media?name=travelos__promo__${video.src.split("/").pop()}` }));
+  return (promoByTripSlug[slug] ?? []).map(video => ({ ...video, src: video.src.startsWith("/travelos/films/") || video.src.startsWith("/travelos/lapland/") ? video.src : `/api/trips/media?name=travelos__promo__${video.src.split("/").pop()}` }));
 }
