@@ -96,7 +96,7 @@ export const seedCoffeeShops: CoffeeShop[] = [
 ];
 
 export function toCoffeeShopListItems(shops: CoffeeShop[]): CoffeeShopListItem[] {
-  return shops.map((shop) => ({
+  return shops.filter(shop => shop.visibility !== "private").map((shop) => ({
     id: shop.id,
     name: shop.name,
     slug: shop.slug,
@@ -126,16 +126,17 @@ export function getCoffeeShopsByVisitDate(shops: CoffeeShop[] = seedCoffeeShops)
 }
 
 export function getCoffeeShopDetailsByVisitDate(shops: CoffeeShop[] = seedCoffeeShops): CoffeeShop[] {
-  return [...shops].sort((firstShop, secondShop) =>
+  return shops.filter(shop => shop.visibility !== "private").sort((firstShop, secondShop) =>
     secondShop.visitedAt.localeCompare(firstShop.visitedAt),
   );
 }
 
 export function getCoffeeShopBySlug(slug: string, shops: CoffeeShop[] = seedCoffeeShops): CoffeeShop | undefined {
-  return shops.find((shop) => shop.slug === slug);
+  return shops.find((shop) => shop.slug === slug && shop.visibility !== "private");
 }
 
 export function getCoffeeStats(shops: CoffeeShop[] = seedCoffeeShops) {
+  shops = shops.filter(shop => shop.visibility !== "private");
   return {
     shops: shops.length,
     countries: new Set(shops.map((shop) => shop.country)).size,
@@ -143,3 +144,4 @@ export function getCoffeeStats(shops: CoffeeShop[] = seedCoffeeShops) {
     photos: shops.reduce((total, shop) => total + shop.photos.length, 0),
   };
 }
+

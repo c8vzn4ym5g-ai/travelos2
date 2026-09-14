@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CoffeeArticleEditor } from "@/components/coffee-article-editor";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { resolveFamilySession } from "@/lib/family-session";
@@ -13,7 +14,7 @@ type CoffeeContentResponse = {
   };
   status: {
     configured: boolean;
-    source: "blob" | "seed";
+    source: "blob" | "drive" | "seed";
   };
 };
 
@@ -319,9 +320,10 @@ export default function CoffeeAdminPage() {
   const [authenticated, setAuthenticated] = useState(false);
   const [shops, setShops] = useState<CoffeeShop[]>([]);
   const [configured, setConfigured] = useState(false);
-  const [source, setSource] = useState<"blob" | "seed">("seed");
+  const [source, setSource] = useState<"blob" | "drive" | "seed">("seed");
   const [message, setMessage] = useState("Enter admin PIN to edit coffee content.");
   const [saving, setSaving] = useState(false);
+  const [advanced, setAdvanced] = useState(false);
   const [uploadingShopId, setUploadingShopId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [activeShopId, setActiveShopId] = useState<string | null>(null);
@@ -355,10 +357,11 @@ export default function CoffeeAdminPage() {
     const data = (await response.json()) as CoffeeContentResponse;
     const sortedShops = [...data.content.shops].sort((first, second) => second.visitedAt.localeCompare(first.visitedAt));
     setShops(sortedShops);
-    setActiveShopId((current) => current ?? sortedShops[0]?.id ?? null);
+    setActiveShopId((current) => current ?? sortedShops.find(shop => shop.id === new URLSearchParams(window.location.search).get("shop"))?.id ?? sortedShops[0]?.id ?? null);
+    setAdvanced(new URLSearchParams(window.location.search).get("view") === "list");
     setConfigured(data.status.configured);
     setSource(data.status.source);
-    setMessage(data.status.configured ? "Ready to edit." : "Storage setup needed before saves work on Vercel.");
+    setMessage(data.status.configured ? "已載入" : "尚未連接儲存");
   }
 
   useEffect(() => {
@@ -471,7 +474,7 @@ export default function CoffeeAdminPage() {
 
     const data = (await response.json()) as CoffeeContentResponse;
     setShops(data.content.shops);
-    setMessage("Saved. Public coffee pages will read the updated content.");
+    setMessage("已儲存");
     setSaving(false);
   }
 
@@ -561,6 +564,7 @@ export default function CoffeeAdminPage() {
     }
   }
 
+  if (authenticated && activeShop && !advanced) return <CoffeeArticleEditor shop={activeShop} onChange={next=>updateShop(activeShop.id,()=>next)} onSave={()=>void saveShops().catch(()=>{setSaving(false);setMessage("尚未儲存，請再試一次。");})} onAdvanced={()=>setAdvanced(true)} busy={saving} message={message} />;
   return (
     <main className="min-h-screen bg-[#f7f2ea] text-zinc-950">
       <section className="border-b border-stone-200 bg-white/85">
@@ -616,7 +620,7 @@ export default function CoffeeAdminPage() {
                     activeShop?.id === shop.id ? "border-teal-700 bg-teal-50 text-teal-950" : "border-stone-200 bg-white text-zinc-700"
                   }`}
                   key={shop.id}
-                  onClick={() => setActiveShopId(shop.id)}
+                  onClick={() => {setActiveShopId(shop.id);setAdvanced(false);}}
                   type="button"
                 >
                   <span className="block font-semibold">{shop.name}</span>
@@ -760,3 +764,4 @@ export default function CoffeeAdminPage() {
     </main>
   );
 }
+

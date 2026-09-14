@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ShareActions } from "@/components/share-actions";
 import { StorefrontHomeLink } from "@/components/storefront-home-link";
-import { getCoffeeShopBySlug, getCoffeeShopDetailsByVisitDate } from "@/lib/coffee";
+import { getCoffeeShopBySlug } from "@/lib/coffee";
 import { readCoffeeContent } from "@/lib/coffee-store";
 import { publicSiteUrl } from "@/lib/site-url";
 import type { CoffeePhoto } from "@/lib/types";
@@ -37,10 +37,6 @@ function getCoverPhoto(photos: CoffeePhoto[]) {
   return photos.find(isRenderablePhoto) ?? null;
 }
 
-export async function generateStaticParams() {
-  const { content } = await readCoffeeContent();
-  return getCoffeeShopDetailsByVisitDate(content.shops).map((shop) => ({ slug: shop.slug }));
-}
 
 export async function generateMetadata({ params }: CoffeeDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
@@ -258,3 +254,4 @@ function CoffeePhotoCard({ photo }: { photo: CoffeePhoto }) {
     </article>
   );
 }
+

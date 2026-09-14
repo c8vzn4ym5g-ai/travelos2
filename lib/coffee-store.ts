@@ -2,8 +2,10 @@ import { list, put } from "@vercel/blob";
 import { seedCoffeeShops } from "@/lib/coffee";
 import { isAdminPinValid } from "@/lib/editable-store";
 import type { CoffeePhoto, CoffeeShop } from "@/lib/types";
+import { getWarehouseTripRecord, putItem } from "@/lib/drive-warehouse";
 
 const COFFEE_BLOB_PATH = "travelos/coffee.json";
+const COFFEE_WAREHOUSE_NAME = "travelos__coffee.json";
 const COFFEE_SCHEMA_VERSION = 1;
 
 export type CoffeeContent = {
@@ -14,7 +16,7 @@ export type CoffeeContent = {
 
 export type CoffeeStoreStatus = {
   configured: boolean;
-  source: "blob" | "seed";
+  source: "blob" | "drive" | "seed";
 };
 
 export { isAdminPinValid };
@@ -23,11 +25,23 @@ export function isCoffeeBlobConfigured() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
 }
 
+async function readWarehouseCoffee(): Promise<CoffeeContent | null> {
+  const raw = await getWarehouseTripRecord(COFFEE_WAREHOUSE_NAME);
+  if (raw === null) return null;
+  const record = raw as { moment?: unknown };
+  const content = (record.moment ?? raw) as CoffeeContent;
+  if (!Array.isArray(content.shops) || typeof content.updatedAt !== "string") {
+    throw new Error("咖啡文章暫時無法讀取，請再試一次。");
+  }
+  return { shops: content.shops, updatedAt: content.updatedAt, schemaVersion: content.schemaVersion };
+}
+
 export async function readCoffeeContent(): Promise<{ content: CoffeeContent; status: CoffeeStoreStatus }> {
   if (!isCoffeeBlobConfigured()) {
+    const stored = await readWarehouseCoffee();
     return {
-      content: createSeedCoffeeContent(),
-      status: { configured: false, source: "seed" },
+      content: stored ? mergeSeedCoffeeShops(stored) : createSeedCoffeeContent(),
+      status: { configured: true, source: stored ? "drive" : "seed" },
     };
   }
 
@@ -69,11 +83,20 @@ export async function readCoffeeContent(): Promise<{ content: CoffeeContent; sta
 }
 
 export async function writeCoffeeContent(shops: CoffeeShop[]) {
-  const content: CoffeeContent = {
+  const content: CoffeeContent = mergeSeedCoffeeShops({
     schemaVersion: COFFEE_SCHEMA_VERSION,
     shops,
     updatedAt: new Date().toISOString(),
-  };
+  });
+
+  if (!isCoffeeBlobConfigured()) {
+    await putItem(COFFEE_WAREHOUSE_NAME, JSON.stringify(content));
+    const saved = await readWarehouseCoffee();
+    if (!saved || JSON.stringify(saved.shops) !== JSON.stringify(content.shops) || saved.updatedAt !== content.updatedAt) {
+      throw new Error("咖啡文章尚未確認儲存，請保留內容後再試一次。");
+    }
+    return saved;
+  }
 
   await put(COFFEE_BLOB_PATH, JSON.stringify(content, null, 2), {
     access: "public",

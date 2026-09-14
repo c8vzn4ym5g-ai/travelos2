@@ -7,7 +7,7 @@ const siteUrl = resolvePublicSiteOrigin();
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let travelContent: { trips: Array<{ visibility: string; updatedAt: string; slug: string }> } = { trips: [] };
-  let coffeeContent: { shops: Array<{ updatedAt: string; slug: string }> } = { shops: [] };
+  let coffeeContent: { shops: Array<{ updatedAt: string; slug: string; visibility?: string }> } = { shops: [] };
   try {
     const [{ content: travel }, { content: coffee }] = await Promise.all([readContent(), readCoffeeContent()]);
     travelContent = travel;
@@ -46,7 +46,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
       url: `${siteUrl}/trips/${trip.slug}`,
     })),
-    ...coffeeContent.shops.map((shop) => ({
+    ...coffeeContent.shops.filter(shop => shop.visibility !== "private").map((shop) => ({
       changeFrequency: "monthly" as const,
       lastModified: new Date(shop.updatedAt),
       priority: 0.7,
@@ -54,3 +54,4 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ];
 }
+

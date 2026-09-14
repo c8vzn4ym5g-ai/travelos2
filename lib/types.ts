@@ -188,6 +188,7 @@ export interface CoffeePhoto {
 }
 
 export interface CoffeeShop extends TimestampedRecord {
+  visibility?: "public" | "private";
   id: string;
   userId: string;
   name: string;

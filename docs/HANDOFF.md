@@ -1,3 +1,11 @@
+## 2026-09-14 最新原站交付 e0afd43：現有內容直接編輯
+
+已部署 e0afd4345e56bc051e0e9deba6b25ba9d417bfcc；workflow34806381052/job103858959058與Deploy步驟success。取代下方pending狀態。原入口 https://travelos2.chao-jason.workers.dev/trips/admin ，交付九州現有編輯頁，不再以 /trips/new 作交付。
+
+原站九州重開成功：原封面、14段閱讀故事、既有開場直接顯示，沒有JournalShelves說明卡片。標題點擊帶原值進dialog，取消返回，未修改／儲存真實資料。390px截圖確認上方內容整齊；固定短片區顯示原梅響短片，相簿初始6張。讀者投影保留原行前計畫於資料中，並未刪除。局部render QC確認日期/標題/開場/故事click targets、相簿6/15與展開收起、空白public無失效album連結。storage20/20；未完整驗證、未physical iPhone；新建故障以回歸重現與修正，沒有新建真實或測試雲端遊記來宣稱真機建立成功。
+
+無新增local server或定時監控；viewport已還原，browser tab18保留現有九州供Owner編輯。使用量僅Owner76%截圖，不輪詢。後續優先Owner實際操作回饋；不可再把說明卡片當成已填內容的模板交付。
+
 ## 2026-09-14 Owner correction: existing content first (deployment pending)
 
 Owner rejects onboarding/menu as the deliverable: preserve and directly show all existing journals in a shared editable reading layout, not recreate records. Root owns UI/release; selected_storage owns selected-storage fix; date_display performs bounded UI review. Original same-origin deployment authorization persists; no full verification, passwords, new cloud content, or polling. User screenshot reference is 76% remaining, not a tool measurement.
@@ -998,3 +1006,6 @@ Data mutations: selected record create/save/upload instead whole-library read; d
 Focused QC: template5, date2, selected storage/read/catalog21 from workers; changed upload2 rechecked for unknown capture date. Local390px fixture visually clear shelves; source photo arranged into story, custom date rendered then hidden, preview removed shelves, slideshow play/pause/close. Fixture removed. No real family content writes during QC. No full verification or lint suite; existing local lint dependency missing. Next step same-origin authorized release and narrow live template entry.
 
 
+
+
+2026-09-14 Coffee article mission: Owner authorizes using newest Capture two photos+note to make editable coffee draft. Found moment_1789368382388_3b4h0v; both photos viewed, HWC branding and M316 Pink Bourbon Honey card confirmed. Root wrote source-based article, no invented taste/price. Original Capture untouched. Coffee previously unconfigured blob-only; agent adds existing named warehouse storage, default new private, readback3/3 tests. Root adds content-shaped CoffeeArticleEditor, selected ?shop= ID, public selectors/sitemap exclude private;4 projection assertions and changed UI syntax pass. No full test suite. Pending same-origin deployment, one real authorized draft save and browser readback. Do not expose draft as published article or alter original photos.
