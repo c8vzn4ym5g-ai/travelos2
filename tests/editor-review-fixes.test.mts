@@ -8,14 +8,20 @@ test('editor reads one named draft, retains its published snapshot, rejects wron
   const base = seedTripDetails[0];
   const draft = {...base, id:'trip_review', title:'Working title', publishedSnapshot:{...base,title:'Published title'}};
   const urls: URL[] = [];
-  const request: typeof fetch = async input => {urls.push(new URL(String(input))); return Response.json({moment:draft});};
+  const request: typeof fetch = async input => {
+    const url = new URL(String(input)); urls.push(url);
+    if (url.searchParams.get('op') === 'drive-access') return Response.json({folderId:'folder',token:'test-token'});
+    if (url.pathname.endsWith('/files')) return Response.json({files:[{id:'file',name:`travelos__trip__${url.searchParams.get('q')?.includes('trip_wrong') ? 'trip_wrong' : 'trip_review'}.json`}]});
+    return Response.json({moment:draft});
+  };
   const result = await readEditorTripRecord('trip_review',request);
   assert.equal(result?.id,'trip_review');
   assert.equal(result?.title,'Working title');
   assert.equal(result?.publishedSnapshot?.title,'Published title');
-  assert.equal(urls.length,1);
-  assert.equal(urls[0].searchParams.get('op'),'item');
-  assert.equal(urls[0].searchParams.get('name'),'travelos__trip__trip_review.json');
+  assert.equal(urls.length,3);
+  assert.equal(urls[0].searchParams.get('op'),'drive-access');
+  assert.match(urls[1].searchParams.get('q')!,/name = 'travelos__trip__trip_review.json'/);
+  assert.equal(urls[2].searchParams.get('alt'),'media');
   await assert.rejects(readEditorTripRecord('trip_wrong',request));
 });
 
