@@ -357,8 +357,8 @@ export default function CoffeeAdminPage() {
     const data = (await response.json()) as CoffeeContentResponse;
     const sortedShops = [...data.content.shops].sort((first, second) => second.visitedAt.localeCompare(first.visitedAt));
     setShops(sortedShops);
-    setActiveShopId((current) => current ?? sortedShops.find(shop => shop.id === new URLSearchParams(window.location.search).get("shop"))?.id ?? sortedShops[0]?.id ?? null);
-    setAdvanced(new URLSearchParams(window.location.search).get("view") === "list");
+    setActiveShopId((current) => current ?? sortedShops.find(shop => shop.id === new URLSearchParams(window.location.search).get("shop"))?.id ?? null);
+    setAdvanced(false);
     setConfigured(data.status.configured);
     setSource(data.status.source);
     setMessage(data.status.configured ? "已載入" : "尚未連接儲存");
@@ -564,6 +564,7 @@ export default function CoffeeAdminPage() {
     }
   }
 
+  if (authenticated && !activeShop && !advanced) return <main className="min-h-screen bg-[#f7f4ed] px-5 py-8 text-[#283d33]"><div className="mx-auto max-w-4xl"><Link href="/coffee" prefetch={false} className="inline-flex min-h-11 items-center">← 咖啡時光</Link><h1 className="my-6 font-serif text-3xl sm:text-4xl">我的咖啡記事</h1><div className="grid gap-5 sm:grid-cols-2">{sortedShops.map(shop=><Link href={`/coffee/admin?shop=${encodeURIComponent(shop.id)}`} prefetch={false} key={shop.id} className="overflow-hidden rounded-2xl border border-stone-200 bg-white">{shop.photos[0]?.storageKey.startsWith('/') || shop.photos[0]?.storageKey.startsWith('http') ? <img src={shop.photos[0].storageKey} alt={shop.photos[0].caption??shop.name} loading="lazy" className="h-52 w-full object-cover"/>:null}<div className="p-5"><span className="text-sm text-stone-500">{shop.visibility==='private'?'草稿 · 可編輯':'咖啡記事 · 可編輯'}</span><h2 className="mt-2 text-xl leading-8">{shop.name}</h2><p className="mt-3 text-sm leading-7 text-stone-600">{shop.comments}</p><span className="mt-4 inline-block text-sm font-semibold">打開編輯 →</span></div></Link>)}</div>{!sortedShops.length?<p role="status" className="my-6">{message}</p>:null}<button type="button" className="mt-6 min-h-11 rounded-full border border-stone-300 px-5" onClick={addNewCoffeeShop}>＋ 新增咖啡記事</button></div></main>;
   if (authenticated && activeShop && !advanced) return <CoffeeArticleEditor shop={activeShop} onChange={next=>updateShop(activeShop.id,()=>next)} onSave={()=>void saveShops().catch(()=>{setSaving(false);setMessage("尚未儲存，請再試一次。");})} onAdvanced={()=>setAdvanced(true)} busy={saving} message={message} />;
   return (
     <main className="min-h-screen bg-[#f7f2ea] text-zinc-950">
@@ -764,4 +765,5 @@ export default function CoffeeAdminPage() {
     </main>
   );
 }
+
 

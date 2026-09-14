@@ -78,7 +78,7 @@ export default async function CoffeePage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-sm font-medium uppercase text-zinc-500">Coffee Map</p>
-              <h1 className="mt-2 text-4xl font-semibold tracking-normal sm:text-5xl">Coffee shops and life notes</h1>
+              <h1 className="mt-2 text-4xl font-semibold tracking-normal sm:text-5xl">咖啡時光</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">
                 A separate coffee workspace for addresses, map links, photos, comments, and memories that do not need to
                 live inside a trip journal.
@@ -92,7 +92,8 @@ export default async function CoffeePage() {
                 <Link className="rounded-md border border-zinc-300 px-4 py-3 text-center text-sm font-semibold text-zinc-950" href="/trips">
                   Trips / 遊記
                 </Link>
-                <Link className="rounded-md border border-zinc-300 px-4 py-3 text-center text-sm font-semibold text-zinc-950" href="/coffee/map">
+                <Link className="rounded-md bg-teal-800 px-4 py-3 text-center text-sm font-semibold text-white" href="/coffee/admin" prefetch={false}>我的咖啡記事・編輯草稿</Link>
+<Link className="rounded-md border border-zinc-300 px-4 py-3 text-center text-sm font-semibold text-zinc-950" href="/coffee/map">
                   Map view
                 </Link>
               </div>
@@ -124,3 +125,4 @@ export default async function CoffeePage() {
     </main>
   );
 }
+
