@@ -15,6 +15,11 @@ const request: typeof fetch = async (input,init) => {
   const body=typeof init?.body==='string'?JSON.parse(init.body):null;
   const op=body?.op??url.searchParams.get('op');
   if(op==='drive-access')return Response.json({token:'fixture',folderId:'family'});
+  if(url.searchParams.has('q')) {
+    assert.equal(url.searchParams.get('q'), "'family' in parents and trashed = false and name = 'travelos__food.json'");
+    return Response.json({files:records.has('travelos__food.json')?[{id:'food-file',name:'travelos__food.json'}]:[]});
+  }
+  if(url.pathname==='/drive/v3/files/food-file')return Response.json({moment:records.get('travelos__food.json')});
   if(url.searchParams.get('uploadType')==='resumable')return new Response(null,{headers:{location:'https://www.googleapis.com/upload/drive/fixture'}});
   if(init?.method==='PUT')return Response.json({id:'original-upload',name:'photo.jpg'});
   assert.equal(op,'item');

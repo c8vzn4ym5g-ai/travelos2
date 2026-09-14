@@ -1,5 +1,5 @@
-import { readCoffeeContent, writeCoffeeContent } from "@/lib/coffee-store";
-import { getWarehouseTripRecord, putItem } from "@/lib/drive-warehouse";
+import { readCategoryFile, readCoffeeContent, writeCoffeeContent } from "@/lib/coffee-store";
+import { putItem } from "@/lib/drive-warehouse";
 import type { CoffeeShop } from "@/lib/types";
 
 export type NoteCategory = "coffee" | "food";
@@ -19,7 +19,7 @@ export function noteCategory(value: unknown): NoteCategory {
 
 async function readCollection(category: NoteCategory): Promise<NoteCollection> {
   if (category === "coffee") return (await readCoffeeContent()).content;
-  const raw = await getWarehouseTripRecord(FOOD_FILE);
+  const raw = await readCategoryFile(FOOD_FILE);
   if (raw === null) return { shops: [], updatedAt: "", schemaVersion: 1 };
   const record = raw as { moment?: unknown };
   const content = (record.moment ?? raw) as NoteCollection;

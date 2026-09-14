@@ -26,21 +26,23 @@ export function isCoffeeBlobConfigured() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
 }
 
-async function readCoffeeFile(request?: typeof fetch): Promise<unknown> {
-  try { return await getWarehouseTripRecord(COFFEE_WAREHOUSE_NAME, request); }
-  catch (warehouseError) {
+export async function readCategoryFile(name: "travelos__coffee.json" | "travelos__food.json", request?: typeof fetch): Promise<unknown> {
+  async function direct(warehouseError: unknown) {
     return withDriveReadBudget(request, async read => {
       const access = await getDriveAccess(request);
       if (!access) throw warehouseError;
       const headers = { Authorization: `Bearer ${access.token}` };
       const query = new URLSearchParams({
-        q: `'${access.folderId}' in parents and trashed = false and name = '${COFFEE_WAREHOUSE_NAME}'`,
+        q: `'${access.folderId}' in parents and trashed = false and name = '${name}'`,
         fields: "files(id,name)", pageSize: "1", orderBy: "modifiedTime desc",
       });
       const listing = await read(`https://www.googleapis.com/drive/v3/files?${query}`, { headers, cache: "no-store" });
       if (!listing.ok) throw warehouseError;
       const files = await listing.json() as { files?: Array<{ id: string; name: string }> };
-      const selected = files.files?.find(file => file.name === COFFEE_WAREHOUSE_NAME);
+      // Food starts without a file. Only a successful, valid exact-name empty
+      // listing proves that state; transport failure is still an error.
+      if (name === "travelos__food.json" && Array.isArray(files.files) && files.files.length === 0) return null;
+      const selected = files.files?.find(file => file.name === name);
       // A failed warehouse read is never downgraded to an empty/sample library.
       if (!selected) throw warehouseError;
       const response = await read(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(selected.id)}?alt=media`, { headers, cache: "no-store" });
@@ -48,10 +50,15 @@ async function readCoffeeFile(request?: typeof fetch): Promise<unknown> {
       return response.json();
     }, 15_000);
   }
+  // An empty food category needs only its exact filename lookup; do not wait
+  // for the observed slow item RPC before checking whether that file exists.
+  if (name === "travelos__food.json") return direct(new Error("美食文章暫時無法讀取，請再試一次。"));
+  try { return await getWarehouseTripRecord(name, request); }
+  catch (warehouseError) { return direct(warehouseError); }
 }
 
 async function readWarehouseCoffee(request?: typeof fetch): Promise<CoffeeContent | null> {
-  const raw = await readCoffeeFile(request);
+  const raw = await readCategoryFile(COFFEE_WAREHOUSE_NAME, request);
   if (raw === null) return null;
   const record = raw as { moment?: unknown };
   const content = (record.moment ?? raw) as CoffeeContent;

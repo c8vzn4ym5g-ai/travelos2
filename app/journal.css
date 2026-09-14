@@ -115,7 +115,7 @@
  .jl-brand { font-size:23px; }
  .jl-brand span { font-size:8px; letter-spacing:1px; }
  .jl-header nav { gap:14px; font-size:11px; }
- .jl-header nav>a:nth-child(2) { display:none; }
+ .jl-header nav>a:nth-child(2) { display:inline-flex; }
  .jl-header .jl-edit-link { padding:8px 11px; }
  .jl-intro { padding:38px 0 28px; }
  .jl-intro h1 { font-size:29px; letter-spacing:1px; line-height:1.6; }
@@ -254,3 +254,4 @@
 /* Shared content positions: existing content first, editing controls beside it. */
 .jr-section-heading{font-family:"PMingLiU",serif;font-size:clamp(1.35rem,3vw,1.8rem);line-height:1.5;margin:0 0 24px;color:#244638}.jr-inline-actions{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0 48px}.jr-inline-actions button{min-height:44px;padding:10px 16px;border:1px solid #ccd3c9;border-radius:24px;background:#fff;font:inherit}.jr-film-shelf{margin:40px 0 48px;scroll-margin-top:100px}.jr-film-shelf header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px}.jr-film-shelf h2{margin:0}.jr-film-preview{position:relative;display:block;width:100%;overflow:hidden;border:0;border-radius:12px;padding:0;background:#20372e;color:white;cursor:pointer;text-align:left}.jr-film-preview img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}.jr-film-preview span{display:block;padding:16px 20px;font-size:1rem;line-height:1.6;overflow-wrap:anywhere}.jr-empty-slot{padding:24px;border:1px dashed #b6c5b6;border-radius:12px;color:#637365}.jr-album>.jr-photo-edit-static{margin-bottom:16px}.jr-editable .jr-prose:empty{min-height:44px}.jr-editable .jr-prose:empty::after{content:'加入文字';color:#637365}.jr-film-shelf button:focus-visible,.jr-inline-actions button:focus-visible{outline:3px solid #48846a;outline-offset:3px}
 @media(max-width:700px){.jl-header nav{flex-wrap:wrap;justify-content:flex-end;gap:10px 14px}.jl-header nav a{white-space:nowrap}.jl-section-heading{gap:14px;flex-wrap:wrap}}
+
