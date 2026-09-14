@@ -376,7 +376,7 @@ export default function CoffeeAdminPage() {
     () => [...shops].sort((first, second) => second.visitedAt.localeCompare(first.visitedAt)),
     [shops],
   );
-  const activeShop = sortedShops.find((shop) => shop.id === activeShopId) ?? sortedShops[0] ?? null;
+  const activeShop = sortedShops.find((shop) => shop.id === activeShopId) ?? null;
 
   if (!authenticated) {
     return (
@@ -765,6 +765,7 @@ export default function CoffeeAdminPage() {
     </main>
   );
 }
+
 
 
 
