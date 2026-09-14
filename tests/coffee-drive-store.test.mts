@@ -45,3 +45,24 @@ test('coffee save requires named-record readback, not only an optimistic acknowl
   setDriveWarehouseFetchForTests(async (_input, init) => Response.json(init?.method === 'POST' ? { ok: true } : { error: 'not found' }));
   try { await assert.rejects(writeCoffeeContent([...seedCoffeeShops, { ...draft, visibility: 'private' }])); } finally { resetDriveWarehouseForTests(); }
 });
+
+test('coffee read falls back to the newest exact Drive file when warehouse item fails', async () => {
+  const operations: string[] = [];
+  const request: typeof fetch = async input => {
+    const url = new URL(String(input));
+    const op = url.searchParams.get('op'); operations.push(op ?? url.pathname);
+    if (op === 'item') return Response.json({ error: 'unavailable' });
+    if (op === 'drive-access') return Response.json({ token: 'fixture', folderId: 'family' });
+    if (url.searchParams.has('q')) {
+      assert.equal(url.searchParams.get('q'), "'family' in parents and trashed = false and name = 'travelos__coffee.json'");
+      assert.equal(url.searchParams.get('orderBy'), 'modifiedTime desc');
+      return Response.json({ files: [{ id: 'latest-coffee', name: 'travelos__coffee.json' }] });
+    }
+    assert.equal(url.pathname, '/drive/v3/files/latest-coffee');
+    return Response.json({ moment: { schemaVersion: 1, shops: [...seedCoffeeShops, { ...draft, visibility: 'private' }], updatedAt: 'current' } });
+  };
+  const result = await readCoffeeContent(request);
+  assert.equal(result.content.shops.length, 4);
+  assert.equal(result.content.shops.find(shop => shop.id === draft.id)?.visibility, 'private');
+  assert.equal(operations.length, 4);
+});

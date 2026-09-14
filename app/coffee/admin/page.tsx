@@ -353,7 +353,7 @@ export default function CoffeeAdminPage() {
   }, [router]);
 
   async function loadContent() {
-    setMessage("Loading coffee content...");
+    setMessage("正在載入咖啡記事…");
     const response = await fetch("/api/coffee/content", { cache: "no-store" });
     const data = (await response.json()) as CoffeeContentResponse;
     const sortedShops = [...data.content.shops].sort((first, second) => second.visitedAt.localeCompare(first.visitedAt));
@@ -370,7 +370,7 @@ export default function CoffeeAdminPage() {
       return;
     }
 
-    loadContent().catch(() => setMessage("Could not load coffee content."));
+    loadContent().catch(() => setMessage("咖啡記事暫時未能載入"));
   }, [authenticated]);
 
   const sortedShops = useMemo(
@@ -565,7 +565,7 @@ export default function CoffeeAdminPage() {
     }
   }
 
-  if (authenticated && !advanced) return <main className="min-h-screen bg-[#f7f4ed] text-[#283d33]"><header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 bg-[#f7f4ed]/95 px-5 py-3 backdrop-blur"><Link href="/coffee" prefetch={false} className="inline-flex min-h-11 items-center">咖啡記事</Link><div className="flex flex-wrap gap-2"><button type="button" className="min-h-11 rounded-full border border-stone-300 px-4" onClick={()=>setReadingAll(!readingAll)}>{readingAll?'返回編輯':'閱讀效果'}</button><button type="button" disabled={saving} className="min-h-11 rounded-full bg-[#285447] px-5 text-white disabled:opacity-50" onClick={()=>void saveShops().catch(()=>{setSaving(false);setMessage('尚未儲存，請再試一次。');})}>{saving?'儲存中…':'儲存修改'}</button></div><span role="status" className="text-sm text-stone-500">{message}</span></header><div className="divide-y divide-stone-300">{sortedShops.map(shop=><CoffeeArticleEditor key={shop.id} shop={shop} embedded readingMode={readingAll} onChange={next=>updateShop(shop.id,()=>next)} onSave={()=>void saveShops()} onAdvanced={()=>{setActiveShopId(shop.id);setAdvanced(true);}} busy={saving} message={message}/>)}</div></main>;
+  if (authenticated && !advanced) return <main className="min-h-screen bg-[#f7f4ed] text-[#283d33]"><header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 bg-[#f7f4ed]/95 px-5 py-3 backdrop-blur"><Link href="/coffee" prefetch={false} className="inline-flex min-h-11 items-center">咖啡記事</Link><div className="flex flex-wrap gap-2"><button type="button" className="min-h-11 rounded-full border border-stone-300 px-4" onClick={()=>setReadingAll(!readingAll)}>{readingAll?'返回編輯':'閱讀效果'}</button><button type="button" disabled={saving} className="min-h-11 rounded-full bg-[#285447] px-5 text-white disabled:opacity-50" onClick={()=>void saveShops().catch(()=>{setSaving(false);setMessage('尚未儲存，請再試一次。');})}>{saving?'儲存中…':'儲存修改'}</button></div><span role="status" className="text-sm text-stone-500">{message}</span>{message==="咖啡記事暫時未能載入"?<button type="button" className="min-h-11 px-4" onClick={()=>void loadContent().catch(()=>setMessage("咖啡記事暫時未能載入"))}>重新讀取</button>:null}</header><div className="divide-y divide-stone-300">{sortedShops.map(shop=><CoffeeArticleEditor key={shop.id} shop={shop} embedded readingMode={readingAll} onChange={next=>updateShop(shop.id,()=>next)} onSave={()=>void saveShops()} onAdvanced={()=>{setActiveShopId(shop.id);setAdvanced(true);}} busy={saving} message={message}/>)}</div></main>;
   return (
     <main className="min-h-screen bg-[#f7f2ea] text-zinc-950">
       <section className="border-b border-stone-200 bg-white/85">
@@ -765,6 +765,7 @@ export default function CoffeeAdminPage() {
     </main>
   );
 }
+
 
 
 

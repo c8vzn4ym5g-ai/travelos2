@@ -2,7 +2,8 @@ import { list, put } from "@vercel/blob";
 import { seedCoffeeShops } from "@/lib/coffee";
 import { isAdminPinValid } from "@/lib/editable-store";
 import type { CoffeePhoto, CoffeeShop } from "@/lib/types";
-import { getWarehouseTripRecord, putItem } from "@/lib/drive-warehouse";
+import { getDriveAccess, getWarehouseTripRecord, putItem } from "@/lib/drive-warehouse";
+import { withDriveReadBudget } from "@/lib/drive-read-budget";
 
 const COFFEE_BLOB_PATH = "travelos/coffee.json";
 const COFFEE_WAREHOUSE_NAME = "travelos__coffee.json";
@@ -25,8 +26,32 @@ export function isCoffeeBlobConfigured() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
 }
 
-async function readWarehouseCoffee(): Promise<CoffeeContent | null> {
-  const raw = await getWarehouseTripRecord(COFFEE_WAREHOUSE_NAME);
+async function readCoffeeFile(request?: typeof fetch): Promise<unknown> {
+  try { return await getWarehouseTripRecord(COFFEE_WAREHOUSE_NAME, request); }
+  catch (warehouseError) {
+    return withDriveReadBudget(request, async read => {
+      const access = await getDriveAccess(request);
+      if (!access) throw warehouseError;
+      const headers = { Authorization: `Bearer ${access.token}` };
+      const query = new URLSearchParams({
+        q: `'${access.folderId}' in parents and trashed = false and name = '${COFFEE_WAREHOUSE_NAME}'`,
+        fields: "files(id,name)", pageSize: "1", orderBy: "modifiedTime desc",
+      });
+      const listing = await read(`https://www.googleapis.com/drive/v3/files?${query}`, { headers, cache: "no-store" });
+      if (!listing.ok) throw warehouseError;
+      const files = await listing.json() as { files?: Array<{ id: string; name: string }> };
+      const selected = files.files?.find(file => file.name === COFFEE_WAREHOUSE_NAME);
+      // A failed warehouse read is never downgraded to an empty/sample library.
+      if (!selected) throw warehouseError;
+      const response = await read(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(selected.id)}?alt=media`, { headers, cache: "no-store" });
+      if (!response.ok) throw warehouseError;
+      return response.json();
+    }, 15_000);
+  }
+}
+
+async function readWarehouseCoffee(request?: typeof fetch): Promise<CoffeeContent | null> {
+  const raw = await readCoffeeFile(request);
   if (raw === null) return null;
   const record = raw as { moment?: unknown };
   const content = (record.moment ?? raw) as CoffeeContent;
@@ -36,9 +61,9 @@ async function readWarehouseCoffee(): Promise<CoffeeContent | null> {
   return { shops: content.shops, updatedAt: content.updatedAt, schemaVersion: content.schemaVersion };
 }
 
-export async function readCoffeeContent(): Promise<{ content: CoffeeContent; status: CoffeeStoreStatus }> {
+export async function readCoffeeContent(request?: typeof fetch): Promise<{ content: CoffeeContent; status: CoffeeStoreStatus }> {
   if (!isCoffeeBlobConfigured()) {
-    const stored = await readWarehouseCoffee();
+    const stored = await readWarehouseCoffee(request);
     return {
       content: stored ? mergeSeedCoffeeShops(stored) : createSeedCoffeeContent(),
       status: { configured: true, source: stored ? "drive" : "seed" },
