@@ -1,5 +1,4 @@
-import { parseDriveTripRecord } from '@/lib/drive-trips';
-import { getWarehouseTripRecord } from '@/lib/drive-warehouse';
+import { readDriveTrip } from '@/lib/drive-trips';
 import { withDriveReadBudget } from '@/lib/drive-read-budget';
 import { readPublicHubIndexForSlug } from '@/lib/public-hub';
 import { publishedTrip } from '@/lib/trip-publication';
@@ -20,12 +19,12 @@ export async function readPublicTripBySlug(
     const card = selectedId ? { id: selectedId, slug } : cards.find(card => card.slug === slug);
     if (!card || !/^trip_[a-zA-Z0-9_-]+$/.test(card.id)) return null;
     stage = 'selected-trip';
-    const stored = parseDriveTripRecord(await getWarehouseTripRecord(`travelos__trip__${card.id}.json`, read));
+    const stored = await readDriveTrip(card.id, read, timeoutMs ?? 35_000);
     if (!stored) return null;
     const visible = publishedTrip(stored);
     // An old index must never reveal a subsequently private trip or draft slug.
     return visible && visible.visibility !== 'private' && visible.id === card.id && visible.slug === slug ? visible : null;
-  }, timeoutMs); }
+  }, timeoutMs ?? 35_000); }
   catch (error) {
     // Stage only: never log tokens, signed URLs, or private trip content.
     console.warn('[public-trip-read]', stage, error instanceof Error && /逾時|timed out/.test(error.message) ? 'timeout' : 'unavailable');

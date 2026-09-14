@@ -19,7 +19,7 @@ function transport(options: {private?:boolean; missing?:boolean; fail?:boolean; 
   };
   return {request,urls};
 }
-test('reader loads only selected trip and preserves published snapshot',async()=>{const {request,urls}=transport();const trip=await readPublicTripBySlug('selected',request);assert.equal(trip?.title,'已公開內容');assert.equal(trip?.publishedSnapshot,undefined);assert.equal(urls.filter(x=>x.searchParams.get('op')==='item').length,1);});
+test('reader loads only selected trip and preserves published snapshot',async()=>{const {request,urls}=transport();const trip=await readPublicTripBySlug('selected',request);assert.equal(trip?.title,'已公開內容');assert.equal(trip?.publishedSnapshot,undefined);assert.equal(urls.filter(x=>x.searchParams.get('alt')==='media').length,1);});
 test('stale public index never exposes a now-private trip or unpublished slug',async()=>{assert.equal(await readPublicTripBySlug('selected',transport({private:true}).request),null);assert.equal(await readPublicTripBySlug('selected',transport({renamed:true}).request),null);});
 test('unknown slug stops at index; transport errors remain errors',async()=>{const missing=transport({missing:true});assert.equal(await readPublicTripBySlug('absent',missing.request),null);assert.equal(missing.urls.length,1);await assert.rejects(readPublicTripBySlug('selected',transport({fail:true}).request));});
 test('reader total budget also bounds index body read and aborts it',async()=>{let signal:AbortSignal|null|undefined;const request:typeof fetch=async(_input,init)=>{signal=init?.signal;return new Response(new ReadableStream({start(controller){signal?.addEventListener('abort',()=>controller.error(new Error('aborted')),{once:true});}}));};await assert.rejects(readPublicTripBySlug('selected',request,20),/逾時/);assert.equal(signal?.aborted,true);});
@@ -45,7 +45,7 @@ test('cold catalog selection skips index and fetches only its public trip', asyn
   const trip = await readPublicTripBySlug('selected', request, undefined, 'trip_selected');
   assert.equal(trip?.title, '已公開內容');
   assert.equal(urls.some(url => url.searchParams.get('op') === 'public-hub'), false);
-  assert.equal(urls.filter(url => url.searchParams.get('op') === 'item').length, 1);
+  assert.equal(urls.filter(url => url.searchParams.get('alt') === 'media').length, 1);
 });
 test('direct catalog hints cannot expose private or mismatched published trips', async () => {
   assert.equal(await readPublicTripBySlug('selected', transport({private:true}).request, undefined, 'trip_selected'), null);
