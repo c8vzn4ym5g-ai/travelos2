@@ -1,4 +1,4 @@
-import { getDriveAccess, getWarehouseTripBundle, putWarehouseTrip, syncWarehousePublicHubTrip } from "@/lib/drive-warehouse";
+import { getDriveAccess, getWarehouseTripBundle, getWarehouseTripRecord, putWarehouseTrip, syncWarehousePublicHubTrip } from "@/lib/drive-warehouse";
 import { invalidatePublicHubCache } from "@/lib/public-hub";
 import { VANITY_CREW_HELD_TRIP_IDS, prepareFamilyEditorTrips, prepareTripForWarehouse } from "@/lib/trip-series";
 import type { TripDetail } from "@/lib/types";
@@ -167,6 +167,16 @@ function tripFileName(tripId: string) {
   return `${prefix}${tripId.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
 }
 
+/** Named warehouse reads use the same storage authority as the trip writer. */
+export async function readWarehouseTrip(tripId: string, request?: typeof fetch): Promise<TripDetail | null> {
+  if (!/^trip_[a-zA-Z0-9_-]+$/.test(tripId) || heldTripIdSet.has(tripId)) return null;
+  const raw = await getWarehouseTripRecord(tripFileName(tripId), request);
+  if (raw === null) return null;
+  const trip = parseDriveTripRecord(raw);
+  if (!trip || trip.id !== tripId) throw new Error("家庭遊記資料不一致，請稍後再試。");
+  return prepareFamilyEditorTrips([trip])[0] ?? null;
+}
+
 /** Read one authoritative trip without fetching the editor's complete library.
  * Only an absent file is null; a failed read must not trigger a seed fallback.
  */
@@ -176,8 +186,10 @@ export async function readDriveTrip(tripId: string, request?: typeof fetch, time
 }
 
 async function readDriveTripWithinBudget(tripId: string, request: typeof fetch, sharedAccessCache: boolean): Promise<TripDetail | null> {
-  const access = await getDriveAccess(request, false, sharedAccessCache);
-  if (!access) throw new Error("家庭儲存暫時無法連接，請稍後再試。");
+  // The existing warehouse can read/write trips even when its token endpoint
+  // is temporarily unavailable. Keep this fallback inside the caller's deadline.
+  const access = await getDriveAccess(request, false, sharedAccessCache).catch(() => null);
+  if (!access) return readWarehouseTrip(tripId, request);
   const read = request ?? fetch;
   const name = tripFileName(tripId);
   const headers = { Authorization: `Bearer ${access.token}` };

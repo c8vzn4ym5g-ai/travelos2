@@ -433,6 +433,7 @@ export async function putWarehouseTrip(
 /** Read one named trip through the existing warehouse RPC, without access-token/list/media round trips. */
 export async function getWarehouseTripRecord(name: string, request?: DriveFetch): Promise<unknown> {
   const raw = await getJson({ name, op: "item", token: getDriveWarehouseToken() }, "Selected trip GET", request);
+  if (!raw || typeof raw !== "object") throw new DriveWarehouseError("這篇遊記暫時無法讀取。");
   if (raw && typeof raw === "object" && "error" in raw) {
     if (raw.error === "not found") return null;
     throw new DriveWarehouseError("這篇遊記暫時無法讀取。");

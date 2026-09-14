@@ -2,7 +2,7 @@ import { afterResponse } from "@/lib/after-response";
 import { cachePublicHubTrips } from "@/lib/public-hub";
 import { isAdminPinValid, readContent, writeContent } from "@/lib/editable-store";
 import type { TripDetail } from "@/lib/types";
-import { saveDriveTripWithCatalog } from "@/lib/drive-trips";
+import { readWarehouseTrip, saveDriveTripWithCatalog } from "@/lib/drive-trips";
 import { readEditorTripRecord } from "@/lib/editor-trip-read";
 import { seedTripDetails } from "@/lib/trips";
 import { isBlobConfigured } from "@/lib/editable-store";
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     if (!isBlobConfigured()) {
       const conflict = await addressConflict(body.trip, true);
       if (conflict) return Response.json({ error: conflict }, { status: 409 });
-      if (await readEditorTripRecord(body.trip.id)) return Response.json({ error: "A trip with this ID already exists" }, { status: 409 });
+      if (await readWarehouseTrip(body.trip.id)) return Response.json({ error: "A trip with this ID already exists" }, { status: 409 });
       const { trip, warning } = await saveDriveTripWithCatalog({ ...body.trip, visibility: "private", publishedSnapshot: undefined });
       return Response.json({ trip, ...(warning ? { warning } : {}) });
     }

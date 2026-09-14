@@ -20,7 +20,7 @@ export function ReaderPhoto({ photo, priority = false }: { photo: Photo; priorit
 }
 
 export function ReaderAlbum({ photos }: { photos: Photo[] }) {
-  const [visible, setVisible] = useState(0);
+  const [visible, setVisible] = useState(6);
   if (!photos.length) return null;
   return <section aria-label="完整相簿" className="travel-panel rounded-3xl p-5 sm:p-7">
     <h2 className="travel-hand text-2xl font-semibold">旅途相簿</h2>

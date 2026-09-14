@@ -92,3 +92,15 @@ test("invalid and held ids do not request storage; mismatched file content throw
   };
   await assert.rejects(trips.readDriveTrip(id, request));
 });
+
+for (const [label, raw] of [['missing', { error: 'not found' }], ['failed', { error: 'temporarily unavailable' }], ['wrong record', { ...saved, id: 'trip_other' }], ['empty', null]] as const) test(`unavailable direct access fallback preserves ${label} semantics`, async () => {
+  const request: typeof fetch = async input => {
+    const url = new URL(String(input));
+    if (url.searchParams.get('op') === 'drive-access') return Response.json({ error: 'unavailable' });
+    assert.equal(url.searchParams.get('op'), 'item');
+    assert.equal(url.searchParams.get('name'), name);
+    return Response.json(raw);
+  };
+  if (label === 'missing') assert.equal(await trips.readDriveTrip(id, request), null);
+  else await assert.rejects(trips.readDriveTrip(id, request));
+});

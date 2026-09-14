@@ -8,7 +8,7 @@ import { seedTripDetails } from '../lib/trips.ts';
 const id = 'trip_11111111-2222-4333-8444-555555555555';
 const draft = { ...seedTripDetails[0], id, slug: id.replaceAll('_', '-'), title: 'Working story', visibility: 'public' as const, updatedAt: '2026-09-13T10:00:00Z', publishedSnapshot: { ...seedTripDetails[0], title: 'Published story' } };
 
-async function storage(run: (writes: typeof draft[], operations: string[]) => Promise<void>, exists = true) {
+async function storage(run: (writes: typeof draft[], operations: string[]) => Promise<void>, exists = true, accessAvailable = true) {
   const original = globalThis.fetch;
   const testContext = process.env.NODE_TEST_CONTEXT;
   const writes: typeof draft[] = [];
@@ -19,7 +19,8 @@ async function storage(run: (writes: typeof draft[], operations: string[]) => Pr
     const body = init?.body && typeof init.body === 'string' ? JSON.parse(init.body) : null;
     const op = body?.op ?? url.searchParams.get('op');
     operations.push(op ?? url.pathname);
-    if (op === 'drive-access') return Response.json({ token: 'fixture-token', folderId: 'fixture-folder' });
+    if (op === 'drive-access') return Response.json(accessAvailable ? { token: 'fixture-token', folderId: 'fixture-folder' } : { error: 'temporarily unavailable' });
+    if (op === 'item') { assert.equal(url.searchParams.get('name'), `travelos__trip__${id}.json`); return Response.json(exists ? draft : { error: 'not found' }); }
     if (op === 'editor-catalog') return Response.json(body ? { ok: true } : { trips: exists ? [draft] : [] });
     if (op === 'trip') { writes.push(JSON.parse(body.text)); return Response.json({ ok: true }); }
     if (url.searchParams.has('q')) {
@@ -84,3 +85,18 @@ test('missing selected trip cannot be saved', async () => storage(async writes =
   assert.equal(response.status, 404);
   assert.equal(writes.length, 0);
 }, false));
+
+
+test('new trip reaches existing warehouse writer when direct access is unavailable', async () => storage(async (writes, ops) => {
+  const response = await POST(request('POST', { trip: draft }));
+  assert.equal(response.status, 200, await response.clone().text());
+  assert.equal(writes.length, 1);
+  assert.equal(ops.includes('drive-access'), false, 'creating a draft needs no exposed Drive access token');
+}, false, false));
+
+test('selected save falls back to named warehouse record when direct access is unavailable', async () => storage(async writes => {
+  const response = await PUT(request('PUT', { trip: { ...draft, title: 'Saved with warehouse' }, baseUpdatedAt: draft.updatedAt }));
+  assert.equal(response.status, 200, await response.clone().text());
+  assert.equal(writes[0].title, 'Saved with warehouse');
+  assert.equal(writes[0].publishedSnapshot.title, 'Published story');
+}, true, false));

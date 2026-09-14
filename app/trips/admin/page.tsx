@@ -642,9 +642,7 @@ export default function TravelAdminPage() {
             {activeTrip ? <><button className={secondaryButtonClass} onClick={() => { editorScrollRef.current = window.scrollY; setDraftPreview(true); window.scrollTo(0, 0); }} type="button">預覽工作稿</button>
             {isTripPublic(activeTrip) ? <button type="button" className={secondaryButtonClass} onClick={() => { flushLocalDrafts(); editorScrollRef.current = window.scrollY; setPublishedPreview(true); window.scrollTo(0, 0); }}>查看目前公開版</button> : <span className="rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-zinc-600">私人草稿</span>}</> : null}
           </div>
-          <p className="travel-hand mt-6 text-lg text-sky-800">family travel journal</p>
-          <h1 className="travel-display mt-1 text-3xl font-semibold sm:text-5xl">遊記編輯</h1>
-          <p className="mt-3 max-w-2xl text-base leading-7 text-zinc-600">先選一段旅程，再把記憶寫進去。手機隨手補充，電腦慢慢整理。</p>
+          <h1 className="travel-display mt-6 text-3xl font-semibold sm:text-5xl">{activeTrip ? activeTrip.title : '我的遊記'}</h1>
         </div>
       </header>
 
@@ -787,5 +785,4 @@ export default function TravelAdminPage() {
     </main>
   );
 }
-
 

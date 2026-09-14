@@ -1,3 +1,21 @@
+## 2026-09-14 Owner correction: existing content first (deployment pending)
+
+Owner rejects onboarding/menu as the deliverable: preserve and directly show all existing journals in a shared editable reading layout, not recreate records. Root owns UI/release; selected_storage owns selected-storage fix; date_display performs bounded UI review. Original same-origin deployment authorization persists; no full verification, passwords, new cloud content, or polling. User screenshot reference is 76% remaining, not a tool measurement.
+
+Removed six-card instruction menu above editor and lengthy new-page scaffold explanation. Existing title, intro, cover, chapters render first; fixed inline film position shows existing poster/title and opens the actual film, album initially shows at most six lazy images. Missing sections show short editable placeholders. Existing records and publication snapshots preserved. New-page remains optional; main delivery link must be /trips/admin or an existing journal. Header simplified; empty public album/chapters have no dead links; photo chooser has upload action.
+
+Storage screenshot failure reproduced: POST required a direct Drive access preflight before existing warehouse save. POST now uses exact named warehouse lookup, and selected read uses same named fallback if token endpoint unavailable, within existing deadline. Empty/error/wrong-ID responses must not become absent records. Agent focused storage regression20/20 passed. Five edited UI files syntax passed. No real content writes performed. Remaining: finish narrow rendered QC, same-origin deployment and existing-journey live edit entry.
+
+## 2026-09-14 最新交付：標準遊記模板 ede7672（以下舊版本由本節取代）
+
+原站 https://travelos2.chao-jason.workers.dev 已部署 ede7672cdb83808f7b83ac7a95a11c6a906878a8；workflow 34802960613、job 103849150541 與 Cloudflare deployment step 成功。現行分支 codex/fixed-entry-release。
+
+六個共用編輯貨架：封面、開場、故事、短片、相簿素材、結語。只填標題即可建立私人空白遊記；日期不臆造。公開與編輯沿用 JournalReader。空白貨架提示只在編輯顯示。批次照片／影片上傳連到單篇保存；日期可自行輸入、隱藏或使用年月，每段精確日期預設不顯示。照片整理最多選六張代表照片建立初稿段落，沿用既有說明，保留全部素材及既有故事，不虛構家庭經歷。照片小影集是播放式幻燈片，並非影片匯出或自動生成故事。既有影片保留。
+
+聚焦 QC：日期 2/2；模板 5/5（含重複整理、少量照片、40 張保留）；selected storage 21 個相關測試通過；上傳新增無拍攝日期斷言後 2/2 通過。局部語法檢查無錯；本機既有 ESLint dependency 缺失未修。未跑完整驗證。局部本機 390px 畫面確認貨架整齊、日期編輯與隱藏、閱讀效果不顯示貨架、照片小影集播放／關閉。臨時 mock route 已移除，local server 已停止。
+
+原站已實際開啟 /trips/new 顯示六貨架與免密碼標題表單；九州編輯頁成功載入標準貨架、既有封面與素材。QC 未寫入真實家庭內容。Owner iPhone 未實測，不能宣稱全站／弱網全面穩定。完整驗證仍須 Owner 定稿凍結後明確授權；密碼延後，不新增心跳或用量輪詢。此交付不含批次錄音上傳、自動語音轉寫或 AI 影片輸出。
+
 ## 2026-09-14 最新交付：bebe675（取代先前版本紀錄）
 
 原站已發布 bebe675419303ec4172d678ca53d5142ae8f0e68，GitHub workflow34799603104 success。所有公開遊記使用與VisualJournalEditor相同的JournalReader，芬蘭不再走特殊版面或覆蓋已儲存文稿。既有芬蘭短片保留。無照片段落可直接開啟選圖。
@@ -978,3 +996,5 @@ Phone delivery correction: localhost is not phone delivery. GitHub preview push 
 2026-09-14 standard-template implementation: title-only new journal creates private blank dates/arrays, no PIN gate per Owner. VisualJournalEditor has fixed six shelves (cover/opening/story/film/materials/ending), missing states, add story, source-caption-only first arrangement capped6 representative photos, preserves existing stories and all assets. Photos/videos upload sequentially in one batch with per-file progress. Reader same shared template, user editable/hideable public date, optional chapter dates, editable closing; empty editing shelf hints hidden in preview. Existing films plus uploaded videos and real-photo slideshow. No AI invented prose or export-video claim; captions arrange only.
 Data mutations: selected record create/save/upload instead whole-library read; draft/public snapshot and base version guard preserved, uploaded capture date remains unknown unless supplied. Cloud parser spreads template fields. Static library date removed so hidden detail date cannot leak via cards; internal sorting unchanged.
 Focused QC: template5, date2, selected storage/read/catalog21 from workers; changed upload2 rechecked for unknown capture date. Local390px fixture visually clear shelves; source photo arranged into story, custom date rendered then hidden, preview removed shelves, slideshow play/pause/close. Fixture removed. No real family content writes during QC. No full verification or lint suite; existing local lint dependency missing. Next step same-origin authorized release and narrow live template entry.
+
+

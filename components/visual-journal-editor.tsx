@@ -7,7 +7,6 @@ import {publishedTrip} from "@/lib/trip-publication";
 import {setTripCover, tripCover} from "@/lib/trip-cover";
 import {isTripPhotoVideo} from "@/lib/trip-photo";
 import type {TripDetail} from "@/lib/types";
-import {JournalShelves} from "@/components/journal-shelves";
 import {arrangeJournal,addJournalStory} from "@/lib/journal-template";
 import {EditorDateLabel} from "@/components/editor-date-label";
 
@@ -74,13 +73,13 @@ export function VisualJournalEditor({trip,onChange,onSave,onPublish,onLibrary,on
   const choices=trip.photos.filter(p=>!isTripPhotoVideo(p)&&(!query||`${p.caption} ${p.originalFilename}`.toLowerCase().includes(query.toLowerCase())));
   return <div className="vj-workspace">
     <header className="vj-toolbar"><button type="button" onClick={onLibrary}>← 遊記目錄</button><strong>版面編輯</strong><div className="vj-modes" aria-label="版面模式">{([["edit","直接編輯"],["preview","讀者效果"],["published","目前公開"]] as const).map(([id,label])=><button type="button" key={id} aria-pressed={mode===id} disabled={id==="published"&&!publishedTrip(trip)} onClick={()=>setMode(id)}>{label}</button>)}</div><button type="button" disabled={busy||!dirty} onClick={onSave}>{busy?"儲存中…":"儲存工作稿"}</button><button type="button" className="vj-publish" disabled={busy} onClick={onPublish}>更新公開版</button></header>
-    <div className="vj-note"><span>{mode==="edit"?"點畫面上的標題、文字或照片，直接修改這個位置。":mode==="preview"?"這是工作稿更新公開後的效果。":"這是目前讀者看到的版本；工作稿修改尚未套用。"}</span><button type="button" onClick={()=>onAdvanced("story")}>段落排序・更多設定</button><span role="status">{dirty?"工作稿尚未儲存":message}</span></div>
-    {mode==='edit'?<><JournalShelves trip={trip} onOpen={id=>id==='story'?onAdvanced('story'):open({kind:id})} onArrange={()=>{const next=arrangeJournal(trip,new Date().toISOString());onChange(next);setArrangement(`已保留原故事，將 ${next.journalEntries.length-trip.journalEntries.length} 張尚未安排的照片放入段落。文字只取自現有照片說明，空白可用文字或錄音補充。`);}} onAddStory={()=>{const next=addJournalStory(trip,`journal_${crypto.randomUUID()}`,new Date().toISOString());onChange(next);setHeading("新的故事");setValue("");setTarget({kind:"entry",id:next.journalEntries[next.journalEntries.length-1].id});}} />{arrangement?<p className="jt-arranged" role="status">{arrangement}</p>:null}</>:null}
-    <JournalReader trip={visible} onBack={onLibrary} previewLabel={mode==="published"?"目前公開":"工作稿"} editor={mode==="edit"?{onEdit:open}:undefined} hideHeader />
+    <div className="vj-note"><span>{mode==="edit"?"點文字或照片即可修改":mode==="preview"?"讀者效果":"目前公開版本"}</span><button type="button" onClick={()=>onAdvanced("story")}>段落排序</button><span role="status">{dirty?"工作稿尚未儲存":message}</span></div>
+    {arrangement&&mode==='edit'?<p className="jt-arranged" role="status">{arrangement}</p>:null}
+    <JournalReader trip={visible} onBack={onLibrary} previewLabel={mode==="published"?"目前公開":"工作稿"} editor={mode==="edit"?{onEdit:open,onArrange:()=>{const next=arrangeJournal(trip,new Date().toISOString());onChange(next);setArrangement(`已加入 ${next.journalEntries.length-trip.journalEntries.length} 段照片初稿，原內容保留。`);},onAddStory:()=>{const next=addJournalStory(trip,`journal_${crypto.randomUUID()}`,new Date().toISOString());onChange(next);setHeading("新的故事");setValue("");setTarget({kind:"entry",id:next.journalEntries[next.journalEntries.length-1].id});}}:undefined} hideHeader />
     {target?<div className="vj-overlay"><div className="vj-dialog" role="dialog" aria-modal="true" aria-label="修改這個位置" tabIndex={-1} ref={dialog}><header><h2>{target.kind==="cover"?"封面・第一張照片":target.kind==="entry"?"修改這段故事":target.kind==="photo"?"修改照片":target.kind==="title"?"修改遊記標題":target.kind==="date"?"公開日期":target.kind==="closing"?"旅程收尾":"修改開場介紹"}</h2><button type="button" onClick={()=>setTarget(null)}>取消</button></header>
       {target.kind==='date'?<EditorDateLabel startDate={trip.startDate} {...dateSettings} onChange={setDateSettings} />:null}
       {target.kind==="title"||target.kind==="summary"||target.kind==="entry"||target.kind==='closing'?<div className="vj-fields">{entry?<label>段落標題<input value={heading} onChange={e=>setHeading(e.target.value)} /></label>:null}<label>{target.kind==="title"?"遊記標題":target.kind==="summary"?"開場介紹":target.kind==='closing'?'旅程收尾':"段落內容"}<textarea autoFocus rows={target.kind==="title"?2:9} value={value} onChange={e=>setValue(e.target.value)} /></label></div>:null}
-      {target.kind==="cover"||target.kind==="photo"?<div className="vj-fields"><label>照片說明<input value={caption} onChange={e=>setCaption(e.target.value)} /></label><p>選一張照片，直接替換畫面上的這個位置。</p><label>搜尋照片<input value={query} onChange={e=>{setQuery(e.target.value);setLimit(12);}} /></label><div className="vj-photo-grid">{choices.slice(0,limit).map(photo=><button type="button" key={photo.id} aria-label={`選擇照片：${photo.caption||photo.originalFilename}`} onClick={()=>{
+      {target.kind==="cover"||target.kind==="photo"?<div className="vj-fields"><label>照片說明<input value={caption} onChange={e=>setCaption(e.target.value)} /></label><button type="button" onClick={()=>{setTarget(null);onAdvanced("photos");}}>＋ 加入照片</button><label>搜尋照片<input value={query} onChange={e=>{setQuery(e.target.value);setLimit(12);}} /></label><div className="vj-photo-grid">{choices.slice(0,limit).map(photo=><button type="button" key={photo.id} aria-label={`選擇照片：${photo.caption||photo.originalFilename}`} onClick={()=>{
         if(target.kind==="cover") onChange(setTripCover(trip,photo));
         else onChange({...trip,journalEntries:trip.journalEntries.map(e=>e.id===target.entryId?{...e,storyPhotoId:photo.id}:e)});
         setTarget(null);
@@ -89,3 +88,4 @@ export function VisualJournalEditor({trip,onChange,onSave,onPublish,onLibrary,on
     </div></div>:null}
   </div>;
 }
+
