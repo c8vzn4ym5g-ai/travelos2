@@ -1,0 +1,11 @@
+{
+  "name": "TravelOS",
+  "install": "pnpm install --frozen-lockfile --store-dir \"$HOME/.pnpm-store\"",
+  "terminals": [
+    {
+      "name": "dev",
+      "command": "pnpm dev"
+    }
+  ],
+  "ports": [3000]
+}
