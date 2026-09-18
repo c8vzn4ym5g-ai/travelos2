@@ -5,7 +5,10 @@ import { hidePublicTimestamps } from "../lib/public-facing-text.ts";
 test("public blurbs drop calendar stamps without touching the source sentence", () => {
   const kyushu = "8/30–9/6 Serena 自駕。天神先住 Solaria 一晚起程。";
   const kyoto = "京都銀閣寺：北斗石、洗月泉、苔庭紅葉與山門。2022-11-17，愛慕虛榮團。";
+  const arashiyama = "京都嵐山賞楓：住進翠嵐，走竹林坐私人人力車，過渡月橋，河畔喝抹茶。2022-11-15–16，愛慕虛榮團四人。好吃好喝好玩好開心。";
   assert.equal(hidePublicTimestamps(kyushu), "Serena 自駕。天神先住 Solaria 一晚起程。");
   assert.equal(hidePublicTimestamps(kyoto), "京都銀閣寺：北斗石、洗月泉、苔庭紅葉與山門。愛慕虛榮團。");
+  assert.equal(hidePublicTimestamps(arashiyama), "京都嵐山賞楓：住進翠嵐，走竹林坐私人人力車，過渡月橋，河畔喝抹茶。愛慕虛榮團四人。好吃好喝好玩好開心。");
   assert.equal(kyushu.startsWith("8/30"), true);
+  assert.equal(arashiyama.includes("2022-11-15"), true);
 });
