@@ -10,6 +10,7 @@ import { journeyVideos } from "@/lib/journey-videos";
 import { PhotoStoryFilm } from "@/components/photo-story-film";
 import { isTripPhotoVideo } from "@/lib/trip-photo";
 import { tripDisplayDate } from "@/lib/trip-display-date";
+import { hidePublicTimestamps } from "@/lib/public-facing-text";
 import type { ReaderEditTarget } from "@/components/visual-journal-editor";
 import type { TripDetail } from "@/lib/types";
 
@@ -39,6 +40,7 @@ export function JournalReader({ trip, onBack, previewLabel, editor, hideHeader =
   const hasMap=!!trip.coordinates || trip.places.length>0 || (trip.travelRoute?.length??0)>0;
   const entries = trip.journalEntries;
   const dateLabel = tripDisplayDate(trip);
+  const summaryText = editor ? trip.summary : hidePublicTimestamps(trip.summary);
   useEffect(() => {
     const update = () => setProgress(Math.min(100, Math.round(window.scrollY / Math.max(1, document.documentElement.scrollHeight - window.innerHeight) * 100)));
     window.addEventListener("scroll", update, { passive: true });
@@ -75,13 +77,12 @@ export function JournalReader({ trip, onBack, previewLabel, editor, hideHeader =
   function editProps(target: ReaderEditTarget, label: string) {
     return editor ? {role: 'button' as const, tabIndex: 0, 'aria-label': label, className: 'jr-editable', onClick: () => editor.onEdit(target), onKeyDown: (event: React.KeyboardEvent) => {if(event.key==='Enter'||event.key===' '){event.preventDefault();editor.onEdit(target);}}} : {};
   }
-  const editHref = navigation?.editHref ?? `/trips/admin?trip=${encodeURIComponent(trip.id)}&returnTo=${encodeURIComponent(`/trips/${trip.slug}?id=${trip.id}`)}`;
   const chapters = <nav className="jr-chapters" aria-label="故事章節">{entries.map((entry, index) => <a key={entry.id} href={`#story-${entry.id}`} aria-current={active === `story-${entry.id}` ? "location" : undefined} onClick={event => jump(event, `story-${entry.id}`)}><span>{String(index + 1).padStart(2, "0")}</span>{entry.title}</a>)}</nav>;
   return <main className="journal-site jr-page">
     <JourneyMusicPlayer tracks={trip.musicTracks ?? []} />
-    {!hideHeader ? <header className="jr-topbar"><ReaderBack onBack={onBack} href={navigation?.catalogHref} label={navigation?.backLabel} />{onBack ? <button type="button" className="jl-brand" onClick={onBack}>TravelOS</button> : <Link href="/" prefetch={false} className="jl-brand">TravelOS</Link>}{onBack ? <span className="jr-progress-label">{previewLabel}</span> : <Link href={editHref} prefetch={false} className="jr-back">編輯這篇</Link>}<div className="jr-progress" style={{ width: `${progress}%` }} /></header> : null}
+    {!hideHeader ? <header className="jr-topbar"><ReaderBack onBack={onBack} href={navigation?.catalogHref} label={navigation?.backLabel} />{onBack ? <button type="button" className="jl-brand" onClick={onBack}>TravelOS</button> : <Link href="/" prefetch={false} className="jl-brand">TravelOS</Link>}{onBack ? <span className="jr-progress-label">{previewLabel}</span> : null}<div className="jr-progress" style={{ width: `${progress}%` }} /></header> : null}
     <section className="jr-hero" aria-label="封面與開場" data-music-zone={trip.title}>
-      <div className="jr-title"><div {...editProps({kind:"details"},"編輯旅行資料")}><p className="jl-eyebrow">{[trip.country,trip.city].filter(Boolean).join(" ／ ") || (editor ? "加入旅行地點" : "")}</p></div><h1 {...editProps({kind:"title"},"編輯遊記標題")}>{trip.title}</h1><div {...editProps({kind:"summary"},"編輯開場介紹")}><p className="jr-intro">{trip.summary || (editor ? "寫一段開場介紹，帶讀者走進旅程。" : "")}</p></div><div className="jr-meta">{dateLabel || editor ? <span {...editProps({kind:"date"},"編輯公開日期")} style={{overflowWrap:"anywhere"}}>{dateLabel || "加入公開日期"}</span> : null}{entries.length || editor ? <span>{entries.length} 段故事</span> : null}{videos.length || filmPhotos.length ? <button type="button" onClick={() => setPanel("film")}>▷ 看旅程短片</button> : null}</div></div>
+      <div className="jr-title"><div {...editProps({kind:"details"},"編輯旅行資料")}><p className="jl-eyebrow">{[trip.country,trip.city].filter(Boolean).join(" ／ ") || (editor ? "加入旅行地點" : "")}</p></div><h1 {...editProps({kind:"title"},"編輯遊記標題")}>{trip.title}</h1><div {...editProps({kind:"summary"},"編輯開場介紹")}><p className="jr-intro">{summaryText || (editor ? "寫一段開場介紹，帶讀者走進旅程。" : "")}</p></div><div className="jr-meta">{editor ? <span {...editProps({kind:"date"},"編輯公開日期")} style={{overflowWrap:"anywhere"}}>{dateLabel || "加入公開日期"}</span> : null}{entries.length || editor ? <span>{entries.length} 段故事</span> : null}{videos.length || filmPhotos.length ? <button type="button" onClick={() => setPanel("film")}>▷ 看旅程短片</button> : null}</div></div>
       {cover ? <figure className="jr-cover"><div className="jr-edit-photo"><ReaderPhoto key={cover.id} photo={cover} priority />{editor ? <button className="jr-photo-edit" type="button" onClick={()=>editor.onEdit({kind:"cover"})}>更換封面・第一張照片</button> : null}</div><figcaption>{cover.caption || `${trip.city} · 旅途一瞬`}</figcaption></figure> : editor ? <button type="button" className="jr-photo-edit-static" onClick={()=>editor.onEdit({kind:"cover"})}>選擇封面・第一張照片</button> : null}
     </section>
     <div className="jr-layout"><aside className="jr-sidebar">{entries.length || editor ? <><p className="jl-eyebrow">IN THIS JOURNEY</p><h2>沿途的故事</h2>{chapters}</> : null}<div className="jr-side-actions">{hasMap || editor ? <button type="button" onClick={() => setPanel("map")}>⌖ 旅程地圖</button> : null}{photos.length || editor ? <a href="#album" onClick={event => jump(event, "album")}>▧ 旅途相簿</a> : null}{videos.length || filmPhotos.length ? <button type="button" onClick={() => setPanel("film")}>▷ 旅程短片</button> : null}</div><ShareActions title={trip.title} description={trip.summary} path={navigation?.articleHref ?? `/trips/${trip.slug}?id=${encodeURIComponent(trip.id)}`} /></aside>

@@ -23,14 +23,14 @@ export default function TravelError({ error, reset }: { error: Error & {digest?:
   return <main className="mx-auto max-w-lg px-5 py-16 text-zinc-900">
     <p className="mb-4 font-semibold text-sky-800">TravelOS</p>
     <h1 className="text-2xl font-semibold">這個頁面暫時未能開啟</h1>
-    <p className="mt-4 leading-7">可以再試一次，或回到家庭編輯繼續。這個畫面不代表已儲存的內容被刪除。</p>
+    <p className="mt-4 leading-7">可以再試一次。這個畫面不代表已儲存的內容被刪除。</p>
     <div className="mt-6 flex flex-wrap gap-3">
       <a className="min-h-11 rounded-full border border-sky-800 px-6 py-3 text-sky-900" href={returnTo}>返回遊記</a>
       <button className="min-h-11 rounded-full bg-sky-800 px-6 py-3 font-semibold text-white" onClick={() => {
         if (pageFailure(error, window.location.pathname).kind === "page-update") window.location.reload();
         else reset();
       }} type="button">再試一次</button>
-      <a className="min-h-11 rounded-full border border-sky-800 px-6 py-3 text-sky-900" href="/trips/admin">返回家庭編輯</a>
+      <a className="min-h-11 rounded-full border border-sky-800 px-6 py-3 text-sky-900" href="/family">返回家庭頁</a>
       <a className="min-h-11 rounded-full border px-6 py-3" href="/">返回旅行首頁</a>
     </div>
     <button className="mt-5 min-h-11 underline" type="button" onClick={() => window.location.reload()}>重新開啟此頁</button>
