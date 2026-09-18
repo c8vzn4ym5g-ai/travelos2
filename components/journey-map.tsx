@@ -371,7 +371,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
             </div>
           ) : (
             <div className="grid min-h-[6.5rem] place-items-center rounded-xl bg-[color:var(--paper-soft)] px-4 text-center text-sm text-[color:var(--muted)]">
-              No photo for this stop
+              這一站還沒有照片
             </div>
           )}
           <div className="min-w-0">
@@ -387,7 +387,7 @@ export function JourneyMap({ center, city, country, journalEntries, photos, plac
           </div>
         </article>
       ) : (
-        <p className="travel-muted px-4 pb-4 text-sm leading-6">Choose a numbered stop to see the photo and note.</p>
+        <p className="travel-muted px-4 pb-4 text-sm leading-6">點一個編號，看這一站。</p>
       )}
     </section>
   );
