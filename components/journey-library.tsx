@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { HubTripCard } from "@/lib/public-hub";
+import { hidePublicTimestamps } from "@/lib/public-facing-text";
 
 export function JourneyLibrary({ trips, home = false }: { trips: HubTripCard[]; home?: boolean }) {
   const [query, setQuery] = useState("");
@@ -24,7 +25,7 @@ export function JourneyLibrary({ trips, home = false }: { trips: HubTripCard[]; 
     {featured ? <Link prefetch={false} href={href(featured)} onClick={remember} className="jl-feature">
       {featured.coverPhoto ? <img src={featured.coverPhoto.storageKey} alt={featured.coverPhoto.caption || featured.title} fetchPriority="high" /> : null}
       <div className="jl-feature-shade" />
-      <div className="jl-feature-copy"><span className="jl-eyebrow">FEATURED JOURNEY · 精選旅程</span><h2>{featured.title}</h2><p>{featured.summary}</p><span className="jl-feature-button">走進這段旅程 <span aria-hidden="true">↗</span></span></div>
+      <div className="jl-feature-copy"><span className="jl-eyebrow">FEATURED JOURNEY · 精選旅程</span><h2>{featured.title}</h2><p>{hidePublicTimestamps(featured.summary)}</p><span className="jl-feature-button">走進這段旅程 <span aria-hidden="true">↗</span></span></div>
       <span className="jl-feature-place">{featured.country} · {featured.city}</span>
     </Link> : null}
     <section className="jl-collection" id="journeys">
@@ -33,7 +34,7 @@ export function JourneyLibrary({ trips, home = false }: { trips: HubTripCard[]; 
       <div className="jl-grid">{shown.map((trip, index) => <article className="jl-card" key={trip.id}>
         <Link prefetch={false} href={href(trip)} onClick={remember} aria-label={`閱讀 ${trip.title}`}>
           <div className="jl-card-image">{trip.coverPhoto ? <img src={trip.coverPhoto.storageKey} alt={trip.coverPhoto.caption || trip.title} loading={index < 2 && !home ? "eager" : "lazy"} decoding="async" /> : <span>Travel journal</span>}<span className="jl-card-arrow" aria-hidden="true">↗</span></div>
-          <div className="jl-card-copy"><p className="jl-eyebrow">{trip.country} · {trip.city}</p><h3>{trip.title}</h3><p className="jl-card-summary">{trip.summary}</p><div className="jl-card-foot"><span>旅途記憶</span><span>閱讀故事 →</span></div></div>
+          <div className="jl-card-copy"><p className="jl-eyebrow">{trip.country} · {trip.city}</p><h3>{trip.title}</h3><p className="jl-card-summary">{hidePublicTimestamps(trip.summary)}</p><div className="jl-card-foot"><span>旅途記憶</span><span>閱讀故事 →</span></div></div>
         </Link>
       </article>)}</div>
       {shown.length === 0 ? <div className="jl-empty"><h3>還沒找到這段旅程</h3><p>換個城市名稱，或看看全部收藏。</p><button className="jl-button" onClick={() => { setCountry("全部"); setQuery(""); }} type="button">查看全部旅程</button></div> : null}
@@ -41,7 +42,7 @@ export function JourneyLibrary({ trips, home = false }: { trips: HubTripCard[]; 
   </>;
 }
 export function JournalHeader({ home = false, category = "trips" }: { home?: boolean; category?: "trips" | "coffee" | "food" }) {
-  return <header className="jl-header"><Link href="/" prefetch={false} className="jl-brand">TravelOS<span>旅途 · 日常 · 記憶</span></Link><nav aria-label="主導覽"><Link href="/trips" prefetch={false} aria-current={!home && category === "trips" ? "page" : undefined}>旅行故事</Link><Link href="/coffee" prefetch={false} aria-current={category === "coffee" ? "page" : undefined}>咖啡記憶</Link><Link href="/food" prefetch={false} aria-current={category === "food" ? "page" : undefined}>美食記事</Link><Link className="jl-edit-link" href="/family" prefetch={false}>家庭編輯 ↗</Link></nav></header>;
+  return <header className="jl-header"><Link href="/" prefetch={false} className="jl-brand">TravelOS<span>旅途 · 日常 · 記憶</span></Link><nav aria-label="主導覽"><Link href="/trips" prefetch={false} aria-current={!home && category === "trips" ? "page" : undefined}>旅行故事</Link><Link href="/coffee" prefetch={false} aria-current={category === "coffee" ? "page" : undefined}>咖啡記憶</Link><Link href="/food" prefetch={false} aria-current={category === "food" ? "page" : undefined}>美食記事</Link></nav></header>;
 }
 export function LibrarySkeleton() {
   return <div className="jl-skeleton" role="status"><p>正在打開旅行收藏…</p><div /><div /><div /></div>;
