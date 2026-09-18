@@ -37,8 +37,8 @@ export default function FamilyDeskPage() {
   const [message, setMessage] = useState("正在讀倉庫…");
   const [busy, setBusy] = useState(false);
 
-  async function load() {
-    setMessage("正在讀倉庫…");
+  async function load(done?: string) {
+    setMessage(done ? "正在放進倉庫…" : "正在讀倉庫…");
     const [tripResponse, coffeeResponse, foodResponse] = await Promise.all([
       fetch("/api/trips/content", { cache: "no-store" }),
       fetch("/api/notes/catalog?category=coffee&mode=edit&limit=100", { cache: "no-store" }),
@@ -51,7 +51,7 @@ export default function FamilyDeskPage() {
     setTrips(tripData.content?.trips ?? []);
     setCoffee(coffeeResponse.ok ? coffeeData.items ?? [] : []);
     setFood(foodResponse.ok ? foodData.items ?? [] : []);
-    setMessage("倉庫已讀到。缺的格子標成還沒有。完整修改用筆電。");
+    setMessage(done ?? "倉庫已讀到。缺的格子標成還沒有。完整修改用筆電。");
   }
 
   useEffect(() => {
@@ -59,6 +59,7 @@ export default function FamilyDeskPage() {
   }, []);
 
   async function createTrip() {
+    if (busy) return;
     setBusy(true);
     try {
       const now = new Date().toISOString();
@@ -70,8 +71,7 @@ export default function FamilyDeskPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "遊記架構還沒建立");
-      setMessage("遊記架構已放進倉庫。六格貨架都在，完整修改用筆電。");
-      await load();
+      await load("遊記架構已放進倉庫。六格貨架都在，完整修改用筆電。");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "遊記架構還沒建立");
     } finally {
@@ -80,6 +80,7 @@ export default function FamilyDeskPage() {
   }
 
   async function createNote(category: NoteCategory) {
+    if (busy) return;
     setBusy(true);
     try {
       const now = new Date().toISOString();
@@ -91,8 +92,7 @@ export default function FamilyDeskPage() {
       });
       const data = await response.json();
       if (!response.ok || !data.item) throw new Error(data.error || "架構還沒建立");
-      setMessage(category === "coffee" ? "咖啡架構已放進倉庫。" : "餐廳架構已放進倉庫。");
-      await load();
+      await load(category === "coffee" ? "咖啡架構已放進倉庫。" : "餐廳架構已放進倉庫。");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "架構還沒建立");
     } finally {
