@@ -376,7 +376,7 @@ export function getStopCardContent({
     (route?.linkedJournalEntryId ? journalsById.get(route.linkedJournalEntryId) : undefined) ??
     resolvedPin?.journal;
   const title = journal?.title ?? stop?.title ?? (route ? `${route.fromLabel} to ${route.toLabel}` : resolvedPin?.label) ?? "Stop";
-  const wording = journal?.body ?? resolvedPin?.note ?? stop?.note ?? route?.note ?? photo?.caption ?? "No note yet.";
+  const wording = journal?.body ?? resolvedPin?.note ?? stop?.note ?? route?.note ?? photo?.caption ?? "";
 
   return {
     caption: photo?.caption && photo.caption !== wording ? photo.caption : null,

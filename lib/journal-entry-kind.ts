@@ -17,6 +17,8 @@ export function projectJournalForReader(trip: TripDetail): TripDetail {
   return {
     ...trip,
     journalEntries: trip.journalEntries.filter(entry => !planIds.has(entry.id)),
-    travelRoute: (trip.travelRoute ?? []).filter(segment => !segment.linkedJournalEntryId || !planIds.has(segment.linkedJournalEntryId)),
+    places: (trip.places ?? []).map(place => ({ ...place, notes: null })),
+    costs: (trip.costs ?? []).map(cost => ({ ...cost, notes: null })),
+    travelRoute: (trip.travelRoute ?? []).filter(segment => !segment.linkedJournalEntryId || !planIds.has(segment.linkedJournalEntryId)).map(segment => ({ ...segment, note: null })),
   };
 }

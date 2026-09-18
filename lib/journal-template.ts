@@ -31,3 +31,15 @@ export function arrangeJournal(trip:TripDetail,now:string):TripDetail {
 export function addJournalStory(trip:TripDetail,id:string,now:string):TripDetail {
   return {...trip,journalEntries:[...trip.journalEntries,{id,tripId:trip.id,title:'新的故事',body:'',entryDate:'',storyPhotoId:null,entryKind:'unreviewed',mood:null,weatherSummary:null,aiSummary:null,createdAt:now,updatedAt:now}]};
 }
+
+export function journalShelfState(trip: Pick<TripDetail, "coverPhotoId" | "summary" | "journalEntries" | "photos" | "closingNote">) {
+  const photos = trip.photos ?? [];
+  return [
+    { title: "封面", ready: Boolean(trip.coverPhotoId) },
+    { title: "開場介紹", ready: Boolean(trip.summary?.trim()) },
+    { title: "沿途故事", ready: trip.journalEntries.length > 0 },
+    { title: "旅程短片", ready: photos.some(photo => isTripPhotoVideo(photo)) },
+    { title: "素材與相簿", ready: photos.length > 0 },
+    { title: "旅程收尾", ready: Boolean(trip.closingNote?.trim()) },
+  ];
+}
