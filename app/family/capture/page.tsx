@@ -41,7 +41,7 @@ import {
   updateMomentTranscript,
   uploadDisplayPhoto,
   uploadMomentAudio,
-  uploadOriginalPhoto,
+  uploadOriginalPhotoInBackground,
 } from "@/lib/capture-upload";
 import {
   CAPTURE_DOCK_RETRY_GUARD_MS,
@@ -839,20 +839,35 @@ export default function CapturePage() {
         }
 
         if (uploaded.photo?.id) {
-          patchPhoto(photo.id, { errorMessage: null, serverPhotoId: uploaded.photo.id, originalPending: true, status: "uploading" });
-          persistCaptureRound();
-          if (!video) await uploadOriginalPhoto({
-            display: uploaded.display,
-            momentId: uploaded.momentId,
-            original: photo.file,
-            photoId: uploaded.photo.id,
-            pin: sessionPin(pinRef.current),
-            signal: photo.abort.signal,
+          // Display landed → UI success immediately. Original durability rides a
+          // separate queue so it does not occupy the display concurrency slot.
+          patchPhoto(photo.id, {
+            errorMessage: null,
+            serverPhotoId: uploaded.photo.id,
+            originalPending: !video,
+            status: "uploaded",
           });
-          if (!stillThisRun() || photo.abort.signal.aborted) return;
-          patchPhoto(photo.id, { errorMessage: null, originalPending: false, status: "uploaded" });
           persistCaptureRound();
           maybeAutoFinalize();
+          if (!video) {
+            void uploadOriginalPhotoInBackground({
+              display: uploaded.display,
+              momentId: uploaded.momentId,
+              original: photo.file,
+              photoId: uploaded.photo.id,
+              pin: sessionPin(pinRef.current),
+              signal: photo.abort.signal,
+            }).then((result) => {
+              if (!stillThisRun()) {
+                return;
+              }
+              if (result.status === "failed") {
+                return;
+              }
+              patchPhoto(photo.id, { originalPending: false });
+              persistCaptureRound();
+            });
+          }
           return;
         }
 

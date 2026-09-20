@@ -334,7 +334,7 @@ test("iPhone HEIC converts or is accepted without blocking the capture preview",
   assert.match(capture, /captureErrorMessage\(error, CAPTURE_UPLOAD_FAILED_MESSAGE\)/);
 });
 
-test("uploads start on add; completed photos await durable originals without a full catalog wait", async () => {
+test("uploads start on add; display success is immediate while originals upload in background", async () => {
   const [capture, upload, photosApi, prepare, store, warehouseRead, css] = await Promise.all([
     readSource("app/family/capture/page.tsx"),
     readSource("lib/capture-upload.ts"),
@@ -471,9 +471,13 @@ test("uploads start on add; completed photos await durable originals without a f
   assert.match(upload, /await captureFetch\("\/api\/moments\/photos"/);
   assert.match(upload, /createWorkQueue\(CAPTURE_ORIGINAL_CONCURRENCY\)/);
   assert.match(upload, /OriginalPhotoUploadResult/);
-  assert.match(uploadFn, /await uploadOriginalPhoto\(/);
-  assert.ok(uploadFn.indexOf("await uploadOriginalPhoto(") < uploadFn.indexOf('originalPending: false, status: "uploaded"'), "completed badge follows durable original confirmation");
-  assert.match(uploadFn, /originalPending: true, status: "uploading"/);
+  assert.match(uploadFn, /uploadOriginalPhotoInBackground\(/);
+  assert.doesNotMatch(uploadFn, /await uploadOriginalPhoto\(/);
+  assert.ok(
+    uploadFn.indexOf('status: "uploaded"') < uploadFn.indexOf("uploadOriginalPhotoInBackground("),
+    "display success must not await original in the same slot",
+  );
+  assert.match(uploadFn, /originalPending: !video/);
   assert.doesNotMatch(uploadFn, /await readMoments|await readContent|await hydrateDriveMoments/);
   assert.match(displayPost, /originalStorageKey: null/);
   assert.doesNotMatch(displayPost, /setPhotoOriginal/);
