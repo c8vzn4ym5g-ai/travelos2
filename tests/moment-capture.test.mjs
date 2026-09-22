@@ -471,18 +471,26 @@ test("uploads start on add; display success is immediate while originals upload 
   assert.match(upload, /await captureFetch\("\/api\/moments\/photos"/);
   assert.match(upload, /createWorkQueue\(CAPTURE_ORIGINAL_CONCURRENCY\)/);
   assert.match(upload, /OriginalPhotoUploadResult/);
-  assert.match(uploadFn, /uploadOriginalPhotoInBackground\(/);
+  assert.match(capture, /createDisplayGatedOriginalUploader/);
+  assert.match(uploadFn, /uploadOriginalWhenDisplayIdleRef\.current\(/);
   assert.doesNotMatch(uploadFn, /await uploadOriginalPhoto\(/);
   assert.ok(
-    uploadFn.indexOf('status: "uploaded"') < uploadFn.indexOf("uploadOriginalPhotoInBackground("),
+    uploadFn.indexOf('status: "uploaded"') < uploadFn.indexOf("uploadOriginalWhenDisplayIdleRef.current("),
     "display success must not await original in the same slot",
   );
+  assert.match(uploadFn, /latest\.serverPhotoId/);
+  assert.match(upload, /createDisplayGatedOriginalUploader/);
+  assert.match(upload, /whenIdle/);
+  assert.match(upload, /displayQueue\.isIdle/);
   assert.match(uploadFn, /originalPending: !video/);
   assert.doesNotMatch(uploadFn, /await readMoments|await readContent|await hydrateDriveMoments/);
   assert.match(displayPost, /originalStorageKey: null/);
   assert.doesNotMatch(displayPost, /setPhotoOriginal/);
   assert.doesNotMatch(displayPost, /formData\.get\("original"\)/);
   assert.doesNotMatch(displayPost, /scheduleMomentIndex\(/);
+  assert.match(displayPost, /peekUploadedDisplayPhoto/);
+  assert.doesNotMatch(displayPost, /await getMomentById/);
+  assert.doesNotMatch(displayPost, /const content = await addPhotoToMoment\(momentId, existing\)/);
   assert.match(displayPost, /afterResponse\(async \(\) => \{/);
   assert.match(displayPost, /addPhotoToMoment\(momentId, photo\)/);
   assert.match(displayPost, /return Response\.json\(\{ photo \}\)/);

@@ -5,9 +5,9 @@ import { isUploadBlob, uploadFilename } from "@/lib/form-upload";
 import { readMomentBlobBytes, readMomentThumbBytes } from "@/lib/moment-blob";
 import {
   addPhotoToMoment,
-  getMomentById,
   isAdminPinValid,
   momentApiErrorResponse,
+  peekUploadedDisplayPhoto,
   rememberUploadedDisplayPhoto,
   rememberUploadedOriginal,
   removePhotoFromMoment,
@@ -137,33 +137,40 @@ export async function POST(request: Request) {
       ? `moment_photo_${createHash("sha256").update(`${momentId}\0${uploadId}`).digest("hex")}`
       : makeMomentId("moment_photo");
     if (uploadId) {
-      // Read only this moment shard. A lost response must not create another
-      // photo or replace EXIF/original metadata attached after the first write.
-      const existing = (await getMomentById(momentId))?.photos.find((photo) => photo.id === displayPhotoId);
+      // Prefer in-isolate cache only. Never await a cold Drive item/index GET
+      // before storing/acking the display binary (that was the 20s hang path).
+      const existing = peekUploadedDisplayPhoto(momentId, displayPhotoId);
+      if (existing?.storageKey) {
+        afterResponse(async () => {
+          try {
+            await addPhotoToMoment(momentId, existing);
+          } catch {
+            // Best-effort durability repair.
+          }
+        });
+        return Response.json({ photo: existing });
+      }
       if (existing) {
-        // Idempotent retry: photo id already known. Do not await index rewrite.
-        if (existing.storageKey) {
-          afterResponse(async () => {
-            try {
-              await addPhotoToMoment(momentId, existing);
-            } catch {
-              // Best-effort durability repair.
-            }
-          });
-          return Response.json({ photo: existing });
-        }
-        const content = await addPhotoToMoment(momentId, existing);
-        if (!content) return Response.json({ error: "Moment not found" }, { status: 404 });
+        // Photo id known but storageKey missing — still do not block the ack.
+        afterResponse(async () => {
+          try {
+            await addPhotoToMoment(momentId, existing);
+          } catch {
+            // Best-effort durability repair.
+          }
+        });
         return Response.json({ photo: existing });
       }
     }
     // Tiny JPEGs and HEIC arrive unchanged here; resized displays may lack EXIF.
     // The later original upload enriches those photos from the preserved source.
     const capture = await readOriginalCaptureMetadata(file);
-    const displayBlob = await storeMomentBinary(
-      `travelos/moments/photos/${momentId}/${Date.now()}-${cleanFilename(displayName)}`,
-      file,
-    );
+    // Stable pathname when uploadId is present so same-isolate retries prefer
+    // one display object name; Date.now() only for legacy clients without uploadId.
+    const displayPath = uploadId
+      ? `travelos/moments/photos/${momentId}/display-${displayPhotoId}-${cleanFilename(displayName)}`
+      : `travelos/moments/photos/${momentId}/${Date.now()}-${cleanFilename(displayName)}`;
+    const displayBlob = await storeMomentBinary(displayPath, file);
 
     const now = new Date().toISOString();
     const mediaFile = { name: displayName, type: file.type };

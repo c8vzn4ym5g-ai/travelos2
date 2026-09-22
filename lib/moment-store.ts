@@ -129,6 +129,7 @@ export function momentApiErrorResponse(error: unknown) {
 
 const memoryKey = "__travelosMomentWarehouse";
 const itemCacheKey = "__travelosMomentItemCache";
+const uploadedDisplayCacheKey = "__travelosUploadedDisplayPhotos";
 const lastIndexKey = "__travelosMomentLastIndexWrite";
 const listedFilesCacheKey = "__travelosDriveFileListCache";
 const LISTED_FILES_TTL_MS = 20_000;
@@ -142,6 +143,7 @@ type ListedFilesCache = {
 type GlobalWarehouse = typeof globalThis & {
   [memoryKey]?: MomentContent;
   [itemCacheKey]?: Map<string, TravelMoment>;
+  [uploadedDisplayCacheKey]?: Map<string, MomentPhoto>;
   [lastIndexKey]?: MomentContent | null;
   [listedFilesCacheKey]?: ListedFilesCache;
 };
@@ -160,6 +162,16 @@ function getItemCache() {
   const globalStore = globalThis as GlobalWarehouse;
   globalStore[itemCacheKey] ??= new Map<string, TravelMoment>();
   return globalStore[itemCacheKey];
+}
+
+function getUploadedDisplayCache() {
+  const globalStore = globalThis as GlobalWarehouse;
+  globalStore[uploadedDisplayCacheKey] ??= new Map<string, MomentPhoto>();
+  return globalStore[uploadedDisplayCacheKey];
+}
+
+function uploadedDisplayCacheId(momentId: string, photoId: string) {
+  return `${momentId}\0${photoId}`;
 }
 
 function getLastIndexWrite() {
@@ -183,6 +195,7 @@ export function resetMomentStoreForTests() {
   resetMomentThumbCacheForTests();
   setMemoryContent(createEmptyWarehouse());
   getItemCache().clear();
+  getUploadedDisplayCache().clear();
   setLastIndexWrite(null);
   const listed = getListedFilesCache();
   listed.at = 0;
@@ -218,6 +231,9 @@ function rememberItem(moment: TravelMoment) {
 }
 
 export function rememberUploadedDisplayPhoto(momentId: string, photo: MomentPhoto) {
+  // Always remember the display ack in-isolate. Idempotent retries must not
+  // await a cold Drive item/index GET before reusing this photo id.
+  getUploadedDisplayCache().set(uploadedDisplayCacheId(momentId, photo.id), photo);
   const current = getItemCache().get(momentId);
   if (!current) {
     return;
@@ -227,6 +243,15 @@ export function rememberUploadedDisplayPhoto(momentId: string, photo: MomentPhot
     ...current,
     photos: mergeMomentPhotos(current.photos, [photo]),
   });
+}
+
+/** Sync peek only — never touches Drive. Prefer this on the display POST hot path. */
+export function peekUploadedDisplayPhoto(momentId: string, photoId: string) {
+  const remembered = getUploadedDisplayCache().get(uploadedDisplayCacheId(momentId, photoId));
+  if (remembered) {
+    return remembered;
+  }
+  return getItemCache().get(momentId)?.photos.find((photo) => photo.id === photoId) ?? null;
 }
 
 export function rememberUploadedOriginal(momentId: string, photoId: string, originalStorageKey: string, capture?: PhotoCaptureMetadata | null) {

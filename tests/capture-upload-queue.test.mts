@@ -17,6 +17,7 @@ import {
   createMomentSession,
   createStagedCapturePhotos,
   createTinyPreviewUrl,
+  createDisplayGatedOriginalUploader,
   createWorkQueue,
   detachStagedCapturePhotos,
   ingestCaptureFileList,
@@ -226,6 +227,87 @@ test("createWorkQueue(3) keeps at most 3 dump uploads in flight", async () => {
   assert.equal(CAPTURE_DUMP_LIMIT, 40);
   assert.equal(results.length, 40);
   assert.equal(maxInFlight, 3);
+});
+
+test("createWorkQueue whenIdle fires only after the display wave drains", async () => {
+  const queue = createWorkQueue(2);
+  let idleHits = 0;
+  const unsub = queue.whenIdle(() => {
+    idleHits += 1;
+  });
+  await Promise.resolve();
+  assert.equal(idleHits, 1, "empty queue is already idle");
+
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const first = queue.enqueue(async () => {
+    await gate;
+    return "a";
+  });
+  const second = queue.enqueue(async () => "b");
+  assert.equal(queue.isIdle, false);
+  const before = idleHits;
+  release();
+  await Promise.all([first, second]);
+  await Promise.resolve();
+  assert.equal(queue.isIdle, true);
+  assert.ok(idleHits > before);
+  unsub();
+});
+
+test("display-gated originals wait until the display queue is idle", async () => {
+  const displayQueue = createWorkQueue(2);
+  const gated = createDisplayGatedOriginalUploader(displayQueue);
+  const originalFetch = globalThis.fetch;
+  const posted: string[] = [];
+  let releaseDisplay!: () => void;
+  const displayGate = new Promise<void>((resolve) => {
+    releaseDisplay = resolve;
+  });
+
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const form = init?.body as FormData;
+    if (form.get("original")) {
+      posted.push("original");
+      return Response.json({ photo: { id: "p1" } });
+    }
+    posted.push("display");
+    await displayGate;
+    return Response.json({ photo: { id: "p1" } });
+  }) as typeof fetch;
+
+  try {
+    const displayWork = displayQueue.enqueue(async () => {
+      posted.push("display-slot");
+      await displayGate;
+      return "done";
+    });
+
+    const originalFile = new File([new Uint8Array(2_000_000).fill(7)], "IMG_1.jpg", { type: "image/jpeg" });
+    const displayFile = new File([new Uint8Array(100_000).fill(3)], "display.jpg", { type: "image/jpeg" });
+    const originalPromise = gated({
+      display: displayFile,
+      momentId: "moment_defer",
+      original: originalFile,
+      photoId: "photo_1",
+      pin: "pin",
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(posted.includes("original"), false, "original must not start mid-display-wave");
+
+    releaseDisplay();
+    await displayWork;
+    const result = await originalPromise;
+    assert.equal(result.status, "uploaded");
+    assert.equal(posted.includes("original"), true);
+    assert.ok(posted.indexOf("display-slot") < posted.indexOf("original"));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("staging a dump does not create object URLs", async () => {
