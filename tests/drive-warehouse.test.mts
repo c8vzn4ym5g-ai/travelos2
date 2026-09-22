@@ -652,3 +652,10 @@ test("Drive adapter is server-only and Capture still dumps photos in parallel", 
     assert.doesNotMatch(source, /cCpNneNyv0_MTyPjAZMkJ3g69t0DfDE-GP84y26YGhU/);
   }
 });
+
+test("Drive warehouse fetches use a hard timeout so Capture finalize cannot hang", async () => {
+  const source = await readFile(resolve(root, "lib/drive-warehouse.ts"), "utf8");
+  assert.match(source, /export const DRIVE_WAREHOUSE_FETCH_TIMEOUT_MS = 12_000/);
+  assert.match(source, /signal: driveFetchSignal\(\)/);
+  assert.match(source, /function driveFetchSignal/);
+});

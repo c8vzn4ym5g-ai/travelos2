@@ -338,10 +338,26 @@ test("background upload starts on add and Save does not wait on originals", asyn
   assert.doesNotMatch(saveBlock, /prepareDisplayPhoto/);
   assert.doesNotMatch(saveBlock, /formData\.set\("original"/);
   assert.doesNotMatch(saveBlock, /for \(const \[index, staged\] of photos\.entries\(\)\)/);
+  assert.match(saveBlock, /dumpIngestRef\.current/);
   assert.match(saveBlock, /Promise\.all\(\[\.\.\.photoUploadsRef\.current\.values\(\)\]\)/);
+  assert.ok(saveBlock.indexOf("dumpIngestRef") < saveBlock.indexOf("photoUploadsRef.current.values"));
   assert.doesNotMatch(saveBlock, /uploadOriginalPhotoInBackground/);
   assert.match(displayUpload, /formData\.set\("file", display\)/);
   assert.match(displayUpload, /await prepareDisplayPhoto\(source\)/);
+
+  // Display ack must not await the original uploader (proven green path).
+  const uploadFn = capture.slice(
+    capture.indexOf("async function startBackgroundPhotoUpload"),
+    capture.indexOf("async function startBackgroundAudioUpload"),
+  );
+  assert.match(uploadFn, /status: "uploaded"/);
+  assert.match(uploadFn, /uploadOriginalPhotoInBackground\(/);
+  assert.ok(
+    uploadFn.indexOf('status: "uploaded"') < uploadFn.indexOf("uploadOriginalPhotoInBackground"),
+    "UI must mark uploaded before starting original background upload",
+  );
+  assert.doesNotMatch(uploadFn, /await uploadOriginalPhotoInBackground/);
+
   assert.doesNotMatch(displayUpload, /formData\.set\("original"/);
   assert.match(upload, /void fetch\("\/api\/moments\/photos"/);
   assert.match(upload, /Originals are durable when they land; they must never block Capture/);

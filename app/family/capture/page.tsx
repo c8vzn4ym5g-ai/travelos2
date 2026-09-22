@@ -138,6 +138,7 @@ export default function CapturePage() {
   const coordinatesRef = useRef<GeoPoint | null>(null);
   const momentSessionRef = useRef<ReturnType<typeof createMomentSession> | null>(null);
   const photoUploadsRef = useRef(new Map<string, Promise<void>>());
+  const dumpIngestRef = useRef<Promise<void> | null>(null);
   const audioUploadRef = useRef<Promise<void> | null>(null);
   const savingRef = useRef(false);
   const persistTimerRef = useRef<number>(0);
@@ -260,6 +261,7 @@ export default function CapturePage() {
   function resetDraft() {
     momentSession().reset();
     photoUploadsRef.current = new Map();
+    dumpIngestRef.current = null;
     audioUploadRef.current = null;
   }
 
@@ -389,6 +391,14 @@ export default function CapturePage() {
           photo.abort.abort();
         }
       }, watchdogMs);
+      const aborted = new Promise<never>((_, reject) => {
+        const fail = () => reject(new Error(CAPTURE_UPLOAD_FAILED_MESSAGE));
+        if (photo.abort.signal.aborted) {
+          fail();
+          return;
+        }
+        photo.abort.signal.addEventListener("abort", fail, { once: true });
+      });
       try {
         const takenAt = Number.isFinite(photo.file.lastModified)
           ? new Date(photo.file.lastModified).toISOString()
@@ -396,41 +406,44 @@ export default function CapturePage() {
         const momentId = session.allocate(takenAt);
         const video = isCaptureVideoFile(photo.file);
         if (!video) {
-          await session.ensure(takenAt);
+          await Promise.race([session.ensure(takenAt), aborted]);
         }
         if (photo.abort.signal.aborted) {
           return;
         }
 
-        const uploaded = await uploadDisplayPhoto({
-          coordinates: coordinatesRef.current,
-          file: photo.file,
-          momentId,
-          onHopProgress: (hopDone, hopTotal) => {
-            if (photoIsOnScreen(photo.id)) {
-              patchPhoto(photo.id, { hopDone, hopTotal, status: "uploading" });
-            }
-          },
-          startMoment: video ? () => session.ensure(takenAt) : undefined,
-          onDisplayReady: async (display) => {
-            if (photo.abort.signal.aborted || isCaptureVideoFile(photo.file)) {
-              return;
-            }
-            const previewUrl = await createTinyPreviewUrl(display);
-            if (!previewUrl) {
-              return;
-            }
-            if (photo.abort.signal.aborted || !photoIsOnScreen(photo.id)) {
-              URL.revokeObjectURL(previewUrl);
-              return;
-            }
-            patchPhoto(photo.id, { previewUrl });
-          },
-          pin: sessionPin(pinRef.current),
-          retryMoment: (status) => retryMoment(takenAt, status, session),
-          signal: photo.abort.signal,
-          takenAt,
-        });
+        const uploaded = await Promise.race([
+          uploadDisplayPhoto({
+            coordinates: coordinatesRef.current,
+            file: photo.file,
+            momentId,
+            onHopProgress: (hopDone, hopTotal) => {
+              if (photoIsOnScreen(photo.id)) {
+                patchPhoto(photo.id, { hopDone, hopTotal, status: "uploading" });
+              }
+            },
+            startMoment: video ? () => session.ensure(takenAt) : undefined,
+            onDisplayReady: async (display) => {
+              if (photo.abort.signal.aborted || isCaptureVideoFile(photo.file)) {
+                return;
+              }
+              const previewUrl = await createTinyPreviewUrl(display);
+              if (!previewUrl) {
+                return;
+              }
+              if (photo.abort.signal.aborted || !photoIsOnScreen(photo.id)) {
+                URL.revokeObjectURL(previewUrl);
+                return;
+              }
+              patchPhoto(photo.id, { previewUrl });
+            },
+            pin: sessionPin(pinRef.current),
+            retryMoment: (status) => retryMoment(takenAt, status, session),
+            signal: photo.abort.signal,
+            takenAt,
+          }),
+          aborted,
+        ]);
 
         if (photo.abort.signal.aborted) {
           removeUploadedPhotoInBackground({
@@ -559,45 +572,52 @@ export default function CapturePage() {
       ),
     );
 
-    await ingestCaptureFileList(fileList, {
-      limit: CAPTURE_DUMP_LIMIT,
-      async onCopied(file, progress) {
-        const incoming = createStagedCapturePhotos([file]).map((draft) => ({
-          ...draft,
-          abort: new AbortController(),
-          hopDone: 0,
-          hopTotal: isCaptureVideoFile(file) ? captureVideoHopCount(file.size) : 0,
-          previewUrl: isCaptureVideoFile(file) ? captureVideoPreviewUrl(file) : null,
-        }));
-        if (incoming.length === 0) {
-          return;
-        }
+    const ingest = (async () => {
+      await ingestCaptureFileList(fileList, {
+        limit: CAPTURE_DUMP_LIMIT,
+        async onCopied(file, progress) {
+          const incoming = createStagedCapturePhotos([file]).map((draft) => ({
+            ...draft,
+            abort: new AbortController(),
+            hopDone: 0,
+            hopTotal: isCaptureVideoFile(file) ? captureVideoHopCount(file.size) : 0,
+            previewUrl: isCaptureVideoFile(file) ? captureVideoPreviewUrl(file) : null,
+          }));
+          if (incoming.length === 0) {
+            return;
+          }
 
-        setPhotos((current) => {
-          const next = appendMomentPhotos(current, incoming);
-          photosRef.current = next;
-          setMessage(captureDumpProgressMessage(progress.fileListLength, next.length, { freshRound }));
-          return next;
-        });
+          setPhotos((current) => {
+            const next = appendMomentPhotos(current, incoming);
+            photosRef.current = next;
+            setMessage(captureDumpProgressMessage(progress.fileListLength, next.length, { freshRound }));
+            return next;
+          });
 
-        for (const photo of incoming) {
-          void startBackgroundPhotoUpload(photo);
-        }
-      },
-      onReceived(received) {
-        setMessage(
-          captureDumpProgressMessage(received, photosRef.current.length + received, { freshRound }),
-        );
-      },
-      resetInput() {
-        if (input && input.files === fileList) {
-          input.value = "";
-        }
-      },
-    });
-    if (input && input.files === fileList) {
-      input.value = "";
-    }
+          for (const photo of incoming) {
+            void startBackgroundPhotoUpload(photo);
+          }
+        },
+        onReceived(received) {
+          setMessage(
+            captureDumpProgressMessage(received, photosRef.current.length + received, { freshRound }),
+          );
+        },
+        resetInput() {
+          if (input && input.files === fileList) {
+            input.value = "";
+          }
+        },
+      });
+      if (input && input.files === fileList) {
+        input.value = "";
+      }
+    })();
+    dumpIngestRef.current = ingest.then(
+      () => undefined,
+      () => undefined,
+    );
+    await ingest;
   }
 
   function onTakePhoto(event: React.ChangeEvent<HTMLInputElement>) {
@@ -762,6 +782,11 @@ export default function CapturePage() {
         ? new Date(photos[0].file.lastModified).toISOString()
         : new Date().toISOString();
 
+      // Album dump copies files one-by-one. Wait so Save does not finalize
+      // after the first 已上傳 while the other picks are still entering the grid.
+      if (dumpIngestRef.current) {
+        await dumpIngestRef.current;
+      }
       await Promise.all([...photoUploadsRef.current.values()]);
       if (audioUploadRef.current) {
         await audioUploadRef.current;

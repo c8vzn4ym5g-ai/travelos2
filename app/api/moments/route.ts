@@ -1,9 +1,11 @@
 import {
   addJob,
   addMoment,
+  getMomentById,
   isAdminPinValid,
   momentApiErrorResponse,
   readMoments,
+  readMomentsSlim,
   scheduleMissingMomentTranscripts,
   scheduleMomentIndex,
   updateJob,
@@ -33,6 +35,33 @@ export async function GET(request: Request) {
   try {
     if (!isAdminPinValid(pinFrom(request))) {
       return Response.json({ error: "Invalid admin PIN" }, { status: 401 });
+    }
+
+    const url = new URL(request.url);
+    const momentId = url.searchParams.get("id")?.trim() ?? "";
+    if (momentId) {
+      const moment = await getMomentById(momentId);
+      if (!moment) {
+        return Response.json({ error: "Moment not found" }, { status: 404 });
+      }
+      return Response.json({ moment });
+    }
+
+    const slim = url.searchParams.get("slim")?.trim() === "1";
+    const recentRaw = url.searchParams.get("recent")?.trim() ?? "";
+    const recent = recentRaw ? Number(recentRaw) : NaN;
+    if (slim || Number.isFinite(recent)) {
+      const { content, etag, status } = await readMomentsSlim({
+        recent: Number.isFinite(recent) ? recent : 40,
+      });
+      const ifNoneMatch = request.headers.get("if-none-match");
+      if (ifNoneMatch && ifNoneMatch === etag) {
+        return new Response(null, { status: 304, headers: { ETag: etag } });
+      }
+      return Response.json(
+        { content, status },
+        { headers: { ETag: etag, "Cache-Control": "private, max-age=5" } },
+      );
     }
 
     const { content, status } = await readMoments();

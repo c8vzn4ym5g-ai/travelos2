@@ -41,6 +41,9 @@ export const APPS_SCRIPT_PUTBINARY_MAX_BYTES = 4_500_000;
 const DRIVE_RESUMABLE_INIT_URL = "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable";
 const DRIVE_FILE_MEDIA_URL = "https://www.googleapis.com/drive/v3/files";
 const DRIVE_SESSION_TTL_MS = 60 * 60 * 1000;
+// Apps Script index GET/PUT can stall for minutes with no client abort.
+// Capture finalize must fail fast, not sit on 正在存成 Moment.
+export const DRIVE_WAREHOUSE_FETCH_TIMEOUT_MS = 12_000;
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const MAX_REDIRECTS = 5;
@@ -102,6 +105,15 @@ function resolveFetch(request?: DriveFetch): DriveFetch {
   return fetch;
 }
 
+function driveFetchSignal() {
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    return AbortSignal.timeout(DRIVE_WAREHOUSE_FETCH_TIMEOUT_MS);
+  }
+  const controller = new AbortController();
+  globalThis.setTimeout(() => controller.abort(), DRIVE_WAREHOUSE_FETCH_TIMEOUT_MS);
+  return controller.signal;
+}
+
 function warehouseUrl(params: Record<string, string>) {
   const url = new URL(getDriveWarehouseUrl());
   for (const [key, value] of Object.entries(params)) {
@@ -156,10 +168,12 @@ async function followRedirects(
             headers: replay.headers,
             method: replay.method,
             redirect: hops >= MAX_REDIRECTS ? "follow" : "manual",
+            signal: driveFetchSignal(),
           }
         : {
             method: "GET",
             redirect: hops >= MAX_REDIRECTS ? "follow" : "manual",
+            signal: driveFetchSignal(),
           },
     );
   }
@@ -175,7 +189,12 @@ async function getJson(
 ): Promise<unknown> {
   const request = resolveFetch(requestImpl);
   const url = warehouseUrl(params);
-  const first = await request(url, { cache: "no-store", method: "GET", redirect: "manual" });
+  const first = await request(url, {
+    cache: "no-store",
+    method: "GET",
+    redirect: "manual",
+    signal: driveFetchSignal(),
+  });
   const response = await followRedirects(request, first, url.toString(), { method: "GET" });
   if (options.allowNotFound && response.status === 404) {
     return null;
@@ -197,6 +216,7 @@ async function postJson(
     headers,
     method: "POST",
     redirect: "manual",
+    signal: driveFetchSignal(),
   });
   const response = await followRedirects(request, first, endpoint, {
     body,
