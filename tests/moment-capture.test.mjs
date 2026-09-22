@@ -483,12 +483,17 @@ test("uploads start on add; display success is immediate while originals upload 
   assert.doesNotMatch(displayPost, /setPhotoOriginal/);
   assert.doesNotMatch(displayPost, /formData\.get\("original"\)/);
   assert.doesNotMatch(displayPost, /scheduleMomentIndex\(/);
-  assert.match(displayPost, /await addPhotoToMoment\(momentId, photo\)/);
-  assert.match(displayPost, /if \(!content\) return Response\.json\(\{ error: "Moment not found" \}, \{ status: 404 \}\)/);
+  assert.match(displayPost, /afterResponse\(async \(\) => \{/);
+  assert.match(displayPost, /addPhotoToMoment\(momentId, photo\)/);
   assert.match(displayPost, /return Response\.json\(\{ photo \}\)/);
   assert.ok(displayPost.indexOf("storeMomentBinary") < displayPost.indexOf("return Response.json({ photo })"));
-  assert.ok(displayPost.indexOf("await addPhotoToMoment") < displayPost.indexOf("return Response.json({ photo })"), "photo metadata must persist before success");
-  assert.doesNotMatch(displayPost, /scheduleMomentIndex\(/, "catalog updates happen once on batch finalization");
+  assert.ok(displayPost.indexOf("afterResponse") < displayPost.indexOf("return Response.json({ photo })"), "display binary ack must not wait on item/index writes");
+  const ackSpan = displayPost.slice(
+    displayPost.indexOf("rememberUploadedDisplayPhoto(momentId, photo)"),
+    displayPost.indexOf("return Response.json({ photo })"),
+  );
+  assert.match(ackSpan, /afterResponse\(async \(\) => \{/);
+  assert.doesNotMatch(ackSpan.split("afterResponse")[0], /await addPhotoToMoment/);
   assert.match(photosApi, /setPhotoOriginal/);
   assert.match(store, /withWarehouseLock/);
   assert.match(store, /flushPhotoAppends/);

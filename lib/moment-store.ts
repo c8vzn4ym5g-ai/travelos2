@@ -47,6 +47,7 @@ import {
   MOMENTS_BLOB_PATH,
   MOMENTS_SCHEMA_VERSION,
   applyMomentPhotoAppends,
+  createTravelMoment,
   isCaptureVideoFile,
   mergeMomentPhotos,
   mergeTravelMoment,
@@ -436,11 +437,14 @@ async function readMomentItem(
   const allowIndex = options.allowIndex !== false;
 
   if (isMomentWarehouseConfigured() && shouldUseDriveWarehouse()) {
+    // Same-isolate Capture create/upload already remembered the item. Prefer
+    // that over a Drive shard/index GET that can stall under RPC timeout.
+    if (cached) {
+      return cached;
+    }
     const fromItem = await loadDriveMomentShard(momentId);
-    const merged =
-      fromItem && cached ? mergeTravelMoment(fromItem, cached) : (fromItem ?? cached ?? null);
-    if (merged) {
-      return rememberItem(merged);
+    if (fromItem) {
+      return rememberItem(fromItem);
     }
     if (!allowIndex) {
       return null;
@@ -587,6 +591,28 @@ function queueDriveIndexPatch(moments: TravelMoment[]) {
   afterResponse(() => pending);
 }
 
+/** Capture refresh: recent window, no Drive hydrate, no jobs. Fat GET is ~600KB+. */
+export async function readMomentsSlim(options: { recent?: number } = {}): Promise<{
+  content: MomentContent;
+  etag: string;
+  status: MomentStoreStatus;
+}> {
+  const recent = Math.max(1, Math.min(options.recent ?? 40, 100));
+  const { content, status } = await readMoments({ hydrate: false, requireCatalog: true });
+  const moments = sortMomentsNewestFirst(content.moments).slice(0, recent);
+  const slim: MomentContent = {
+    jobs: [],
+    moments,
+    schemaVersion: content.schemaVersion,
+    updatedAt: content.updatedAt,
+  };
+  return {
+    content: slim,
+    etag: `W/"moments-slim-${slim.updatedAt}-${moments.length}"`,
+    status,
+  };
+}
+
 export async function readMoments(options: { hydrate?: boolean; requireCatalog?: boolean } = {}): Promise<{ content: MomentContent; status: MomentStoreStatus }> {
   const content = await readIndexRaw(options.requireCatalog);
   let moments = uniqueMomentsById(overlayMoments(content.moments, [...getItemCache().values()]));
@@ -690,12 +716,12 @@ export async function addMoment(moment: TravelMoment) {
     // Drive index GET/PUT can stall for minutes. Capture only needs the item
     // JSON + id so the video hops can start; index sync is after the response.
     afterResponse(() => syncIndexBestEffort([savedMoment]));
-    const lastWrite = getLastIndexWrite();
+    // Capture only needs the saved item back — not the fat lastWrite catalog.
     return {
       conflict: false as const,
       content: {
-        jobs: lastWrite?.jobs ?? [],
-        moments: overlayMoments(lastWrite?.moments ?? [], [savedMoment]),
+        jobs: [],
+        moments: [savedMoment],
         schemaVersion: MOMENTS_SCHEMA_VERSION,
         updatedAt: new Date().toISOString(),
       },
@@ -706,9 +732,23 @@ export async function addMoment(moment: TravelMoment) {
 
 export async function updateMoment(moment: Partial<TravelMoment> & { id: string }) {
   return withWarehouseLock(async () => {
-    const current = await readMomentItem(moment.id);
+    let current = await readMomentItem(moment.id);
     if (!current) {
-      return null;
+      if (!shouldUseDriveWarehouse()) {
+        return null;
+      }
+      // Capture create wrote the item; index/shard may still be pending on
+      // another isolate. Finalize still carries id + note — upsert so Save is
+      // not stuck on 正在存成 Moment waiting for a stale Drive GET.
+      current = createTravelMoment({
+        command: moment.command,
+        coordinates: moment.coordinates ?? null,
+        id: moment.id,
+        note: moment.note,
+        time: moment.time,
+        transcript: moment.transcript,
+        tripId: moment.tripId,
+      });
     }
 
     const next = await writeMomentItem(
@@ -721,8 +761,22 @@ export async function updateMoment(moment: Partial<TravelMoment> & { id: string 
         transcript: moment.transcript !== undefined ? moment.transcript : current.transcript,
       }),
     );
-    const content = await syncIndexBestEffort([next]);
-    return { content, moment: next };
+    if (!shouldUseDriveWarehouse()) {
+      const content = await syncIndexBestEffort([next]);
+      return { content, moment: next };
+    }
+
+    // Mirror addMoment: item JSON is enough for Capture Save as Moment.
+    afterResponse(() => syncIndexBestEffort([next]));
+    return {
+      content: {
+        jobs: [],
+        moments: [next],
+        schemaVersion: MOMENTS_SCHEMA_VERSION,
+        updatedAt: new Date().toISOString(),
+      },
+      moment: next,
+    };
   });
 }
 

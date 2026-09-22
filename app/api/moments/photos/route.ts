@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { afterResponse } from "@/lib/after-response";
 import { photoFromDriveFileId } from "@/lib/drive-photo-index";
 import { isUploadBlob, uploadFilename } from "@/lib/form-upload";
 import { readMomentBlobBytes, readMomentThumbBytes } from "@/lib/moment-blob";
@@ -109,8 +110,13 @@ export async function POST(request: Request) {
         original,
       );
       rememberUploadedOriginal(momentId, photoId, originalBlob.url, capture);
-      const saved = await setPhotoOriginal(momentId, photoId, originalBlob.url, capture);
-      if (!saved) return Response.json({ error: "Photo not found" }, { status: 404 });
+      afterResponse(async () => {
+        try {
+          await setPhotoOriginal(momentId, photoId, originalBlob.url, capture);
+        } catch {
+          // Item/index writes are best-effort after the original binary POST.
+        }
+      });
       return Response.json({
         photo: {
           id: photoId,
@@ -135,8 +141,17 @@ export async function POST(request: Request) {
       // photo or replace EXIF/original metadata attached after the first write.
       const existing = (await getMomentById(momentId))?.photos.find((photo) => photo.id === displayPhotoId);
       if (existing) {
-        // The read may include an in-memory upload whose first durable write
-        // failed; acknowledge only after that same photo has been persisted.
+        // Idempotent retry: photo id already known. Do not await index rewrite.
+        if (existing.storageKey) {
+          afterResponse(async () => {
+            try {
+              await addPhotoToMoment(momentId, existing);
+            } catch {
+              // Best-effort durability repair.
+            }
+          });
+          return Response.json({ photo: existing });
+        }
         const content = await addPhotoToMoment(momentId, existing);
         if (!content) return Response.json({ error: "Moment not found" }, { status: 404 });
         return Response.json({ photo: existing });
@@ -166,8 +181,15 @@ export async function POST(request: Request) {
     };
 
     rememberUploadedDisplayPhoto(momentId, photo);
-    const content = await addPhotoToMoment(momentId, photo);
-    if (!content) return Response.json({ error: "Moment not found" }, { status: 404 });
+    // Proven green path: ack as soon as the display binary is stored.
+    // Item/index writes must not gate Capture uploaded / clear-preview.
+    afterResponse(async () => {
+      try {
+        await addPhotoToMoment(momentId, photo);
+      } catch {
+        // LockService index/item writes are best-effort after the binary POST.
+      }
+    });
 
     return Response.json({ photo });
   } catch (error) {
