@@ -36,7 +36,7 @@ createServer(async (req, res) => {
   if (req.method === 'POST' && path === '/api/demo') {
     const { lang } = await json(req);
     const demo = fixtures(lang);
-    const moments = demo.moments.map((m, i) => ({ ...m, lang, audio: audioFor(lang, i), audioLabel: lang === 'zh' ? '英語合成示範旁白' : 'Synthetic sample narration', createdAt: new Date().toISOString() }));
+    const moments = demo.moments.map((m, i) => ({ ...m, lang, audio: audioFor(lang, i), audioLabel: lang === 'zh' ? '繁中合成示範旁白' : 'English synthetic sample narration', createdAt: new Date().toISOString() }));
     state.child = demo.child;
     state.moments = [...state.moments.filter(m => !moments.some(n => n.id === m.id)), ...moments];
     await persist();

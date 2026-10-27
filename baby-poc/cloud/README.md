@@ -16,4 +16,4 @@ Official feasibility sources, checked 2026-10-27:
 - [Durable Object limits](https://developers.cloudflare.com/durable-objects/platform/limits/): bound string/blob/row is up to 2 MB; SQL statement text is limited to 100 KB. Inserts here bind payload values instead of building them into SQL text. Large real recordings are outside this fictional POC scope.
 - [Getting started](https://developers.cloudflare.com/durable-objects/get-started/): SQL-backed migrations use `new_sqlite_classes`.
 
-Implementation is ready for integration; no build, AI request or deployment was run by this role during development.
+Published independently on 2026-10-27. Canonical deployment and real-model acceptance evidence are recorded in ../HANDOFF.md. Initial development was completed before any build or functional acceptance; observed content defects then received one targeted repair confirmation.
