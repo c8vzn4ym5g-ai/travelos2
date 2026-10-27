@@ -11,10 +11,16 @@ async function readSource(path) {
 
 test("Cloudflare OpenNext path exists and does not replace Vercel next build", async () => {
   const pkg = JSON.parse(await readSource("package.json"));
-  assert.equal(pkg.scripts.build, "next build");
-  assert.match(pkg.scripts["cf:build"], /opennextjs-cloudflare build/);
+  assert.equal(pkg.scripts.build, "node scripts/package-app.mjs");
+  assert.equal(pkg.scripts["cf:build"], "node scripts/package-app.mjs --cloudflare");
+  assert.match(pkg.scripts["cf:preview"], /opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion/);
   assert.match(pkg.scripts["cf:preview"], /opennextjs-cloudflare preview/);
+  assert.match(pkg.scripts["cf:deploy"], /opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion/);
   assert.match(pkg.scripts["cf:deploy"], /opennextjs-cloudflare deploy/);
+  const packageApp = await readSource("scripts/package-app.mjs");
+  assert.match(packageApp, /node_modules\/next\/dist\/bin\/next/);
+  assert.match(packageApp, /opennextjs-cloudflare/);
+  assert.match(packageApp, /--dangerouslyUseUnsupportedNextVersion/);
   assert.equal(typeof pkg.dependencies["@opennextjs/cloudflare"], "string");
   assert.equal(typeof pkg.devDependencies.wrangler, "string");
 
@@ -82,7 +88,7 @@ test("storefront canonical origin is Cloudflare workers.dev; Vercel remains a co
   }
 
   const pkg = JSON.parse(await readSource("package.json"));
-  assert.equal(pkg.scripts.build, "next build");
+  assert.equal(pkg.scripts.build, "node scripts/package-app.mjs");
 
   const wrangler = await readSource("wrangler.jsonc");
   assert.match(wrangler, /"workers_dev": true/);

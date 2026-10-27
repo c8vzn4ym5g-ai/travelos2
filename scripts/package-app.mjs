@@ -5,8 +5,11 @@ const sha = process.env.GITHUB_SHA;
 const marker = '.next/travelos-package-sha';
 const reusable = cloudflare && sha && existsSync(marker) && readFileSync(marker,'utf8') === sha && existsSync('.next/BUILD_ID');
 const command = cloudflare ? 'pnpm' : process.execPath;
+// Next 15 left the 2-year OpenNext support window (Oct 2026). Keep the
+// Worker path on 15.x; do not upgrade Next here. OpenNext exits unless
+// this flag is passed: https://nextjs.org/support-policy
 const args = cloudflare
-  ? ['exec','opennextjs-cloudflare','build',...(reusable ? ['--skipNextBuild'] : [])]
+  ? ['exec','opennextjs-cloudflare','build','--dangerouslyUseUnsupportedNextVersion',...(reusable ? ['--skipNextBuild'] : [])]
   : ['node_modules/next/dist/bin/next','build'];
 // Packaging is not the Owner-authorized full verification gate. Dedicated
 // test/typecheck/lint commands remain available for the explicitly frozen release.
