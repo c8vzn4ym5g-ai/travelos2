@@ -5,6 +5,7 @@ import {
   isAdminPinValid,
   momentApiErrorResponse,
   readMoments,
+  readMomentsSlim,
   scheduleMissingMomentTranscripts,
   scheduleMomentIndex,
   updateJob,
@@ -36,7 +37,8 @@ export async function GET(request: Request) {
       return Response.json({ error: "Invalid admin PIN" }, { status: 401 });
     }
 
-    const momentId = new URL(request.url).searchParams.get("id")?.trim() ?? "";
+    const url = new URL(request.url);
+    const momentId = url.searchParams.get("id")?.trim() ?? "";
     if (momentId) {
       const moment = await getMomentById(momentId);
       if (!moment) {
@@ -45,7 +47,24 @@ export async function GET(request: Request) {
       return Response.json({ moment });
     }
 
-    const hydrate = new URL(request.url).searchParams.get("hydrate")?.trim() === "1";
+    const slim = url.searchParams.get("slim")?.trim() === "1";
+    const recentRaw = url.searchParams.get("recent")?.trim() ?? "";
+    const recent = recentRaw ? Number(recentRaw) : NaN;
+    if (slim || Number.isFinite(recent)) {
+      const { content, etag, status } = await readMomentsSlim({
+        recent: Number.isFinite(recent) ? recent : 40,
+      });
+      const ifNoneMatch = request.headers.get("if-none-match");
+      if (ifNoneMatch && ifNoneMatch === etag) {
+        return new Response(null, { status: 304, headers: { ETag: etag } });
+      }
+      return Response.json(
+        { content, status },
+        { headers: { ETag: etag, "Cache-Control": "private, max-age=5" } },
+      );
+    }
+
+    const hydrate = url.searchParams.get("hydrate")?.trim() === "1";
     const { content, status } = await readMoments({ hydrate, requireCatalog: true });
     scheduleMissingMomentTranscripts(content.moments);
     return Response.json({ content, status });

@@ -161,6 +161,53 @@ test("Drive addMoment does not wait on index sync before returning the item", as
   assert.ok(addBlock.indexOf("writeMomentItem") < addBlock.indexOf("afterResponse"));
 });
 
+test("Drive updateMoment does not wait on index sync before returning the item", async () => {
+  const store = await readSource("lib/moment-store.ts");
+  const updateBlock = store.slice(
+    store.indexOf("export async function updateMoment"),
+    store.indexOf("export async function addJob"),
+  );
+  assert.match(updateBlock, /writeMomentItem\(/);
+  assert.match(updateBlock, /afterResponse\(\(\) => syncIndexBestEffort\(\[next\]\)\)/);
+  assert.match(updateBlock, /createTravelMoment\(/);
+  assert.ok(updateBlock.indexOf("writeMomentItem") < updateBlock.indexOf("afterResponse"));
+  const driveReturn = updateBlock.slice(updateBlock.lastIndexOf("afterResponse"));
+  assert.doesNotMatch(driveReturn, /await syncIndexBestEffort\(\[next\]\)/);
+  assert.match(driveReturn, /moments: \[next\]/);
+});
+
+test("Drive addMoment Capture ack does not ship the fat lastWrite catalog", async () => {
+  const store = await readSource("lib/moment-store.ts");
+  const addBlock = store.slice(
+    store.indexOf("export async function addMoment"),
+    store.indexOf("export async function updateMoment"),
+  );
+  const driveReturn = addBlock.slice(addBlock.lastIndexOf("afterResponse"));
+  assert.doesNotMatch(driveReturn, /overlayMoments\(lastWrite/);
+  assert.match(driveReturn, /moments: \[savedMoment\]/);
+});
+
+test("moments GET supports slim recent window with ETag", async () => {
+  const route = await readSource("app/api/moments/route.ts");
+  const store = await readSource("lib/moment-store.ts");
+  assert.match(route, /readMomentsSlim/);
+  assert.match(route, /searchParams\.get\("slim"\)/);
+  assert.match(route, /ETag/);
+  assert.match(store, /export async function readMomentsSlim/);
+});
+
+test("display photo POST returns before awaiting addPhotoToMoment", async () => {
+  const photosApi = await readSource("app/api/moments/photos/route.ts");
+  const displayPost = photosApi.slice(
+    photosApi.indexOf("rememberUploadedDisplayPhoto(momentId, photo)"),
+    photosApi.indexOf("export async function DELETE"),
+  );
+  assert.match(displayPost, /afterResponse\(async \(\) => \{/);
+  assert.ok(displayPost.indexOf("afterResponse") < displayPost.indexOf("return Response.json({ photo })"));
+  assert.doesNotMatch(displayPost.split("afterResponse")[0], /await addPhotoToMoment\(momentId, photo\)/);
+});
+
+
 test("Drive addPhotoToMoment does not GET the catalog or list Drive files", async () => {
   const calls: string[] = [];
   const items = new Map<string, string>();
@@ -793,7 +840,7 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
     });
   });
 
-  test("photo POST waits for durable item writes but does not wait for the catalog", async () => {
+  test("photo POST returns after binary store; item writes do not gate the response", async () => {
     await withPinEnv(undefined, async () => {
       const files = new Map<string, { base64: string; mimeType: string; name: string }>();
       const items = new Map<string, string>();
@@ -911,21 +958,28 @@ test.describe("in-process and stale-index capture appends", { concurrency: false
         while ((binaryWrites < 40 || itemWrites < 2) && Date.now() - started < 2000) {
           await new Promise((resolve) => setTimeout(resolve, 5));
         }
-        assert.equal(binaryWrites, 40);
-        assert.ok(itemWrites >= 2, "the durable item write has started");
-        assert.equal(completedPhotos, 0, "binary upload alone must not report a saved photo");
-        releaseItems();
         const responses = await Promise.all(jobs);
         const elapsedMs = Date.now() - started;
+        assert.equal(binaryWrites, 40);
+        assert.equal(completedPhotos, 40, "display ack returns as soon as the binary is stored");
         assert.equal(
           responses.every((response) => response.status === 200),
           true,
         );
-        assert.ok(elapsedMs < 2000, `40 parallel photo POSTs should not wait on the index lock (${elapsedMs}ms)`);
-        assert.equal(binaryWrites, 40);
-        const savedItems = [...items.values()].map((text) => JSON.parse(text).moment);
-        const savedMoment = savedItems.find((item) => item.id === created.moment.id);
-        assert.equal(savedMoment?.photos.length, 40, "all photo references exist in the durable item shard before success");
+        assert.ok(elapsedMs < 2000, `40 parallel photo POSTs must not wait on item/index writes (${elapsedMs}ms)`);
+        releaseItems();
+        // Background afterResponse item writes should finish once the gate opens.
+        const waitItems = Date.now();
+        let savedMoment: { id: string; photos: unknown[] } | undefined;
+        while (Date.now() - waitItems < 3000) {
+          const savedItems = [...items.values()].map((text) => JSON.parse(text).moment as { id: string; photos: unknown[] });
+          savedMoment = savedItems.find((item) => item.id === created.moment.id && (item.photos?.length ?? 0) >= 40);
+          if (savedMoment) break;
+          await new Promise((resolve) => setTimeout(resolve, 5));
+        }
+        assert.ok(itemWrites >= 2, "item write still runs best-effort after the response");
+        assert.ok(savedMoment, "durable item shard with photos is written after ack");
+        assert.equal(savedMoment?.photos.length, 40, "all photo references land in the item shard after ack");
         const bodies = await Promise.all(
           responses.map((response) => response.json() as Promise<{ photo: { id: string; storageKey: string } }>),
         );
