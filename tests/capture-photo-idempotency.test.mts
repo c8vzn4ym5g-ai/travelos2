@@ -15,12 +15,19 @@ async function photoServer(options: { failFirstPersist?: boolean } = {}) {
   let writes = 0;
   let ids = 0;
   let persists = 0;
+  const pending: Array<Promise<unknown>> = [];
   const dependencies = {
     createHash,
+    afterResponse: (work: () => Promise<unknown>) => {
+      pending.push(Promise.resolve().then(work).catch(() => undefined));
+    },
     isAdminPinValid: () => true,
     isUploadBlob: (file: unknown) => file instanceof Blob,
     uploadFilename: (file: File) => file.name,
-    getMomentById: async () => ({ photos: [...photos.values()] }),
+    getMomentById: async () => {
+      throw new Error("display POST must not await getMomentById");
+    },
+    peekUploadedDisplayPhoto: (_id: string, photoId: string) => photos.get(photoId) ?? null,
     readOriginalCaptureMetadata: async () => ({}),
     captureMetadataPhotoFields: () => ({}),
     photoUploadMetadata: () => ({}),
@@ -36,7 +43,13 @@ async function photoServer(options: { failFirstPersist?: boolean } = {}) {
     momentApiErrorResponse: (error: Error) => Response.json({ error: error.message }, { status: 503 }),
   };
   const POST = new Function(...Object.keys(dependencies), `${js}; return POST;`)(...Object.values(dependencies));
-  return { POST, photos, writes: () => writes, persists: () => persists };
+  return {
+    POST,
+    photos,
+    writes: () => writes,
+    persists: () => persists,
+    flush: async () => { await Promise.all(pending.splice(0)); },
+  };
 }
 
 test("retry persists a cached photo again when its first metadata write failed", async () => {
@@ -48,9 +61,18 @@ test("retry persists a cached photo again when its first metadata write failed",
       uploadId: "cached-photo", coordinates: null, file: new File(["jpeg"], "a.jpg", { type: "image/jpeg" }),
       momentId: "moment-one", pin: "", takenAt: "2026-09-13T00:00:00Z",
     });
+    await server.flush();
     assert.equal(server.photos.size, 1);
     assert.equal(server.writes(), 1);
-    assert.equal(server.persists(), 2, "cached metadata alone cannot acknowledge a durable upload");
+    assert.equal(server.persists(), 1, "first afterResponse persist failed");
+
+    await uploadDisplayPhoto({
+      uploadId: "cached-photo", coordinates: null, file: new File(["jpeg"], "a.jpg", { type: "image/jpeg" }),
+      momentId: "moment-one", pin: "", takenAt: "2026-09-13T00:00:00Z",
+    });
+    await server.flush();
+    assert.equal(server.writes(), 1, "idempotent retry must not store another display binary");
+    assert.equal(server.persists(), 2, "idempotent retry repairs metadata via afterResponse");
   } finally { globalThis.fetch = originalFetch; }
 });
 
@@ -78,6 +100,7 @@ for (const fault of ["lost acknowledgement", "HTTP 503"] as const) {
         momentId: "moment-one", pin: "", takenAt: "2026-09-13T00:00:00Z",
       };
       const result = await uploadDisplayPhoto(input);
+      await server.flush();
       assert.equal(attempts, 2);
       assert.equal(server.photos.size, 1);
       assert.deepEqual(uploadIds, ["staged-photo-one", "staged-photo-one"]);
@@ -86,9 +109,12 @@ for (const fault of ["lost acknowledgement", "HTTP 503"] as const) {
       assert.equal(result.photo.caption, "family caption");
       assert.equal(result.photo.takenAt, "2020-01-01T00:00:00Z");
       const manualRetry = await uploadDisplayPhoto(input);
+      await server.flush();
       assert.equal(manualRetry.photo.id, result.photo.id);
       assert.equal(server.photos.size, 1);
+      assert.equal(server.writes(), 1);
       const separate = await uploadDisplayPhoto({ ...input, uploadId: "staged-photo-two" });
+      await server.flush();
       assert.notEqual(separate.photo.id, result.photo.id);
     } finally {
       globalThis.fetch = originalFetch;
@@ -99,4 +125,14 @@ for (const fault of ["lost acknowledgement", "HTTP 503"] as const) {
 test("Capture uses the persisted staged identity for display uploads", async () => {
   const source = await readFile(new URL("../app/family/capture/page.tsx", import.meta.url), "utf8");
   assert.match(source, /await uploadDisplayPhoto\(\{\s*uploadId: photo\.id,/);
+});
+
+test("Capture never re-queues display POST once serverPhotoId is known", async () => {
+  const source = await readFile(new URL("../app/family/capture/page.tsx", import.meta.url), "utf8");
+  const start = source.slice(
+    source.indexOf("async function startBackgroundPhotoUpload"),
+    source.indexOf("async function runBackgroundPhotoUpload"),
+  );
+  assert.match(start, /latest\.status === "uploaded" \|\| latest\.serverPhotoId/);
+  assert.match(source, /createDisplayGatedOriginalUploader/);
 });
