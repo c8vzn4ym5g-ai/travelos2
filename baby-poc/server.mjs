@@ -50,12 +50,18 @@ createServer(async (req, res) => {
     return send(res, { moment, state });
   }
   if (req.method === 'POST' && path === '/api/arrange') {
-    const { momentId } = await json(req);
+    const { momentId, lang } = await json(req);
     const moment = state.moments.find(m => m.id === momentId);
-    // Preserve authored input: this operation lays out source text, it is not AI generation.
-    moment.draft = moment.note || moment.transcript || '';
+    const result = await fetch(`${process.env.BABY_AI_ORIGIN}/api/arrange-text`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ moment, lang }) }).then(r => r.json());
+    moment.draft = result.draft;
+    moment.aiModel = result.model;
     await persist();
-    return send(res, { draft: moment.draft, mode: 'source-layout' });
+    return send(res, result);
+  }
+  if (req.method === 'POST' && path === '/api/transcribe') {
+    const body = await json(req);
+    const result = await fetch(`${process.env.BABY_AI_ORIGIN}/api/transcribe`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+    return send(res, result);
   }
   if (req.method === 'POST' && path === '/api/book') {
     const body = await json(req);

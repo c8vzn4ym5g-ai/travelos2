@@ -12,15 +12,22 @@ export const illustrations = [
   scene(`<path d="M0 0h1200v800H0z" fill="#e8ecdf"/><circle cx="895" cy="160" r="79" fill="#edcf8c"/><path d="M0 425Q260 329 526 438T1200 408V800H0" fill="#a7b796"/><path d="M0 581Q467 437 1200 639v161H0" fill="#d8c3a1"/><path d="M-45 800q233-198 700-199" fill="none" stroke="#f0dfbf" stroke-width="120"/><path d="M107 601v-419" stroke="#83785a" stroke-width="27"/><path d="M90 422q-185-31-102-205q51-128 154-84q155 22 107 186q-30 110-159 103" fill="#678665"/><path d="M1060 507V183" stroke="#928268" stroke-width="24"/><path d="M1070 353q-120 9-128-118q-9-114 111-110q148-1 131 126q-3 102-114 102" fill="#819a77"/><path d="M681 606Q648 408 711 333q79-12 108 79l25 165" fill="#b77858"/><circle cx="730" cy="280" r="45" fill="#e6b993"/><path d="M687 278q-13-68 46-68q59 0 51 66l-26-38q-38 7-57 0" fill="#3c5142"/><path d="M716 590l-16 120m92-130l47 112" stroke="#526b60" stroke-width="34" stroke-linecap="round"/><path d="M687 716h32m108-14h36" stroke="#465145" stroke-width="23" stroke-linecap="round"/><path d="M710 383q-27 78-112 91" fill="none" stroke="#b77858" stroke-width="45" stroke-linecap="round"/><path d="M606 475l-25 12" stroke="#e4b88f" stroke-width="22" stroke-linecap="round"/><path d="M399 505h163l-25 114H438z" fill="#d4ad7d"/><path d="M401 506q1-119 123-122l41 122" fill="#6b8e7d"/><path d="M409 485q39-46 88-46" fill="none" stroke="#f4e8c9" stroke-width="12"/><path d="M433 614l-23 55m125-55l22 55m-147-6h147" stroke="#6a6b58" stroke-width="13" stroke-linecap="round"/><circle cx="413" cy="678" r="24" fill="#526257"/><circle cx="556" cy="678" r="24" fill="#526257"/><path d="M558 510l39-35h29" fill="none" stroke="#6a6b58" stroke-width="12" stroke-linecap="round"/><path d="M935 640l7-25m22 34l10-27m-50 45l-9-21" stroke="#788d65" stroke-width="7" stroke-linecap="round"/><path d="M301 126q17-20 35-1m-28 0q17-20 35-1" fill="none" stroke="#80917c" stroke-width="5" stroke-linecap="round"/>`, 'An illustrated parent taking a baby for an afternoon walk in a leafy park'),
 ];
 
+// The transcript strings below match the existing English synthetic sample WAVs.
+// They are fictional source utterances, not proof of speech-to-text processing.
+export const sampleNarration = [
+  'This is a synthetic narration for a fictional family sample. We sat by the window and watched the morning light together.',
+  "This is a synthetic narration for a fictional family sample. At Grandma's house, you held the table and stood for a little while.",
+  'This is a synthetic narration for a fictional family sample. We went to the park. You watched the leaves moving above the stroller.',
+];
 const zh = [
-  { title: '窗邊的慢慢早晨', date: '2026-01-18', place: '家裡', speaker: '媽媽', transcript: '今天早上，你一直看著窗外的光。我抱著你，什麼也沒急著做。', note: '今天早上，陽光落在客廳的窗邊。小禾醒來後沒有哭，只是安靜地望著那一小片光。我抱著他坐了一會兒，手邊的事情也先放下。原來值得留下的，不一定是第一次或特別的大事；有時只是這樣一個慢慢的早晨，我們都在這裡，一起看著光。' },
-  { title: '在阿嬤家的小小站立', date: '2026-07-05', place: '阿嬤家', speaker: '阿嬤', transcript: '你扶著小桌子站了一下，我在旁邊伸著手。那一刻，我們都笑了。', note: '下午在阿嬤家，小禾伸手抓住矮桌的邊緣，慢慢把身體撐了起來。阿嬤坐在旁邊，手一直伸著，準備隨時扶住他。他站了一小會兒，又坐回軟墊上。我們沒有計時，也沒有急著讓他再來一次，只把那個一起笑出來的瞬間記下來。' },
-  { title: '把公園走成一段回憶', date: '2026-09-20', place: '附近的公園', speaker: '爸爸', transcript: '風一吹，葉子就動了。你在推車裡看得好專心，我們便多停了一會兒。', note: '傍晚推著小禾去附近的公園，走的還是平常那條路。風吹過樹梢，他抬起頭，目光跟著晃動的葉子。我把推車停在樹蔭下，陪他看了一會兒。沒有趕著走完一圈，也沒有特別的行程；今天想留下的，就是我們一起停下來的這幾分鐘。' },
+  { title: '窗邊的早晨', date: '2026-01-18', place: '家裡', speaker: '媽媽', transcript: sampleNarration[0], note: '早上，窗邊有光。抱著小禾一起看。沒有急著做別的事，覺得很平靜。想記住這幾分鐘。' },
+  { title: '阿嬤家的小桌子', date: '2026-07-05', place: '阿嬤家', speaker: '阿嬤', transcript: sampleNarration[1], note: '下午在阿嬤家。小禾扶著矮桌站了一下，我伸手在旁邊等著。他又坐下，我們都笑了。不確定是不是第一次，不要寫成第一次。' },
+  { title: '公園裡停一下', date: '2026-09-20', place: '附近的公園', speaker: '爸爸', transcript: sampleNarration[2], note: '傍晚，平常去的公園。小禾坐推車，看風吹葉子，看得很專心。我停下來陪他看。今天沒有特別行程，這樣也很好。' },
 ];
 const en = [
-  { title: 'A slow morning by the window', date: '2026-01-18', place: 'Home', speaker: 'Mum', transcript: 'You kept looking at the light by the window. I held you, and for a little while we did not hurry.', note: 'Morning light reached the living-room window just as Milo woke up. He was quiet, watching the bright patch on the wall, so I sat beside it with him in my arms. The things I had planned could wait a few minutes. There was no milestone to announce and nothing special to arrange. I wanted to remember this ordinary morning: both of us here, watching the same small piece of light.' },
-  { title: 'A little stand at Grandma’s', date: '2026-07-05', place: 'Grandma’s home', speaker: 'Grandma', transcript: 'You held on to the little table and stood for a moment. My hands were right beside you, and we both smiled.', note: 'At Grandma’s that afternoon, Milo reached for the edge of the low table and slowly pushed himself up. Grandma sat close, with her hands ready to help. He stood for a little while, then settled back onto the soft mat. We did not time it or ask him to do it again. We simply wanted to keep the small moment when we looked at one another and smiled.' },
-  { title: 'A pause along our usual path', date: '2026-09-20', place: 'Our neighbourhood park', speaker: 'Dad', transcript: 'The wind moved the leaves, and you watched so closely. We stopped the buggy and stayed a little longer.', note: 'We took our usual path through the park in the late afternoon. When the breeze moved the leaves above us, Milo tipped his face up and followed them with his eyes. I stopped the buggy in the shade and watched with him. We did not need to finish another lap or find something new to do. These few quiet minutes together were the part of today I wanted to bring home.' },
+  { title: 'Morning by the window', date: '2026-01-18', place: 'Home', speaker: 'Mum', transcript: sampleNarration[0], note: 'Morning light by the window. Holding Milo, watching it together. Put the other things down for a few minutes. Felt peaceful. Want to remember this.' },
+  { title: 'The little table at Grandma’s', date: '2026-07-05', place: 'Grandma’s home', speaker: 'Grandma', transcript: sampleNarration[1], note: 'Afternoon at my house. Milo held the low table, stood briefly. My hands ready beside him. Sat down again. We both smiled. Not sure it was his first time; please do not call it a first.' },
+  { title: 'Stopping in the park', date: '2026-09-20', place: 'Our neighbourhood park', speaker: 'Dad', transcript: sampleNarration[2], note: 'Usual park, late afternoon. Milo in the stroller. Wind moving the leaves, he watched closely. Stopped and watched with him. No special plan. A good few quiet minutes.' },
 ];
 
 export function fixtures(lang = 'zh') {
@@ -28,7 +35,7 @@ export function fixtures(lang = 'zh') {
     child: { name: lang === 'en' ? 'Milo' : '小禾', birthDate: '2025-10-01' },
     moments: (lang === 'en' ? en : zh).map((item, index) => ({
       id: `demo-${lang}-${index + 1}`, lang, ...item,
-      photo: illustrations[index], audio: '', draft: '', createdAt: `${item.date}T08:00:00.000Z`,
+      photo: illustrations[index], audio: '', transcript: '', draft: '', createdAt: `${item.date}T08:00:00.000Z`,
     })),
   };
 }
