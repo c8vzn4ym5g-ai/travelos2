@@ -1,67 +1,74 @@
-# TravelOS — 跨帳號／跨智能體續開發入口
+# TravelOS 跨帳號／跨智能體續開發交接
 
-更新：2026-10-27（UTC+08:00）。本文件優先於舊 HANDOFF 中本輪涉及的工作台 → Write 接通狀態；其他產品決策不變。
+更新：2026-10-27 11:17 +08:00。本文件取代本輪所有「候選／未部署」狀態。
 
-## 2026-10-27 原站發布進行中
+## 目前正式結果
 
-Owner已明確授權合併、部署原站與最小線上接通驗證。PR #138已合併為fc75ee7。首次Cloudflare workflow40440981228：Next建置成功，OpenNext因15.x超出其內建兩年支援期限而停止，Deploy未執行，正式資料未變。
+- Canonical repository：https://github.com/c8vzn4ym5g-ai/travelos2 ，main。
+- 已部署應用提交：1069156b36b1ba7c31595e6ae11314f7cb37024f。
+- Cloudflare workflow40442829841／job121986963393：Next建置、OpenNext建置與實際Deploy均success。
+- Worker version：81cedc0f-59cb-4536-94bd-80386f2a8b6c。
+- 狀態：implemented、tested、synchronized、deployed、最小真站流程verified。未聲稱完整App／實體iPhone驗收。
+- 後續純交接文件提交使用[skip ci]，應用原始碼不變，不重複部署。
+- PR138是兩個接通修正；PR141的Next16候選已被PR143取代，不可拿來重新發布。
 
-必要發布相容性修正：Next.js16.4.3（npm官方registry核對）、沿用webpack打包與既有OpenNext，移除Next16不再接受的eslint設定，接受Next產生的TypeScript配置更新。沒有停用支援檢查、沒有改頁面流程或資料儲存。Next16本機正式建置成功，接通聚焦28/28通過；正在對照舊主線測試結果，發布與真站證據將補在本節。
+## 手機及筆電入口
 
-## 唯一接續版本
+- 手機家庭入口：https://travelos2.chao-jason.workers.dev/family
+- 收素材：/family/capture → 檢查入倉：/family/bench
+- 工作台選一批「選擇作品，接著整理這批素材」→ Write選既有作品 → 儲存並轉成遊記。
+- 筆電從同站 /trips/admin 選同一篇續編，或在Write按「打開這篇遊記編輯」。
+- 原有每張照片的選旅程入口仍保留；本輪補的是統一批次入口，沒有重做既有照片轉入流程。
 
-- Repository: https://github.com/c8vzn4ym5g-ai/travelos2
-- 本輪分支：`codex/travelos-material-handoff`。從 main `320500ce52826c807d31eef9a082bf21f7f0806e` 建立。
-- 以遠端分支最新提交為本輪修正基準；勿從 OneDrive 舊工作目錄、Japan Workspace 或 Value Prototype 覆蓋。
-- 正式站：https://travelos2.chao-jason.workers.dev；家庭入口 `/family`。
-- 本輪為已實作、隔離測試通過的候選；沒有合併 main，沒有部署本輪修正。
-- 修正與交接已同步遠端分支，實作 checkpoint `1cad412`；後續文件更新不改應用程式。
+## 本輪最小真站驗證
 
-## 本輪改動與驗收邊界
+只使用一筆明確標示的私人合成測試作品與一批合成素材，沒有修改／發布既有家庭作品，沒有刪除原件。
 
-只補兩處：工作台每筆素材加入攜帶原 moment ID 的 Write 入口；Write 按現有單篇 API `{trip}` 接收保存結果，更新同一篇及其伺服器版本。保留素材整理、照片轉入、草稿與既有編輯流程。
+1. 真站API建立素材記錄，上傳一張640×400合成JPEG；雲端入倉成功。
+2. 390×844瀏覽器視窗開啟該批工作台，圖片解碼640px、批次入口可見，無水平溢出。
+3. 實際點批次入口，Write只開該moment；選唯一私人測試作品、填字、按保存，畫面出現成功回饋。
+4. 另開獨立編輯頁讀回同一篇：1張素材、1段正文。修改正文，再按儲存工作稿，畫面確認已保存。
+5. 無cookie的獨立HTTP讀回同一作品與moment：ID、來源引用、正文精確標記、private、1照片／1故事皆一致，來源note仍保留。
+6. 1280×800桌面視窗圖片正常解碼、clientWidth與scrollWidth同為1265，無水平溢出。
+7. 家庭頁、雙manifest與雙512px圖示均HTTP200；manifest為standalone且分別指向公開版／family。
 
-最小鏈路：Capture 建立素材記錄 → 素材附加 → 重設記憶快取後 Bench API 讀回 → 指定批次 Write → 原有 transferWritingToTrip → 真正 PUT route → 重設連線快取 → 真正 GET route 模擬另一部筆電重開。
+實體iPhone相機／Safari背景切換／弱網、第二ChatGPT帳號實際登入未在本輪驗證。Owner之前多次手機使用成功是另有的真機證據，不與本輪模擬視窗混稱。
 
-儲存邊界使用測試內 Map，禁止未預期的外部請求；沒有上傳真實／測試資料到正式 Drive。本項不包含相機／二進位檔上傳、真手機 Safari、跨帳號登入或正式端到端操作驗收。
+## 唯一驗證資料及保留狀態
 
-原件引用、目標作品 ID、正文、保存版本與 private 狀態均有斷言；另一篇作品及來源批次不變。重複保存、409 保存失敗、找錯批次、原圖保留與本機草稿恢復由同批聚焦檢查覆蓋。
+- moment：moment_acceptance_1793070366415
+- private trip：trip_f77683d2-2178-465c-a684-d2b55b48d023
+- 標題：【接通測試・非家庭遊記】2026-10-27
+- 正文精確標記：TRAVELOS_CONNECTION_OK_20261027: phone -> warehouse -> bench -> selected work -> laptop continuation.
+- 該私人測試記錄與合成圖片保留作重開證據，未公開，不是家庭內容。不要重複建立新測試資料，也不要直接改整個倉庫索引來清理。
+- 最後獨立讀回：2026-10-27T03:16:52.740Z；作品updatedAt：2026-10-27T03:16:15.304Z。
 
-## 異地最短重現
+## 異地接手
 
-不需要本機 Windows 路徑或舊對話。Node 22（支援 experimental-strip-types；本次執行為 Node 24.19.0），pnpm 10 為 CI 設定；本機 pnpm 11.25.0 可依鎖檔安裝。
+不需要原Windows路徑、原聊天記憶或原電腦在線。具Git／Node執行環境的其他帳號或智能體可從main取得同一套程式與測試。
 
 ```sh
-git clone --branch codex/travelos-material-handoff https://github.com/c8vzn4ym5g-ai/travelos2.git
+git clone https://github.com/c8vzn4ym5g-ai/travelos2.git
 cd travelos2
 git rev-parse HEAD
 pnpm install --frozen-lockfile --ignore-scripts
-node --experimental-strip-types --import ./tests/register-at.mjs --test tests/capture-work-handoff.test.mts tests/write-handoff.test.mts tests/write-moment-load.test.mts tests/write-moment-target.test.mts tests/write-photo-transfer.test.mts tests/write-trip-load.test.mts tests/selected-trip-save.test.mts tests/editor-local-draft.test.mts
+node --experimental-strip-types --import ./tests/register-at.mjs --test tests/package-runtime.test.mjs tests/capture-work-handoff.test.mts tests/write-handoff.test.mts tests/write-moment-load.test.mts tests/write-moment-target.test.mts tests/write-photo-transfer.test.mts tests/write-trip-load.test.mts tests/selected-trip-save.test.mts tests/editor-local-draft.test.mts
 ```
 
-`--ignore-scripts` 足供上述聚焦測試，未據此宣稱完整打包環境已驗收。不要把正式 .env、.dev.vars、登入狀態、家庭照片或 private vault 放進交接。測試需 Node 執行能力；只能聊天或只能讀取連結的帳號不能被視為已具開發環境。
+CI使用Node22／pnpm10，本輪本機Node24.19.0／pnpm11.25.0。上述聚焦命令30/30通過。ignore-scripts足供此命令，不代表所有native打包流程均已準備。
 
-## 證據與未完成項
+不同帳號不會自動繼承GitHub寫入、家庭資料或部署權限。各自分支、同範圍一位writer，整合者合併；不要互相覆蓋整個舊目錄。原GitHub secrets留在原服務，不複製到聊天。
 
-- 上述命令本輪結果：28 passed / 0 failed / 0 skipped。
-- 先重現舊保存回應格式造成讀取 undefined trips，以及缺失 Bench 入口；修正後回歸通過。
-- 變更來源 ESLint：0 errors / 2 既有 warnings（Write 未用 type、既有 effect dependency）。git diff --check 通過。
-- 全專案 TypeScript 檢查未通過：未修改的 note-workspace.tsx、visual-journal-editor.tsx、note-article.ts 有 5 個診斷；本輪未擴大修理。不能宣稱整體 build 或全站驗收通過。
-- 本輪正式 `/family` HTTP 200，頁面有編輯版標記；瀏覽器公開首頁實際顯示 13 篇旅程。工作台瀏覽器後續觀測逾時，因此沒有新工作台畫面／手機端到端完成證據。
-- main 320500c 歷史 Cloudflare workflow 35488143165 中 Deploy step success；不是本輪修正的部署證據。
+原碼含既有家庭倉庫預設連線，直接啟動App不是隔離沙箱；先跑fixture，真實資料操作與部署必須有任務授權。不要以可clone誤稱各帳號的權限隔離已完成。
 
-## 帳號與共同開發邊界
+## 發布相容性與既有缺口
 
-程式保存在 GitHub，正式服務由 Cloudflare／遠端倉庫提供，不靠本機 dev server；不同 ChatGPT 帳號或其他智能體可在有 Git／Node 工具的環境拉取公開程式並重跑隔離測試。並未實際登入第二個帳號，不能宣稱它的寫入／部署權限已驗證。
+最終保留原Next15／webpack／OpenNext路徑，維護版精確鎖15.5.28。OpenNext的兩年日曆支援期限已過，官方支援期限opt-in僅對精確15.5.28生效，其他版本不放寬。這是短期延續原執行環境，不代表恢復長期支援；後續框架遷移須獨立驗證。
 
-目前原有倉庫連線預設值在 source 中，開發副本不是自動隔離的資料沙箱。直接啟動 App 可能讀寫原家庭倉庫。優先跑上述隔離測試；不要讓新帳號用正式資料作實驗，不要把現有存取設計誤稱為各帳號權限已分開。
+Next16候選建置部署成功，但本地區HTTP500；recovery40442451501已恢復原Worker，再由PR143完成原框架發布。不能把先前500歸因為已證實的Next16根因：回復期間另一地區的單次tail為ok，原因仍未充分確定。
 
-共同修改需要各自分支與 GitHub 寫入／PR 權限；同一檔案／資料範圍一次一位 writer，由整合者接回成果。不要直接同步整個舊目錄。正式資料操作與部署另須該服務權限及任務授權；不傳遞密鑰。
+曾做完整回歸對照：舊main320500c／Next15為422pass、45fail、1skip；Next16候選426pass、相同45fail、1skip，無新增失敗名稱。這不是全套通過；本輪沒有擴大修理舊測試。最終原框架版本以30項聚焦檢查、CI雙建置及真站流程作接受證據。既有全專案TypeScript5個診斷亦未宣稱修復。
 
-重要：main push 會觸發 `.github/workflows/cloudflare-deploy.yml`，不要把本輪分支合併主線當作純文件同步。GitHub secrets 保留在原服務，不需抄到另一個聊天帳號；已授權的維護者可透過既有 CI 發布。
+## 接手後下一步
 
-## 下一步
-
-由接手者先跑上述 28 項命令，再在隔離資料／經授權的環境實測：手機工作台選一批 → 選作品 → 保存 → 另一瀏覽器開同篇編輯，檢查照片、正文及保存版本一致、窄版無橫向溢出。沒有這個畫面證據前，不稱本輪正式手機鏈路已驗收。
-
-本輪不新增功能、重做已完成介面、改登入、改公開狀態、修改家庭資料或安排定時監控。
+先從main跑30項命令，沿用本輪已保存的真站證據。需要擴充時另定最小範圍；不要重做已完成入口、從OneDrive舊副本覆蓋，或未授權新增登入／公開內容／背景監控。若要再次發布，必須核對實際Cloudflare Deploy步驟與真站結果，不能只看Vercel備援狀態。

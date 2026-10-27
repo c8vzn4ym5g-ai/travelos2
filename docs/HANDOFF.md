@@ -1,4 +1,8 @@
-## 2026-10-27 最小素材接通候選／跨智能體交接
+## 2026-10-27 原站部署與最小線上接通完成
+
+本節取代以下候選／未部署狀態。應用提交1069156b36b1ba7c31595e6ae11314f7cb37024f，Cloudflare workflow40442829841/job121986963393雙建置及Deploy success，Worker81cedc0f-59cb-4536-94bd-80386f2a8b6c。已在原站以唯一私人合成素材實際完成：JPEG入倉→手機寬度工作台→指定作品Write保存→獨立編輯頁讀回續編保存→獨立HTTP精確讀回。原家庭作品未修改；一筆明確標示的私人測試作品／素材保留作重開證據。最終聚焦30/30；全套舊失敗與框架支援期限例外坦列於[TRAVELOS_CONTINUE.md](TRAVELOS_CONTINUE.md)，不得宣稱全站／實體iPhone全面驗收。手機入口https://travelos2.chao-jason.workers.dev/family 。純交接提交不重複部署。
+
+## 歷史：2026-10-27 最小素材接通候選／跨智能體交接（已取代）
 
 接續入口：[TRAVELOS_CONTINUE.md](TRAVELOS_CONTINUE.md)。基於 main 320500c 的獨立分支 codex/travelos-material-handoff；Bench 增加指定 moment 的 Write 入口，Write 接收單篇保存 ACK 及原 baseUpdatedAt。隔離 Capture record→Bench→Write→選定作品保存→fresh editor GET 與相關聚焦檢查28/28通過。未修改真實資料；未合併或部署本輪修正。正式family HTTP200、公開首頁13篇可見；本輪工作台／實體手機端到端未完成。跨帳號隔離測試可依文件重現，實際第二帳號權限未驗證。不要從舊本機副本覆蓋。
 
