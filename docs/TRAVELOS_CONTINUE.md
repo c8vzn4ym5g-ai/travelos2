@@ -9,6 +9,7 @@
 - 以遠端分支最新提交為本輪修正基準；勿從 OneDrive 舊工作目錄、Japan Workspace 或 Value Prototype 覆蓋。
 - 正式站：https://travelos2.chao-jason.workers.dev；家庭入口 `/family`。
 - 本輪為已實作、隔離測試通過的候選；沒有合併 main，沒有部署本輪修正。
+- 修正與交接已同步遠端分支，實作 checkpoint `1cad412`；後續文件更新不改應用程式。
 
 ## 本輪改動與驗收邊界
 

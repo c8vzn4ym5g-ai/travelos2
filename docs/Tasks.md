@@ -2,7 +2,7 @@
 
 ## 2026-10-27：最小素材接通候選
 
-Status: implemented / isolated-tested; remote checkpoint pending; not deployed.
+Status: implemented / isolated-tested / synchronized to codex/travelos-material-handoff; not deployed.
 
 Scope: Bench selected-batch link and Write selected-record save ACK only. 28 focused checks pass; original family data untouched. Cross-account continuation, exact command and remaining real-device gate: [TRAVELOS_CONTINUE.md](TRAVELOS_CONTINUE.md). Old pending tasks below are historical and must not override the latest handoff.
 
