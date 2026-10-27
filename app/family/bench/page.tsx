@@ -350,6 +350,9 @@ export default function FamilyBenchPage() {
                     ) : null}
 
                     {hasAudio ? <BenchAudio momentId={moment.id} /> : null}
+                    <Link className="fam-pill fam-pill-sky mt-4 min-h-11" href={`/trips/write?moment=${encodeURIComponent(moment.id)}`}>
+                      選擇作品，接著整理這批素材
+                    </Link>
                   </article>
                 </li>
               );
