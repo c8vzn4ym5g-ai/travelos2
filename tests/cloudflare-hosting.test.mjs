@@ -12,7 +12,7 @@ async function readSource(path) {
 test("Cloudflare OpenNext path exists and does not replace Vercel next build", async () => {
   const pkg = JSON.parse(await readSource("package.json"));
   assert.equal(pkg.scripts.build, "next build");
-  assert.match(pkg.scripts["cf:build"], /opennextjs-cloudflare build/);
+  assert.match(pkg.scripts["cf:build"], /opennextjs-cloudflare build|package-app\.mjs --cloudflare/);
   assert.match(pkg.scripts["cf:preview"], /opennextjs-cloudflare preview/);
   assert.match(pkg.scripts["cf:deploy"], /opennextjs-cloudflare deploy/);
   assert.equal(typeof pkg.dependencies["@opennextjs/cloudflare"], "string");
@@ -112,4 +112,12 @@ test("Drive warehouse credentials stay server-only for the Cloudflare path", asy
 
   const nextConfig = await readSource("next.config.ts");
   assert.doesNotMatch(nextConfig, /TRAVELOS_DRIVE_WAREHOUSE_/);
+});
+
+test("OpenNext Cloudflare build keeps Next 15.5.24 with the unsupported-version flag", async () => {
+  const packageApp = await readSource("scripts/package-app.mjs");
+  const pkg = JSON.parse(await readSource("package.json"));
+  assert.match(packageApp, /dangerouslyUseUnsupportedNextVersion/);
+  assert.match(pkg.scripts["cf:preview"], /dangerouslyUseUnsupportedNextVersion/);
+  assert.match(pkg.scripts["cf:deploy"], /dangerouslyUseUnsupportedNextVersion/);
 });

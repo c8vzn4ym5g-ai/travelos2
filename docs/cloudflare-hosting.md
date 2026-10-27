@@ -7,7 +7,7 @@ This repo now has a second deploy path: `@opennextjs/cloudflare` → Cloudflare 
 ## Scripts
 
 - `pnpm run build` — normal `next build` (what Vercel uses). Do not replace this.
-- `pnpm run cf:build` — `next build` + OpenNext Worker bundle (`.open-next/`).
+- `pnpm run cf:build` — `next build` + OpenNext Worker bundle (`.open-next/`). OpenNext now refuses Next 15 after the 2-year support window; the Cloudflare build passes `--dangerouslyUseUnsupportedNextVersion` so wrangler can still ship while TravelOS stays on `15.5.24`.
 - `pnpm run cf:preview` — OpenNext build, then local Workers runtime via Wrangler.
 - `pnpm run cf:deploy` — OpenNext build, then `opennextjs-cloudflare deploy`.
 
