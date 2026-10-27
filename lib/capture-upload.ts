@@ -419,6 +419,16 @@ export function createWorkQueue(concurrency = CAPTURE_UPLOAD_CONCURRENCY) {
 
   let active = 0;
   const pending: Array<() => void> = [];
+  const idleListeners = new Set<() => void>();
+
+  function notifyIdle() {
+    if (active !== 0 || pending.length !== 0) {
+      return;
+    }
+    for (const listener of [...idleListeners]) {
+      listener();
+    }
+  }
 
   function pump() {
     while (active < concurrency && pending.length > 0) {
@@ -428,6 +438,7 @@ export function createWorkQueue(concurrency = CAPTURE_UPLOAD_CONCURRENCY) {
       }
       start();
     }
+    notifyIdle();
   }
 
   return {
@@ -436,6 +447,23 @@ export function createWorkQueue(concurrency = CAPTURE_UPLOAD_CONCURRENCY) {
     },
     get pendingCount() {
       return pending.length;
+    },
+    get isIdle() {
+      return active === 0 && pending.length === 0;
+    },
+    /** Fires when the queue has no active or pending work. Returns unsubscribe. */
+    whenIdle(listener: () => void) {
+      idleListeners.add(listener);
+      if (active === 0 && pending.length === 0) {
+        queueMicrotask(() => {
+          if (active === 0 && pending.length === 0) {
+            listener();
+          }
+        });
+      }
+      return () => {
+        idleListeners.delete(listener);
+      };
     },
     enqueue<T>(work: () => Promise<T>): Promise<T> {
       return new Promise<T>((resolve, reject) => {
@@ -455,6 +483,8 @@ export function createWorkQueue(concurrency = CAPTURE_UPLOAD_CONCURRENCY) {
     },
   };
 }
+
+export type CaptureWorkQueue = ReturnType<typeof createWorkQueue>;
 
 export function pinHeaders(pin: string): Record<string, string> {
   return { "x-travelos-admin-pin": pin };
@@ -1096,6 +1126,60 @@ export function createOriginalPhotoUploader(options: { timeoutMs?: number } = {}
 }
 
 export const uploadOriginalPhotoInBackground = createOriginalPhotoUploader();
+
+/**
+ * Defer original POSTs until the display work queue is idle so Drive putBinary
+ * is not shared mid-display-wave. Failures stay best-effort (never flip display).
+ */
+export function createDisplayGatedOriginalUploader(
+  displayQueue: Pick<CaptureWorkQueue, "isIdle" | "whenIdle">,
+  options: { timeoutMs?: number } = {},
+) {
+  const upload = createOriginalPhotoUploader(options);
+  type Deferred = {
+    input: OriginalPhotoUploadInput;
+    resolve: (result: OriginalPhotoUploadResult) => void;
+  };
+  const deferred: Deferred[] = [];
+  let armed = false;
+
+  function flush() {
+    armed = false;
+    if (!displayQueue.isIdle) {
+      arm();
+      return;
+    }
+    const batch = deferred.splice(0);
+    for (const item of batch) {
+      void upload(item.input).then(item.resolve);
+    }
+  }
+
+  function arm() {
+    if (armed) {
+      return;
+    }
+    armed = true;
+    const unsub = displayQueue.whenIdle(() => {
+      unsub();
+      flush();
+    });
+  }
+
+  return (input: OriginalPhotoUploadInput): Promise<OriginalPhotoUploadResult> => {
+    if (!shouldKeepOriginal(input.original, input.display)) {
+      return Promise.resolve({ status: "skipped", photoId: input.photoId });
+    }
+    return new Promise<OriginalPhotoUploadResult>((resolve) => {
+      deferred.push({ input, resolve });
+      if (displayQueue.isIdle) {
+        flush();
+      } else {
+        arm();
+      }
+    });
+  };
+}
 
 /** Capture completion waits here; a failed original must keep the round retryable. */
 export async function uploadOriginalPhoto(input: OriginalPhotoUploadInput) {
