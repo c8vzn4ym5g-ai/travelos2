@@ -7,7 +7,7 @@ const reusable = cloudflare && sha && existsSync(marker) && readFileSync(marker,
 const command = cloudflare ? 'pnpm' : process.execPath;
 const args = cloudflare
   ? ['exec','opennextjs-cloudflare','build',...(reusable ? ['--skipNextBuild'] : [])]
-  : ['node_modules/next/dist/bin/next','build'];
+  : ['node_modules/next/dist/bin/next','build','--webpack'];
 // Packaging is not the Owner-authorized full verification gate. Dedicated
 // test/typecheck/lint commands remain available for the explicitly frozen release.
 const result = spawnSync(command,args,{stdio:'inherit',shell:process.platform==='win32'&&cloudflare,env:{...process.env,TRAVELOS_PACKAGE_ONLY:'1'}});
