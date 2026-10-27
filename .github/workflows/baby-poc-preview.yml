@@ -1,0 +1,35 @@
+name: Baby POC independent preview
+
+on:
+  push:
+    branches: [codex/baby-storybook-poc]
+    paths:
+      - 'baby-poc/**'
+      - '.github/workflows/baby-poc-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: baby-poc-independent-preview
+  cancel-in-progress: true
+
+jobs:
+  deploy-independent-poc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Confirm independent preview target
+        run: |
+          node --input-type=module -e "import fs from 'node:fs'; const c=JSON.parse(fs.readFileSync('baby-poc/cloud/wrangler.jsonc','utf8')); if(c.name!=='travelos-baby-poc') throw new Error('Expected independent baby POC worker'); console.log('Deploy target:',c.name);"
+      - name: Deploy Baby POC only
+        run: npx --yes wrangler@4.127.0 deploy --config baby-poc/cloud/wrangler.jsonc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: 'false'
