@@ -1,0 +1,13 @@
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+const require = createRequire(import.meta.url);
+const runtime = join(homedir(), '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const { chromium } = require(process.env.BABY_PLAYWRIGHT_MODULE || runtime);
+const browser = await chromium.launch({ executablePath: process.env.BABY_CHROMIUM || join(homedir(), 'AppData/Local/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-win64/chrome-headless-shell.exe'), headless: true });
+const page = await browser.newPage();
+await page.goto(pathToFileURL(process.argv[2]).href);
+await page.evaluate(() => document.fonts.ready);
+await page.pdf({ path: process.argv[3], preferCSSPageSize: true, printBackground: true });
+await browser.close();
