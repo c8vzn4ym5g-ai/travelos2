@@ -1,3 +1,7 @@
+## 2026-10-27 最小素材接通候選／跨智能體交接
+
+接續入口：[TRAVELOS_CONTINUE.md](TRAVELOS_CONTINUE.md)。基於 main 320500c 的獨立分支 codex/travelos-material-handoff；Bench 增加指定 moment 的 Write 入口，Write 接收單篇保存 ACK 及原 baseUpdatedAt。隔離 Capture record→Bench→Write→選定作品保存→fresh editor GET 與相關聚焦檢查28/28通過。未修改真實資料；未合併或部署本輪修正。正式family HTTP200、公開首頁13篇可見；本輪工作台／實體手機端到端未完成。跨帳號隔離測試可依文件重現，實際第二帳號權限未驗證。不要從舊本機副本覆蓋。
+
 ## 2026-09-14 最新原站交付 e0afd43：現有內容直接編輯
 
 已部署 e0afd4345e56bc051e0e9deba6b25ba9d417bfcc；workflow34806381052/job103858959058與Deploy步驟success。取代下方pending狀態。原入口 https://travelos2.chao-jason.workers.dev/trips/admin ，交付九州現有編輯頁，不再以 /trips/new 作交付。

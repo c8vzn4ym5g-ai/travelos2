@@ -32,6 +32,7 @@ import type { TravelJob, TravelMoment, TripDetail } from "@/lib/types";
 import { selectWriteMoment } from "@/lib/write-moment-target";
 import { loadWriteMoments } from "@/lib/write-moment-load";
 import { transferWritingToTrip } from "@/lib/write-photo-transfer";
+import { saveWritingTrip } from "@/lib/save-writing-trip";
 import { reviewPhotoDistance } from "@/lib/write-photo-mismatch";
 
 type TripsResponse = {
@@ -505,22 +506,8 @@ export default function SitAndWritePage() {
           now: nowIso(),
         });
 
-        const tripResponse = await fetch("/api/trips/content", {
-          body: JSON.stringify({ trip: updatedTrip, baseUpdatedAt: trip.updatedAt }),
-          headers: {
-            "content-type": "application/json",
-            ...pinHeaders(sessionPin),
-          },
-          method: "PUT",
-        });
-
-        if (!tripResponse.ok) {
-          const data = (await tripResponse.json()) as { error?: string };
-          throw new Error(data.error ?? "Trip journal save failed.");
-        }
-
-        const tripData = (await tripResponse.json()) as { content: TravelOSContent };
-        setTrips(tripData.content.trips);
+        const saved = await saveWritingTrip(updatedTrip, trip.updatedAt, pinHeaders(sessionPin));
+        setTrips((current) => current.map((item) => item.id === saved.trip.id ? saved.trip : item));
       }
 
       if (writeKey) {

@@ -1,5 +1,11 @@
 # TravelOS Codex Tasks
 
+## 2026-10-27：最小素材接通候選
+
+Status: implemented / isolated-tested; remote checkpoint pending; not deployed.
+
+Scope: Bench selected-batch link and Write selected-record save ACK only. 28 focused checks pass; original family data untouched. Cross-account continuation, exact command and remaining real-device gate: [TRAVELOS_CONTINUE.md](TRAVELOS_CONTINUE.md). Old pending tasks below are historical and must not override the latest handoff.
+
 ## TASK-040: Family 首頁 stays snappy; public home no longer dumps every photo
 
 Status: done
