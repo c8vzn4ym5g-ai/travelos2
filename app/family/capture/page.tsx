@@ -39,9 +39,9 @@ import {
   removeUploadedPhotoInBackground,
   shouldReplaceCaptureDumpRound,
   updateMomentTranscript,
+  createDisplayGatedOriginalUploader,
   uploadDisplayPhoto,
   uploadMomentAudio,
-  uploadOriginalPhotoInBackground,
 } from "@/lib/capture-upload";
 import {
   CAPTURE_DOCK_RETRY_GUARD_MS,
@@ -163,6 +163,10 @@ export default function CapturePage() {
   const photoUploadsRef = useRef(new Map<string, Promise<void>>());
   const liveUploadsRef = useRef(new Set<string>());
   const uploadQueueRef = useRef(createWorkQueue(CAPTURE_UPLOAD_CONCURRENCY));
+  // Originals wait until the display queue is idle so Drive isn't shared mid-wave.
+  const uploadOriginalWhenDisplayIdleRef = useRef(
+    createDisplayGatedOriginalUploader(uploadQueueRef.current),
+  );
   const uploadScheduledRef = useRef(new Set<string>());
   const audioUploadRef = useRef<Promise<void> | null>(null);
   const savingRef = useRef(false);
@@ -704,7 +708,8 @@ export default function CapturePage() {
           return;
         }
         const latest = photosRef.current.find((item) => item.id === photo.id);
-        if (!latest || latest.status === "uploaded") {
+        // Never POST display again for an already-acked photoId.
+        if (!latest || latest.status === "uploaded" || latest.serverPhotoId) {
           return;
         }
         await runBackgroundPhotoUpload(latest);
@@ -800,6 +805,7 @@ export default function CapturePage() {
           return;
         }
 
+        // If we already have a server photo id, never POST display again.
         const uploaded = photo.serverPhotoId
           ? { display: new File([], "retry-display.jpg", { type: "image/jpeg" }), momentId, photo: { id: photo.serverPhotoId } }
           : await uploadDisplayPhoto({
@@ -850,7 +856,8 @@ export default function CapturePage() {
           persistCaptureRound();
           maybeAutoFinalize();
           if (!video) {
-            void uploadOriginalPhotoInBackground({
+            // Defer original until display queue drains — do not contend Drive mid-wave.
+            void uploadOriginalWhenDisplayIdleRef.current({
               display: uploaded.display,
               momentId: uploaded.momentId,
               original: photo.file,
@@ -862,6 +869,7 @@ export default function CapturePage() {
                 return;
               }
               if (result.status === "failed") {
+                // Best-effort: never flip display back to failed.
                 return;
               }
               patchPhoto(photo.id, { originalPending: false });
