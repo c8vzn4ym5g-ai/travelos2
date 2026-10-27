@@ -2,6 +2,12 @@
 
 更新：2026-10-27（UTC+08:00）。本文件優先於舊 HANDOFF 中本輪涉及的工作台 → Write 接通狀態；其他產品決策不變。
 
+## 2026-10-27 原站發布進行中
+
+Owner已明確授權合併、部署原站與最小線上接通驗證。PR #138已合併為fc75ee7。首次Cloudflare workflow40440981228：Next建置成功，OpenNext因15.x超出其內建兩年支援期限而停止，Deploy未執行，正式資料未變。
+
+必要發布相容性修正：Next.js16.4.3（npm官方registry核對）、沿用webpack打包與既有OpenNext，移除Next16不再接受的eslint設定，接受Next產生的TypeScript配置更新。沒有停用支援檢查、沒有改頁面流程或資料儲存。Next16本機正式建置成功，接通聚焦28/28通過；正在對照舊主線測試結果，發布與真站證據將補在本節。
+
 ## 唯一接續版本
 
 - Repository: https://github.com/c8vzn4ym5g-ai/travelos2
