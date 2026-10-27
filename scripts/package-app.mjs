@@ -6,7 +6,7 @@ const marker = '.next/travelos-package-sha';
 const reusable = cloudflare && sha && existsSync(marker) && readFileSync(marker,'utf8') === sha && existsSync('.next/BUILD_ID');
 const command = cloudflare ? 'pnpm' : process.execPath;
 const args = cloudflare
-  ? ['exec','opennextjs-cloudflare','build',...(reusable ? ['--skipNextBuild'] : [])]
+  ? ['exec','opennextjs-cloudflare','build','--dangerouslyUseUnsupportedNextVersion',...(reusable ? ['--skipNextBuild'] : [])]
   : ['node_modules/next/dist/bin/next','build'];
 // Packaging is not the Owner-authorized full verification gate. Dedicated
 // test/typecheck/lint commands remain available for the explicitly frozen release.
