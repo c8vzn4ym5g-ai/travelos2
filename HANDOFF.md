@@ -30,3 +30,8 @@ After this gate: verify CI and deploy log, obtain actual HTTPS URL, then run liv
 ## Deliberate gaps
 No payment, push notifications, natural-language reminder extraction, member removal/editor permission controls, EXIF/event/person grouping, image/video semantic understanding, offline file retention, cloud TTS, public sharing, rich book layout or print fulfillment. Tasks are page-only; source materials remain within authenticated family. Basic book media refer to original immutable captures; text versions are snapshots.
 Conductor is advisory-only; no deterministic controller exists. Local supervisor registers a lease and stops after 30 minutes. Stop owned process at handoff; restart with node daily/run-local.mjs only for bounded local QC.
+
+## Final handoff gate
+Candidate initial code-only commit 458016d was not synchronized. Its push to origin codex/baby-daily-mobile was stopped BEFORE execution by automatic approval review: user authorization did not specifically cover this GitHub synchronization/destination. No connector or alternative transport was used to bypass it. A verified human approval naming repo c8vzn4ym5g-ai/travelos2 and branch codex/baby-daily-mobile is needed before retrying this operation. Separately, enabling the prepared workflow still requires GitHub workflow permission; ordinary content push alone will not deploy.
+The first workflow push had previously passed review on trusted user phone-URL evidence but then failed GitHub's workflow-scope check; these are two distinct blocks.
+Local QC supervisor stopped at handoff; browser viewport restored. The shipped conductor wrapper supports only status, so check-final command is unsupported; advisory-only continuity is recorded here.
