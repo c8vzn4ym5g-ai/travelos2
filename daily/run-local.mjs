@@ -1,0 +1,10 @@
+import {spawn} from 'node:child_process';
+import {mkdirSync,writeFileSync} from 'node:fs';
+import {dirname,join} from 'node:path';
+import {fileURLToPath} from 'node:url';
+const root=dirname(fileURLToPath(import.meta.url));mkdirSync(join(root,'scratch'),{recursive:true});
+const lease={owner:'/root',mission:'daily-mobile-candidate',command:'local QC server; SQLite test adapter, no production access',port:3358,lifetimeMs:1800000,status:'registered'};
+const path=join(root,'scratch','process-lease.json');writeFileSync(path,JSON.stringify(lease));
+const child=spawn(process.execPath,['--experimental-loader','./daily/test-loader.mjs','daily/local-server.mjs'],{cwd:dirname(root),stdio:'inherit'});
+writeFileSync(path,JSON.stringify({...lease,status:'running',pid:child.pid}));
+const stop=()=>child.kill();const timer=setTimeout(stop,lease.lifetimeMs);process.on('SIGINT',stop);process.on('SIGTERM',stop);child.on('exit',code=>{clearTimeout(timer);writeFileSync(path,JSON.stringify({...lease,status:'stopped'}));process.exitCode=code||0;});

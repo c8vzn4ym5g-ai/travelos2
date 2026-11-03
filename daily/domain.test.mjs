@@ -1,0 +1,10 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {newFamily,receive,integrate,edit,dayAt,due} from './domain.mjs';
+const now='2026-11-04T12:00:00.000Z';
+const member={id:'mom',name:'媽媽'};
+const family=()=>newFamily({id:'f',name:'家',child:'小禾',now});
+test('upload retry is idempotent, separate members retain their contributions',()=>{const f=family(); const input={requestId:'one',text:'今天剝橘子'};receive(f,input,member,now,'m1');receive(f,input,member,now,'m2');receive(f,input,{id:'dad',name:'爸爸'},now,'m3');assert.equal(f.moments.length,2);});
+test('late material never overwrites a human revision and stale editor gets conflict',()=>{const f=family();receive(f,{requestId:'1',text:'笑了'},member,now,'m1');let d=integrate(f,'2026-11-04','第一稿',now);edit(f,{id:d.id,baseRevision:1,title:'我們的小事',body:'我自己寫的'},now);receive(f,{requestId:'2',text:'晚上又笑了'},member,now,'m2');integrate(f,'2026-11-04','更新稿',now);assert.equal(d.current.body,'我自己寫的');assert.equal(d.pending.body,'更新稿');assert.throws(()=>edit(f,{id:d.id,baseRevision:1,title:'舊頁',body:'覆蓋'},now),e=>e.status===409);assert.equal(d.current.body,'我自己寫的');});
+test('empty day and duplicate batch create no new diary or revision',()=>{const f=family();assert.equal(integrate(f,'2026-11-04','不可虛構',now),null);receive(f,{requestId:'1',text:'一句'},member,now,'m');const d=integrate(f,'2026-11-04','一句',now);integrate(f,'2026-11-04','不應重寫',now);assert.equal(d.versions.length,1);});
+test('schedule uses family timezone; trial ends after 30 days',()=>{const f=family();assert.equal(dayAt('2026-11-04T17:00:00Z',f.timezone),'2026-11-05');assert.equal(due(f,'2026-11-04T11:59:00Z'),false);assert.equal(due(f,now),true);assert.throws(()=>receive(f,{text:'過期'},member,'2026-12-05T00:00:00Z','m'),/試用/);});

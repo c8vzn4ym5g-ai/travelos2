@@ -1,0 +1,35 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import worker,{DailyWarehouse} from './worker.js';
+const origin='https://phone-test.example';
+const db=new DatabaseSync(':memory:');
+const sql={exec(query,...args){const s=db.prepare(query);const rows=s.columns().length?s.all(...args):(s.run(...args),[]);return {toArray:()=>rows};}};
+const ctx={storage:{sql,transactionSync(fn){db.exec('BEGIN');try{const r=fn();db.exec('COMMIT');return r;}catch(e){db.exec('ROLLBACK');throw e;}}}};
+const env={AI:{async run(model,input){if(model.includes('whisper'))return {text:'虛構口述'};return {response:'媽媽說今天笑了。'};}},ASSETS:{fetch:async()=>new Response('test')}};
+const store=new DailyWarehouse(ctx,env);env.DAILY_WAREHOUSE={idFromName:n=>n,get:()=>store};
+async function call(path,body,cookie){const headers={};if(cookie)headers.cookie=cookie;if(body){headers.origin=origin;headers['content-type']='application/json';}const response=await worker.fetch(new Request(origin+'/api/'+path,{method:body?'POST':'GET',headers,body:body?JSON.stringify(body):undefined}),env);const data=await response.json();return {response,data,cookie:response.headers.get('set-cookie')?.split(';')[0]};}
+test('HTTP private families, joining, large media, idempotency, diary conflicts and snapshots',async()=>{
+ const a=await call('register',{handle:'mother-test',password:'synthetic-pass-43',name:'媽媽',child:'小禾',family:'A家'});assert.equal(a.response.status,200);
+ const b=await call('register',{handle:'other-test',password:'synthetic-pass-43',name:'別家',child:'小雨',family:'B家'});assert.equal(b.response.status,200);
+ const media={kind:'image',name:'synthetic-large.jpg',data:'data:image/jpeg;base64,'+'A'.repeat(2800000)};
+ const saved=await call('capture',{requestId:'large-1',text:'今天笑了',media:[media]},a.cookie);assert.equal(saved.response.status,200);
+ const retry=await call('capture',{requestId:'large-1',text:'今天笑了',media:[media]},a.cookie);assert.equal(retry.data.moment.id,saved.data.moment.id);
+ const as=await call('state',null,a.cookie);assert.equal(as.data.family.moments.length,1);assert.equal(as.data.family.moments[0].media[0].data.length,2800023);
+ assert.ok(db.prepare('SELECT MAX(length(CAST(payload AS BLOB))) AS bytes FROM records').get().bytes<2000000,'every SQL row remains below the provider limit');
+ const bs=await call('state',null,b.cookie);assert.equal(bs.data.family.moments.length,0);
+ const invite=await call('invite',{},a.cookie);const dad=await call('join',{handle:'father-test',password:'synthetic-pass-43',name:'爸爸',invite:invite.data.code});assert.equal(dad.response.status,200);
+ const reuse=await call('join',{handle:'reuse-test',password:'synthetic-pass-43',name:'其他人',invite:invite.data.code});assert.equal(reuse.response.status,403);
+ const ds=await call('state',null,dad.cookie);assert.equal(ds.data.family.id,as.data.family.id);assert.equal(ds.data.family.moments.length,1);
+ const parallel=await Promise.all([call('capture',{requestId:'parallel-mom',text:'媽媽同時留下的一句'},a.cookie),call('capture',{requestId:'parallel-dad',text:'爸爸同時留下的一句'},dad.cookie)]);assert.ok(parallel.every(r=>r.response.status===200));const together=await call('state',null,a.cookie);assert.equal(together.data.family.moments.length,3);
+ const date=as.data.today,g=await call('generate',{date},a.cookie);assert.equal(g.response.status,200);const d=g.data.diary;
+ const edited=await call('edit',{id:d.id,baseRevision:1,title:'我們的一天',body:'人工確認的句子'},dad.cookie);assert.equal(edited.response.status,200);
+ const stale=await call('edit',{id:d.id,baseRevision:1,title:'舊視窗',body:'不應覆蓋'},a.cookie);assert.equal(stale.response.status,409);
+ await call('capture',{requestId:'late-2',text:'晚上補的一句',date},a.cookie);await call('generate',{date},a.cookie);
+ const after=await call('state',null,a.cookie);assert.equal(after.data.family.diaries[0].current.body,'人工確認的句子');assert.ok(after.data.family.diaries[0].pending);
+ const book=await call('collection',{title:'第一本',diaryIds:[d.id]},a.cookie);assert.equal(book.response.status,200);
+ const outsider=await call('edit',{id:d.id,baseRevision:2,title:'越界',body:'越界'},b.cookie);assert.notEqual(outsider.response.status,200);
+ const csrf=await worker.fetch(new Request(origin+'/api/capture',{method:'POST',headers:{origin:'https://other.example',cookie:a.cookie,'content-type':'application/json'},body:'{}'}),env);assert.equal(csrf.status,403);
+ const unauth=await call('state');assert.equal(unauth.response.status,401);
+ const voice=await call('capture',{requestId:'voice-only',date:'2026-11-03',media:[{kind:'audio',name:'synthetic.wav',data:'data:audio/wav;base64,AAAA'}]},a.cookie);assert.equal(voice.response.status,200);const voiceStory=await call('generate',{date:'2026-11-03'},a.cookie);assert.equal(voiceStory.response.status,200);const withVoice=await call('state',null,a.cookie);assert.equal(withVoice.data.family.moments.find(m=>m.id===voice.data.moment.id).media[0].transcript,'虛構口述');
+});

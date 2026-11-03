@@ -1,0 +1,6 @@
+node_modules/
+**/scratch/
+**/.wrangler/
+.env*
+.dev.vars
+artifacts/

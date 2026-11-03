@@ -1,0 +1,31 @@
+name: Daily mobile isolated preview
+on:
+  push:
+    branches: [codex/baby-daily-mobile]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: daily-mobile-preview
+  cancel-in-progress: false
+jobs:
+  verify-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify daily behavior and syntax
+        run: |
+          node --experimental-loader ./daily/test-loader.mjs --test daily/domain.test.mjs daily/http.test.mjs
+          node --check daily/worker.js
+          node --check daily/web/app.js
+          node -e "const fs=require('fs'); const c=JSON.parse(fs.readFileSync('daily/wrangler.jsonc','utf8'));if(c.name!=='travelos-baby-daily-preview')throw Error('wrong deploy target');"
+      - name: Deploy isolated phone preview
+        run: npx --yes wrangler@4.127.0 deploy --config daily/wrangler.jsonc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: 'false'

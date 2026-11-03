@@ -1,0 +1,1 @@
+{"name":"travelos-baby-daily-preview","private":true,"type":"module","scripts":{"test":"node --test daily/domain.test.mjs"}}
