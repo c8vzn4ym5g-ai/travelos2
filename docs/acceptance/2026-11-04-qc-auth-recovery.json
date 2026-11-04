@@ -1,0 +1,76 @@
+{
+  "appVersion": "daily-mobile-0.2.3",
+  "appCommit": "d7759e72b8f77d5059b596ea0217fbeb5492139b",
+  "runId": 41780998656,
+  "authRegression": {
+    "environment": "local and live Chrome",
+    "steps": [
+      "submit empty registration",
+      "fill Chinese handle, parent name, child name; leave password empty",
+      "resubmit"
+    ],
+    "actual": {
+      "handle": {
+        "error": "",
+        "ariaInvalid": null
+      },
+      "name": {
+        "error": "",
+        "ariaInvalid": null
+      },
+      "child": {
+        "error": "",
+        "ariaInvalid": null
+      },
+      "password": {
+        "error": "8–128 characters",
+        "ariaInvalid": "true"
+      }
+    }
+  },
+  "liveBrowserExistingSession": [
+    "new source saved visibly",
+    "reminder candidate confirmed with explicit App-only method",
+    "reminder accepted then completed",
+    "author filter and yesterday/week filters",
+    "old-to-new note order confirmed",
+    "native raw audio played to end: 11.247313s, error null",
+    "capture text draft restored after reload; authenticated session retained",
+    "manual diary opened with protected body and pending candidate",
+    "0.2.3 note label correctly shows reminder completed"
+  ],
+  "realCloudAPI": {
+    "at": "2026-11-04T05:42:04.146Z",
+    "version": "daily-mobile-0.2.2",
+    "checks": [
+      "live version 0.2.2",
+      "four field errors together",
+      "other family empty",
+      "concurrent members saved",
+      "capture retry keeps same note",
+      "real cloud Whisper transcription",
+      "correct transcript preserves raw audio",
+      "real cloud diary result",
+      "stale source edit conflicts",
+      "seen does not imply played",
+      "reminder saved exactly once",
+      "manual version protected with new candidate",
+      "receipts unique and replies distinct",
+      "book snapshot saved",
+      "other family remains isolated"
+    ],
+    "limitations": [
+      "HTTP cloud checks, not physical phone",
+      "No system push or billing",
+      "Browser native microphone not exercised"
+    ]
+  },
+  "limits": [
+    "No physical phone camera/microphone/OS background recovery",
+    "No second-member browser session; cross-member seen/played uniqueness and separation tested via real public API",
+    "No new browser file upload this iteration; retained uploaded raw audio played, fresh audio uploaded and transcribed through real API",
+    "No system push; page-only reminder",
+    "No billing",
+    "30-note grandparent journey still pending"
+  ]
+}

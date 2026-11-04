@@ -1,3 +1,13 @@
+# QC follow-up current truth: 0.2.3
+
+This supersedes the 0.2.1 release identity immediately below. Live URL unchanged. App commit `d7759e72b8f77d5059b596ea0217fbeb5492139b`; authorized branch `codex/baby-daily-mobile`; run `41780998656` succeeded. Original sites and saved baseline unchanged.
+
+Fixed QC auth regression: each validation pass clears all previous `aria-invalid` attributes and error messages before marking current errors. Exact empty-submit -> fill three Chinese fields -> password-empty resubmit passed locally and on live Chrome: only password remains invalid. Also fixed a discovered stale note badge: completed reminders now say completed, not scheduled.
+
+Follow-up evidence: `docs/acceptance/2026-11-04-qc-auth-recovery.json`. Re-ran 15 real-cloud checks on 0.2.2 (0.2.3 only changes the source reminder badge/version); final CI six tests passed. Retained live browser session covered capture, reminder confirm/accept/complete, author/date/order filters, native raw sound playback to completion, draft reload and diary/manual protection display. Cross-member seen/played receipts tested through real public API, not a second member's browser. Physical phone/OS interruption and 30-note journey remain unverified; no push or billing. Local QC server stopped after testing. Do not claim full beta.
+
+---
+
 # Current truth: mobile sticky-note candidate 0.2.1
 
 Updated 2026-11-04. This section supersedes earlier candidate/version/product-brief references below; earlier sections are historical evidence.
