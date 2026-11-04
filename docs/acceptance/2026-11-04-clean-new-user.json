@@ -1,0 +1,47 @@
+{
+  "version": "daily-mobile-0.2.5",
+  "appCommit": "8c398174cdc6fee9b008d97be369dba8821507cf",
+  "entry": "https://travelos-baby-daily-preview.chao-jason.workers.dev/",
+  "method": "New Chrome Guest profile opened via native Chrome UI; Guest welcome confirmed before first visit; ordinary profile not cleared",
+  "browserEvidence": {
+    "initialLoginName": "empty",
+    "initialPassword": "empty",
+    "initialParentName": "empty",
+    "initialChildName": "empty",
+    "initialInvitation": "none, bare root URL",
+    "initialFamilyContent": "not displayed; registration/login only",
+    "newFamilyCreatedThroughActualGuestBrowser": true,
+    "newFamilyInitial": {
+      "sourceNotes": 0,
+      "diaries": 0,
+      "storyCollections": 0,
+      "comments": 0,
+      "tasks": 0,
+      "members": 1
+    },
+    "storybookTitleDefault": "derived only from newly entered child name; no sample book exists",
+    "guestWindowClosedAfterQC": true,
+    "existingSyntheticFamilyAfterQC": {
+      "todayNotes": 30,
+      "manualDiaryUnchanged": true
+    }
+  },
+  "sourceEvidence": {
+    "newFamily": "independent UUID and empty moments/diaries/comments/tasks/collections/jobs",
+    "noSampleSeeding": true
+  },
+  "preservation": {
+    "existingFamilyDeleteOrResetExecuted": false,
+    "existingFamilyOverwriteExecuted": false,
+    "originalSitesModified": false,
+    "browserOriginalProfileStorageCleared": false,
+    "ownerPrivateFamily": "No owner-private-family login or row-by-row audit; task made no mutations to any pre-existing family. Preserved retained synthetic family was checked separately."
+  },
+  "result": "No candidate fix or new deployment needed; sharing entry is clean for new signed-out visitors",
+  "limits": [
+    "Chrome Guest browser acceptance, not a physical phone test",
+    "LINE and WhatsApp embedded browsers not tested",
+    "An already authenticated device correctly continues showing its own family; sharing the bare URL does not transfer that session"
+  ],
+  "secrets": "No account identifiers, passwords, cookies or private invitation tokens included"
+}
