@@ -1,6 +1,7 @@
 import {DurableObject} from 'cloudflare:workers';
 import {arrange,transcribe} from '../baby-poc/ai.mjs';
-import {VERSION,newFamily,receive,sourcesFor,sourceKey,integrate,edit,plainStory,dayAt,due,active} from './domain.mjs';
+import {VERSION,newFamily,receive,sourcesFor,sourceKey,integrate,edit,editMoment,reminderHint,plainStory,dayAt,due,active} from './domain.mjs';
+import {normalizeHandle,authErrors} from './web/validation.js';
 const json=(v,status=200,headers={})=>Response.json(v,{status,headers:{'cache-control':'no-store',...headers}});
 const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status});};
 const id=()=>crypto.randomUUID();
@@ -14,6 +15,21 @@ export class DailyWarehouse extends DurableObject {
  get(k,i){const r=this.sql.exec('SELECT payload FROM records WHERE kind=? AND id=?',k,i).toArray()[0];if(!r)return null;const value=JSON.parse(r.payload);if(k==='family'&&value.chunks)return JSON.parse(Array.from({length:value.chunks},(_,n)=>JSON.parse(this.sql.exec('SELECT payload FROM records WHERE kind=? AND id=?','family-chunk',`${i}:${n}`).toArray()[0].payload)).join(''));return value;}
  put(k,i,v){const text=JSON.stringify(v);if(k!=='family')return this.sql.exec('INSERT OR REPLACE INTO records VALUES (?,?,?)',k,i,text);const chunks=Math.ceil(text.length/400000);this.ctx.storage.transactionSync(()=>{for(let n=0;n<chunks;n++)this.sql.exec('INSERT OR REPLACE INTO records VALUES (?,?,?)','family-chunk',`${i}:${n}`,JSON.stringify(text.slice(n*400000,(n+1)*400000)));this.sql.exec('INSERT OR REPLACE INTO records VALUES (?,?,?)',k,i,JSON.stringify({chunks}));});}
  all(k){return this.sql.exec('SELECT id,payload FROM records WHERE kind=?',k).toArray().map(r=>k==='family'?this.get(k,r.id):JSON.parse(r.payload));}
+ members(fid){return this.all('account').filter(a=>a.familyId===fid).map(a=>({id:a.id,name:a.name,role:a.role}));}
+ async processMoment(fid,momentId,force=false){
+  let f=this.get('family',fid),m=f.moments.find(m=>m.id===momentId);if(!m)fail('找不到這張紙條。',404);
+  if(m.processing&&Date.now()-Date.parse(m.processing.at)<120000)return {moment:m,processing:true};
+  if(force)for(const audio of m.media)if(audio.kind==='audio'&&audio.rawOnly&&!audio.transcript){audio.transcriptReviewed=false;audio.rawOnly=false;}const job={id:id(),at:new Date().toISOString()};m.processing=job;this.put('family',fid,f);
+  try{
+   for(let i=0;i<m.media.length;i++)if(m.media[i].kind==='audio'&&!m.media[i].transcript&&!m.media[i].transcriptReviewed){
+    const current=this.get('family',fid),day=dayAt(new Date().toISOString(),current.timezone);current.usage||={};current.usage[day]||={stories:0,transcriptions:0};if(current.usage[day].transcriptions>=20)fail('今天的語音整理額度已用完，原聲已保存，仍可自己補文字。',429);current.usage[day].transcriptions++;this.put('family',fid,current);
+    const result=await transcribe(this.env.AI,m.media[i].data,'zh');f=this.get('family',fid);const latest=f.moments.find(x=>x.id===momentId);
+    if(latest.processing?.id===job.id&&latest.media[i]?.data===m.media[i].data&&!latest.media[i].transcriptReviewed){latest.media[i].transcript=result.transcript;latest.revision=(latest.revision||1)+1;latest.updatedAt=new Date().toISOString();this.put('family',fid,f);}
+   }
+   f=this.get('family',fid);m=f.moments.find(x=>x.id===momentId);if(m.processing?.id===job.id)delete m.processing;delete m.processError;
+   const words=[m.text,...m.media.map(a=>a.transcript||'')].join('\n');m.reminderHint=reminderHint(words,m.date,this.members(fid));this.put('family',fid,f);return {moment:m};
+  }catch(e){f=this.get('family',fid);m=f.moments.find(x=>x.id===momentId);if(m.processing?.id===job.id)delete m.processing;m.processError='原聲已保存，文字還沒整理好，可以稍後重試。';this.put('family',fid,f);throw e;}
+ }
  async generate(fid,date){
   let f=this.get('family',fid),sources=sourcesFor(f,date),key=sourceKey(sources),d=f.diaries.find(d=>d.date===date);
   if(!sources.length||!active(f,new Date().toISOString())||d?.sourceKey===key||d?.pending?.sourceKey===key)return d||null;
@@ -21,10 +37,10 @@ export class DailyWarehouse extends DurableObject {
   const usageDay=dayAt(new Date().toISOString(),f.timezone);f.usage||={};f.usage[usageDay]||={stories:0,transcriptions:0};if(f.usage[usageDay].stories>=30)fail('今日已達測試版30次整理上限，仍可手動編輯。',429);f.usage[usageDay].stories++;
   const job={id:id(),startedAt:new Date().toISOString(),key};f.jobs[date]=job;this.put('family',fid,f);
   try{
-   for(const source of sources)for(const audio of source.media.filter(m=>m.kind==='audio'&&!m.transcript)){
+   for(const source of sources)for(const audio of source.media.filter(m=>m.kind==='audio'&&!m.transcript&&!m.transcriptReviewed)){
     const fresh=this.get('family',fid);fresh.usage[usageDay]||={stories:0,transcriptions:0};if(fresh.usage[usageDay].transcriptions>=20)fail('今日已達測試版20次轉寫上限。原聲已保留，可手動補文字。',429);fresh.usage[usageDay].transcriptions++;this.put('family',fid,fresh);
     const result=await transcribe(this.env.AI,audio.data,'zh');audio.transcript=result.transcript;
-    const latest=this.get('family',fid),stored=latest.moments.find(m=>m.id===source.id)?.media.find(m=>m.kind==='audio'&&m.data===audio.data);if(stored)stored.transcript=result.transcript;this.put('family',fid,latest);
+    const latest=this.get('family',fid),latestMoment=latest.moments.find(m=>m.id===source.id),stored=latestMoment?.media.find(m=>m.kind==='audio'&&m.data===audio.data);if(stored&&!stored.transcriptReviewed&&(latestMoment.revision||1)===(source.revision||1)){stored.transcript=result.transcript;latestMoment.revision=(latestMoment.revision||1)+1;source.revision=latestMoment.revision;}this.put('family',fid,latest);
    }
    const notes=plainStory(f,sources);let body=notes,mode='source-layout';
    if(notes.trim()&&sources.some(s=>s.text||s.media.some(m=>m.transcript))){
@@ -37,7 +53,7 @@ export class DailyWarehouse extends DurableObject {
    if(d)d.generationMode=mode;delete f.jobs[date];delete f.lastError;this.put('family',fid,f);return d;
   }catch(e){f=this.get('family',fid);if(f.jobs[date]?.id===job.id){delete f.jobs[date];f.lastError='故事整理暫時失敗，原素材已保存，請稍後重試。';this.put('family',fid,f);}throw e;}
  }
- async fetch(request){try{return await this.handle(request);}catch(e){return json({error:e.status?e.message:'服務暫時無法完成，資料未送出時請保留輸入並重試。'},e.status||400);}}
+ async fetch(request){try{return await this.handle(request);}catch(e){return json({error:e.status?e.message:'目前無法完成，請保留輸入並稍後再試。',...(e.fieldErrors?{fieldErrors:e.fieldErrors}:{})},e.status||400);}}
  async handle(request){
   const path=new URL(request.url).pathname,now=new Date().toISOString();
   if(path==='/internal/tick'){
@@ -48,8 +64,8 @@ export class DailyWarehouse extends DurableObject {
   }
   let body={};if(request.method==='POST'){const reader=request.body?.getReader();let size=0;const parts=[];if(reader){while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>12*1024*1024){await reader.cancel();fail('一次傳送上限12MB，請分次留下片刻。',413);}parts.push(value);}}const bytes=new Uint8Array(size);let offset=0;for(const p of parts){bytes.set(p,offset);offset+=p.length;}body=JSON.parse(new TextDecoder().decode(bytes)||'{}');}
   if(['/api/register','/api/login','/api/join'].includes(path)){
-   const handle=String(body.handle||'').trim().toLowerCase(),p=String(body.password||'');
-   if(!/^[a-z0-9_-]{3,40}$/.test(handle)||p.length<8||p.length>128)fail('登入名稱請用 3–40 個英數字；密碼至少 8 字。');
+   const handle=normalizeHandle(body.handle),p=String(body.password||''),errors=authErrors(body,path.split('/').at(-1));
+   if(Object.keys(errors).length)throw Object.assign(new Error('請一起核對下面幾個地方。'),{status:400,fieldErrors:errors});
    let account=this.get('account',handle);
    if(path==='/api/login'){if(!account||await password(p,account.salt)!==account.password)fail('登入名稱或密碼不正確。',401);}
    else{
@@ -72,7 +88,7 @@ export class DailyWarehouse extends DurableObject {
   const account=this.get('account',session.accountHandle);if(!account)fail('請重新登入。',401);
   let f=this.get('family',account.familyId);const member={id:account.id,name:account.name,role:account.role};
   if(path==='/api/logout'){this.sql.exec('DELETE FROM records WHERE kind=? AND id=?','session',await hash(sessionToken));return json({ok:true},200,{'set-cookie':'daily_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});}
-  if(path==='/api/state')return json({version:VERSION,member,family:f,today:dayAt(now,f.timezone),members:this.all('account').filter(a=>a.familyId===f.id).map(a=>({id:a.id,name:a.name,role:a.role})),trialActive:active(f,now)});
+  if(path==='/api/state'){for(const d of f.diaries)d.hasNewSources=sourceKey(sourcesFor(f,d.date))!==(d.pending?.sourceKey||d.sourceKey);return json({version:VERSION,member,family:f,today:dayAt(now,f.timezone),members:this.members(f.id),trialActive:active(f,now)});}
   if(path==='/api/export')return json({version:VERSION,family:f});
   if(path==='/api/invite'){
    if(account.role!=='owner')fail('請由家庭管理者建立邀請。',403);
@@ -80,8 +96,19 @@ export class DailyWarehouse extends DurableObject {
   }
   if(!active(f,now))fail('30天試用已結束；既有日記仍可閱讀與匯出。此測試版尚不收費。',403);
   if(path==='/api/capture'){
-   validateMedia(body.media||[]);if(JSON.stringify(f).length+JSON.stringify(body).length>20*1024*1024)fail('測試家庭容量已達20MB。請匯出內容，暫停新增。',413);
-   const m=receive(f,body,member,now,id());this.put('family',f.id,f);return json({moment:m});
+   const prior=f.moments.find(m=>m.requestId===body.requestId&&m.authorId===member.id);if(prior)return json({moment:prior});validateMedia(body.media||[]);if(JSON.stringify(f).length+JSON.stringify(body).length>20*1024*1024)fail('測試家庭容量已達20MB。請匯出內容，暫停新增。',413);
+   const m=receive(f,body,member,now,id());m.reminderHint=reminderHint(m.text,m.date,this.members(f.id));this.put('family',f.id,f);return json({moment:m});
+  }
+  if(path==='/api/process-moment')return json(await this.processMoment(f.id,body.id,body.force===true));
+  if(path==='/api/moment-edit'){
+   const m=editMoment(f,body,member,now);for(const [index,text] of Object.entries(body.transcripts||{})){const media=m.media[Number(index)];if(media?.kind==='audio'){media.transcript=String(text).slice(0,8000);media.transcriptReviewed=true;}}
+   m.reminderHint=reminderHint([m.text,...m.media.map(a=>a.transcript||'')].join('\n'),m.date,this.members(f.id));this.put('family',f.id,f);return json({moment:m});
+  }
+  if(path==='/api/receipt'){
+   const m=f.moments.find(m=>m.id===body.id);if(!m)fail('找不到這張紙條。',404);
+   if(body.kind==='seen'){m.seenBy||=[];if(!m.seenBy.some(r=>r.memberId===member.id&&r.revision===(m.revision||1)))m.seenBy.push({memberId:member.id,revision:m.revision||1,at:now});}
+   else if(body.kind==='played'&&m.media[body.mediaIndex]?.kind==='audio'&&Number(body.playedSeconds)>=1){m.playedBy||=[];if(!m.playedBy.some(r=>r.memberId===member.id&&r.mediaIndex===body.mediaIndex))m.playedBy.push({memberId:member.id,mediaIndex:body.mediaIndex,at:now});}
+   else fail('播放或閱讀狀態無效。');this.put('family',f.id,f);return json({ok:true});
   }
   if(path==='/api/transcribe'){
    if(typeof body.audio!=='string'||body.audio.length>12*1024*1024||!body.audio.startsWith('data:audio/'))fail('請選 8MB 內的聲音檔。');
@@ -96,12 +123,14 @@ export class DailyWarehouse extends DurableObject {
   if(path==='/api/settings'){if(account.role!=='owner')fail('請由管理者調整。',403);if(!/^([01]\d|2[0-3]):(00|15|30|45)$/.test(body.evening||''))fail('請選每15分鐘的時刻。');try{dayAt(now,body.timezone);}catch{fail('時區無效。');}f.evening=body.evening;f.timezone=body.timezone;}
   else if(path==='/api/comment'){
    if(!String(body.text||'').trim())fail('請輸入留言。');const prior=f.comments.find(c=>c.requestId===body.requestId&&c.authorId===member.id);if(prior)return json({ok:true});
-   f.comments.push({id:id(),requestId:body.requestId,authorId:member.id,author:member.name,text:String(body.text).slice(0,1000),createdAt:now,readBy:[member.id]});
+   f.comments.push({id:id(),requestId:body.requestId,authorId:member.id,author:member.name,text:String(body.text).slice(0,1000),...(body.momentId&&f.moments.some(m=>m.id===body.momentId)?{momentId:body.momentId}:{}),createdAt:now,readBy:[member.id]});
   }else if(path==='/api/read'){f.comments.forEach(c=>{if(!c.readBy.includes(member.id))c.readBy.push(member.id);});}
   else if(path==='/api/task'){
    if(!String(body.text||'').trim()||!this.all('account').some(a=>a.familyId===f.id&&a.id===body.assigneeId))fail('請填內容及選擇家人。');
-   const prior=f.tasks.find(t=>t.requestId===body.requestId&&t.authorId===member.id);if(prior)return json({ok:true});
-   if(!body.dueAt||Number.isNaN(Date.parse(body.dueAt)))fail('請選提醒時間。');f.tasks.push({id:id(),requestId:body.requestId,authorId:member.id,text:String(body.text).slice(0,500),assigneeId:body.assigneeId,dueAt:body.dueAt,status:'unread',createdAt:now});
+   const prior=f.tasks.find(t=>(body.requestId&&t.requestId===body.requestId&&t.authorId===member.id)||(body.sourceMomentId&&t.sourceMomentId===body.sourceMomentId));if(prior)return json({ok:true,task:prior});
+   if(!body.dueAt||Number.isNaN(Date.parse(body.dueAt)))fail('請選提醒時間。');if(Date.parse(body.dueAt)<=Date.now())fail('這個時間已過，請選下一次要提醒的日期與時間。');
+   const moment=body.sourceMomentId?f.moments.find(m=>m.id===body.sourceMomentId):null;if(body.sourceMomentId&&!moment)fail('找不到提醒來源。');
+   const task={id:id(),requestId:body.requestId,authorId:member.id,text:String(body.text).slice(0,500),assigneeId:body.assigneeId,dueAt:body.dueAt,status:'unread',createdAt:now,...(moment?{sourceMomentId:moment.id}:{})};f.tasks.push(task);if(moment)moment.reminderTaskId=task.id;this.put('family',f.id,f);return json({ok:true,task});
   }else if(path==='/api/task-status'){
    const task=f.tasks.find(t=>t.id===body.id);if(!task||![task.assigneeId].includes(member.id))fail('只有被指派的家人能更新此提醒。',403);if(!['read','accepted','done'].includes(body.status))fail('狀態無效。');task.status=body.status;
   }else if(path==='/api/collection'){

@@ -33,3 +33,27 @@ test('HTTP private families, joining, large media, idempotency, diary conflicts 
  const unauth=await call('state');assert.equal(unauth.response.status,401);
  const voice=await call('capture',{requestId:'voice-only',date:'2026-11-03',media:[{kind:'audio',name:'synthetic.wav',data:'data:audio/wav;base64,AAAA'}]},a.cookie);assert.equal(voice.response.status,200);const voiceStory=await call('generate',{date:'2026-11-03'},a.cookie);assert.equal(voiceStory.response.status,200);const withVoice=await call('state',null,a.cookie);assert.equal(withVoice.data.family.moments.find(m=>m.id===voice.data.moment.id).media[0].transcript,'虛構口述');
 });
+
+test('Chinese accounts, aggregated validation, editable source versions and honest receipts/reminders',async()=>{
+ const invalid=await call('register',{handle:'!',password:'x',name:'',child:''});assert.equal(invalid.response.status,400);assert.deepEqual(Object.keys(invalid.data.fieldErrors).sort(),['child','handle','name','password']);
+ const a=await call('register',{handle:'  中文媽媽  ',password:'synthetic-pass-88',name:'媽媽',child:'小禾'});assert.equal(a.response.status,200);
+ const login=await call('login',{handle:'中文媽媽',password:'synthetic-pass-88'});assert.equal(login.response.status,200);assert.match(login.response.headers.get('set-cookie'),/Max-Age=2592000/);
+ const invite=await call('invite',{},a.cookie);const b=await call('join',{handle:'中文爸爸',password:'synthetic-pass-88',name:'爸爸',invite:invite.data.code});assert.equal(b.response.status,200);
+ const moment=(await call('capture',{requestId:'voice-note',text:'明天十二點提醒爸爸吃午飯',media:[{kind:'audio',data:'data:audio/wav;base64,AAAA',transcriptReviewed:true}]},a.cookie)).data.moment;
+ assert.equal(moment.reminderHint.localTime.slice(11),'12:00');assert.equal((await call('state',null,a.cookie)).data.family.tasks.length,0,'candidate is not a scheduled task');
+ assert.equal((await call('receipt',{id:moment.id,kind:'played',mediaIndex:0,playedSeconds:0},b.cookie)).response.status,400);
+ await call('receipt',{id:moment.id,kind:'seen'},b.cookie);let stored=(await call('state',null,a.cookie)).data.family.moments[0];assert.equal(stored.seenBy.length,1);assert.equal(stored.playedBy.length,0,'opening does not mean playback');
+ for(let i=0;i<2;i++)await call('receipt',{id:moment.id,kind:'played',mediaIndex:0,playedSeconds:1.1},b.cookie);
+ stored=(await call('state',null,a.cookie)).data.family.moments[0];assert.equal(stored.playedBy.length,1);
+ const generated=await call('generate',{date:moment.date},a.cookie);assert.equal(generated.response.status,200);
+ const edit=await call('moment-edit',{id:moment.id,baseRevision:1,title:'媽媽留話',text:'更正文字',transcripts:{0:'孩子的小名是小禾'}},a.cookie);assert.equal(edit.response.status,200);assert.equal(edit.data.moment.media[0].data,moment.media[0].data);assert.equal(edit.data.moment.media[0].transcriptReviewed,true);
+ assert.equal((await call('moment-edit',{id:moment.id,baseRevision:1,text:'舊稿'},a.cookie)).response.status,409);
+ assert.equal((await call('moment-edit',{id:moment.id,baseRevision:2,text:'別人的紙條'},b.cookie)).response.status,403);
+ assert.equal((await call('state',null,a.cookie)).data.family.diaries[0].hasNewSources,true);
+ await call('process-moment',{id:moment.id},a.cookie);stored=(await call('state',null,a.cookie)).data.family.moments[0];assert.equal(stored.media[0].transcript,'孩子的小名是小禾','AI never overwrites corrected transcript');
+ const raw=(await call('capture',{requestId:'raw-explicit',date:moment.date,media:[{kind:'audio',data:'data:audio/wav;base64,AAAA',rawOnly:true,transcriptReviewed:true}]},a.cookie)).data.moment;await call('process-moment',{id:raw.id,force:true},a.cookie);assert.ok((await call('state',null,a.cookie)).data.family.moments.find(m=>m.id===raw.id).media[0].transcript,'raw sound can be explicitly transcribed later');
+ const taskBody={requestId:'r1',sourceMomentId:moment.id,text:'吃午飯',assigneeId:b.data.member?.id|| (await call('state',null,b.cookie)).data.member.id,dueAt:new Date(Date.now()+86400000).toISOString()};
+ const task=await call('task',taskBody,a.cookie);assert.equal(task.response.status,200);assert.equal(task.data.task.sourceMomentId,moment.id);
+ const retry=await call('task',taskBody,a.cookie);assert.equal(retry.data.task.id,task.data.task.id);assert.equal((await call('state',null,a.cookie)).data.family.tasks.length,1);
+ const reply=await call('comment',{text:'我來準備',momentId:moment.id,requestId:'reply-1'},b.cookie);assert.equal(reply.response.status,200);assert.equal((await call('state',null,a.cookie)).data.family.comments[0].momentId,moment.id);await call('comment',{text:'第二句',momentId:moment.id,requestId:'reply-2'},b.cookie);assert.equal((await call('state',null,a.cookie)).data.family.comments.length,2);
+});
