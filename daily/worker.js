@@ -59,7 +59,7 @@ export class DailyWarehouse extends DurableObject {
      const inviteHash=await hash(String(body.invite||'')),invite=this.get('invite',inviteHash);
      if(!invite||invite.used||Date.parse(invite.expiresAt)<Date.now())fail('邀請碼無效或已使用，請家人重新建立。',403);
      f=this.get('family',invite.familyId);role='member';invite.used=true;this.put('invite',inviteHash,invite);
-    }else {f=newFamily({id:id(),name:String(body.family||'我們家').slice(0,60),child:String(body.child||'寶寶').slice(0,40),now});role='owner';this.put('family',f.id,f);}
+    }else {f=newFamily({id:id(),name:String(body.family||`${String(body.child||'寶寶')}的家`).slice(0,60),child:String(body.child||'寶寶').slice(0,40),now});role='owner';this.put('family',f.id,f);}
     if(this.get('account',handle))fail('登入名稱已存在。',409);
     account={id:id(),handle,name:String(body.name||'家人').slice(0,40),familyId:f.id,role,salt,password:digest};this.put('account',handle,account);
    }
