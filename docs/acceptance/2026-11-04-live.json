@@ -1,0 +1,57 @@
+{
+  "origin": "https://travelos-baby-daily-preview.chao-jason.workers.dev",
+  "startedAt": "2026-11-04T02:02:37.229Z",
+  "checks": [
+    "register-live-family",
+    "register-second-family",
+    "single-use-family-invite",
+    "concurrent-photo-video-voice-capture",
+    "retry-does-not-duplicate",
+    "live-household-isolation",
+    "live-AI-diary-generation",
+    "automatic-live-whisper-transcription",
+    "photo-video-payload-readback",
+    "member-manual-edit",
+    "late-source-preserves-human-text",
+    "basic-collection-save",
+    "independent-member-readback"
+  ],
+  "mode": "live-cloud-api",
+  "physicalPhone": false,
+  "transcript": "這是一個傳統的故事作為一個幼稚園的幼稚園 我們坐在窗監上看了一會兒一會兒一會兒",
+  "generatedBody": "媽媽說：「今天小禾在窗邊看雲，媽媽陪著他。」爸爸說：「這是一個傳統的故事作為一個幼稚園的幼稚園，我們坐在窗邊看了一會兒。」",
+  "familyId": "1874a734-8e01-4553-a64e-6df49c9d7ace",
+  "diaryId": "diary-2026-11-04",
+  "version": "daily-mobile-0.1.0",
+  "completedAt": "2026-11-04T02:02:53.079Z",
+  "result": "passed",
+  "scope": "Live API connectivity and persistence, not semantic quality or physical phone certification",
+  "deployment": {
+    "appCommit": "78ac4f1eb189d78b7e7b820b3cfe9a20dbf519b8",
+    "run": 41757579607,
+    "job": 126337225055,
+    "workerVersion": "2ffe08e5-e153-47d1-9749-b8e28c61e934"
+  },
+  "browser390": [
+    "register",
+    "text capture",
+    "real AI draft",
+    "manual save",
+    "late-source pending without overwrite",
+    "save and read basic collection"
+  ],
+  "voiceReferenceCheck": {
+    "origin": "https://travelos-baby-daily-preview.chao-jason.workers.dev",
+    "reference": "早上，窗邊有光。抱著小禾一起看。沒有急著做別的事，覺得很平靜。想記住這幾分鐘。",
+    "transcript": "早上窗邊有光 抱著小河一起看 沒有急著做別的事 覺得很平靜 想記住這幾分鐘",
+    "status": 200,
+    "at": "2026-11-04T02:04:44.649Z",
+    "physicalMicrophone": false
+  },
+  "knownLimits": [
+    "Physical iPhone/Android microphone and codec playback unverified",
+    "Scheduled evening execution unobserved",
+    "Browser file picker unverified; synthetic media API tested",
+    "Known-reference synthesis transcribed 小禾 as 小河; human name review necessary"
+  ]
+}
