@@ -1,0 +1,49 @@
+{
+  "origin": "https://travelos-baby-daily-preview.chao-jason.workers.dev",
+  "sessionHandoff": {
+    "browser": "iab",
+    "tabId": "5",
+    "accountPurpose": "fictional QC only",
+    "credentialsTransferred": false,
+    "crossAgentTabClaimVerified": false
+  },
+  "observed": {
+    "browserFileChooser": true,
+    "imageAndAudioSubmitReceived": true,
+    "pngImageDecoded": true,
+    "audioDurationSeconds": 11.247313,
+    "audioPlaybackEnded": true,
+    "audioError": null,
+    "largeSyntheticPngBytes": 922428,
+    "largeImageNaturalSize": [
+      640,
+      480
+    ],
+    "viewportWidth": 390,
+    "documentWidth": 375,
+    "realAiUpdatedDraftIncludesUploadedNarration": true,
+    "humanCurrentVersionPreserved": true
+  },
+  "scope": "Actual browser chooser/upload/playback and real cloud AI using synthetic files; not physical phone camera or microphone",
+  "uiPatch": {
+    "familyNameOptional": true,
+    "requiredFields": 4,
+    "selectedStateContrastImproved": true,
+    "noChargeCopyExplicit": true,
+    "version011Commit": "ee9eb79",
+    "version012Commit": "347aa48",
+    "version012FirstScreenVerification": {
+      "requiredFields": 4,
+      "submitBottom": 843.3839836120605,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "workflowRun": 41759594596,
+      "workflowConclusion": "success"
+    }
+  },
+  "remaining": [
+    "physical iPhone/Android mic/camera and codecs",
+    "cross-agent tab claim",
+    "scheduled evening delivery"
+  ]
+}
