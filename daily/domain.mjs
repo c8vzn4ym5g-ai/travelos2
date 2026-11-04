@@ -1,4 +1,4 @@
-export const VERSION = 'daily-mobile-0.2.3';
+export const VERSION = 'daily-mobile-0.2.4';
 export const dayAt = (now, zone) => new Intl.DateTimeFormat('en-CA', {timeZone:zone, year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(now));
 export function newFamily({id, name, child, now, timezone='Asia/Taipei'}) {
   return {id,name,child,timezone,evening:'20:00',createdAt:now,trialEndsAt:new Date(Date.parse(now)+30*86400000).toISOString(),moments:[],diaries:[],comments:[],tasks:[],collections:[],jobs:{}};
