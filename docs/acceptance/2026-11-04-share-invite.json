@@ -1,0 +1,34 @@
+{
+  "version": "daily-mobile-0.2.5",
+  "appCommit": "8c398174cdc6fee9b008d97be369dba8821507cf",
+  "workflowRun": 41784513478,
+  "workflowJob": 126423454053,
+  "publicEntry": "https://travelos-baby-daily-preview.chao-jason.workers.dev/",
+  "privateInviteFormat": "https://travelos-baby-daily-preview.chao-jason.workers.dev/#join=<single-use-invite-code>",
+  "checks": {
+    "unauthenticatedHomeHTTP": 200,
+    "unauthenticatedPrivateStateHTTP": 401,
+    "copyInviteFeedback": true,
+    "fragmentInviteNotQueryString": true,
+    "loggedInGuardNoAutomaticFamilySwitch": true,
+    "signedOutLandingSelectsJoinAndPrefillsInvite": true,
+    "syntheticNewMemberJoinedViaActualBrowser": true,
+    "joinedFamilyExistingTodayNotes": 30,
+    "inviteFragmentRemovedAfterSuccess": true,
+    "invalidInviteBrowserRejected": "邀請碼無效或已使用，請家人重新建立。",
+    "publicBrowserEntryDoesNotShowFamily": true,
+    "CI": "six tests and syntax succeeded; isolated deployment succeeded"
+  },
+  "limits": [
+    "No actual phone or WhatsApp in-app browser test",
+    "No WhatsApp message sent",
+    "No actual Owner family invitation generated or published; synthetic invite consumed by QC",
+    "Used-token browser replay attempt was not conclusively observed; backend reuse test already passes",
+    "Existing accounts are not silently migrated between families; link landing is new-member signup flow"
+  ],
+  "usage": [
+    "Share bare root URL to introduce platform; it does not join any private family",
+    "For a private family: Family -> Create invite code -> Copy family invitation link; send only to trusted intended family member",
+    "Each invitation is single use and expires after seven days; generate a separate invite for each new member"
+  ]
+}

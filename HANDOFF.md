@@ -1,3 +1,13 @@
+# Current truth: 0.2.5 / shareable platform and private invitation
+
+Supersedes earlier release identity below. App `8c398174cdc6fee9b008d97be369dba8821507cf`; run `41784513478`, job `126423454053`: six CI tests/syntax and isolated deployment succeeded. Original sites/baseline unchanged.
+
+Public entry https://travelos-baby-daily-preview.chao-jason.workers.dev/ is HTTPS, unauthenticated HTTP200; private state remains401. Added copyable private family link format `https://travelos-baby-daily-preview.chao-jason.workers.dev/#join=<single-use-code>`. Hash fragment prefills Join form; no private token in query/referrer. Logged-in visitor sees explicit guard; family does not switch automatically. New synthetic member joined through actual independent Chrome browser and saw existing30 notes; success removes fragment. Invalid link rejected with clear message. Copy button feedback passed. Each member needs separate single-use seven-day invite; existing accounts are not silently moved to another family.
+
+Evidence `docs/acceptance/2026-11-04-share-invite.json`. No WhatsApp/third-party message sent. Provide bare platform link freely; Owner creates their private-family link from Family -> Create invite code -> Copy family invitation link. Do not publish synthetic or Owner private invite tokens in reports. Actual phone/WhatsApp embedded browser remains untested; external independent browser verified, not physical-phone verification. Synthetic test invite consumed. Mother IAB session retained; Chrome second-member session was signed out to test logged-in guard and new-member landing, so earlier Chrome grandfather page is no longer an authenticated test session.
+
+---
+
 # Current truth: 0.2.4 / second-member and 30-note browser acceptance
 
 This section supersedes older release identities and the pending second-member/30-note statements below. Live URL unchanged: https://travelos-baby-daily-preview.chao-jason.workers.dev/ . App commit `e331cbde9662903aaf8ff5d0b21a6808760e453e`, run `41782424016`, job `126416810066`, successful CI/deploy. Live app.js exactly matches released source. Original sites and 0.1.2 baseline preserved; root sole writer.
