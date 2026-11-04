@@ -1,3 +1,23 @@
+# Current truth: mobile sticky-note candidate 0.2.1
+
+Updated 2026-11-04. This section supersedes earlier candidate/version/product-brief references below; earlier sections are historical evidence.
+
+- Live: https://travelos-baby-daily-preview.chao-jason.workers.dev/
+- App commit: `096918adc3dbb4dc9289a323d2fc2739cbd3163c`; branch `codex/baby-daily-mobile`; version `daily-mobile-0.2.1`.
+- GitHub run `41780017118`, job `126409186593`: tests and isolated deployment succeeded. Worker `c8d3b627-234e-4ba2-89d3-cb9b3f39019b`.
+- Preserved local successful baseline: `codex/baby-daily-v012-baseline` -> `347aa48`; original TravelOS and original POC unchanged. Root remains sole integration writer. Independent review agents were read-only.
+- V2 proposal: https://docs.google.com/document/d/1o7H3feHsRPTXxky-kahXGSdc0Z5y1N_7/edit ; V2 contract: https://docs.google.com/document/d/1-3NUs-_RpvIJuqm5uqlymAjFUVGd3Z8E/edit . Both read before implementation. Earlier three-story pricing is superseded; no billing enabled.
+
+Implemented: family sticky-note wall; fixed speak/write/photo entries; speech vs raw-sound modes; saved sources visible immediately; optional asynchronous transcription; direct playback and photo enlargement; source title/text/transcript edit with revision conflicts and original audio preserved; author/date/week sorting; explicit-open seen receipts and actual playback receipts, unique other-member counts; reminder candidate distinct from scheduled page-only task; Chinese account validation shared by browser/server with all field errors; member-scoped media/word drafts, route restoration, unchanged 30-day HttpOnly sessions; diary progress/result and manual-version protection. Source revisions invalidate stale AI snapshots. Capture/comment/reminder retries are idempotent when supplied stable request IDs.
+
+Evidence: `docs/acceptance/2026-11-04-sticky-notes-v2.json`. Six Node tests passed locally and in CI. Fifteen real-cloud public-API checks passed on 0.2.0 (same backend behavior as 0.2.1). The only 0.2.1 behavior delta is reloading server state when discarding a conflicting source/diary draft; two-page browser conflict/recovery passed locally. Final live 0.2.1 worker version, private-state 401 and four deployed static files match verified source. Browser 390px and desktop: text capture, immediate saved note, edit, reminder confirmation, diary result, raw audio full playback (11.247313s), draft reload and retained prior session checked. Local AI adapter is deterministic; real AI evidence comes from cloud API checks. The earlier real Cron evidence remains applicable; no cron configuration or scheduling changes in this release.
+
+Limits / next gate: this is an operable prototype, not full-beta acceptance. No physical iPhone/Android camera/microphone/OS interruption validation; no 30-note grandparent journey yet; no system push or guaranteed alarm; no payment; source removal, private one-to-one messages, advanced book templates/share links are not implemented. Reminder UI explicitly says App-only. Full four V2 journeys and independent end-to-end browser QC remain before beta. Do not ask Owner to replace QC. Existing test storage/media/AI limits remain, not commercial entitlements. No recurring monitoring added; local QC server stopped after acceptance.
+
+---
+
+## Historical handoff (superseded where stated above)
+
 # Daily mobile candidate — current truth
 
 Updated 2026-11-04 Taipei. Sole writer: this task /root. Original author explicitly confirmed clean baseline and stopped writing. Do not modify original TravelOS or original POC.

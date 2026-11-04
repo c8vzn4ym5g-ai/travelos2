@@ -1,0 +1,80 @@
+{
+  "appVersion": "daily-mobile-0.2.1",
+  "appCommit": "096918adc3dbb4dc9289a323d2fc2739cbd3163c",
+  "deploymentRun": 41780017118,
+  "workerVersion": "c8d3b627-234e-4ba2-89d3-cb9b3f39019b",
+  "cloudBehaviorChecks": {
+    "at": "2026-11-04T05:31:22.276Z",
+    "version": "daily-mobile-0.2.0",
+    "checks": [
+      "live version 0.2.0",
+      "four field errors together",
+      "other family empty",
+      "concurrent members saved",
+      "capture retry keeps same note",
+      "real cloud Whisper transcription",
+      "correct transcript preserves raw audio",
+      "real cloud diary result",
+      "stale source edit conflicts",
+      "seen does not imply played",
+      "reminder saved exactly once",
+      "manual version protected with new candidate",
+      "receipts unique and replies distinct",
+      "book snapshot saved",
+      "other family remains isolated"
+    ],
+    "limitations": [
+      "HTTP cloud checks, not physical phone",
+      "No system push or billing",
+      "Browser native microphone not exercised"
+    ]
+  },
+  "finalReleaseChecks": {
+    "at": "2026-11-04T05:34:55.394Z",
+    "checks": [
+      "app.js matches released source",
+      "validation.js matches released source",
+      "drafts.js matches released source",
+      "style.css matches released source",
+      "private state remains protected",
+      "worker reports 0.2.1"
+    ]
+  },
+  "automatedTests": {
+    "passed": 6,
+    "command": "node --experimental-loader ./daily/test-loader.mjs --test daily/domain.test.mjs daily/http.test.mjs"
+  },
+  "browser": {
+    "phoneViewport": [
+      390,
+      844
+    ],
+    "horizontalOverflow": false,
+    "localFlow": [
+      "aggregate auth errors",
+      "save text and see note",
+      "edit source",
+      "confirm reminder",
+      "generate and open first diary",
+      "save and fully play raw audio 11.247313 seconds",
+      "restore text and audio drafts",
+      "retain login",
+      "two-page stale edit 409 then discard loads latest"
+    ],
+    "liveFlow": [
+      "retained prior 0.1.2 authenticated session",
+      "old images and audio readable",
+      "new note saved from mobile UI",
+      "source edit saved",
+      "390px and desktop layouts"
+    ],
+    "physicalPhoneTested": false
+  },
+  "scope": [
+    "Only isolated preview Worker updated",
+    "Original sites unchanged",
+    "No system push or billing",
+    "No 30-note grandparent journey",
+    "Full V2 independent journey acceptance pending"
+  ]
+}
