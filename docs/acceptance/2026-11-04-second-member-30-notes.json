@@ -1,0 +1,87 @@
+{
+  "version": "daily-mobile-0.2.4",
+  "appCommit": "e331cbde9662903aaf8ff5d0b21a6808760e453e",
+  "workflowRun": 41782424016,
+  "workflowJob": 126416810066,
+  "environment": {
+    "firstMember": "retained IAB synthetic mother session",
+    "secondMember": "independent Chrome synthetic grandfather account joined through browser invitation flow",
+    "phoneViewport": [
+      390,
+      844
+    ],
+    "physicalDevice": "No operable phone/mirroring window found in one filtered window inventory; physical camera, microphone and OS recovery NOT tested",
+    "realHumanUserStudy": false
+  },
+  "actualBrowserChecks": {
+    "joinedSameFamily": true,
+    "todayNoteCountBothBrowsers": 30,
+    "todayAuthorCounts": {
+      "mother": 15,
+      "grandfather": 15
+    },
+    "yesterdayNotesAfterRegressionTest": 2,
+    "grandfatherFilteredMotherNotes": 15,
+    "foundNamedOriginalAudio": true,
+    "rawAudio": {
+      "ended": true,
+      "durationSeconds": 11.247313,
+      "mediaError": null
+    },
+    "receiptAudio": "1 person seen, 1 person played",
+    "receiptText": "1 person seen, 0 played",
+    "receiptNames": "Grandfather for both seen and played",
+    "repeatedOpenRemainsDeduplicated": true,
+    "secondMemberReplySavedAndReopened": true,
+    "secondMemberOwnEditReadBackByMother": true,
+    "reminderHandoff": [
+      "mother assigned to grandfather",
+      "grandfather unread -> read",
+      "read did not mark accepted or completed",
+      "grandfather accepted -> completed"
+    ],
+    "secondMemberReload": {
+      "authenticated": true,
+      "unsentTextDraftRestored": true
+    },
+    "dateNavigation": "yesterday content -> today all 30 notes",
+    "horizontalOverflow": false,
+    "measuredWidths": {
+      "inner": 390,
+      "document": 375
+    },
+    "returnPosition": {
+      "noteButtonTop": 400.0268,
+      "bottom": 444.0268,
+      "viewportHeight": 844
+    }
+  },
+  "foundAndFixed": {
+    "defect": "After saving a backdated capture, next blank capture retained yesterday silently",
+    "fix": "Reset draftDate only after successful cloud save; render defaults new capture to current family day",
+    "liveRegression": {
+      "savedDate": "2026-11-03",
+      "nextBlankCaptureDate": "2026-11-04",
+      "nextCaptureText": ""
+    }
+  },
+  "notificationPresentation": {
+    "confirmText": "僅在 App 內提醒；離開頁面不會響鈴或推播。",
+    "taskText": "僅在 App 內提醒",
+    "familyHelp": "尚無背景推播，請打開或重新讀取查看",
+    "systemPushImplemented": false,
+    "alarmOrBackgroundDeliveryClaimed": false
+  },
+  "releaseVerification": {
+    "CI": "six tests and syntax passed; deploy success",
+    "liveAppSource": "exact text comparison matches e331cbd",
+    "originalSites": "unchanged",
+    "baseline": "preserved"
+  },
+  "remaining": [
+    "Physical iPhone/Android device acceptance",
+    "Actual family/elder user study",
+    "System push remains unimplemented, honestly disclosed",
+    "No claim of full beta acceptance"
+  ]
+}

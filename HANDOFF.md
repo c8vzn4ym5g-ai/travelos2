@@ -1,3 +1,15 @@
+# Current truth: 0.2.4 / second-member and 30-note browser acceptance
+
+This section supersedes older release identities and the pending second-member/30-note statements below. Live URL unchanged: https://travelos-baby-daily-preview.chao-jason.workers.dev/ . App commit `e331cbde9662903aaf8ff5d0b21a6808760e453e`, run `41782424016`, job `126416810066`, successful CI/deploy. Live app.js exactly matches released source. Original sites and 0.1.2 baseline preserved; root sole writer.
+
+Second member actually joined through independent Chrome invitation form (synthetic grandfather; retained IAB synthetic mother remains logged in). Both browsers see 30 today notes, 15 per author. Grandfather filtered mother to 15, found named raw sound, played 11.247313s to completion, replied, edited own note; mother read the edit. Real browser receipts show audio 1 seen/1 played and text 1 seen/0 played; names identify grandfather, repeated opening does not increase unique-member count. Mother assigned a reminder; grandfather actually marked read, accepted, then completed. Read did not complete task. Reload retained grandfather login and unsent draft. Yesterday has content and returning to today restores all 30. At 390x844 document width was 375; returning from note kept its button visible at y400–444.
+
+Found one real date defect during this journey: backdated save left the next blank capture dated yesterday. Fixed in 0.2.4; live regression saved Nov3, next blank capture correctly defaults Nov4, with no text. CI six tests and syntax passed. Evidence: `docs/acceptance/2026-11-04-second-member-30-notes.json`.
+
+Reminder confirmation explicitly states App-only and no ring/push after leaving; task cards and family help agree. No system notification or alarm promise. These are actual browser operations controlled by QC, not a human elder study or physical-phone test. No operable phone/mirroring window was found in one targeted inventory: physical camera/mic/OS interruption remains unverified, not passed. Full beta and system push are not claimed. Retained both synthetic browser sessions for independent follow-up. No credentials/invite tokens in this report.
+
+---
+
 # QC follow-up current truth: 0.2.3
 
 This supersedes the 0.2.1 release identity immediately below. Live URL unchanged. App commit `d7759e72b8f77d5059b596ea0217fbeb5492139b`; authorized branch `codex/baby-daily-mobile`; run `41780998656` succeeded. Original sites and saved baseline unchanged.
