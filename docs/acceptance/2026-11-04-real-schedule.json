@@ -1,0 +1,51 @@
+{
+  "scope": "Real server Cron; synthetic text fixtures only",
+  "appVersion": "daily-mobile-0.1.2",
+  "appCommit": "347aa4869b075573996c993574c410db2b716486",
+  "outcome": "verified-for-listed-cases",
+  "firstObservation": {
+    "A": {
+      "timezone": "Asia/Taipei",
+      "configuredTime": "10:30",
+      "generatedAtUTC": "2026-11-04T02:30:29.596Z"
+    },
+    "B": {
+      "timezone": "America/Los_Angeles",
+      "configuredTime": "18:45",
+      "didNotGenerateEarly": true
+    },
+    "browserPagesOpened": 0,
+    "manualGenerationCalls": 0,
+    "observerInterruptedAfterFirstBoundary": true,
+    "unobservedSecondBoundary": "not claimed"
+  },
+  "recoverableSupplement": {
+    "scheduledBoundaryUTC": "2026-11-04T03:00:00.000Z",
+    "readbackAtUTC": "2026-11-04T03:01:20.693Z",
+    "A": {
+      "timezone": "Asia/Taipei",
+      "configuredTime": "11:00",
+      "initialBaseline": "one manual generation, then human edit",
+      "humanTextPreserved": true,
+      "lateMaterialPendingAtUTC": "2026-11-04T03:00:37.130Z",
+      "pendingSourceCount": 2
+    },
+    "B": {
+      "timezone": "America/Los_Angeles",
+      "configuredTime": "19:00",
+      "diaryDate": "2026-11-03",
+      "firstGeneratedAtUTC": "2026-11-04T03:00:36.251Z",
+      "sourceCount": 2
+    },
+    "browserPagesOpened": 0,
+    "manualGenerationDuringObservation": 0,
+    "householdsIsolated": true,
+    "oneDiaryEach": true,
+    "testSettingsRestored": true,
+    "loggedOut": true,
+    "ephemeralLocalAuthRemoved": true
+  },
+  "productCodeChanged": false,
+  "physicalPhone": "not tested; no controllable device surface",
+  "ownerFeedbackChanges": "paused pending compiled feedback"
+}
