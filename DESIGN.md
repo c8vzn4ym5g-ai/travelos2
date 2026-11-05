@@ -1,3 +1,19 @@
+# Active interaction contract: V0.6-INTERACTION-3 (2026-11-05)
+
+This narrow increment supersedes the duplicated date-selection page and permits the explicitly requested book navigation/state fixes, time controls and planning-copy cleanup. V0.6-HOLISTIC-1 shell/Today/capture/paper/photo rules remain. Baseline3699075 is preserved. No model, billing, native-framework, storage, private/read/task/capture changes.
+
+One diary list: the same date objects switch between reading and selection without another date template/calendar. All material/pending dates remain visible; only existing family.diaries entries have selection checkboxes. Unarranged material retains its original generate-day action and is never silently selected/generated. Date bookmark, real title/two-line content, real optional photo and one whole-row arrow form the reading object. Selection has a true round checkbox, selected border/lift, real count and preview action. '回到閱讀' exits mode without clearing bookDraft. Preserve original list scroll/origin, draft title/cover/template/ordered IDs; preview return resumes selections. No forced chronological reordering.
+
+Books use one bookCoverFace renderer for shelf/preview/saved editions: actual spine, layered page edge, cloth face, title plate/child/day count once, integrated photo window or centered book-holding character only when no photo. No outside duplicate mascot on a cover. Existing title/cover/template/order/revision snapshot/409/retry/share/print capabilities remain. Keep settings expanded while adjusting template/cover/order. Preview and saved book tab/activeView/saveView must identify books; back-to-shelf and reload stay on shelf. Preview-back uses stored selection context, not destructive resets.
+
+Family time: original #due datetime-local and #evening time values/names/required/step submit through the original form handlers. Due remains minute-by-minute and has separate visible date/time triggers; evening remains15-minute increments only and has no date calendar. One bottom sheet owns two real220px scroll-snap wheels with44px rows, selected28px text, pointer/scroll/keyboard/active-descendant support. Open reads field; cancel/Escape/Browser Back/hidden interruption leave value untouched. Done dispatches input/change only, never submits settings/task forms. Same-origin ephemeral history entry supports Back; single-flight open, inert/focus cleanup and focus trap prevent stacked/stale sheets. Date clearing must show an error instead of using an old date. Empty required fields keep a clear localized error and the draft.
+
+Remove repeated no-charge statements/footer slogans and internal399/five-person plans. Keep truthful trial date, usage caps, download, notification limits and error states accessible under useful information. Auth modes/fields remain; no invented payment state or new terms. No extra art or navigation categories. The existing book/letter/clock objects carry the visual meaning, not isolated decorative mascots.
+
+Acceptance is a complete family journey plus independent functional and design review, not test totals. Synthetic local helper /__qc-add-days only fills missing yesterday/today diaries after an explicit click in a clearly named synthetic family, preserving login/old records. It is not imported by Worker/web. No real-device/OS/model claim from mocks.
+
+---
+
 # Active visual contract: V0.6-HOLISTIC-1 (2026-11-05)
 
 This section explicitly supersedes all earlier visual freezes, Claude-style restraint, Today/dock preservation and layered-polish proportions below. Earlier behavior/privacy/capture contracts remain binding. Baseline4d05d13 is the rollback truth. This is a playful family creator space for parents and grandparents, not an administration workspace or a document page with corner mascots.

@@ -1,4 +1,5 @@
 import './album-model.test.mjs';
+import './interaction.test.mjs';
 import './visible-reads.test.mjs';
 import './camera-ui.test.mjs';
 import './camera-session.test.mjs';
@@ -26,6 +27,10 @@ const completion=value=>({choices:[{finish_reason:'stop',message:{content:typeof
 const env={AI:{async run(model,input){if(model.includes('whisper'))return {text:'虛構口述'};const message=input.messages.at(-1).content;if(Array.isArray(message))return {...completion({facts:['桌上有橘子與藍色杯子'],uncertain:[]}),_testAdapter:true};const content=JSON.parse(message);if(input.messages[0].content.includes('paragraphs'))return completion({paragraphs:content.map(e=>({eventIndices:[e.index],text:'今天留下了這段生活記錄。'}))});return completion({groups:[]});}},ASSETS:{fetch:async()=>new Response('test')}};
 const store=new DailyWarehouse(ctx,env);env.DAILY_WAREHOUSE={idFromName:n=>n,get:()=>store};
 async function call(path,body,cookie){const headers={};if(cookie)headers.cookie=cookie;if(body){headers.origin=origin;headers['content-type']='application/json';}const response=await worker.fetch(new Request(origin+'/api/'+path,{method:body?'POST':'GET',headers,body:body?JSON.stringify(body):undefined}),env);const data=await response.json();return {response,data,cookie:response.headers.get('set-cookie')?.split(';')[0]};}
+test('production Worker never executes local QC seed handlers',async()=>{
+ const production={...env,ASSETS:{fetch:async()=>new Response('Not found',{status:404})}};
+ for(const path of ['/__qc-add-days','/__qc','/__camera-synthetic'])for(const method of ['GET','POST'])assert.equal((await worker.fetch(new Request(origin+path,{method}),production)).status,404);
+});
 test('read receipts target viewed IDs, exclude authors and preserve private messages and tasks',async()=>{
  const a=await call('register',{handle:'read-owner',password:'synthetic-pass-43',name:'媽媽',child:'小禾'});
  const join=async(handle,name)=>{const invite=await call('invite',{},a.cookie);return call('join',{handle,password:'synthetic-pass-43',name,invite:invite.data.code});};
