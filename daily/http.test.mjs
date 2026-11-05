@@ -12,7 +12,7 @@ const db=new DatabaseSync(':memory:');
 const sql={exec(query,...args){const s=db.prepare(query);const rows=s.columns().length?s.all(...args):(s.run(...args),[]);return {toArray:()=>rows};}};
 const ctx={storage:{sql,transactionSync(fn){db.exec('BEGIN');try{const r=fn();db.exec('COMMIT');return r;}catch(e){db.exec('ROLLBACK');throw e;}}}};
 const completion=value=>({choices:[{finish_reason:'stop',message:{content:typeof value==='string'?value:JSON.stringify(value)}}]});
-const env={AI:{async run(model,input){if(model.includes('whisper'))return {text:'虛構口述'};const message=input.messages.at(-1).content;if(Array.isArray(message))return {...completion({facts:['桌上有橘子與藍色杯子'],uncertain:[]}),_testAdapter:true};const content=JSON.parse(message);if(input.messages[0].content.includes('paragraphs'))return completion({paragraphs:content.map(e=>({sourceIds:e.sourceIds,text:'今天留下了這段生活記錄。'}))});return completion({groups:[]});}},ASSETS:{fetch:async()=>new Response('test')}};
+const env={AI:{async run(model,input){if(model.includes('whisper'))return {text:'虛構口述'};const message=input.messages.at(-1).content;if(Array.isArray(message))return {...completion({facts:['桌上有橘子與藍色杯子'],uncertain:[]}),_testAdapter:true};const content=JSON.parse(message);if(input.messages[0].content.includes('paragraphs'))return completion({paragraphs:content.map(e=>({eventIndices:[e.index],text:'今天留下了這段生活記錄。'}))});return completion({groups:[]});}},ASSETS:{fetch:async()=>new Response('test')}};
 const store=new DailyWarehouse(ctx,env);env.DAILY_WAREHOUSE={idFromName:n=>n,get:()=>store};
 async function call(path,body,cookie){const headers={};if(cookie)headers.cookie=cookie;if(body){headers.origin=origin;headers['content-type']='application/json';}const response=await worker.fetch(new Request(origin+'/api/'+path,{method:body?'POST':'GET',headers,body:body?JSON.stringify(body):undefined}),env);const data=await response.json();return {response,data,cookie:response.headers.get('set-cookie')?.split(';')[0]};}
 test('HTTP private families, joining, large media, idempotency, diary conflicts and snapshots',async()=>{
@@ -98,7 +98,7 @@ test('V2 private messages, recoverable notes, conflict rebase and selected book 
 
 test('video frame contract supports current objects and legacy strings; failed image processing retries',async()=>{
  const originalAI=env.AI;let visionRequests=0;
- env.AI={run:async(model,input)=>{if(Array.isArray(input.messages.at(-1).content)){visionRequests++;assert.match(input.messages[0].content[1].image_url.url,/^data:image/);return completion({facts:['桌上有橘子'],uncertain:[]});}const evidence=JSON.parse(input.messages.at(-1).content);return completion(input.messages[0].content.includes('paragraphs')?{paragraphs:evidence.map(e=>({sourceIds:e.sourceIds,text:'桌上放著橘子。'}))}:{groups:[]});}};
+ env.AI={run:async(model,input)=>{if(Array.isArray(input.messages.at(-1).content)){visionRequests++;assert.match(input.messages[0].content[1].image_url.url,/^data:image/);return completion({facts:['桌上有橘子'],uncertain:[]});}const evidence=JSON.parse(input.messages.at(-1).content);return completion(input.messages[0].content.includes('paragraphs')?{paragraphs:evidence.map(e=>({eventIndices:[e.index],text:'桌上放著橘子。'}))}:{groups:[]});}};
  try{
   const a=await call('register',{handle:'v2-frames',password:'synthetic-pass-43',name:'媽媽',child:'小禾'});
   const pixels='data:image/jpeg;base64,eA==';

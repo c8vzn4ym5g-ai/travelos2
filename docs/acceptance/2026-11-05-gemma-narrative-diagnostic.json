@@ -1,0 +1,23 @@
+{
+  "syntheticOnly": true,
+  "stage": "actual mixed narrative diagnosis",
+  "status": 503,
+  "error": "素材已保存，但故事文字尚未整理完成。請稍後重試，原日記保持不變。",
+  "diagnostic": {
+    "stage": "narrative",
+    "finishReason": "stop",
+    "expected": [
+      [
+        "a018ad5f-921f-425f-8c90-c93b27f8111d"
+      ],
+      [
+        "dd91e349-02a8-4796-9fb4-da1bd658546a"
+      ],
+      [
+        "1a1fa6cc-8029-4f71-8355-6657e86abf47"
+      ]
+    ],
+    "response": "```json\n{\"paragraphs\":[{\"text\":\"把橘子放在桌上，旁邊放著一個藍色杯子。\",\"sourceIds\":[\"a018ad5f-921f-425f-8c90-c93b27f8111d\",\"dd91e349-02a8-4796-9fb4-da1bd658546a\"]},{\"text\":\"爺爺說窗外下雪了。\",\"sourceIds\":[\"1a1fa6cc-8029-4f71-8355-6657e86abf47\"]}]}\n```"
+  },
+  "diary": null
+}
