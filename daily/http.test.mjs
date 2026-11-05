@@ -1,3 +1,4 @@
+import './family-scope.test.mjs';
 import './comment-recovery.test.mjs';
 import './album-model.test.mjs';
 import './interaction.test.mjs';
@@ -28,16 +29,19 @@ const completion=value=>({choices:[{finish_reason:'stop',message:{content:typeof
 const env={AI:{async run(model,input){if(model.includes('whisper'))return {text:'虛構口述'};const message=input.messages.at(-1).content;if(Array.isArray(message))return {...completion({facts:['桌上有橘子與藍色杯子'],uncertain:[]}),_testAdapter:true};const content=JSON.parse(message);if(input.messages[0].content.includes('paragraphs'))return completion({paragraphs:content.map(e=>({eventIndices:[e.index],text:'今天留下了這段生活記錄。'}))});return completion({groups:[]});}},ASSETS:{fetch:async()=>new Response('test')}};
 const store=new DailyWarehouse(ctx,env);env.DAILY_WAREHOUSE={idFromName:n=>n,get:()=>store};
 async function call(path,body,cookie){const headers={};if(cookie)headers.cookie=cookie;if(body){headers.origin=origin;headers['content-type']='application/json';}const response=await worker.fetch(new Request(origin+'/api/'+path,{method:body?'POST':'GET',headers,body:body?JSON.stringify(body):undefined}),env);const data=await response.json();return {response,data,cookie:response.headers.get('set-cookie')?.split(';')[0]};}
+// Explicit historical fixture in the in-memory test warehouse; never a successful task API response.
+async function historicalTask(body,cookie){const current=(await call('state',null,cookie)).data,f=store.get('family',current.family.id),task={...body,id:'historical:'+body.requestId,authorId:current.member.id,status:'unread',createdAt:new Date().toISOString()};f.tasks.push(task);if(body.sourceMomentId)f.moments.find(m=>m.id===body.sourceMomentId).reminderTaskId=task.id;store.put('family',f.id,f);return task;}
+
 test('creation-zone default stays fixed across foreign members and settings saves without moving reminders',async()=>{
  const owner=await call('register',{handle:'fixed-zone-owner',password:'synthetic-pass-43',name:'媽媽',child:'小禾',timezone:'America/Los_Angeles'});assert.equal(owner.response.status,200);
  const start=(await call('state',null,owner.cookie)).data;assert.equal(start.family.timezone,'America/Los_Angeles');
  const invite=await call('invite',{},owner.cookie),member=await call('join',{handle:'fixed-zone-traveller',password:'synthetic-pass-43',name:'家人',invite:invite.data.code,timezone:'Asia/Tokyo'});assert.equal(member.response.status,200);
  assert.equal((await call('state',null,member.cookie)).data.family.timezone,'America/Los_Angeles');
- const dueAt='2026-12-01T17:37:00.000Z',task=await call('task',{requestId:'fixed-zone-task',text:'家庭提醒',assigneeId:start.member.id,dueAt},owner.cookie);assert.equal(task.response.status,200);
+ const dueAt='2026-12-01T17:37:00.000Z',task=await historicalTask({requestId:'fixed-zone-task',text:'家庭提醒',assigneeId:start.member.id,dueAt},owner.cookie);
  assert.equal((await call('settings',{evening:'20:15'},owner.cookie)).response.status,200);
  assert.equal((await call('settings',{evening:'20:30',timezone:'Asia/Tokyo'},owner.cookie)).response.status,200);
  const login=await call('login',{handle:'fixed-zone-owner',password:'synthetic-pass-43',timezone:'Europe/London'});assert.equal(login.response.status,200);
- const after=(await call('state',null,login.cookie)).data.family;assert.equal(after.timezone,start.family.timezone);assert.equal(after.evening,'20:30');assert.equal(after.tasks.find(t=>t.id===task.data.task.id).dueAt,dueAt);
+ const after=(await call('state',null,login.cookie)).data.family;assert.equal(after.timezone,start.family.timezone);assert.equal(after.evening,'20:30');assert.equal(after.tasks.find(t=>t.id===task.id).dueAt,dueAt);
  const fallback=await call('register',{handle:'fixed-zone-fallback',password:'synthetic-pass-43',name:'家人',child:'小雨',timezone:'not/a-zone'});assert.equal(fallback.response.status,200);assert.equal((await call('state',null,fallback.cookie)).data.family.timezone,'Asia/Taipei');
 });
 test('production Worker never executes local QC seed handlers',async()=>{
@@ -69,10 +73,10 @@ test('read receipts target viewed IDs, exclude authors and preserve private mess
  await call('receipt',{id:note.id,kind:'seen'},a.cookie);await call('receipt',{id:note.id,kind:'seen'},b.cookie);await call('receipt',{id:note.id,kind:'seen'},b.cookie);
  const saved=(await call('state',null,a.cookie)).data.family.moments.find(m=>m.id===note.id);
  assert.equal(saved.seenBy.length,1);assert.equal(saved.seenBy[0].memberId,bid);assert.equal(saved.playedBy.length,0,'reading never counts as playing');
- const task=await call('task',{requestId:'read-task',text:'準備午飯',assigneeId:bid,dueAt:new Date(Date.now()+3600000).toISOString()},a.cookie);
- assert.equal(task.response.status,200);await call('read',{ids:[privateId]},b.cookie);
+ const task=await historicalTask({requestId:'read-task',text:'準備午飯',assigneeId:bid,dueAt:new Date(Date.now()+3600000).toISOString()},a.cookie);
+ await call('read',{ids:[privateId]},b.cookie);
  const after=(await call('state',null,b.cookie)).data.family;
- assert.equal(after.tasks.find(t=>t.id===task.data.task.id).status,task.data.task.status,'reading does not accept or complete a task');
+ assert.equal(after.tasks.find(t=>t.id===task.id).status,task.status,'reading does not accept or complete a task');
  assert.equal((await call('state',null,c.cookie)).data.family.comments.some(c=>c.id===privateId),false);
 });
 test('HTTP private families, joining, large media, idempotency, diary conflicts and snapshots',async()=>{
@@ -119,8 +123,8 @@ test('Chinese accounts, aggregated validation, editable source versions and hone
  await call('process-moment',{id:moment.id},a.cookie);stored=(await call('state',null,a.cookie)).data.family.moments[0];assert.equal(stored.media[0].transcript,'孩子的小名是小禾','AI never overwrites corrected transcript');
  const raw=(await call('capture',{requestId:'raw-explicit',date:moment.date,media:[{kind:'audio',data:'data:audio/wav;base64,AAAA',rawOnly:true,transcriptReviewed:true}]},a.cookie)).data.moment;await call('process-moment',{id:raw.id,force:true},a.cookie);assert.ok((await call('state',null,a.cookie)).data.family.moments.find(m=>m.id===raw.id).media[0].transcript,'raw sound can be explicitly transcribed later');
  const taskBody={requestId:'r1',sourceMomentId:moment.id,text:'吃午飯',assigneeId:b.data.member?.id|| (await call('state',null,b.cookie)).data.member.id,dueAt:new Date(Date.now()+86400000).toISOString()};
- const task=await call('task',taskBody,a.cookie);assert.equal(task.response.status,200);assert.equal(task.data.task.sourceMomentId,moment.id);
- const retry=await call('task',taskBody,a.cookie);assert.equal(retry.data.task.id,task.data.task.id);assert.equal((await call('state',null,a.cookie)).data.family.tasks.length,1);
+ const task=await historicalTask(taskBody,a.cookie);assert.equal(task.sourceMomentId,moment.id);
+ const retry=await call('task',taskBody,a.cookie);assert.equal(retry.response.status,410);assert.match(retry.data.error,/功能已停止/);assert.equal((await call('state',null,a.cookie)).data.family.tasks.length,1);
  const reply=await call('comment',{text:'我來準備',momentId:moment.id,requestId:'reply-1'},b.cookie);assert.equal(reply.response.status,200);assert.equal((await call('state',null,a.cookie)).data.family.comments[0].momentId,moment.id);await call('comment',{text:'第二句',momentId:moment.id,requestId:'reply-2'},b.cookie);assert.equal((await call('state',null,a.cookie)).data.family.comments.length,2);
 });
 
@@ -178,4 +182,9 @@ test('video frame contract supports current objects and legacy strings; failed i
 test('comment retry is idempotent without silently accepting changed text or private scope',async()=>{
  const a=await call('register',{handle:'comment-recovery-owner',password:'synthetic-pass-43',name:'Mom',child:'Synthetic'});const invite=await call('invite',{},a.cookie),b=await call('join',{handle:'comment-recovery-dad',password:'synthetic-pass-43',name:'Dad',invite:invite.data.code});const bid=(await call('state',null,b.cookie)).data.member.id;
  const payload={requestId:'comment-recovery-a',text:'private synthetic',recipientId:bid};assert.equal((await call('comment',payload,a.cookie)).response.status,200);assert.equal((await call('comment',payload,a.cookie)).response.status,200);assert.equal((await call('comment',{...payload,text:'newer draft'},a.cookie)).response.status,409);assert.equal((await call('comment',{...payload,recipientId:''},a.cookie)).response.status,409);const comments=(await call('state',null,a.cookie)).data.family.comments;assert.equal(comments.length,1);assert.equal(comments[0].text,payload.text);assert.equal(comments[0].recipientId,bid);
+});
+
+test('retired reminder UI preserves historical export and ordinary time-mentioned capture creates no task',async()=>{
+ const owner=await call('register',{handle:'retired-task-history',password:'synthetic-pass-43',name:'Mom',child:'Synthetic'}),initial=(await call('state',null,owner.cookie)).data;const task=await historicalTask({requestId:'legacy-task-record',text:'historical task',assigneeId:initial.member.id,dueAt:'2026-12-01T20:00:00Z'},owner.cookie);await call('task-status',{id:task.id,status:'accepted'},owner.cookie);const before=(await call('export',null,owner.cookie)).data.family;const stopped=await call('task',{requestId:'new-retired-request',text:'do not create',assigneeId:initial.member.id,dueAt:'2026-12-01T20:00:00Z'},owner.cookie);assert.equal(stopped.response.status,410);assert.match(stopped.data.error,/功能已停止/);
+ const capture=await call('capture',{requestId:'ordinary-time-note',date:'2026-11-05',text:'16:00 提醒我喝奶，這段原話留在日記。',media:[]},owner.cookie);assert.equal(capture.response.status,200);const after=(await call('export',null,owner.cookie)).data.family;assert.deepEqual(after.tasks,before.tasks);assert.equal(after.timezone,before.timezone);assert.equal(after.evening,before.evening);assert.equal(after.moments.find(m=>m.id===capture.data.moment.id).text,'16:00 提醒我喝奶，這段原話留在日記。');
 });

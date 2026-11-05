@@ -1,0 +1,40 @@
+{
+  "baselineRollback": "80df9c10b231ff45e7364ef87af9a54a68669866",
+  "status": "independently accepted local freeze; not pushed/deployed",
+  "scope": [
+    "DESIGN.md",
+    "HANDOFF.md",
+    "daily/family-scope.test.mjs",
+    "daily/http.test.mjs",
+    "daily/web/app.js",
+    "daily/web/holistic.css",
+    "daily/web/time-picker.js",
+    "daily/worker.js",
+    "docs/acceptance/2026-11-05-family-scope-freeze.json"
+  ],
+  "normalizedSha256": {
+    "daily/web/app.js": "dca4c5c09f5350bc99157d84318d46bddc966ab5b25abf90a8d16f7f28494242",
+    "daily/web/holistic.css": "dd9487dc39b2845156a355cf7418789bb52cf2af6fad8aea75ac8cc6628bd250",
+    "daily/web/time-picker.js": "218b86a9f43d0dc9829e9a29c802aca381022e9a401513db3e1cd2ee3957ddc9",
+    "daily/worker.js": "e2bf51ff7f19b5c040b0235931ff9e90b00c9c15e3e534f5b53d8b406657fa74"
+  },
+  "behavior": [
+    "All user reminder/assignment/task creation, due counts,candidate/status/claim/complete controls and secondary memo entry removed. Original text/audio and normal/private comment/read/draft behavior retained.",
+    "Authenticated /api/task returns410 before idempotency or task write; old records,hints,links and export preserved. Legacy task-status remains backend historical compatibility with no user control.",
+    "Owner-only actual evening is one48px disclosure; existing wheel and Save retained. Missing retired #due must continue binding #evening.",
+    "No cron,timezone migration, data deletion, service, billing, push/native or weekly-feature implementation."
+  ],
+  "verification": {
+    "aggregate": "77/77 in daily/scratch/family-slim-tests.log; product unchanged since independent matching hashes",
+    "renderTests": "Actual family/Today rendering with historical task data verifies no retired UI; actual time binding works without #due.",
+    "httpTests": "In-memory historical fixtures replace production-create setup. Real Worker new and old requests410, original task/export unchanged, ordinary time-mentioned text does not create a task.",
+    "independent": "390/320 true UI: normal comment read, old private content, no reminder in Today/detail; clock Cancel,20:15 Save/reload and restore20:00; private unsent draft reload. Six independent worker/zone/read/comment-retry/history checks passed. Parent personally viewed family390 one-line setting."
+  },
+  "limits": [
+    "Old cached page was unavailable: rejection evidence is actual Worker-level requests, not true old-page UI.",
+    "No new ASR,hardware,embedded-browser or notification tests.",
+    "Prior V0.7 live smoke and its asset evidence remain a separate release stage.",
+    "Owner new value/weekly brainstorming is read-only and not included."
+  ],
+  "release": "Waiting separate exact-commit publish instruction; rollback80df9c10"
+}

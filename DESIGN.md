@@ -1,3 +1,7 @@
+## Family scope update — Owner15:13,2026-11-05
+
+Supersedes all earlier reminder/assignment UI requirements while preserving V0.7 presentation. Remove all reminder/task creation, due/status/count, claim/complete and secondary-memo entry from every user screen. Keep old task data/hints/source links and export unchanged; retired task creation returns410, never false success. Ordinary/private messages, actual visible-read receipts, member-isolated drafts and capture stay unchanged. Daily story generation is a separate capability: preserve cron and actual family evening, expose owner-only48px one-line disclosure and original wheel/Save when opened. No timezone picker, pushes, new service or native scope. This is a narrow product simplification, not a visual redesign.
+
 ## Current visual contract — V0.7-LIVING-BOOK (2026-11-05)
 
 This section supersedes earlier visual dimensions and decorative layouts below; all existing capture, album, private/read, diary version, book snapshot and return/restore behavior stays authoritative. Parent supplied one direction: a family living book led by real content, not repeated mascot heroes or a workbench.

@@ -124,6 +124,7 @@ export class DailyWarehouse extends DurableObject {
    if(account.role!=='owner')fail('請由家庭管理者建立邀請。',403);
    const code=token();this.put('invite',await hash(code),{familyId:f.id,used:false,expiresAt:new Date(Date.now()+7*86400000).toISOString()});return json({code});
   }
+  if(path==='/api/task')fail('到期提醒功能已停止，請用家人留言保留這段內容。',410);
   if(!active(f,now))fail('30天試用已結束；既有日記仍可閱讀與匯出。此測試版尚不收費。',403);
   if(path==='/api/capture'){
    const prior=f.moments.find(m=>m.requestId===body.requestId&&m.authorId===member.id);if(prior)return json({moment:prior});validateMedia(body.media||[]);if(JSON.stringify(f).length+JSON.stringify(body).length>20*1024*1024)fail('測試家庭容量已達20MB。請匯出內容，暫停新增。',413);
@@ -156,13 +157,7 @@ export class DailyWarehouse extends DurableObject {
    if(!String(body.text||'').trim())fail('請輸入留言。');const prior=f.comments.find(c=>c.requestId===body.requestId&&c.authorId===member.id);if(prior){if(prior.text!==String(body.text).slice(0,1000)||String(prior.recipientId||'')!==String(body.recipientId||''))fail('先前留言已保存，這份修改仍保留。請讀取家人最新消息後再送出。',409);return json({ok:true});}
    if(body.recipientId&&!this.members(f.id).some(m=>m.id===body.recipientId))fail('請選擇這個家庭的收件人。');f.comments.push({...(body.recipientId?{recipientId:body.recipientId}:{}),id:id(),requestId:body.requestId,authorId:member.id,author:member.name,text:String(body.text).slice(0,1000),...(body.momentId&&f.moments.some(m=>m.id===body.momentId)?{momentId:body.momentId}:{}),createdAt:now,readBy:[]});
   }else if(path==='/api/read'){const ids=new Set(Array.isArray(body.ids)?body.ids.slice(0,100):[]);f.comments.filter(c=>ids.has(c.id)&&c.authorId!==member.id&&this.visibleComment(c,member)).forEach(c=>{c.readBy||=[];if(!c.readBy.includes(member.id))c.readBy.push(member.id);});}
-  else if(path==='/api/task'){
-   if(!String(body.text||'').trim()||!this.all('account').some(a=>a.familyId===f.id&&a.id===body.assigneeId))fail('請填內容及選擇家人。');
-   const prior=f.tasks.find(t=>(body.requestId&&t.requestId===body.requestId&&t.authorId===member.id)||(body.sourceMomentId&&t.sourceMomentId===body.sourceMomentId));if(prior)return json({ok:true,task:prior});
-   if(!body.dueAt||Number.isNaN(Date.parse(body.dueAt)))fail('請選提醒時間。');if(Date.parse(body.dueAt)<=Date.now())fail('這個時間已過，請選下一次要提醒的日期與時間。');
-   const moment=body.sourceMomentId?f.moments.find(m=>m.id===body.sourceMomentId):null;if(body.sourceMomentId&&!moment)fail('找不到提醒來源。');
-   const task={id:id(),requestId:body.requestId,authorId:member.id,text:String(body.text).slice(0,500),assigneeId:body.assigneeId,dueAt:body.dueAt,status:'unread',createdAt:now,...(moment?{sourceMomentId:moment.id}:{})};f.tasks.push(task);if(moment)moment.reminderTaskId=task.id;this.put('family',f.id,f);return json({ok:true,task});
-  }else if(path==='/api/task-status'){
+  else if(path==='/api/task-status'){
    const task=f.tasks.find(t=>t.id===body.id);if(!task||![task.assigneeId].includes(member.id))fail('只有被指派的家人能更新此提醒。',403);if(!['read','accepted','done'].includes(body.status))fail('狀態無效。');task.status=body.status;
   }else if(path==='/api/book-share'){
    const collection=f.collections.find(c=>c.id===body.id);if(!collection)fail('找不到這本故事集。',404);

@@ -1,3 +1,35 @@
+# Current local freeze: family scope simplification — independently ACCEPTED
+
+Supersedes this round's pending remarks below; no push/deploy yet. Baseline/rollback80df9c10b231ff45e7364ef87af9a54a68669866. Exact product hashes: app dca4c5c09f5350bc99157d84318d46bddc966ab5b25abf90a8d16f7f28494242; worker e2bf51ff7f19b5c040b0235931ff9e90b00c9c15e3e534f5b53d8b406657fa74; picker218b86a9f43d0dc9829e9a29c802aca381022e9a401513db3e1cd2ee3957ddc9; CSS dd9487dc39b2845156a355cf7418789bb52cf2af6fad8aea75ac8cc6628bd250. Freeze commit is the git commit containing this record.
+
+Aggregate77/77 retained for unchanged product; final syntax/diff checks pass. Independent true390/320 UI and six worker/zone/read/comment-retry/history checks accepted. Clock20:15 Save/reload then restored20:00; normal/private/read/drafts retained. New and old /api/task requests410 with no historical data/export mutation. Old cached page itself was unavailable, so do not call that a true old-page UI test. No new ASR/hardware. Full9-file scope and evidence docs/acceptance/2026-11-05-family-scope-freeze.json. No new brainstorming/weekly functionality.
+
+Keep all unrelated untracked files, SQLite and synthetic sessions. Prior V0.7 release record is a separate local docs deliverable, not a new product deployment.
+
+---
+
+# Active local candidate: remove retired reminder product UI (not frozen/released)
+
+Baseline80df9c10b231ff45e7364ef87af9a54a68669866. Owner15:13 supersedes the temporary secondary-family-memo proposal: no reminder/task controls or secondary entry remain in Today, family, note detail or voice follow-up. Original text/media, normal/private comments, visible-read receipts and comment draft/reconnect protection remain. Historical tasks/hints/links/export are preserved without migration. /api/task now410 before idempotency/write so cached old forms cannot claim success; legacy task-status compatibility remains backend-only, no UI. Backend ASR/capture/edit only produced hint candidates, never automatic tasks; no need to disable ordinary capture.
+
+Daily diary cron unchanged. Owner-only daily story time is one48px disclosure showing actual f.evening; expand for original wheel+Save. Removing #due exposed an existing bindTimeFields early-return dependency; one-word return→continue keeps #evening binding when #due absent. Minute precision/Cancel/Back/Save untouched. No new service/push/native scope.
+
+Main aggregate77/77: historical in-memory task fixtures replace retired production-create assumptions; new requests and old-id retries410, historical records/export preserved, ordinary time-mentioned notes create no task. Maker390/320 own synthetic page: no task controls/side paths,48px setting row, wheel Cancel20:00/no overflow. SameDB3358 resumed PID16388. Independent candidate QA pending; no commit/push. Only product diffs app.js,holistic.css,time-picker.js(one-word),worker.js(task retirement); tests/docs separate.
+
+Prior80df release independent live UI now ACCEPTED, separately recorded in docs/acceptance/2026-11-05-living-book-release.json; never redeploy that version just for docs.
+
+---
+
+# Current deployed delivery: V0.7-LIVING-BOOK /80df9c1
+
+Supersedes local-only/pending-release statements below. Exact80df9c10b231ff45e7364ef87af9a54a68669866 was normally fast-forward synchronized from expected21ada468 to the same codex/baby-daily-mobile branch. CI42051176864/job127327364367 Verify73/73 and Deploy success; Worker108194ab-b8b9-4cf6-a2c6-39b2821c826e. Same preview URL, no workflow/permission/account/DB changes. Rollback21ada4684fadda30eba1d71c6a6da721663adc8e.
+
+Maker live verification: formal root index+CSS+all browser modules18 assets200, normalized hashes match exact freeze. All three local-helper base paths and their JS/PNG suffixes9 requests404. index.html307 points only to same-site /, whose bytes match freeze. Full evidence docs/acceptance/2026-11-05-living-book-release.json. Independent postdeploy UI is still pending; do not imply it passed yet. No new authenticated runtime, live fault injection, real-device or model probe. Local three-gate/controlled-outage evidence remains separate.
+
+Only docs may change after deployment; do not repush/redeploy. Preserve original DB, fixtures, unrelated files and limitations recorded below.
+
+---
+
 # Current local freeze: V0.7-LIVING-BOOK — all independent gates ACCEPT
 
 Supersedes candidate/pending statements below. Exact accepted app SHA28d23dd36592af8a0397ed033659bd7154ffbc925a41358b4734df1b4f71099f, CSS8c1d3e32a644b11d8c22c4ed2347d7279f290439c4ec06276db9ad15f0d3be51, comment-draft afc2199103edf0e2c87814f6ed708168e7474cd05e85aade8063e5751615ebdd, worker15473b568e3a89abdc9158241913a424d25bbc13b5f2458c0a7cad9d8dfeaf60. Freeze commit is the git commit containing this record; parent requested local commit only, no push/deploy. Production/rollback still21ada4684fadda30eba1d71c6a6da721663adc8e.
