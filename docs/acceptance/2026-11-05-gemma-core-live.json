@@ -79,6 +79,51 @@
     "reusedByRc5": true,
     "freshVisionCallInRc5CoreRun": false
   },
-  "independentFinalBrowserAcceptance": "pending separate QC",
-  "physicalPhoneAcceptance": "not tested"
+  "independentFinalBrowserAcceptance": {
+    "status": "passed",
+    "evidenceSource": "independent QA report baseline-2026-11-05.md, rc5 live addendum 04:42-04:47 UTC; parent handoff",
+    "appCommit": "b4c6180",
+    "staticCodeMatch": "remote app.js equals b4c6180 after CRLF normalization",
+    "freshImageInRc5": true,
+    "normalUI": [
+      "fresh unannotated synthetic orange-blue-cup photo saved",
+      "synthetic WAV real ASR, optional transcript correction to 今天把橘子放在藍杯旁邊。",
+      "real Gemma combines image and corrected words in a coherent paragraph",
+      "original audio playback Play -> Pause",
+      "11/4 plus existing 11/5 manual diary selected in book UI",
+      "book preview, save 橘子與藍杯的兩天, reload reopen with text and photo",
+      "book original audio playback Play -> Pause"
+    ],
+    "apiSeedUsed": false,
+    "independentVersionRead": {
+      "status": 403,
+      "operation": "separate own-account API login solely to read version",
+      "retried": false,
+      "browserCookiesExtracted": false,
+      "interpretation": "not a normal browser login failure; deployment metadata supplies version identity"
+    },
+    "notEstablished": [
+      "broad narrative quality",
+      "independent unrelated-event negative case"
+    ]
+  },
+  "physicalPhoneAcceptance": "not tested",
+  "independentAutomatedAcceptance": {
+    "fullSuite": {
+      "passed": 24,
+      "failed": 0
+    },
+    "externalRecorderAndTransportDoubles": {
+      "passed": 5,
+      "failed": 0
+    },
+    "diffCheck": "passed",
+    "attribution": "independent parent/QA rerun, not newly executed by integration writer"
+  },
+  "remainingUntested": [
+    "physical phones",
+    "LINE and WhatsApp embedded browsers",
+    "actual OS recording interruption",
+    "actual browser upload cancellation/retry while sending"
+  ]
 }
