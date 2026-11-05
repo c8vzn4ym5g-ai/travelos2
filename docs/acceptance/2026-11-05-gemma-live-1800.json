@@ -1,0 +1,23 @@
+{
+  "version": "daily-mobile-0.3.0-rc4-probe2",
+  "model": "@cf/google/gemma-4-26b-a4b-it",
+  "requestType": "same synthetic image; corrected 1800-token budget; one request",
+  "processStatus": 200,
+  "error": null,
+  "observation": {
+    "state": "ready",
+    "facts": [
+      "一個圓形的橘色物體，上方帶有一個綠色的葉片形狀。",
+      "一個藍色的圓柱形杯子，附有一個圓形的把手。",
+      "杯子內部裝有棕色的液體。",
+      "所有物件都放置在一個棕色的平面上。",
+      "背景為米白色。"
+    ],
+    "uncertain": [],
+    "model": "@cf/google/gemma-4-26b-a4b-it",
+    "sourceHash": "0dd955bf47500cf26873a485fb05f4eccc39cd5005094fe5963d4f8e67bafbb0",
+    "at": "2026-11-05T04:25:20.705Z"
+  },
+  "originalRetained": true,
+  "syntheticOnly": true
+}

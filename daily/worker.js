@@ -1,6 +1,6 @@
 import {DurableObject} from 'cloudflare:workers';
-import {arrange,transcribe} from '../baby-poc/ai.mjs';
-import {observeImage,arrangeSources,VISION_MODEL,GEMMA_VISION_MODEL} from './multimodal.mjs';
+import {transcribe} from '../baby-poc/ai.mjs';
+import {observeImage,arrangeSources,VISION_MODEL,GEMMA_VISION_MODEL,LEGACY_VISION_MODEL} from './multimodal.mjs';
 import {VERSION,newFamily,receive,sourcesFor,sourceKey,integrate,edit,editMoment,reminderHint,plainStory,dayAt,due,active} from './domain.mjs';
 import {normalizeHandle,authErrors} from './web/validation.js';
 import {bookSnapshot,versionMedia} from './web/story-model.js';
@@ -40,16 +40,16 @@ export class DailyWarehouse extends DurableObject {
     const image=source.kind==='image'?(source.analysisImage||source.data):source.kind==='video'?(typeof source.preview==='string'?source.preview:source.preview?.data):null;
     if(image&&!source.observationReviewed){
      const sourceHash=await hash(image);if(source.observation?.sourceHash===sourceHash&&source.observation.model===visionModel&&['ready','uncertain'].includes(source.observation.state))continue;
-     f=this.get('family',fid);if(visionModel===VISION_MODEL&&f.visualModelGate&&!force)fail('照片理解需要管理者確認模型使用條款，原始素材已保存。',503);
+     f=this.get('family',fid);if(visionModel===LEGACY_VISION_MODEL&&f.visualModelGate&&!force)fail('照片理解需要管理者確認模型使用條款，原始素材已保存。',503);
      reserve('visuals',20);let observation;
      try{observation=await observeImage(this.env.AI,image,visionModel);}catch(error){
       f=this.get('family',fid);const latest=f.moments.find(x=>x.id===momentId),requiresTerms=/agree|licen[cs]e|acceptable use|terms|agreement/i.test(String(error.message));
-      if(requiresTerms&&visionModel===VISION_MODEL)f.visualModelGate='terms-required';
+      if(requiresTerms&&visionModel===LEGACY_VISION_MODEL)f.visualModelGate='terms-required';
       if(latest.processing?.id===job.id&&!latest.media[i].observationReviewed)latest.media[i].observation={state:'failed',code:requiresTerms?'terms-required':'unavailable',sourceHash,providerError:{message:String(error.message||'').replace(/Bearer\s+[^\s]+/gi,'Bearer [redacted]').slice(0,1400),code:String(error.code||error.status||'').slice(0,80)}};
       this.put('family',fid,f);if(requiresTerms)fail('照片理解需要管理者確認模型使用條款，原始素材已保存。',503);throw error;
      }
      f=this.get('family',fid);const latest=f.moments.find(x=>x.id===momentId),stored=latest.media[i];
-     if(latest.processing?.id===job.id&&!stored.observationReviewed&&(stored.kind==='image'?(stored.analysisImage||stored.data):(typeof stored.preview==='string'?stored.preview:stored.preview?.data))===image){stored.observation={...observation,sourceHash,at:new Date().toISOString(),...(source.kind==='video'?{frameSeconds:source.preview.seconds}:{} )};latest.revision=(latest.revision||1)+1;latest.updatedAt=new Date().toISOString();if(visionModel===VISION_MODEL)delete f.visualModelGate;this.put('family',fid,f);}
+     if(latest.processing?.id===job.id&&!stored.observationReviewed&&(stored.kind==='image'?(stored.analysisImage||stored.data):(typeof stored.preview==='string'?stored.preview:stored.preview?.data))===image){stored.observation={...observation,sourceHash,at:new Date().toISOString(),...(source.kind==='video'?{frameSeconds:source.preview.seconds}:{} )};latest.revision=(latest.revision||1)+1;latest.updatedAt=new Date().toISOString();if(visionModel===LEGACY_VISION_MODEL)delete f.visualModelGate;this.put('family',fid,f);}
     }
    }
    f=this.get('family',fid);m=f.moments.find(x=>x.id===momentId);if(m.processing?.id===job.id)delete m.processing;delete m.processError;
@@ -69,8 +69,7 @@ export class DailyWarehouse extends DurableObject {
    const usageDay=dayAt(new Date().toISOString(),f.timezone);f.usage||={};f.usage[usageDay]||={stories:0,transcriptions:0};if(f.usage[usageDay].stories>=30)fail('今日AI整理額度已用完，仍可手動編輯。',429);f.usage[usageDay].stories++;this.put('family',fid,f);
    let body,events,mode;
    const hasVisual=sources.some(m=>m.media.some(a=>a.observation?.facts?.length));
-   if(hasVisual||sources.length>1){const result=await arrangeSources(this.env.AI,sources);({body,events,mode}=result);}
-   else if(sources.some(m=>m.text||m.media.some(a=>a.transcript))){const result=await arrange(this.env.AI,{title:`${f.child}的日記`,date,place:'',speaker:'家人',note:notes,transcript:''},'zh');body=result.draft;mode='ai-story';}
+   if(hasVisual||sources.some(m=>m.text||m.media.some(a=>a.transcript))){const result=await arrangeSources(this.env.AI,sources);({body,events,mode}=result);}
    else{body=notes;mode='source-layout';}
    f=this.get('family',fid);if(f.jobs[date]?.id!==job.id)return null;
    const current=f.moments;f.moments=sources;d=integrate(f,date,body,new Date().toISOString());f.moments=current;
@@ -129,7 +128,7 @@ export class DailyWarehouse extends DurableObject {
    const prior=f.moments.find(m=>m.requestId===body.requestId&&m.authorId===member.id);if(prior)return json({moment:prior});validateMedia(body.media||[]);if(JSON.stringify(f).length+JSON.stringify(body).length>20*1024*1024)fail('測試家庭容量已達20MB。請匯出內容，暫停新增。',413);
    const m=receive(f,body,member,now,id());m.reminderHint=reminderHint(m.text,m.date,this.members(f.id));this.put('family',f.id,f);return json({moment:m});
   }
-  if(path==='/api/process-moment'){if(body.diagnosticModel&&(member.role!=='owner'||body.diagnosticModel!==GEMMA_VISION_MODEL))fail('不支援這項素材整理操作。',403);return json(await this.processMoment(f.id,body.id,body.force===true,body.diagnosticModel||VISION_MODEL));}
+  if(path==='/api/process-moment')return json(await this.processMoment(f.id,body.id,body.force===true));
   if(path==='/api/moment-edit'){
    const m=editMoment(f,body,member,now);for(const [index,text] of Object.entries(body.transcripts||{})){const media=m.media[Number(index)];if(media?.kind==='audio'){media.transcript=String(text).slice(0,8000);media.transcriptReviewed=true;}}
    for(const [index,value] of Object.entries(body.visualFacts||{})){const media=m.media[Number(index)];if(media&&['image','video'].includes(media.kind)){media.observation={...(media.observation||{}),state:'ready',facts:String(value).split('\n').map(v=>v.trim()).filter(Boolean).slice(0,8),uncertain:[]};media.observationReviewed=true;}}m.reminderHint=reminderHint([m.text,...m.media.filter(a=>a.kind==='audio').map(a=>a.transcript||'')].join('\n'),m.date,this.members(f.id));this.put('family',f.id,f);return json({moment:m});

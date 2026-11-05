@@ -1,3 +1,5 @@
+Private-family product principle (Owner, 2026-11-05): speak/write/photo saves directly. Little Days does not authenticate, certify or review private material, its origin, rights or identity, and asks for no proof or explanation. Optional edits never become a required check. Preserve private login and original playback; if AI cannot finish, keep the original and allow ordinary text editing. Normal media/diary links and snapshots are application data, not material certification. Public distribution/review is outside this mission; do not add it.
+
 # 小日子：每日寶寶生活日記
 
 Canonical brief: https://docs.google.com/document/d/1j5-cdF5CIBRLDRRSF_9BKODYcVVfubBO/edit (2026-11-04 Taipei).

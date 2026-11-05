@@ -1,3 +1,15 @@
+# Current integration: 0.3.0-rc4 / real Gemma vision connected
+
+Real same-binding Gemma image acceptance succeeded after one bounded correction to the truncated request: official Cloudflare `chat_template_kwargs.enable_thinking:false`, 1800 completion tokens. Image content parts and `choices[0].message.content` are exercised. Evidence: `docs/acceptance/2026-11-05-gemma-live-1800.json`. The 600-token failed attempt remains separately recorded, not rewritten as success. Meta 5016 agreement was never accepted; no more Meta image requests are needed.
+
+Default daily image processing and grounded prose now use the same already authorized Cloudflare-hosted Gemma model. The temporary diagnostic model selection was removed from the API. Same-source/different-wording association uses actual stored excerpts; explicit unrelated events remain separate. This is ordinary content organization, not source authenticity verification. Existing input content is never moderated or certified by this app. No proof/explanation is requested. Family private access stays required. Product principle recorded in PRODUCT.md; no public moderation/distribution scope added.
+
+22 focused automated tests passed. Optional image copy uses 'AI整理的內容（可修改）'; generated diary label no longer requests family verification. Write/photo entry keeps voice controls secondary; speak entry exposes the same single recording control. Persistent generation failure text remains visible. These UI changes are one final small batch; local server must be restarted and announced before final QA reload. Real Gemma->linked natural diary->two-day book acceptance still in progress; do not claim complete until that evidence is recorded. No original site, shared QC data, billing or external messages changed.
+
+Official binding configuration: https://developers.cloudflare.com/workers-ai/get-started/workers-wrangler/ . The latest successful probe deployment was `97aa404`, run `41967598881`, job `127048104617`. Release identity follows this batch's commit/deployment.
+
+---
+
 # Current integration batch: 0.3.0-rc3 / selected-day diary closure
 
 Small UI batch following independent QC: the existing story card follows the selected calendar date, explicitly labels that day, and immediately generates/opens its diary. Today stays default, week view uses today for the story card. Actual browser verification saved a November 3 synthetic note through the composer and generated/read the November 3 diary through the ordinary UI, without API seed. Generic source processing error text now covers all media rather than claiming an unavailable raw sound.
