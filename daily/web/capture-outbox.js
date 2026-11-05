@@ -7,7 +7,7 @@ export function createCaptureOutbox({store,send,onChange=()=>{},onSaved=()=>{},l
  async function run(entry){
   const controller=new AbortController();active.set(entry.id,controller);entry.status='uploading';notify();
   try{await persist(entry);const result=await send(structuredClone(entry.payload),{signal:controller.signal,onProgress:n=>{entry.progress=n;notify();}});if(disposed)return;onSaved(result.moment,entry);await store.remove(entry.id);entries.delete(entry.id);}
-  catch(error){entry.status='failed';entry.error=error.message;entry.conflict=!!error.captureConflict;try{await persist(entry);}catch{entry.localError=true;}}
+  catch(error){entry.status='failed';entry.error=error.message;entry.conflict=!!error.captureConflict;entry.blocked=!!error.captureTooLarge;try{await persist(entry);}catch{entry.localError=true;}}
   finally{active.delete(entry.id);notify();pump();}
  }
  return {

@@ -1,3 +1,7 @@
+import './camera-ui.test.mjs';
+import './camera-session.test.mjs';
+import './photo-visibility.test.mjs';
+import './paper-status.test.mjs';
 import './book-preview.test.mjs';
 import './writer-state.test.mjs';
 import './capture-session.test.mjs';
