@@ -29,7 +29,7 @@ test('narrative accepts sourced family language and requires an exact unique sou
 
 test('Gemma vision uses typed image content and completion output, never a fake response field',async()=>{
  let request;const pixels='data:image/png;base64,eA==';const ai={run:async(model,input)=>{request={model,input};return {choices:[{finish_reason:'stop',message:{content:JSON.stringify({facts:['桌上有橘子'],uncertain:[]})}}]};}};
- const result=await observeImage(ai,pixels,GEMMA_VISION_MODEL);assert.equal(request.model,GEMMA_VISION_MODEL);assert.equal(request.input.messages[0].content[1].image_url.url,pixels);assert.equal(request.input.max_completion_tokens,1800);assert.equal(result.model,GEMMA_VISION_MODEL);assert.deepEqual(result.facts,['桌上有橘子']);
+ const result=await observeImage(ai,pixels,GEMMA_VISION_MODEL);assert.equal(request.model,GEMMA_VISION_MODEL);assert.equal(request.input.messages[0].content[1].image_url.url,pixels);assert.equal(request.input.max_completion_tokens,1800);assert.equal(request.input.chat_template_kwargs.enable_thinking,false);assert.equal(result.model,GEMMA_VISION_MODEL);assert.deepEqual(result.facts,['桌上有橘子']);
  await assert.rejects(()=>observeImage({run:async()=>({response:'not the Gemma contract'})},pixels,GEMMA_VISION_MODEL));
  await assert.rejects(()=>observeImage({run:async()=>({choices:[{finish_reason:'length',message:{content:'{}'}}]})},pixels,GEMMA_VISION_MODEL));
 });
