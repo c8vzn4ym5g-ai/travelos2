@@ -1,0 +1,180 @@
+/* V0.5-INTERIOR-2 · presentation only, deliberately absent from Today/capture. */
+main[data-interior="diary-list"] .page-heading,
+main[data-interior="books"] .page-heading{position:relative;min-height:52px;padding-right:58px;align-items:center;margin-bottom:20px}
+main[data-interior="diary-list"] .page-heading:after,
+main[data-interior="books"] .page-heading:after{content:"";position:absolute;right:0;top:-7px;width:58px;height:58px;background:url('/memory-bird.png') center/contain no-repeat;pointer-events:none}
+
+/* A date holds its page. The original full date remains the time's datetime. */
+main[data-interior="diary-list"] .date-list{border:0;overflow:visible}
+main[data-interior="diary-list"] .date-list li{border:0;margin:0 0 14px}
+main[data-interior="diary-list"] .date-list button{position:relative;display:grid;grid-template-columns:48px minmax(0,1fr);column-gap:18px;row-gap:5px;padding:18px 18px 18px 12px;text-align:left;background:#FFFEFA;border:0;border-radius:2px 9px 9px 2px;box-shadow:0 5px 13px -10px #26392D50;min-height:100px}
+main[data-interior="diary-list"] .date-list button:before{content:"";position:absolute;left:0;top:0;bottom:0;width:1px;background:#BFCBB6;pointer-events:none}
+main[data-interior="diary-list"] .memory-date{grid-row:1/3;align-self:start;display:flex;flex-direction:column;align-items:center;justify-content:center;width:46px;min-height:53px;padding:5px 2px 9px;background:#E6ECDf;color:#315943;font-family:inherit;border-radius:2px 2px 9px 2px;line-height:1.5}
+.memory-date span{font-size:15px;white-space:nowrap;font-variant-numeric:tabular-nums}.memory-date small{font-size:11px;letter-spacing:.04em}
+main[data-interior="diary-list"] .date-list strong{font-size:18px;font-weight:500;line-height:1.55;min-width:0;overflow-wrap:anywhere}
+main[data-interior="diary-list"] .date-list .hint{grid-column:2;font-size:13px;margin:0}
+main[data-interior="day-selection"] .check-row{background:#FFFEFA;border:0;border-radius:2px 10px 10px 2px;padding:16px;box-shadow:0 4px 10px -9px #26392D55}
+
+/* A single letter, with a quiet binding seam rather than another UI card. */
+main[data-interior="diary"] .memory-letter,
+main[data-interior="book"] .memory-chapter{position:relative;isolation:isolate;background:#FFFEFA;border:0;border-radius:2px 9px 5px 2px;box-shadow:0 8px 22px -19px #26392D70;padding:26px 26px 28px 34px;margin-top:20px;overflow-wrap:anywhere}
+main[data-interior="diary"] .memory-letter:before,
+main[data-interior="book"] .memory-chapter:before{content:"";position:absolute;left:16px;top:20px;bottom:20px;width:1px;height:auto;background:#DDE2D3;clip-path:none;pointer-events:none}
+main[data-interior="diary"] .memory-letter:after,
+main[data-interior="book"] .memory-chapter:after{content:"";position:absolute;inset:0;z-index:-1;background:url('/paper/honey-card.png') center/100% 100% no-repeat;opacity:.035;pointer-events:none}
+main[data-interior="diary"] .memory-letter .date-title,
+main[data-interior="book"] .memory-chapter .date-title{display:table;max-width:100%;padding:4px 8px;margin:0 0 18px -8px;background:#F1F2E9;border-radius:1px 6px 6px 1px;font-size:13px;color:#52634E;line-height:1.6}
+main[data-interior="diary"] .memory-letter h2,
+main[data-interior="book"] .memory-chapter h2{font-size:25px;line-height:1.5;font-weight:500;margin:0 0 20px}
+main[data-interior="diary"] .story-text,
+main[data-interior="book"] .story-text{line-height:1.95;margin-bottom:24px;max-width:66ch}
+main[data-interior="diary"] .memory-letter-tools{display:flex;flex-wrap:wrap;gap:0;margin-top:24px;padding-top:14px;border-top:1px solid #E5DFD4}
+main[data-interior="diary"] .memory-letter-tools button{display:inline-flex;align-items:center;gap:8px;background:transparent;border:0;border-radius:7px;padding:8px 12px;font-size:14px;min-height:44px}
+main[data-interior="diary"] .memory-letter-tools button+button{border-left:1px solid #E5DFD4;border-radius:0 7px 7px 0}
+main[data-interior="diary"] .memory-letter-tools button:before{content:"";width:18px;height:18px;flex:none;background-position:center;background-size:contain;background-repeat:no-repeat;pointer-events:none}
+main[data-interior="diary"] [data-edit]:before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23315943' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 16 10-10 3 3L8 19l-4 1 1-4ZM13 8l3 3M4 23h16'/%3E%3C/svg%3E")}
+main[data-interior="diary"] [data-sources]:before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23315943' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6h16v15H4ZM7 3h13M7 16l4-5 3 3 2-2 4 5'/%3E%3Ccircle cx='16' cy='10' r='1'/%3E%3C/svg%3E")}
+main[data-interior="diary-edit"] #edit{position:relative;background:#FFFEFA;border-radius:2px 9px 9px 2px;padding:22px 20px 24px 28px;box-shadow:0 8px 22px -20px #26392D66}
+main[data-interior="diary-edit"] #edit:before{content:"";position:absolute;left:12px;top:20px;bottom:20px;width:1px;background:#DDE2D3;pointer-events:none}
+main[data-interior="diary-edit"] #edit label{color:#315943}
+main[data-interior="diary-edit"] #edit textarea{background:#FFFEFA;line-height:1.9;caret-color:#315943}
+main[data-interior="diary-edit"] #edit input{background:#FFFEFA}
+
+/* A clothbound family book. Its title/child/day count are the existing data. */
+main[data-interior="book"] .memory-cover{position:relative;isolation:isolate;min-height:288px;display:flex;flex-direction:column;align-items:flex-start;padding:32px 32px 98px 44px;margin-top:18px;margin-bottom:26px;border-radius:3px 11px 11px 3px;background:#DDE5D4;color:#26392D;text-align:left;box-shadow:0 13px 25px -20px #26392D99}
+main[data-interior="book"] .memory-cover:before{content:"";position:absolute;inset:0;z-index:-1;width:auto;height:auto;background:linear-gradient(90deg,#31594355 0,transparent 3px,#31594322 5px,transparent 17px,#31594340 18px,transparent 19px),url('/paper/sage-card.png') center/100% 100% no-repeat;opacity:.45;border-radius:inherit;pointer-events:none}
+main[data-interior="book"] .memory-cover:after{content:"";position:absolute;inset:auto 23px 10px auto;width:96px;height:80px;border-radius:0;background:url('/memory-bird.png') center/contain no-repeat;pointer-events:none}
+main[data-interior="book"] .memory-cover h1{font-size:29px;line-height:1.55;font-weight:500;margin:14px 0 16px;max-width:100%;overflow-wrap:anywhere;text-wrap:pretty}
+main[data-interior="book"] .memory-cover p{font-size:14px;line-height:1.7;max-width:100%;margin:0;overflow-wrap:anywhere}
+main[data-interior="book"] .memory-cover .cover-photo{width:100%;max-height:280px;object-fit:cover;border:4px solid #FFFEFA;margin-bottom:14px;border-radius:2px;box-shadow:0 4px 12px -9px #26392D88}
+main[data-interior="book"] .memory-chapter{margin-top:0;margin-bottom:20px}
+main[data-interior="book"] .memory-chapter .date-title{padding-right:15px;clip-path:polygon(0 0,100% 0,calc(100% - 6px) 50%,100% 100%,0 100%)}
+main[data-interior="books"] .memory-book-row{border:0;margin:0;padding:0 0 22px}
+main[data-interior="books"] .memory-book-row>button{position:relative;display:block;width:100%;min-height:176px;padding:24px 78px 22px 33px;background:#E2E7D7;text-align:left;border:0;border-radius:2px 10px 10px 2px;box-shadow:0 8px 18px -16px #26392D88;overflow:hidden}
+main[data-interior="books"] .memory-book-row>button:before{content:"";position:absolute;inset:0;width:auto;height:auto;border-radius:inherit;box-shadow:none;background:linear-gradient(90deg,#31594355,transparent 3px,#31594316 5px,transparent 13px,#31594344 14px,transparent 15px),url('/paper/sage-card.png') center/100% 100% no-repeat;opacity:.3;pointer-events:none}
+main[data-interior="books"] .memory-book-row:nth-of-type(2n)>button{background:#EEE4D0}
+main[data-interior="books"] .memory-book-row>button:after{content:"";position:absolute;right:9px;bottom:9px;width:70px;height:60px;background:url('/memory-bird.png') center/contain no-repeat;pointer-events:none}
+main[data-interior="books"] .memory-book-row>button>span{position:relative;display:block;min-width:0}
+main[data-interior="books"] .memory-book-row h2{font-size:23px;line-height:1.5;overflow-wrap:anywhere;margin-bottom:10px}
+main[data-interior="books"] .memory-book-row p{font-size:13px;color:#52634E;margin:4px 0}
+main[data-interior="books"] .memory-book-row .memory-book-child{font-size:14px;color:#26392D;margin-bottom:12px}
+main[data-interior="books"] .memory-book-row small{font-size:12px;color:#52634E}
+main[data-interior="books"] .memory-book-row img{position:relative;left:auto;top:auto;float:right;width:68px;height:86px;object-fit:cover;margin:0 -50px 12px 12px;border:3px solid #FFFEFA;border-radius:1px;z-index:1}
+main[data-interior="books"]>.empty-page:before{background:url('/memory-bird.png') center/76px auto no-repeat,linear-gradient(90deg,#315943 0 6px,#DFE9D9 6px 64px,#FFFEFA 64px);border-radius:2px 8px 8px 2px;rotate:-2deg}
+
+/* Existing three-column album; the photograph itself never rotates or shrinks. */
+main[data-interior="album"] .album-heading{margin-bottom:16px}
+main[data-interior="album"] .album-heading h1{position:relative;padding-right:60px;min-height:48px;display:flex;align-items:center}
+main[data-interior="album"] .album-heading h1:after{content:"";position:absolute;right:0;top:-4px;width:54px;height:54px;background:url('/memory-bird.png') center/contain no-repeat;pointer-events:none}
+main[data-interior="album"] .album-date{font-family:'LittleDays Hand',BiauKai,KaiTi,serif;font-size:18px;font-weight:400;color:#315943;margin:22px 0 12px;gap:10px}
+main[data-interior="album"] .album-date:before{content:"";width:13px;height:16px;flex:none;background:#E7BBA1;clip-path:polygon(0 0,100% 0,100% 100%,0 74%);pointer-events:none}
+main[data-interior="album"] .album-date:after{background:#DDDCCF;max-width:40px}
+main[data-interior="album"] .album-cell>button{padding:3px;background:#FFFEFA;border-radius:3px;box-shadow:0 4px 8px -7px #26392D88}
+main[data-interior="album"] .album-cell img{border-radius:1px;rotate:none}
+
+/* People before forms. Neutral portraits use a stable member/author colour. */
+main[data-interior="family"]>.memory-family-intro{display:block;position:relative;min-height:56px;padding:0 0 0 64px;margin:0 0 16px}
+main[data-interior="family"]>.memory-family-intro:before{width:52px;height:52px;top:0;translate:none;background:url('/memory-home.svg') center/contain no-repeat}
+.memory-house-name{display:block;font-size:16px;color:#26392D;line-height:1.55;margin:0 0 6px}
+.memory-roster{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.memory-member{display:inline-flex;align-items:center;gap:6px;font-size:14px;line-height:1.5;max-width:100%;overflow-wrap:anywhere}
+.memory-member i,.memory-author-stamp{--portrait:#E2E8D6;display:inline-block;flex:none;width:28px;height:28px;border-radius:45% 48% 43% 46%;background:var(--portrait) url('/memory-person.svg') center/26px no-repeat;pointer-events:none}
+.memory-member[data-tone="1"] i,.memory-message[data-tone="1"] .memory-author-stamp{--portrait:#F0D9C9}
+.memory-member[data-tone="2"] i,.memory-message[data-tone="2"] .memory-author-stamp{--portrait:#EFE4C4}
+main[data-interior="family"]>.memory-message{position:relative;background:transparent;border:0;border-radius:0;border-bottom:1px solid #E5DFD4;box-shadow:none;padding:16px 0 18px 38px;margin:0}
+main[data-interior="family"] .memory-message .byline{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 5px;color:#687368;font-size:12px;line-height:1.7;margin-bottom:8px}
+.memory-message .memory-author-stamp{position:absolute;left:0;top:15px;width:27px;height:29px}
+.memory-author-name{color:#315943;font-size:14px;font-weight:600}
+main[data-interior="family"] .memory-message>[data-read-comment]{font-size:16px;line-height:1.8;overflow-wrap:anywhere;margin:0 0 8px}
+main[data-interior="family"] .memory-message>small{display:block;font-size:12px;line-height:1.7;color:#687368}
+main[data-interior="family"] #comment{margin-top:20px;padding-bottom:12px}
+main[data-interior="family"] #comment label{font-weight:500;color:#315943}
+main[data-interior="family"] #comment textarea{background:#FFFEFA;border-radius:3px 9px 9px 3px;line-height:1.8;caret-color:#315943}
+
+@media(max-width:350px){
+ main[data-interior="diary-list"] .page-heading,main[data-interior="books"] .page-heading{padding-right:49px}
+ main[data-interior="diary-list"] .page-heading:after,main[data-interior="books"] .page-heading:after{width:48px;height:48px}
+ main[data-interior="diary-list"] .date-list button{column-gap:12px;padding-right:12px}
+ main[data-interior="diary"] .memory-letter,main[data-interior="book"] .memory-chapter{padding:24px 18px 24px 29px}
+ main[data-interior="diary"] .memory-letter:before,main[data-interior="book"] .memory-chapter:before{left:13px}
+ main[data-interior="book"] .memory-cover{padding:24px 24px 88px 32px;min-height:270px}
+ main[data-interior="book"] .memory-cover h1{font-size:26px}
+ main[data-interior="book"] .memory-cover:after{width:84px;right:14px}
+ main[data-interior="diary-edit"] #edit{padding:18px 14px 20px 24px}
+ main[data-interior="family"] .memory-message{padding-left:36px}
+}
+@media print{main[data-interior="book"] .memory-cover,main[data-interior="diary"] .memory-letter,main[data-interior="book"] .memory-chapter{box-shadow:none}main[data-interior="book"] .memory-cover:before{opacity:.16}}
+
+/* INTERIOR-2B supersedes the quiet origami proportions; real shared character assets follow. */
+main[data-interior="diary-list"],main[data-interior="books"],main[data-interior="diary"],main[data-interior="book"],main[data-interior="family"]{--memory-character:url('/memory-bird.png')}
+main[data-interior="diary-list"] .page-heading,main[data-interior="books"] .page-heading{padding-right:86px;min-height:64px;column-gap:8px;margin-bottom:18px}
+main[data-interior="diary-list"] .page-heading:after,main[data-interior="books"] .page-heading:after{background-image:var(--memory-character);width:84px;height:84px;top:-14px;right:0}
+main[data-interior="book"] .memory-cover:before{background:linear-gradient(90deg,#31594355 0,transparent 3px,#31594322 5px,transparent 17px,#31594340 18px,transparent 19px),url('/paper/sage-card.png') center/180% 180% no-repeat}
+main[data-interior="book"] .memory-cover:after{background-image:var(--memory-character);width:114px;height:114px;right:18px;bottom:10px}
+main[data-interior="books"] .memory-book-row>button:before{background:linear-gradient(90deg,#31594355,transparent 3px,#31594316 5px,transparent 13px,#31594344 14px,transparent 15px),url('/paper/sage-card.png') center/180% 180% no-repeat}
+main[data-interior="books"] .memory-book-row>button:after{background-image:var(--memory-character);width:88px;height:88px;right:7px;bottom:6px}
+main[data-interior="books"]>.empty-page:before{background-image:var(--memory-character);background-size:contain;width:120px;height:120px;rotate:none;box-shadow:none;filter:none}
+main[data-interior="diary"] .memory-letter:after{inset:-42px 6px auto auto;width:84px;height:84px;z-index:0;opacity:1;background:var(--memory-character) center/contain no-repeat}
+main[data-interior="diary"] .memory-letter .date-title{max-width:calc(100% - 62px)}
+main[data-interior="family"]>.memory-family-intro{min-height:72px;padding-left:0;padding-right:86px;margin-bottom:16px}
+main[data-interior="family"]>.memory-family-intro:before{left:auto;right:0;top:-8px;width:84px;height:84px;background-image:var(--memory-character)}
+main[data-interior="family"] .memory-house-name{display:flex;align-items:center;gap:8px}
+main[data-interior="family"] .memory-house-name:before{content:"";display:inline-block;width:26px;height:26px;flex:none;background:url('/memory-home.svg') center/contain no-repeat;pointer-events:none}
+main[data-interior="family"] .memory-roster{gap:6px 10px}
+main[data-interior="family"] .memory-member{font-size:14px;gap:4px}
+main[data-interior="family"] .memory-member i{width:24px;height:25px;background-size:24px}
+
+/* Same actions in the same order: inviting physical scale, no extra click or delay. */
+main[data-interior="diary-list"] #choose-days,
+main[data-interior="diary-list"] #first-diary,
+main[data-interior="books"] #new-book,
+main[data-interior="book"] #save-book,
+main[data-interior="diary-edit"] #edit button.primary,
+main[data-interior="family"] #comment button[type="submit"],
+main[data-interior="diary"] [data-edit],
+main[data-interior="diary"] #update-open-diary{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:54px;padding:12px 18px;background:#315943;color:#FFFEFA;border:0;border-radius:16px;font-family:inherit;font-size:16px;font-weight:600;line-height:1.5;box-shadow:0 5px 9px -7px #26392D99;text-align:center;white-space:normal;transition:transform 120ms ease-out,opacity 120ms ease-out}
+main[data-interior="diary-list"] #choose-days:before,
+main[data-interior="diary-list"] #first-diary:before,
+main[data-interior="books"] #new-book:before,
+main[data-interior="book"] #save-book:before,
+main[data-interior="diary-edit"] #edit button.primary:before,
+main[data-interior="family"] #comment button[type="submit"]:before,
+main[data-interior="diary"] #update-open-diary:before{content:"";display:inline-block;flex:none;width:24px;height:24px;background-position:center;background-size:contain;background-repeat:no-repeat;pointer-events:none}
+main[data-interior="diary-list"] #choose-days:before,main[data-interior="books"] #new-book:before,main[data-interior="diary-list"] #first-diary:before,main[data-interior="diary"] #update-open-diary:before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFFEFA' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4h7l2 2 2-2h7v16h-7l-2 2-2-2H3ZM12 6v16M6 8h3m-3 4h3m6-4h3m-3 4h3'/%3E%3C/svg%3E")}
+main[data-interior="book"] #save-book:before,main[data-interior="diary-edit"] #edit button.primary:before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFFEFA' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 3h13l3 3v15H4ZM8 3v6h8V3M8 21v-7h9v7'/%3E%3C/svg%3E")}
+main[data-interior="family"] #comment button[type="submit"]:before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFFEFA' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4h18v13H10l-6 4V4M8 9h9m-9 4h6'/%3E%3C/svg%3E")}
+main[data-interior="diary"] .memory-letter-tools{gap:10px;border-top:1px solid #E5DFD4}
+main[data-interior="diary"] .memory-letter-tools button{min-height:50px;padding:11px 15px;border-radius:14px;background:#F0E2D2;color:#315943;border:0;font-size:16px;font-weight:600;box-shadow:0 4px 8px -7px #26392D66}
+main[data-interior="diary"] .memory-letter-tools [data-edit]{background:#315943;color:#FFFEFA}
+main[data-interior="diary"] .memory-letter-tools [data-edit]:before{width:24px;height:24px;filter:brightness(0) invert(1)}
+main[data-interior="diary"] .memory-letter-tools button+button{border:0;border-radius:14px}
+main[data-interior="diary-list"] #go-books,
+main[data-interior="diary"] #back-today,
+main[data-interior="book"] #back-books,
+main[data-interior="book"] #back-arrange,
+main[data-interior="diary-edit"] #cancel,
+main[data-interior="family"] #refresh-family,
+main[data-interior="album"] #back-album{min-height:48px;padding:10px 14px;border:0;border-radius:13px;background:#EEE8DA;color:#315943;font-size:16px;line-height:1.5}
+main[data-interior="diary-list"] .page-heading button,main[data-interior="books"] .page-heading button{padding-left:12px;padding-right:12px;gap:7px}
+@media(max-width:350px){main[data-interior="diary-list"] .page-heading,main[data-interior="books"] .page-heading{padding-right:76px;column-gap:6px}main[data-interior="diary-list"] .page-heading:after,main[data-interior="books"] .page-heading:after{width:76px;height:76px;top:-8px}main[data-interior="diary-list"] .page-heading h1,main[data-interior="books"] .page-heading h1{font-size:26px}main[data-interior="diary-list"] .page-heading button,main[data-interior="books"] .page-heading button{font-size:16px;padding-left:9px;padding-right:9px;gap:5px}main[data-interior="diary-list"] .page-heading button:before,main[data-interior="books"] .page-heading button:before{width:22px;height:22px}main[data-interior="family"]>.memory-family-intro{padding-right:78px}main[data-interior="family"]>.memory-family-intro:before{width:76px;height:76px}main[data-interior="diary"] .memory-letter-tools{gap:8px}main[data-interior="diary"] .memory-letter-tools button{padding-left:12px;padding-right:12px}}
+@media(prefers-reduced-motion:reduce){main[data-interior]:not([data-interior=""]) button{transition:none!important;transform:none!important}}
+/* Keep the original label on one line at 320 without reducing its 16px size. */
+@media(max-width:350px){main[data-interior="diary-list"] .page-heading,main[data-interior="books"] .page-heading{padding-right:72px;column-gap:4px}main[data-interior="diary-list"] #choose-days,main[data-interior="diary-list"] #first-diary,main[data-interior="books"] #new-book{flex-shrink:0;white-space:nowrap;padding-left:6px;padding-right:6px;gap:4px;min-height:54px}main[data-interior="diary-list"] #choose-days:before,main[data-interior="diary-list"] #first-diary:before,main[data-interior="books"] #new-book:before{width:24px;height:24px}}
+/* 2B content hierarchy: title + companion, then the same full-width primary action. */
+main[data-interior="diary-list"] .page-heading,main[data-interior="books"] .page-heading{display:grid;grid-template-columns:minmax(0,1fr) 88px;gap:12px 16px;padding:0;min-height:0;margin-bottom:20px;align-items:center}
+main[data-interior="diary-list"] .page-heading h1,main[data-interior="books"] .page-heading h1{grid-column:1;grid-row:1;margin:0}
+main[data-interior="diary-list"] .page-heading:after,main[data-interior="books"] .page-heading:after{position:static;grid-column:2;grid-row:1;width:88px;height:88px;inset:auto}
+main[data-interior="diary-list"] .page-heading button,main[data-interior="books"] .page-heading button{grid-column:1/-1;grid-row:2;width:100%;min-height:54px;padding:12px 18px;white-space:normal}
+main[data-interior="diary-list"] .page-heading button,main[data-interior="books"] .page-heading button{max-width:none;width:100%}
+main[data-interior="family"]{--memory-character:url('/memory-bird-family.png')}
+/* Beat only the incumbent ID-scoped family/empty illustrations, never shared Today UI. */
+#app[data-interior="family"]>.memory-family-intro{display:block;position:relative;min-height:72px;padding:0 86px 0 0;margin:0 0 16px}
+#app[data-interior="family"]>.memory-family-intro:before{content:"";position:absolute;left:auto;right:0;top:-8px;translate:none;width:84px;height:84px;background:url('/memory-bird-family.png') center/contain no-repeat;pointer-events:none}
+#app[data-interior="books"]>.empty-page:before{content:"";display:block;width:120px;height:120px;background:url('/memory-bird.png') center/contain no-repeat;rotate:none;box-shadow:none;filter:none}
+@media(max-width:350px){#app[data-interior="family"]>.memory-family-intro{padding-right:78px}#app[data-interior="family"]>.memory-family-intro:before{width:76px;height:76px}}
+/* The message is a small note to the family, while remaining the same labelled textarea. */
+#app[data-interior="family"] #comment-text{background-color:#FBF2DB;background-image:linear-gradient(90deg,transparent 0 13px,#D8D8C255 13px 14px,transparent 14px);border:0;border-bottom:1px solid #DDD5BE;border-radius:2px 7px 5px 2px;padding:16px 18px 16px 24px;min-height:112px;box-shadow:0 7px 13px -12px #26392D77;line-height:1.8}
+#app[data-interior="family"] #comment-text:focus-visible{outline:2px solid #315943;outline-offset:3px}
+main[data-interior="diary"]:has(#update-open-diary) .memory-letter-tools [data-edit]{background:#F0E2D2;color:#315943}
+main[data-interior="diary"]:has(#update-open-diary) .memory-letter-tools [data-edit]:before{filter:none}
+main[data-interior="book"] [data-chapter-source]{min-height:48px;padding:10px 14px;border:0;border-radius:13px;background:#EEE8DA;color:#315943;font-size:16px;line-height:1.5}
