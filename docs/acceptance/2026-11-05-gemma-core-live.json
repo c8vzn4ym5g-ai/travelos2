@@ -1,0 +1,84 @@
+{
+  "syntheticOnly": true,
+  "commit": "b4c6180",
+  "transport": "real HTTPS public app API; not a browser or physical phone journey",
+  "stages": [
+    {
+      "name": "pure-photo natural diary",
+      "body": "桌上放著一個藍色圓柱形杯子，裡面裝著棕色液體，旁邊有一個帶綠色葉片形狀的橘色圓形物體，背景是米白色的。",
+      "events": [
+        {
+          "sourceIds": [
+            "a018ad5f-921f-425f-8c90-c93b27f8111d"
+          ],
+          "anchor": "",
+          "title": "生活片段",
+          "relation": "single",
+          "body": "照片可見內容（AI觀察，待核對）：一個圓形的橘色物體，上方帶有一個綠色的葉片形狀。\n照片可見內容（AI觀察，待核對）：一個藍色的圓柱形杯子，附有一個圓形的把手。\n照片可見內容（AI觀察，待核對）：杯子內部裝有棕色的液體。\n照片可見內容（AI觀察，待核對）：所有物件都放置在一個棕色的平面上。\n照片可見內容（AI觀察，待核對）：背景為米白色。"
+        }
+      ],
+      "commit": "9f4832a",
+      "version": "daily-mobile-0.3.0-rc4",
+      "reusedEarlierResult": true
+    },
+    {
+      "name": "photo plus corrected real synthetic speech and unrelated note",
+      "originalTranscript": "早上窗邊有光 抱著小河一起看 沒有急著做別的事 覺得很平靜 想記住這幾分鐘",
+      "correctedTranscript": "合成口述：我把橘子放在桌上，旁邊有藍色杯子。",
+      "rawAudioRetained": true,
+      "originalImageRetained": true,
+      "body": "把橘子放在桌上，旁邊有一個裝著棕色液體的藍色圓柱形杯子，所有物件都放在棕色平面上，背景是米白色。\n\n爺爺說窗外下雪了。",
+      "events": [
+        {
+          "sourceIds": [
+            "a018ad5f-921f-425f-8c90-c93b27f8111d",
+            "dd91e349-02a8-4796-9fb4-da1bd658546a"
+          ],
+          "title": "生活片段",
+          "relation": "possible",
+          "body": "照片可見內容（AI整理）：一個圓形的橘色物體，上方帶有一個綠色的葉片形狀。\n照片可見內容（AI整理）：一個藍色的圓柱形杯子，附有一個圓形的把手。\n照片可見內容（AI整理）：杯子內部裝有棕色的液體。\n照片可見內容（AI整理）：所有物件都放置在一個棕色的平面上。\n照片可見內容（AI整理）：背景為米白色。\n\n合成驗收家人記下：「合成口述：我把橘子放在桌上，旁邊有藍色杯子。」",
+          "text": "把橘子放在桌上，旁邊有一個裝著棕色液體的藍色圓柱形杯子，所有物件都放在棕色平面上，背景是米白色。"
+        },
+        {
+          "sourceIds": [
+            "1a1fa6cc-8029-4f71-8355-6657e86abf47"
+          ],
+          "title": "生活片段",
+          "relation": "single",
+          "body": "合成驗收家人記下：「另外記一件不同事件：爺爺說窗外下雪了。」",
+          "text": "爺爺說窗外下雪了。"
+        }
+      ],
+      "photoAndVoiceTogether": true,
+      "unrelatedSeparate": true,
+      "commit": "b4c6180",
+      "version": "daily-mobile-0.3.0-rc5"
+    },
+    {
+      "name": "two-day book save and reopen",
+      "dates": [
+        "2026-11-04",
+        "2026-11-05"
+      ],
+      "template": "album",
+      "coverRetained": true,
+      "chapterBodies": [
+        "昨天一起讀了繪本。",
+        "把橘子放在桌上，旁邊有一個裝著棕色液體的藍色圓柱形杯子，所有物件都放在棕色平面上，背景是米白色。\n\n爺爺說窗外下雪了。"
+      ],
+      "commit": "b4c6180",
+      "version": "daily-mobile-0.3.0-rc5"
+    }
+  ],
+  "version": "daily-mobile-0.3.0-rc5",
+  "completed": true,
+  "visionObservation": {
+    "commit": "97aa404",
+    "version": "daily-mobile-0.3.0-rc4-probe2",
+    "model": "@cf/google/gemma-4-26b-a4b-it",
+    "reusedByRc5": true,
+    "freshVisionCallInRc5CoreRun": false
+  },
+  "independentFinalBrowserAcceptance": "pending separate QC",
+  "physicalPhoneAcceptance": "not tested"
+}
