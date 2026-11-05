@@ -1,3 +1,11 @@
+# Current integration batch: 0.3.0-rc3 / selected-day diary closure
+
+Small UI batch following independent QC: the existing story card follows the selected calendar date, explicitly labels that day, and immediately generates/opens its diary. Today stays default, week view uses today for the story card. Actual browser verification saved a November 3 synthetic note through the composer and generated/read the November 3 diary through the ordinary UI, without API seed. Generic source processing error text now covers all media rather than claiming an unavailable raw sound.
+
+The same batch retains bounded sanitized provider message/code on a failed image observation. This is needed for one explicitly authorized non-agreement diagnostic retry of the same synthetic image after deploy; no agreement operation. Raw error evidence and classified terms evidence must remain distinct. All 20 tests pass; unchanged CI entry includes all tests. rc2 `0e50358` synchronized successfully; rc3 exact release identity follows commit. Local QC should reload only after the announced rc3 server restart; no SQLite reset. Static files are read from disk, so not restarting alone does not freeze the frontend; this corrects the earlier handoff wording.
+
+---
+
 # Current follow-up: rc2 model-contract corrections; rc1 deployment verified
 
 2026-11-05. Supersedes the earlier claim that synchronization/deployment remains blocked. Direct non-force push of rc1 `d8d6bb588f0e60909ab2641c586514b916bb75ee` to the already authorized branch succeeded. Existing workflow run `41965531971`, job `127041551423` completed successfully including deployment. No alternate remote query was used to bypass the prior ls-remote refusal. GitHub CLI is unavailable locally; workflow outcome was verified via the Actions page and job connector.

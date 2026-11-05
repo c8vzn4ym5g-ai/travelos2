@@ -45,7 +45,7 @@ export class DailyWarehouse extends DurableObject {
      try{observation=await observeImage(this.env.AI,image);}catch(error){
       f=this.get('family',fid);const latest=f.moments.find(x=>x.id===momentId),requiresTerms=/agree|licen[cs]e|acceptable use|terms|agreement/i.test(String(error.message));
       if(requiresTerms)f.visualModelGate='terms-required';
-      if(latest.processing?.id===job.id&&!latest.media[i].observationReviewed)latest.media[i].observation={state:'failed',code:requiresTerms?'terms-required':'unavailable',sourceHash};
+      if(latest.processing?.id===job.id&&!latest.media[i].observationReviewed)latest.media[i].observation={state:'failed',code:requiresTerms?'terms-required':'unavailable',sourceHash,providerError:{message:String(error.message||'').replace(/Bearer\s+[^\s]+/gi,'Bearer [redacted]').slice(0,1400),code:String(error.code||error.status||'').slice(0,80)}};
       this.put('family',fid,f);if(requiresTerms)fail('照片理解需要管理者確認模型使用條款，原始素材已保存。',503);throw error;
      }
      f=this.get('family',fid);const latest=f.moments.find(x=>x.id===momentId),stored=latest.media[i];
