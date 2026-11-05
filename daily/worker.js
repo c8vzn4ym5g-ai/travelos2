@@ -74,8 +74,8 @@ export class DailyWarehouse extends DurableObject {
    f=this.get('family',fid);if(f.jobs[date]?.id!==job.id)return null;
    const current=f.moments;f.moments=sources;d=integrate(f,date,body,new Date().toISOString());f.moments=current;
    if(d){d.generationMode=mode;const version=d.pending?.sourceKey===sourceKey(sources)?d.pending:d.current;if(events)version.events=events;version.preparedThrough=sources.map(m=>m.updatedAt||m.createdAt).sort().at(-1);}
-   delete f.jobs[date];delete f.lastError;this.put('family',fid,f);return d;
-  }catch(e){f=this.get('family',fid);if(f.jobs[date]?.id===job.id){delete f.jobs[date];f.lastError=e.status===503?e.message:'故事整理尚未完成，原始素材已保存，可以稍後重試。';this.put('family',fid,f);}throw e;}
+   delete f.jobs[date];delete f.lastError;delete f.lastGenerationDiagnostic;this.put('family',fid,f);return d;
+  }catch(e){f=this.get('family',fid);if(f.jobs[date]?.id===job.id){delete f.jobs[date];if(e.diagnostic)f.lastGenerationDiagnostic=e.diagnostic;f.lastError=e.status===503?e.message:'故事整理尚未完成，原始素材已保存，可以稍後重試。';this.put('family',fid,f);}throw e;}
  }
  async fetch(request){try{return await this.handle(request);}catch(e){return json({error:e.status?e.message:'目前無法完成，請保留輸入並稍後再試。',...(e.fieldErrors?{fieldErrors:e.fieldErrors}:{})},e.status||400);}}
  async handle(request){

@@ -52,6 +52,6 @@ export async function arrangeSources(ai,sources){
  const result=await ai.run(GEMMA_VISION_MODEL,{messages:[{role:'system',content:'把提供的素材整理為簡短、自然、溫暖但不煽情的繁體中文生活日記。每組各一小段，依序返回。家人原話可簡化但不能改變意思；照片只寫可見事實，短片僅有抽樣畫面。不要新增人物身份、動作、情緒、因果、地點、第一次或杯中液體。不同組不可串成同一事件。不要寫「AI觀察」「來源ID」等處理術語。每段附所依據的 sourceIds。只回 JSON：{"paragraphs":[{"text":"自然日記段落","sourceIds":["ID"]}]}。'}, {role:'user',content:JSON.stringify(events.map(e=>({sourceIds:e.sourceIds,facts:e.body})))}],max_completion_tokens:1800,chat_template_kwargs:{enable_thinking:false},temperature:0,stream:false});
  let paragraphs=[];try{paragraphs=objectResult(result.choices?.[0]?.message?.content).paragraphs||[];}catch{}
  let invalidNarrative=false;const narrative=events.map(event=>{const paragraph=paragraphs.find(p=>Array.isArray(p.sourceIds)&&new Set(p.sourceIds).size===p.sourceIds.length&&p.sourceIds.length===event.sourceIds.length&&p.sourceIds.every(id=>event.sourceIds.includes(id)));const text=String(paragraph?.text||'').trim();if(!text||text.length>1800||/AI觀察|照片可見內容|來源ID/.test(text)){invalidNarrative=true;return '';}return traditional(text);});
- if(invalidNarrative)throw Object.assign(Error('素材已保存，但故事文字尚未整理完成。請稍後重試，原日記保持不變。'),{status:503});
+ if(invalidNarrative)throw Object.assign(Error('素材已保存，但故事文字尚未整理完成。請稍後重試，原日記保持不變。'),{status:503,diagnostic:{stage:'narrative',finishReason:result.choices?.[0]?.finish_reason,expected:events.map(e=>e.sourceIds),response:String(result.choices?.[0]?.message?.content||'').slice(0,5000)}});
  return {events,body:narrative.join('\n\n'),mode:'evidence-linked-story'};
 }
