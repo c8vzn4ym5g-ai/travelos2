@@ -1,3 +1,8 @@
+import './family-time.test.mjs';
+import './recording.test.mjs';
+import './story-model.test.mjs';
+import './multimodal.test.mjs';
+import './transport.test.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
@@ -56,4 +61,35 @@ test('Chinese accounts, aggregated validation, editable source versions and hone
  const task=await call('task',taskBody,a.cookie);assert.equal(task.response.status,200);assert.equal(task.data.task.sourceMomentId,moment.id);
  const retry=await call('task',taskBody,a.cookie);assert.equal(retry.data.task.id,task.data.task.id);assert.equal((await call('state',null,a.cookie)).data.family.tasks.length,1);
  const reply=await call('comment',{text:'我來準備',momentId:moment.id,requestId:'reply-1'},b.cookie);assert.equal(reply.response.status,200);assert.equal((await call('state',null,a.cookie)).data.family.comments[0].momentId,moment.id);await call('comment',{text:'第二句',momentId:moment.id,requestId:'reply-2'},b.cookie);assert.equal((await call('state',null,a.cookie)).data.family.comments.length,2);
+});
+
+
+test('V2 private messages, recoverable notes, conflict rebase and selected book shares',async()=>{
+ const owner=await call('register',{handle:'v2-owner',password:'synthetic-pass-43',name:'媽媽',child:'小禾'});
+ const invitation=await call('invite',{},owner.cookie);
+ const member=await call('join',{handle:'v2-member',password:'synthetic-pass-43',name:'爸爸',invite:invitation.data.code});
+ const outsider=await call('register',{handle:'v2-outsider',password:'synthetic-pass-43',name:'別家',child:'小雨'});
+ const state=await call('state',null,owner.cookie),memberState=await call('state',null,member.cookie);
+ const privateMessage=await call('comment',{text:'只給爸爸的話',recipientId:memberState.data.member.id,requestId:'private-v2'},owner.cookie);assert.equal(privateMessage.response.status,200);
+ assert.ok((await call('state',null,member.cookie)).data.family.comments.some(c=>c.text==='只給爸爸的話'));
+ assert.equal((await call('state',null,outsider.cookie)).data.family.comments.length,0);
+ const note=await call('capture',{requestId:'v2-day1',date:'2026-10-01',text:'今天一起看雲。'},owner.cookie);
+ const first=await call('generate',{date:'2026-10-01'},owner.cookie);assert.equal(first.response.status,200);
+ const id=first.data.diary.id;
+ const one=await call('edit',{id,baseRevision:1,title:'媽媽保存',body:'媽媽的文字'},owner.cookie);assert.equal(one.response.status,200);
+ assert.equal((await call('edit',{id,baseRevision:1,title:'爸爸保存',body:'爸爸的文字'},member.cookie)).response.status,409);
+ const latest=(await call('state',null,member.cookie)).data.family.diaries.find(d=>d.id===id);
+ assert.equal((await call('edit',{id,baseRevision:latest.current.number,title:'一起保存',body:'媽媽的文字，加上爸爸的文字'},member.cookie)).response.status,200);
+ const versions=(await call('state',null,owner.cookie)).data.family.diaries.find(d=>d.id===id).versions;
+ assert.ok(versions.some(v=>v.body==='媽媽的文字'));assert.ok(versions.some(v=>v.body.includes('加上爸爸')));
+ await call('capture',{requestId:'v2-day2',date:'2026-10-02',text:'今天讀故事。'},owner.cookie);
+ const second=await call('generate',{date:'2026-10-02'},owner.cookie);
+ const collection=await call('collection',{requestId:'v2-book',title:'我們的兩天',diaryIds:[second.data.diary.id,id],template:'album'},owner.cookie);assert.equal(collection.response.status,200);
+ assert.deepEqual(collection.data.collection.chapters.map(c=>c.date),['2026-10-02','2026-10-01']);
+ const shared=await call('book-share',{id:collection.data.collection.id},owner.cookie);assert.equal(shared.response.status,200);
+ const publicBook=await call('shared-book',{token:shared.data.token});assert.equal(publicBook.response.status,200);assert.ok(!JSON.stringify(publicBook.data).includes('只給爸爸的話'));
+ const revoked=await call('book-share-revoke',{id:shared.data.id},owner.cookie);assert.equal(revoked.response.status,200);assert.equal((await call('shared-book',{token:shared.data.token})).response.status,404);
+ assert.equal((await call('moment-archive',{id:note.data.moment.id},owner.cookie)).response.status,200);
+ assert.ok((await call('state',null,owner.cookie)).data.family.moments.find(m=>m.id===note.data.moment.id).archivedAt);
+ assert.equal((await call('moment-archive',{id:note.data.moment.id,restore:true},owner.cookie)).response.status,200);
 });

@@ -1,7 +1,9 @@
 import {DurableObject} from 'cloudflare:workers';
 import {arrange,transcribe} from '../baby-poc/ai.mjs';
+import {observeImage,arrangeSources} from './multimodal.mjs';
 import {VERSION,newFamily,receive,sourcesFor,sourceKey,integrate,edit,editMoment,reminderHint,plainStory,dayAt,due,active} from './domain.mjs';
 import {normalizeHandle,authErrors} from './web/validation.js';
+import {bookSnapshot,versionMedia} from './web/story-model.js';
 const json=(v,status=200,headers={})=>Response.json(v,{status,headers:{'cache-control':'no-store',...headers}});
 const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status});};
 const id=()=>crypto.randomUUID();
@@ -9,49 +11,72 @@ const token=()=>Array.from(crypto.getRandomValues(new Uint8Array(24)),b=>b.toStr
 const hash=async s=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s))),b=>b.toString(16).padStart(2,'0')).join('');
 async function password(p,salt){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(p),'PBKDF2',false,['deriveBits']);return Array.from(new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode(salt),iterations:100000,hash:'SHA-256'},key,256)),b=>b.toString(16).padStart(2,'0')).join('');}
 const cookie=s=>`daily_session=${s}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=2592000`;
-function validateMedia(media){if(!Array.isArray(media)||media.length>4)fail('每次最多四個檔案，可分次補入。');for(const m of media){if(!['image','audio','video'].includes(m.kind)||!new RegExp(`^data:${m.kind}/(?:jpeg|png|webp|gif|mp4|webm|ogg|mpeg|wav|x-wav|mp3|aac|quicktime|x-m4a|3gpp|3gpp2)(?:;[^,]*)?;base64,`,'i').test(m.data||''))fail('請使用常見照片、聲音或影片格式。');if(m.data.length>8*1024*1024*1.38)fail('單一測試檔案限 8MB，請縮短影片或換較小檔案。');}}
+function validateMedia(media){if(!Array.isArray(media)||media.length>4)fail('每次最多四個檔案，可分次補入。');for(const m of media){if(!['image','audio','video'].includes(m.kind)||!new RegExp(`^data:${m.kind}/(?:jpeg|png|webp|gif|mp4|webm|ogg|mpeg|wav|x-wav|mp3|aac|quicktime|x-m4a|3gpp|3gpp2)(?:;[^,]*)?;base64,`,'i').test(m.data||''))fail('請使用常見照片、聲音或影片格式。');if(m.analysisImage&&(!/^data:image\/(jpeg|png);base64,/.test(m.analysisImage)||m.analysisImage.length>3*1024*1024))fail('照片整理副本過大，原圖可另行保存。');if(m.preview?.data&&(!/^data:image\/(jpeg|png);base64,/.test(m.preview.data)||m.preview.data.length>3*1024*1024))fail('短片取樣畫面無效。');if(m.data.length>8*1024*1024*1.38)fail('單一測試檔案限 8MB，請縮短影片或換較小檔案。');}}
 export class DailyWarehouse extends DurableObject {
- constructor(ctx,env){super(ctx,env);this.env=env;this.sql=ctx.storage.sql;this.sql.exec('CREATE TABLE IF NOT EXISTS records (kind TEXT, id TEXT, payload TEXT, PRIMARY KEY(kind,id))');}
- get(k,i){const r=this.sql.exec('SELECT payload FROM records WHERE kind=? AND id=?',k,i).toArray()[0];if(!r)return null;const value=JSON.parse(r.payload);if(k==='family'&&value.chunks)return JSON.parse(Array.from({length:value.chunks},(_,n)=>JSON.parse(this.sql.exec('SELECT payload FROM records WHERE kind=? AND id=?','family-chunk',`${i}:${n}`).toArray()[0].payload)).join(''));return value;}
- put(k,i,v){const text=JSON.stringify(v);if(k!=='family')return this.sql.exec('INSERT OR REPLACE INTO records VALUES (?,?,?)',k,i,text);const chunks=Math.ceil(text.length/400000);this.ctx.storage.transactionSync(()=>{for(let n=0;n<chunks;n++)this.sql.exec('INSERT OR REPLACE INTO records VALUES (?,?,?)','family-chunk',`${i}:${n}`,JSON.stringify(text.slice(n*400000,(n+1)*400000)));this.sql.exec('INSERT OR REPLACE INTO records VALUES (?,?,?)',k,i,JSON.stringify({chunks}));});}
+ constructor(ctx,env){super(ctx,env);this.env=env;this.momentJobs=new Map();this.sql=ctx.storage.sql;this.sql.exec('CREATE TABLE IF NOT EXISTS records (kind TEXT, id TEXT, payload TEXT, PRIMARY KEY(kind,id))');}
+ get(k,i){const r=this.sql.exec('SELECT payload FROM records WHERE kind=? AND id=?',k,i).toArray()[0];if(!r)return null;const value=JSON.parse(r.payload);if(['family','book-share'].includes(k)&&value.chunks)return JSON.parse(Array.from({length:value.chunks},(_,n)=>JSON.parse(this.sql.exec('SELECT payload FROM records WHERE kind=? AND id=?',`${k}-chunk`,`${i}:${n}`).toArray()[0].payload)).join(''));return value;}
+ put(k,i,v){const text=JSON.stringify(v);if(!['family','book-share'].includes(k))return this.sql.exec('INSERT OR REPLACE INTO records VALUES (?,?,?)',k,i,text);const chunks=Math.ceil(text.length/400000);this.ctx.storage.transactionSync(()=>{for(let n=0;n<chunks;n++)this.sql.exec('INSERT OR REPLACE INTO records VALUES (?,?,?)',`${k}-chunk`,`${i}:${n}`,JSON.stringify(text.slice(n*400000,(n+1)*400000)));this.sql.exec('INSERT OR REPLACE INTO records VALUES (?,?,?)',k,i,JSON.stringify({chunks}));});}
  all(k){return this.sql.exec('SELECT id,payload FROM records WHERE kind=?',k).toArray().map(r=>k==='family'?this.get(k,r.id):JSON.parse(r.payload));}
+ visibleComment(c,member){return !c.recipientId||c.authorId===member.id||c.recipientId===member.id;}
  members(fid){return this.all('account').filter(a=>a.familyId===fid).map(a=>({id:a.id,name:a.name,role:a.role}));}
- async processMoment(fid,momentId,force=false){
+ processMoment(fid,momentId,force=false){
+  const key=`${fid}:${momentId}`;let pending=this.momentJobs.get(key);
+  if(!pending){pending=this.runMoment(fid,momentId,force).finally(()=>this.momentJobs.delete(key));this.momentJobs.set(key,pending);this.ctx.waitUntil?.(pending.catch(()=>{}));}
+  let timer;return Promise.race([pending,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Object.assign(Error('素材仍在整理，原始內容已保存，稍後可讀取結果。'),{status:504})),90000);})]).finally(()=>clearTimeout(timer));
+ }
+ async runMoment(fid,momentId,force=false){
   let f=this.get('family',fid),m=f.moments.find(m=>m.id===momentId);if(!m)fail('找不到這張紙條。',404);
   if(m.processing&&Date.now()-Date.parse(m.processing.at)<120000)return {moment:m,processing:true};
-  if(force)for(const audio of m.media)if(audio.kind==='audio'&&audio.rawOnly&&!audio.transcript){audio.transcriptReviewed=false;audio.rawOnly=false;}const job={id:id(),at:new Date().toISOString()};m.processing=job;this.put('family',fid,f);
+  if(force)for(const audio of m.media)if(audio.kind==='audio'&&audio.rawOnly&&!audio.transcript){audio.transcriptReviewed=false;audio.rawOnly=false;}
+  const job={id:id(),at:new Date().toISOString()};m.processing=job;this.put('family',fid,f);
+  const reserve=(field,limit)=>{const current=this.get('family',fid),day=dayAt(new Date().toISOString(),current.timezone);current.usage||={};current.usage[day]||={stories:0,transcriptions:0};current.usage[day][field]||=0;if(current.usage[day][field]>=limit)fail('今天的素材整理額度已用完，原始內容仍在，可手動更正。',429);current.usage[day][field]++;this.put('family',fid,current);};
   try{
-   for(let i=0;i<m.media.length;i++)if(m.media[i].kind==='audio'&&!m.media[i].transcript&&!m.media[i].transcriptReviewed){
-    const current=this.get('family',fid),day=dayAt(new Date().toISOString(),current.timezone);current.usage||={};current.usage[day]||={stories:0,transcriptions:0};if(current.usage[day].transcriptions>=20)fail('今天的語音整理額度已用完，原聲已保存，仍可自己補文字。',429);current.usage[day].transcriptions++;this.put('family',fid,current);
-    const result=await transcribe(this.env.AI,m.media[i].data,'zh');f=this.get('family',fid);const latest=f.moments.find(x=>x.id===momentId);
-    if(latest.processing?.id===job.id&&latest.media[i]?.data===m.media[i].data&&!latest.media[i].transcriptReviewed){latest.media[i].transcript=result.transcript;latest.revision=(latest.revision||1)+1;latest.updatedAt=new Date().toISOString();this.put('family',fid,f);}
+   for(let i=0;i<m.media.length;i++){
+    const source=m.media[i];
+    if(source.kind==='audio'&&!source.transcript&&!source.transcriptReviewed){
+     reserve('transcriptions',20);const result=await transcribe(this.env.AI,source.data,'zh');f=this.get('family',fid);const latest=f.moments.find(x=>x.id===momentId);
+     if(latest.processing?.id===job.id&&latest.media[i]?.data===source.data&&!latest.media[i].transcriptReviewed){latest.media[i].transcript=result.transcript;latest.revision=(latest.revision||1)+1;latest.updatedAt=new Date().toISOString();this.put('family',fid,f);}
+    }
+    const image=source.kind==='image'?(source.analysisImage||source.data):source.kind==='video'?source.preview?.data:null;
+    if(image&&!source.observationReviewed){
+     const sourceHash=await hash(image);if(source.observation?.sourceHash===sourceHash&&['ready','uncertain'].includes(source.observation.state))continue;
+     f=this.get('family',fid);if(f.visualModelGate&&!force)fail('照片理解需要管理者確認模型使用條款，原始素材已保存。',503);
+     reserve('visuals',20);let observation;
+     try{observation=await observeImage(this.env.AI,image);}catch(error){
+      f=this.get('family',fid);const latest=f.moments.find(x=>x.id===momentId),requiresTerms=/agree|licen[cs]e|acceptable use|terms|agreement/i.test(String(error.message));
+      if(requiresTerms)f.visualModelGate='terms-required';
+      if(latest.processing?.id===job.id&&!latest.media[i].observationReviewed)latest.media[i].observation={state:'failed',code:requiresTerms?'terms-required':'unavailable',sourceHash};
+      this.put('family',fid,f);if(requiresTerms)fail('照片理解需要管理者確認模型使用條款，原始素材已保存。',503);throw error;
+     }
+     f=this.get('family',fid);const latest=f.moments.find(x=>x.id===momentId),stored=latest.media[i];
+     if(latest.processing?.id===job.id&&!stored.observationReviewed&&(stored.kind==='image'?(stored.analysisImage||stored.data):stored.preview?.data)===image){stored.observation={...observation,sourceHash,at:new Date().toISOString(),...(source.kind==='video'?{frameSeconds:source.preview.seconds}:{} )};latest.revision=(latest.revision||1)+1;latest.updatedAt=new Date().toISOString();delete f.visualModelGate;this.put('family',fid,f);}
+    }
    }
    f=this.get('family',fid);m=f.moments.find(x=>x.id===momentId);if(m.processing?.id===job.id)delete m.processing;delete m.processError;
-   const words=[m.text,...m.media.map(a=>a.transcript||'')].join('\n');m.reminderHint=reminderHint(words,m.date,this.members(fid));this.put('family',fid,f);return {moment:m};
-  }catch(e){f=this.get('family',fid);m=f.moments.find(x=>x.id===momentId);if(m.processing?.id===job.id)delete m.processing;m.processError='原聲已保存，文字還沒整理好，可以稍後重試。';this.put('family',fid,f);throw e;}
+   const words=[m.text,...m.media.filter(a=>a.kind==='audio').map(a=>a.transcript||'')].join('\n');m.reminderHint=reminderHint(words,m.date,this.members(fid));this.put('family',fid,f);return {moment:m};
+  }catch(e){f=this.get('family',fid);m=f.moments.find(x=>x.id===momentId);if(m.processing?.id===job.id)delete m.processing;m.processError=e.status===503?e.message:'部分素材尚未整理，原始內容仍完整保存，可重試或自己補文字。';this.put('family',fid,f);throw e;}
  }
  async generate(fid,date){
   let f=this.get('family',fid),sources=sourcesFor(f,date),key=sourceKey(sources),d=f.diaries.find(d=>d.date===date);
-  if(!sources.length||!active(f,new Date().toISOString())||d?.sourceKey===key||d?.pending?.sourceKey===key)return d||null;
+  const needsProcessing=sources.some(m=>m.media.some(a=>(a.kind==='image'||(a.kind==='video'&&a.preview?.data))&&!a.observation));
+  if(!sources.length||!active(f,new Date().toISOString())||(!needsProcessing&&(d?.sourceKey===key||d?.pending?.sourceKey===key)))return d||null;
   if(f.jobs[date]&&Date.now()-Date.parse(f.jobs[date].startedAt)<120000)return d||null;
-  const usageDay=dayAt(new Date().toISOString(),f.timezone);f.usage||={};f.usage[usageDay]||={stories:0,transcriptions:0};if(f.usage[usageDay].stories>=30)fail('今日已達測試版30次整理上限，仍可手動編輯。',429);f.usage[usageDay].stories++;
-  const job={id:id(),startedAt:new Date().toISOString(),key};f.jobs[date]=job;this.put('family',fid,f);
+  const originalIds=new Set(sources.map(m=>m.id)),job={id:id(),startedAt:new Date().toISOString(),key};f.jobs[date]=job;this.put('family',fid,f);
   try{
-   for(const source of sources)for(const audio of source.media.filter(m=>m.kind==='audio'&&!m.transcript&&!m.transcriptReviewed)){
-    const fresh=this.get('family',fid);fresh.usage[usageDay]||={stories:0,transcriptions:0};if(fresh.usage[usageDay].transcriptions>=20)fail('今日已達測試版20次轉寫上限。原聲已保留，可手動補文字。',429);fresh.usage[usageDay].transcriptions++;this.put('family',fid,fresh);
-    const result=await transcribe(this.env.AI,audio.data,'zh');audio.transcript=result.transcript;
-    const latest=this.get('family',fid),latestMoment=latest.moments.find(m=>m.id===source.id),stored=latestMoment?.media.find(m=>m.kind==='audio'&&m.data===audio.data);if(stored&&!stored.transcriptReviewed&&(latestMoment.revision||1)===(source.revision||1)){stored.transcript=result.transcript;latestMoment.revision=(latestMoment.revision||1)+1;source.revision=latestMoment.revision;}this.put('family',fid,latest);
-   }
-   const notes=plainStory(f,sources);let body=notes,mode='source-layout';
-   if(notes.trim()&&sources.some(s=>s.text||s.media.some(m=>m.transcript))){
-    if(notes.length>22000)fail('今日文字較多，請分成不同日期或先手動整理；原素材已保存。',413);
-    const result=await arrange(this.env.AI,{title:`${f.child}的日記`,date,place:'',speaker:'家人',note:notes,transcript:''},'zh');body=result.draft;mode='ai-story';
-   }
+   for(const source of sources){try{const r=await this.processMoment(fid,source.id);if(r.processing)fail('素材還在整理中，原始內容已保存，請稍後讀取結果。',409);}catch(error){if(!source.text&&!source.media.some(m=>m.kind==='audio'&&(m.transcript||m.transcriptReviewed)))throw error;}}
+   f=this.get('family',fid);sources=sourcesFor(f,date).filter(m=>originalIds.has(m.id));if(!sources.length){delete f.jobs[date];this.put('family',fid,f);return null;}
+   const notes=plainStory(f,sources);if(notes.length>22000)fail('今天的內容較多，請先分日整理；原始素材已保存。',413);
+   const usageDay=dayAt(new Date().toISOString(),f.timezone);f.usage||={};f.usage[usageDay]||={stories:0,transcriptions:0};if(f.usage[usageDay].stories>=30)fail('今日AI整理額度已用完，仍可手動編輯。',429);f.usage[usageDay].stories++;this.put('family',fid,f);
+   let body,events,mode;
+   const hasVisual=sources.some(m=>m.media.some(a=>a.observation?.facts?.length));
+   if(hasVisual||sources.length>1){const result=await arrangeSources(this.env.AI,sources);({body,events,mode}=result);}
+   else if(sources.some(m=>m.text||m.media.some(a=>a.transcript))){const result=await arrange(this.env.AI,{title:`${f.child}的日記`,date,place:'',speaker:'家人',note:notes,transcript:''},'zh');body=result.draft;mode='ai-story';}
+   else{body=notes;mode='source-layout';}
    f=this.get('family',fid);if(f.jobs[date]?.id!==job.id)return null;
-   // Integrate exactly the source snapshot seen by the model. Late arrivals stay pending.
    const current=f.moments;f.moments=sources;d=integrate(f,date,body,new Date().toISOString());f.moments=current;
-   if(d)d.generationMode=mode;delete f.jobs[date];delete f.lastError;this.put('family',fid,f);return d;
-  }catch(e){f=this.get('family',fid);if(f.jobs[date]?.id===job.id){delete f.jobs[date];f.lastError='故事整理暫時失敗，原素材已保存，請稍後重試。';this.put('family',fid,f);}throw e;}
+   if(d){d.generationMode=mode;const version=d.pending?.sourceKey===sourceKey(sources)?d.pending:d.current;if(events)version.events=events;version.preparedThrough=sources.map(m=>m.updatedAt||m.createdAt).sort().at(-1);}
+   delete f.jobs[date];delete f.lastError;this.put('family',fid,f);return d;
+  }catch(e){f=this.get('family',fid);if(f.jobs[date]?.id===job.id){delete f.jobs[date];f.lastError=e.status===503?e.message:'故事整理尚未完成，原始素材已保存，可以稍後重試。';this.put('family',fid,f);}throw e;}
  }
  async fetch(request){try{return await this.handle(request);}catch(e){return json({error:e.status?e.message:'目前無法完成，請保留輸入並稍後再試。',...(e.fieldErrors?{fieldErrors:e.fieldErrors}:{})},e.status||400);}}
  async handle(request){
@@ -63,6 +88,11 @@ export class DailyWarehouse extends DurableObject {
    }return json({generated,failed});
   }
   let body={};if(request.method==='POST'){const reader=request.body?.getReader();let size=0;const parts=[];if(reader){while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>12*1024*1024){await reader.cancel();fail('一次傳送上限12MB，請分次留下片刻。',413);}parts.push(value);}}const bytes=new Uint8Array(size);let offset=0;for(const p of parts){bytes.set(p,offset);offset+=p.length;}body=JSON.parse(new TextDecoder().decode(bytes)||'{}');}
+  if(path==='/api/shared-book'){
+   if(!/^[a-f0-9]{48}$/i.test(body.token||''))fail('分享連結無效，請向分享者索取新連結。',404);
+   const share=this.get('book-share',await hash(body.token));if(!share||share.revoked||Date.parse(share.expiresAt)<Date.now())fail('分享已到期或已被收回，請向分享者索取新連結。',404);
+   return json({collection:share.collection,media:share.media,child:share.child});
+  }
   if(['/api/register','/api/login','/api/join'].includes(path)){
    const handle=normalizeHandle(body.handle),p=String(body.password||''),errors=authErrors(body,path.split('/').at(-1));
    if(Object.keys(errors).length)throw Object.assign(new Error('請一起核對下面幾個地方。'),{status:400,fieldErrors:errors});
@@ -75,7 +105,7 @@ export class DailyWarehouse extends DurableObject {
      const inviteHash=await hash(String(body.invite||'')),invite=this.get('invite',inviteHash);
      if(!invite||invite.used||Date.parse(invite.expiresAt)<Date.now())fail('邀請碼無效或已使用，請家人重新建立。',403);
      f=this.get('family',invite.familyId);role='member';invite.used=true;this.put('invite',inviteHash,invite);
-    }else {f=newFamily({id:id(),name:String(body.family||`${String(body.child||'寶寶')}的家`).slice(0,60),child:String(body.child||'寶寶').slice(0,40),now});role='owner';this.put('family',f.id,f);}
+    }else {try{new Intl.DateTimeFormat('en',{timeZone:body.timezone||'Asia/Taipei'});}catch{fail('家庭時區無效，請重新選擇。');}f=newFamily({id:id(),name:String(body.family||`${String(body.child||'寶寶')}的家`).slice(0,60),child:String(body.child||'寶寶').slice(0,40),now,timezone:body.timezone||'Asia/Taipei'});role='owner';this.put('family',f.id,f);}
     if(this.get('account',handle))fail('登入名稱已存在。',409);
     account={id:id(),handle,name:String(body.name||'家人').slice(0,40),familyId:f.id,role,salt,password:digest};this.put('account',handle,account);
    }
@@ -88,8 +118,8 @@ export class DailyWarehouse extends DurableObject {
   const account=this.get('account',session.accountHandle);if(!account)fail('請重新登入。',401);
   let f=this.get('family',account.familyId);const member={id:account.id,name:account.name,role:account.role};
   if(path==='/api/logout'){this.sql.exec('DELETE FROM records WHERE kind=? AND id=?','session',await hash(sessionToken));return json({ok:true},200,{'set-cookie':'daily_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});}
-  if(path==='/api/state'){for(const d of f.diaries)d.hasNewSources=sourceKey(sourcesFor(f,d.date))!==(d.pending?.sourceKey||d.sourceKey);return json({version:VERSION,member,family:f,today:dayAt(now,f.timezone),members:this.members(f.id),trialActive:active(f,now)});}
-  if(path==='/api/export')return json({version:VERSION,family:f});
+  if(path==='/api/state'){for(const d of f.diaries)d.hasNewSources=sourceKey(sourcesFor(f,d.date))!==(d.pending?.sourceKey||d.sourceKey);return json({version:VERSION,member,family:{...f,comments:f.comments.filter(c=>this.visibleComment(c,member))},today:dayAt(now,f.timezone),members:this.members(f.id),trialActive:active(f,now)});}
+  if(path==='/api/export')return json({version:VERSION,family:{...f,comments:f.comments.filter(c=>this.visibleComment(c,member))}});
   if(path==='/api/invite'){
    if(account.role!=='owner')fail('請由家庭管理者建立邀請。',403);
    const code=token();this.put('invite',await hash(code),{familyId:f.id,used:false,expiresAt:new Date(Date.now()+7*86400000).toISOString()});return json({code});
@@ -102,8 +132,9 @@ export class DailyWarehouse extends DurableObject {
   if(path==='/api/process-moment')return json(await this.processMoment(f.id,body.id,body.force===true));
   if(path==='/api/moment-edit'){
    const m=editMoment(f,body,member,now);for(const [index,text] of Object.entries(body.transcripts||{})){const media=m.media[Number(index)];if(media?.kind==='audio'){media.transcript=String(text).slice(0,8000);media.transcriptReviewed=true;}}
-   m.reminderHint=reminderHint([m.text,...m.media.map(a=>a.transcript||'')].join('\n'),m.date,this.members(f.id));this.put('family',f.id,f);return json({moment:m});
+   for(const [index,value] of Object.entries(body.visualFacts||{})){const media=m.media[Number(index)];if(media&&['image','video'].includes(media.kind)){media.observation={...(media.observation||{}),state:'ready',facts:String(value).split('\n').map(v=>v.trim()).filter(Boolean).slice(0,8),uncertain:[]};media.observationReviewed=true;}}m.reminderHint=reminderHint([m.text,...m.media.filter(a=>a.kind==='audio').map(a=>a.transcript||'')].join('\n'),m.date,this.members(f.id));this.put('family',f.id,f);return json({moment:m});
   }
+  if(path==='/api/moment-archive'){const m=f.moments.find(m=>m.id===body.id);if(!m)fail('找不到紙條。',404);if(m.authorId!==member.id&&member.role!=='owner')fail('只能處理自己留下的紙條。',403);if(body.restore)delete m.archivedAt;else m.archivedAt=now;m.revision=(m.revision||1)+1;this.put('family',f.id,f);return json({ok:true});}
   if(path==='/api/receipt'){
    const m=f.moments.find(m=>m.id===body.id);if(!m)fail('找不到這張紙條。',404);
    if(body.kind==='seen'){m.seenBy||=[];if(!m.seenBy.some(r=>r.memberId===member.id&&r.revision===(m.revision||1)))m.seenBy.push({memberId:member.id,revision:m.revision||1,at:now});}
@@ -115,7 +146,7 @@ export class DailyWarehouse extends DurableObject {
    const usageDay=dayAt(now,f.timezone);f.usage||={};f.usage[usageDay]||={stories:0,transcriptions:0};if(f.usage[usageDay].transcriptions>=20)fail('今日已達測試版20次轉寫上限，仍可手動輸入。',429);f.usage[usageDay].transcriptions++;this.put('family',f.id,f);return json(await transcribe(this.env.AI,body.audio,'zh'));
   }
   if(path==='/api/generate'){if(!/^\d{4}-\d{2}-\d{2}$/.test(body.date||''))fail('請選日期。');const diary=await this.generate(f.id,body.date);return json({diary});}
-  if(path==='/api/edit'){const diary=edit(f,body,now);this.put('family',f.id,f);return json({diary});}
+  if(path==='/api/edit'){if(Array.isArray(body.selectedMedia)){const d=f.diaries.find(d=>d.id===body.id);const allowed=new Set(versionMedia(f,{sourceIds:d?.current.sourceIds||[]}).map(m=>m.key));if(body.selectedMedia.some(key=>!allowed.has(key)))fail('選取的照片或原聲不屬於這篇日記。');}const diary=edit(f,body,now);this.put('family',f.id,f);return json({diary});}
   if(path==='/api/adopt'){
    const d=f.diaries.find(d=>d.id===body.id);if(!d?.pending)fail('目前沒有更新草稿。');if(d.current.number!==body.baseRevision)fail('家人已更新，請重新載入。',409);
    d.current={...d.pending,number:d.versions.length+1,kind:'manual'};d.versions.push(d.current);d.sourceKey=d.current.sourceKey;d.pending=null;d.confirmedAt=now;this.put('family',f.id,f);return json({ok:true});
@@ -123,8 +154,8 @@ export class DailyWarehouse extends DurableObject {
   if(path==='/api/settings'){if(account.role!=='owner')fail('請由管理者調整。',403);if(!/^([01]\d|2[0-3]):(00|15|30|45)$/.test(body.evening||''))fail('請選每15分鐘的時刻。');try{dayAt(now,body.timezone);}catch{fail('時區無效。');}f.evening=body.evening;f.timezone=body.timezone;}
   else if(path==='/api/comment'){
    if(!String(body.text||'').trim())fail('請輸入留言。');const prior=f.comments.find(c=>c.requestId===body.requestId&&c.authorId===member.id);if(prior)return json({ok:true});
-   f.comments.push({id:id(),requestId:body.requestId,authorId:member.id,author:member.name,text:String(body.text).slice(0,1000),...(body.momentId&&f.moments.some(m=>m.id===body.momentId)?{momentId:body.momentId}:{}),createdAt:now,readBy:[member.id]});
-  }else if(path==='/api/read'){f.comments.forEach(c=>{if(!c.readBy.includes(member.id))c.readBy.push(member.id);});}
+   if(body.recipientId&&!this.members(f.id).some(m=>m.id===body.recipientId))fail('請選擇這個家庭的收件人。');f.comments.push({...(body.recipientId?{recipientId:body.recipientId}:{}),id:id(),requestId:body.requestId,authorId:member.id,author:member.name,text:String(body.text).slice(0,1000),...(body.momentId&&f.moments.some(m=>m.id===body.momentId)?{momentId:body.momentId}:{}),createdAt:now,readBy:[member.id]});
+  }else if(path==='/api/read'){f.comments.filter(c=>this.visibleComment(c,member)).forEach(c=>{if(!c.readBy.includes(member.id))c.readBy.push(member.id);});}
   else if(path==='/api/task'){
    if(!String(body.text||'').trim()||!this.all('account').some(a=>a.familyId===f.id&&a.id===body.assigneeId))fail('請填內容及選擇家人。');
    const prior=f.tasks.find(t=>(body.requestId&&t.requestId===body.requestId&&t.authorId===member.id)||(body.sourceMomentId&&t.sourceMomentId===body.sourceMomentId));if(prior)return json({ok:true,task:prior});
@@ -133,9 +164,19 @@ export class DailyWarehouse extends DurableObject {
    const task={id:id(),requestId:body.requestId,authorId:member.id,text:String(body.text).slice(0,500),assigneeId:body.assigneeId,dueAt:body.dueAt,status:'unread',createdAt:now,...(moment?{sourceMomentId:moment.id}:{})};f.tasks.push(task);if(moment)moment.reminderTaskId=task.id;this.put('family',f.id,f);return json({ok:true,task});
   }else if(path==='/api/task-status'){
    const task=f.tasks.find(t=>t.id===body.id);if(!task||![task.assigneeId].includes(member.id))fail('只有被指派的家人能更新此提醒。',403);if(!['read','accepted','done'].includes(body.status))fail('狀態無效。');task.status=body.status;
+  }else if(path==='/api/book-share'){
+   const collection=f.collections.find(c=>c.id===body.id);if(!collection)fail('找不到這本故事集。',404);
+   const secret=token(),shareId=await hash(secret),media={},snapshot=JSON.parse(JSON.stringify(collection));
+   snapshot.chapters=snapshot.chapters.map(ch=>{const selected=versionMedia(f,ch);for(const m of selected)media[m.key]={kind:m.kind,data:m.data};return {...ch,mediaKeys:selected.map(m=>m.key)};});
+   delete snapshot.authorId;delete snapshot.requestId;
+   const share={familyId:f.id,authorId:member.id,bookId:collection.id,expiresAt:new Date(Date.now()+7*86400000).toISOString(),child:f.child,collection:snapshot,media};
+   this.put('book-share',shareId,share);return json({id:shareId,token:secret,expiresAt:share.expiresAt});
+  }else if(path==='/api/book-share-revoke'){
+   const share=this.get('book-share',body.id);if(!share||share.familyId!==f.id)fail('找不到這份分享。',404);if(share.authorId!==member.id&&member.role!=='owner')fail('請由分享者或家庭管理者收回。',403);share.revoked=true;this.put('book-share',body.id,share);return json({ok:true});
   }else if(path==='/api/collection'){
-   const ids=[...new Set(body.diaryIds||[])];if(!ids.length||ids.some(i=>!f.diaries.some(d=>d.id===i)))fail('請選至少一篇日記。');
-   const c={id:id(),title:String(body.title||`${f.child}的小日子`).slice(0,100),createdAt:now,chapters:ids.map(i=>{const d=f.diaries.find(d=>d.id===i);return {date:d.date,...d.current};})};f.collections.push(c);
+   const prior=body.requestId&&f.collections.find(c=>c.requestId===body.requestId&&c.authorId===member.id);if(prior)return json({ok:true,collection:prior});
+   for(const [diaryId,revision] of Object.entries(body.expectedRevisions||{}))if(f.diaries.find(d=>d.id===diaryId)?.current.number!==revision)fail('家人更新了日記，你的編排仍保留。請重新預覽最新版本後保存。',409);
+   const book=bookSnapshot(f,body),collection={id:id(),requestId:body.requestId,authorId:member.id,createdAt:now,...book};f.collections.push(collection);this.put('family',f.id,f);return json({ok:true,collection});
   }else fail('找不到操作。',404);
   this.put('family',f.id,f);return json({ok:true});
  }

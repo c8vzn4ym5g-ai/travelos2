@@ -1,3 +1,19 @@
+# Current candidate: 0.3.0-rc1 / LOCAL ONLY, independent QC pending
+
+2026-11-05. This supersedes the candidate identity, not the last verified live release below. Sole integration writer: root. Local branch `codex/little-days-v2-closeout`; preserved release branch `codex/little-days-v025-baseline`. Authorized remote target remains ONLY `codex/baby-daily-mobile` and preview Worker `travelos-baby-daily-preview`. No original site changed. No deployment or remote synchronization performed in this closeout.
+
+Stable local entry: http://localhost:3358/ . Persistent QC SQLite retained; never reset. Supervisor is bounded to 30 minutes; use `node daily/run-local.mjs` if its owned lease has ended. Local AI is deterministic synthetic-test-only: never cite its image facts or prose as real inference evidence.
+
+Implemented candidate: source-page action bindings and context-aware return; author HH:mm; family-time manual reminders; empty-day generation recovery; chunk-journal recording interruption recovery; private family comments; recoverable archive; selected-media manual revisions; explicit diary conflict comparison/rebase preserving both versions; two-day ordered/template/cover pre-save book preview, snapshots, reopen and expiring revocable reader share; capture upload progress/cancel/idempotent retry; home-screen manifest/icons and optional instructions. Image requests include actual downscaled pixels, original retained; video uses one sampled frame explicitly labelled as such. Human corrections protect image observations. Source grouping requires a literal shared subject, then a separate grounded prose call. New service/provider/billing/terms acceptance not introduced.
+
+Verified: 17 Node tests through the unchanged CI entry command; syntax and diff checks. HTTP tests cover private comments, recoverable notes, conflict rebase with both versions, ordered two-day book snapshots, public read isolation and revocation. Browser: source->note->source correct return; pure synthetic image upload auto-processing; two-day book order/template/cover preview, save, reload and reopen. These browser operations use the local adapter. Independent QC has not yet returned final acceptance on rc1.
+
+Remaining gates: live vision/model agreement availability and natural diary quality; physical recording interruptions/camera/home-screen install and LINE/WhatsApp browsers; browser cancellation and simultaneous diary-editor rebase regression; independent complete A-D journeys. Prose fallback/local adapter still displays source-style evidence when no usable narrative is returned; do not claim this meets final natural-story quality. Existing 20MB family storage is a test cap, not commercially usable long-term capacity. No billing enabled.
+
+Publishing constraint: prior GitHub ls-remote to github.com:443 was blocked by network policy. Do not substitute connectors/other routes to bypass that denied read. Exact repo/branch authorization was supplied again, but it does not remove the network policy. Candidate is local; live remains last verified 0.2.5. A supported authorized network/deployment path must be available before claiming synchronization/deployment. Never send Meta `agree`; if a normal bounded image call requests new license acceptance, report the exact gate to Owner.
+
+---
+
 # Current truth: 0.2.5 / shareable platform and private invitation
 
 Supersedes earlier release identity below. App `8c398174cdc6fee9b008d97be369dba8821507cf`; run `41784513478`, job `126423454053`: six CI tests/syntax and isolated deployment succeeded. Original sites/baseline unchanged.

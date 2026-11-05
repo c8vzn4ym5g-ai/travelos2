@@ -1,0 +1,22 @@
+{
+  "candidate": "daily-mobile-0.3.0-rc1",
+  "environment": "isolated localhost:3358; persistent QC SQLite preserved",
+  "automated": {
+    "passed": 17,
+    "command": "node --experimental-loader ./daily/test-loader.mjs --test daily/domain.test.mjs daily/http.test.mjs"
+  },
+  "browserPassed": [
+    "source -> note -> exact source context return",
+    "synthetic image raw upload -> automatic deterministic adapter observation",
+    "two-day book chapter order, album template, synthetic cover, pre-save preview, save and reload reopen"
+  ],
+  "notPassedOrNotTested": [
+    "real AI image/prose quality",
+    "physical phone or embedded messenger browsers",
+    "browser cancellation and two simultaneous editor rebase",
+    "independent final journeys"
+  ],
+  "deployed": false,
+  "synced": false,
+  "originalPreserved": true
+}

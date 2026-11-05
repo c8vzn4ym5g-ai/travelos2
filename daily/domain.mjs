@@ -1,10 +1,10 @@
-export const VERSION = 'daily-mobile-0.2.5';
+export const VERSION = 'daily-mobile-0.3.0-rc1';
 export const dayAt = (now, zone) => new Intl.DateTimeFormat('en-CA', {timeZone:zone, year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(now));
 export function newFamily({id, name, child, now, timezone='Asia/Taipei'}) {
   return {id,name,child,timezone,evening:'20:00',createdAt:now,trialEndsAt:new Date(Date.parse(now)+30*86400000).toISOString(),moments:[],diaries:[],comments:[],tasks:[],collections:[],jobs:{}};
 }
 export function active(f, now) { return Date.parse(now)<Date.parse(f.trialEndsAt); }
-export function sourcesFor(f, date) { return f.moments.filter(m=>m.date===date); }
+export function sourcesFor(f, date) { return f.moments.filter(m=>m.date===date&&!m.archivedAt); }
 export function sourceKey(sources) { return sources.map(m=>(m.revision||1)>1?`${m.id}:v${m.revision}`:m.id).sort().join('|'); }
 export function receive(f, input, member, now, id) {
   const prior=f.moments.find(m=>m.requestId===input.requestId&&m.authorId===member.id);
@@ -27,10 +27,10 @@ export function integrate(f,date,body,now) {
   else {d.current=version;d.sourceKey=key;}
   d.versions.push(version);return d;
 }
-export function edit(f,{id,baseRevision,title,body},now) {
+export function edit(f,{id,baseRevision,title,body,selectedMedia},now) {
   const d=f.diaries.find(d=>d.id===id); if(!d)throw new Error('找不到日記。');
   if(d.current.number!==baseRevision)throw Object.assign(new Error('家人已更新這篇日記。你的文字仍在畫面上；請另存草稿或重新載入後合併。'),{status:409});
-  const v={...d.current,number:d.versions.length+1,title:String(title).slice(0,150),body:String(body).slice(0,16000),kind:'manual',createdAt:now};
+  const v={...d.current,number:d.versions.length+1,title:String(title).slice(0,150),body:String(body).slice(0,16000),kind:'manual',createdAt:now,...(Array.isArray(selectedMedia)?{selectedMedia:[...new Set(selectedMedia)]}:{})};
   d.versions.push(v);d.current=v;d.confirmedAt=now;return d;
 }
 export function plainStory(f,sources) {
