@@ -1,3 +1,7 @@
+import './book-preview.test.mjs';
+import './writer-state.test.mjs';
+import './capture-session.test.mjs';
+import './capture-outbox.test.mjs';
 import './capture.test.mjs';
 import './family-time.test.mjs';
 import './recording.test.mjs';

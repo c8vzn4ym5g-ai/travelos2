@@ -13,6 +13,9 @@ export async function readDraft(key) {
   try { return await new Promise((resolve,reject) => {const r=db.transaction('drafts').objectStore('drafts').get(key);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);}); }
   finally { db.close(); }
 }
+export async function listDrafts(prefix){
+ const db=await open();try{return await new Promise((resolve,reject)=>{const values=[],tx=db.transaction('drafts'),r=tx.objectStore('drafts').openCursor(IDBKeyRange.bound(prefix,prefix+'\uffff'));r.onsuccess=()=>{const c=r.result;if(c){values.push(c.value);c.continue();}};tx.oncomplete=()=>resolve(values);tx.onerror=()=>reject(tx.error);});}finally{db.close();}
+}
 export async function writeDraft(key,value) {
   const db = await open();
   try { await new Promise((resolve,reject) => {const tx=db.transaction('drafts','readwrite');if(value===null)tx.objectStore('drafts').delete(key);else tx.objectStore('drafts').put(value,key);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);}); }
