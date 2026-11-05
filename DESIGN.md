@@ -1,3 +1,25 @@
+# Active visual contract: V0.6-HOLISTIC-1 (2026-11-05)
+
+This section explicitly supersedes all earlier visual freezes, Claude-style restraint, Today/dock preservation and layered-polish proportions below. Earlier behavior/privacy/capture contracts remain binding. Baseline4d05d13 is the rollback truth. This is a playful family creator space for parents and grandparents, not an administration workspace or a document page with corner mascots.
+
+One authored stylesheet /holistic.css replaces the three previous stylesheet links. Old files are preserved for lineage only and are not loaded. All original73 fixed controls, dynamic auth fields, event handlers, destinations, filters, paper/photo split, capture completion semantics, immutable saves/errors, read/private/played/task distinctions remain. A DOM-only paintScene presenter sets page colour and title; auth clears any family scene title. No framework/library/service/font changes.
+
+Whole-scene composition: modern picture-book home, brand26px system750–800, title28–30px, UI16–17px600–700, metadata>=13px, existing WenKai memory content only. Ink#203D32/action#285A40; home apricot#F9DBC7, diary/album sky#D6EBF0, family mint#DCEBCF. Header brand/title/scene normally112px, two-line family title120px, full content may grow for extreme names/accessibility rather than clip. Original four navigation destinations/order remain,60px tall with27px pictograms. Fixed capture remains a single three-way one-touch dock; each72px soft filled key,31px icons/18px labels, apricot#F4B99A/mint#B9DDBD/yellow#F4D86B, plus safe-area. No delayed callbacks or extra confirmation.
+
+Home: all existing filter/history album controls remain in44px row. Zero-photo summary stays absent; populated single52px row/max3 thumbnails. Existing date grouping/order/authorship retained. Normal390/320 synthetic first-paper top measured~301px. Modern transparent paper master replaces antique paper edges, with stable four pastel background-only hue variants, DOM handwritten text, no duplicate transcript or players. Individual record still one paper; photos remain album-only. No fake records/portraits/wording from the concept image.
+
+Cross-page: diary date bookmarks and a complete bound opening with cloth edge/rings/date tab/body/media and original large edit/source actions; same writing fields/history/conflicts. Books use the existing vertical list, cloth covers, true title/child/days and chapters, same select/preview/save/reopen path. Album remains original date-grouped3columns, white photo rims, no rotated/cropped new content. Family integrates actual identity/neutral member stamps, actual comment time/read captions, shared letter input with visible boundary/private disclosure/56px submit; later task/invite/story-time sections stay in original order and permissions. Auth preserves3 modes, exact fields and safety copy, no new account needed for visual checks.
+
+Assets: parent-generated sunny-window-scene.png and modern-paper-master.png originals remain outside repo. Technical derivatives only: sunny-window-scene.jpg900x300/31534bytes, transparent modern-paper.png384x384/141575bytes. Scene alpha composited onto the specified apricot canvas for JPEG; no creative repaint. Existing transparent book-bird/pair reused. Images contain no user material and are generated once, never per record. Raw files and obsolete CSS are not embedded as UI screenshots; all product text/controls are live DOM.
+
+Accessibility/verification: body min-height100dvh and page-coloured safe-area; family title breaks after comma; focus/reduced-motion/hidden/inert/overlay and keyboard scroll preserved. Real desktop/browser320/390 plus public behavior tests and independent journey QC. Physical iPhone/camera/mic/models are not newly verified. Scoped detector found one intentional exception: a12px actual book spine in book-cover, explicitly required by the book metaphor, not a general card accent. No global detector suppression.
+
+Reference: little-days-independent-qc/holistic-concept-3screens.png is concept-only; its random people/photos/copy/UI blocks are not product data. Candidate inventory/fingerprints at daily/scratch/redesign-baseline.json; behavior gate daily/scratch/holistic-scope-check.cjs.
+
+---
+
+## Historical contracts (visual portions superseded above; behavior still authoritative)
+
 # Little Days active capture and album contract — 2026-11-05
 
 This supersedes earlier photo-on-paper and per-shot navigation instructions. Keep existing backend, privacy, media, human diary revisions and books. One product writer; local candidate and independent acceptance before same-site publication.
