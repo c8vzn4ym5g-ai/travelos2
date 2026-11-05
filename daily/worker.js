@@ -136,7 +136,7 @@ export class DailyWarehouse extends DurableObject {
   if(path==='/api/moment-archive'){const m=f.moments.find(m=>m.id===body.id);if(!m)fail('找不到紙條。',404);if(m.authorId!==member.id&&member.role!=='owner')fail('只能處理自己留下的紙條。',403);if(body.restore)delete m.archivedAt;else m.archivedAt=now;m.revision=(m.revision||1)+1;this.put('family',f.id,f);return json({ok:true});}
   if(path==='/api/receipt'){
    const m=f.moments.find(m=>m.id===body.id);if(!m)fail('找不到這張紙條。',404);
-   if(body.kind==='seen'){m.seenBy||=[];if(!m.seenBy.some(r=>r.memberId===member.id&&r.revision===(m.revision||1)))m.seenBy.push({memberId:member.id,revision:m.revision||1,at:now});}
+   if(body.kind==='seen'){if(m.authorId===member.id)return json({ok:true});m.seenBy||=[];if(!m.seenBy.some(r=>r.memberId===member.id&&r.revision===(m.revision||1)))m.seenBy.push({memberId:member.id,revision:m.revision||1,at:now});}
    else if(body.kind==='played'&&m.media[body.mediaIndex]?.kind==='audio'&&Number(body.playedSeconds)>=1){m.playedBy||=[];if(!m.playedBy.some(r=>r.memberId===member.id&&r.mediaIndex===body.mediaIndex))m.playedBy.push({memberId:member.id,mediaIndex:body.mediaIndex,at:now});}
    else fail('播放或閱讀狀態無效。');this.put('family',f.id,f);return json({ok:true});
   }
@@ -153,8 +153,8 @@ export class DailyWarehouse extends DurableObject {
   if(path==='/api/settings'){if(account.role!=='owner')fail('請由管理者調整。',403);if(!/^([01]\d|2[0-3]):(00|15|30|45)$/.test(body.evening||''))fail('請選每15分鐘的時刻。');try{dayAt(now,body.timezone);}catch{fail('時區無效。');}f.evening=body.evening;f.timezone=body.timezone;}
   else if(path==='/api/comment'){
    if(!String(body.text||'').trim())fail('請輸入留言。');const prior=f.comments.find(c=>c.requestId===body.requestId&&c.authorId===member.id);if(prior)return json({ok:true});
-   if(body.recipientId&&!this.members(f.id).some(m=>m.id===body.recipientId))fail('請選擇這個家庭的收件人。');f.comments.push({...(body.recipientId?{recipientId:body.recipientId}:{}),id:id(),requestId:body.requestId,authorId:member.id,author:member.name,text:String(body.text).slice(0,1000),...(body.momentId&&f.moments.some(m=>m.id===body.momentId)?{momentId:body.momentId}:{}),createdAt:now,readBy:[member.id]});
-  }else if(path==='/api/read'){f.comments.filter(c=>this.visibleComment(c,member)).forEach(c=>{if(!c.readBy.includes(member.id))c.readBy.push(member.id);});}
+   if(body.recipientId&&!this.members(f.id).some(m=>m.id===body.recipientId))fail('請選擇這個家庭的收件人。');f.comments.push({...(body.recipientId?{recipientId:body.recipientId}:{}),id:id(),requestId:body.requestId,authorId:member.id,author:member.name,text:String(body.text).slice(0,1000),...(body.momentId&&f.moments.some(m=>m.id===body.momentId)?{momentId:body.momentId}:{}),createdAt:now,readBy:[]});
+  }else if(path==='/api/read'){const ids=new Set(Array.isArray(body.ids)?body.ids.slice(0,100):[]);f.comments.filter(c=>ids.has(c.id)&&c.authorId!==member.id&&this.visibleComment(c,member)).forEach(c=>{c.readBy||=[];if(!c.readBy.includes(member.id))c.readBy.push(member.id);});}
   else if(path==='/api/task'){
    if(!String(body.text||'').trim()||!this.all('account').some(a=>a.familyId===f.id&&a.id===body.assigneeId))fail('請填內容及選擇家人。');
    const prior=f.tasks.find(t=>(body.requestId&&t.requestId===body.requestId&&t.authorId===member.id)||(body.sourceMomentId&&t.sourceMomentId===body.sourceMomentId));if(prior)return json({ok:true,task:prior});

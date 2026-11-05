@@ -1,4 +1,5 @@
 import './album-model.test.mjs';
+import './visible-reads.test.mjs';
 import './camera-ui.test.mjs';
 import './camera-session.test.mjs';
 import './photo-visibility.test.mjs';
@@ -25,6 +26,37 @@ const completion=value=>({choices:[{finish_reason:'stop',message:{content:typeof
 const env={AI:{async run(model,input){if(model.includes('whisper'))return {text:'虛構口述'};const message=input.messages.at(-1).content;if(Array.isArray(message))return {...completion({facts:['桌上有橘子與藍色杯子'],uncertain:[]}),_testAdapter:true};const content=JSON.parse(message);if(input.messages[0].content.includes('paragraphs'))return completion({paragraphs:content.map(e=>({eventIndices:[e.index],text:'今天留下了這段生活記錄。'}))});return completion({groups:[]});}},ASSETS:{fetch:async()=>new Response('test')}};
 const store=new DailyWarehouse(ctx,env);env.DAILY_WAREHOUSE={idFromName:n=>n,get:()=>store};
 async function call(path,body,cookie){const headers={};if(cookie)headers.cookie=cookie;if(body){headers.origin=origin;headers['content-type']='application/json';}const response=await worker.fetch(new Request(origin+'/api/'+path,{method:body?'POST':'GET',headers,body:body?JSON.stringify(body):undefined}),env);const data=await response.json();return {response,data,cookie:response.headers.get('set-cookie')?.split(';')[0]};}
+test('read receipts target viewed IDs, exclude authors and preserve private messages and tasks',async()=>{
+ const a=await call('register',{handle:'read-owner',password:'synthetic-pass-43',name:'媽媽',child:'小禾'});
+ const join=async(handle,name)=>{const invite=await call('invite',{},a.cookie);return call('join',{handle,password:'synthetic-pass-43',name,invite:invite.data.code});};
+ const b=await join('read-dad','爸爸'),c=await join('read-grandma','奶奶');
+ const aid=(await call('state',null,a.cookie)).data.member.id,bid=(await call('state',null,b.cookie)).data.member.id;
+ await call('comment',{text:'全家留言',requestId:'read-common'},a.cookie);
+ await call('comment',{text:'只給爸爸',recipientId:bid,requestId:'read-private'},a.cookie);
+ let comments=(await call('state',null,a.cookie)).data.family.comments;
+ const common=comments.find(c=>c.text==='全家留言'),privateId=comments.find(c=>c.text==='只給爸爸').id;
+ assert.deepEqual(common.readBy,[]);
+ await call('read',{},b.cookie);
+ assert.deepEqual((await call('state',null,a.cookie)).data.family.comments.find(c=>c.id===common.id).readBy,[],'no IDs never marks a whole family');
+ await call('read',{ids:[common.id,privateId]},c.cookie);
+ comments=(await call('state',null,a.cookie)).data.family.comments;
+ const cid=(await call('state',null,c.cookie)).data.member.id;
+ assert.deepEqual(comments.find(c=>c.id===common.id).readBy,[cid]);
+ assert.deepEqual(comments.find(c=>c.id===privateId).readBy,[],'unseen private IDs cannot be marked');
+ await call('read',{ids:[common.id]},a.cookie);
+ await call('read',{ids:[common.id,common.id]},b.cookie);await call('read',{ids:[common.id]},b.cookie);
+ comments=(await call('state',null,a.cookie)).data.family.comments;
+ assert.deepEqual(comments.find(c=>c.id===common.id).readBy,[cid,bid]);assert.ok(!comments.find(c=>c.id===common.id).readBy.includes(aid));
+ const note=(await call('capture',{text:'這一刻',requestId:'read-note',media:[{kind:'audio',data:'data:audio/wav;base64,AAAA',rawOnly:true}]},a.cookie)).data.moment;
+ await call('receipt',{id:note.id,kind:'seen'},a.cookie);await call('receipt',{id:note.id,kind:'seen'},b.cookie);await call('receipt',{id:note.id,kind:'seen'},b.cookie);
+ const saved=(await call('state',null,a.cookie)).data.family.moments.find(m=>m.id===note.id);
+ assert.equal(saved.seenBy.length,1);assert.equal(saved.seenBy[0].memberId,bid);assert.equal(saved.playedBy.length,0,'reading never counts as playing');
+ const task=await call('task',{requestId:'read-task',text:'準備午飯',assigneeId:bid,dueAt:new Date(Date.now()+3600000).toISOString()},a.cookie);
+ assert.equal(task.response.status,200);await call('read',{ids:[privateId]},b.cookie);
+ const after=(await call('state',null,b.cookie)).data.family;
+ assert.equal(after.tasks.find(t=>t.id===task.data.task.id).status,task.data.task.status,'reading does not accept or complete a task');
+ assert.equal((await call('state',null,c.cookie)).data.family.comments.some(c=>c.id===privateId),false);
+});
 test('HTTP private families, joining, large media, idempotency, diary conflicts and snapshots',async()=>{
  const a=await call('register',{handle:'mother-test',password:'synthetic-pass-43',name:'媽媽',child:'小禾',family:'A家'});assert.equal(a.response.status,200);
  const b=await call('register',{handle:'other-test',password:'synthetic-pass-43',name:'別家',child:'小雨',family:'B家'});assert.equal(b.response.status,200);
