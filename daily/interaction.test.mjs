@@ -1,5 +1,11 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
 import {diaryRows} from './web/diary-list-model.js';import {createTimePicker,timeParts,timeValue,nextFamilyDate} from './web/time-picker.js';import {seedDays} from './test-support/seed-days.mjs';
+import {deviceFamilyZone,initialFamilyZone,DEFAULT_FAMILY_ZONE} from './web/family-zone.js';
+test('creation uses a valid device zone and falls back without claiming unavailable device data',()=>{
+ assert.equal(initialFamilyZone('America/Los_Angeles'),'America/Los_Angeles');assert.equal(initialFamilyZone('Asia/Tokyo'),'Asia/Tokyo');
+ for(const value of [undefined,null,'','not/a-zone','+08:00'])assert.equal(initialFamilyZone(value),DEFAULT_FAMILY_ZONE);
+ assert.equal(deviceFamilyZone({DateTimeFormat(){throw Error('unavailable');}}),null);assert.equal(deviceFamilyZone({DateTimeFormat:()=>({resolvedOptions:()=>({})})}),null);
+});
 test('one date model includes material-only and pending days but only existing diaries are selectable',()=>{
  const photo={kind:'image',data:'data:image/png;base64,AAAA'},diary={id:'d1',date:'2026-11-04',current:{body:'家人的日記'}};
  const family={diaries:[diary],moments:[{date:'2026-11-05',text:'尚未整理',media:[photo]},{date:'2026-11-04',text:'同日片段',media:[]},{date:'2026-11-02',archivedAt:'x',media:[]}]};
@@ -38,4 +44,14 @@ test('actual picker controller is single-flight and browser Back/cancel restore 
 test('actual picker Done only emits field events; hidden interruption cancels rather than submitting',async()=>{
  const h=lifecycleHarness(),picker=createTimePicker({doc:h.doc});h.open(picker);h.children[0].querySelector('[data-clock-done]').onclick();await settle();assert.equal(h.target.value,'20:15');assert.deepEqual(h.sent,['input','change']);assert.equal(h.children.length,0);
  h.sent.length=0;h.open(picker);h.doc.visibilityState='hidden';h.events.get('visibilitychange')();await settle();assert.equal(h.children.length,0);assert.equal(h.target.value,'20:15');assert.deepEqual(h.sent,[]);assert.deepEqual(h.background.map(n=>n.inert),[false,true]);picker.dispose();
+});
+
+// Presentation feedback is downstream of the real durable enqueue result.
+test('capture arrival never signals before local persistence or for a failed local write',async()=>{
+ const {readFileSync}=await import('node:fs'),{default:vm}=await import('node:vm');const app=readFileSync(new URL('./web/app.js',import.meta.url),'utf8');const a=app.indexOf('function queueCapture('),b=app.indexOf('\nfunction ',a+10),code=app.slice(a,b);let resolve;const captured=new Set();let paints=0;const c={outbox:{enqueue:()=>new Promise(r=>resolve=r)},settlingCaptures:captured,settledCaptureIds:new Set(),paintCaptures:()=>paints++,selectedDate:'x',authorFilter:'x',sortOrder:'old'};vm.createContext(c);vm.runInContext(code,c);
+ const waiting=c.queueCapture({requestId:'a',text:'family note'});assert.equal(captured.size,0);resolve({localError:true});await waiting;assert.equal(captured.size,0);assert.equal(paints,0);
+ const good=c.queueCapture({requestId:'b',text:'family note'});assert.equal(captured.size,0);resolve({status:'queued'});await good;assert.equal(captured.has('b'),true);assert.equal(paints,1);
+});
+test('success companion cannot show in hidden camera or reduced-motion contexts',async()=>{
+ const {readFileSync}=await import('node:fs'),{default:vm}=await import('node:vm');const app=readFileSync(new URL('./web/app.js',import.meta.url),'utf8');const a=app.indexOf('function showSavedCompanion('),b=app.indexOf('\nfunction ',a+10);let made=0;const c={cameraOpen:false,document:{visibilityState:'visible',querySelector:()=>null,createElement:()=>{made++;return {setAttribute(){},remove(){}}},body:{append(){}}},matchMedia:()=>({matches:false}),setTimeout:()=>{}};vm.createContext(c);vm.runInContext(app.slice(a,b),c);c.cameraOpen=true;c.showSavedCompanion();assert.equal(made,0);c.cameraOpen=false;c.document.visibilityState='hidden';c.showSavedCompanion();assert.equal(made,0);c.document.visibilityState='visible';c.matchMedia=()=>({matches:true});c.showSavedCompanion();assert.equal(made,0);c.matchMedia=()=>({matches:false});c.showSavedCompanion();assert.equal(made,1);
 });

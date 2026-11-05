@@ -1,0 +1,57 @@
+{
+  "visual": "V0.7-LIVING-BOOK",
+  "functionalVersion": "daily-mobile-0.5.0-rc1",
+  "baselineRollback": "21ada4684fadda30eba1d71c6a6da721663adc8e",
+  "status": "local accepted freeze; not synchronized or deployed",
+  "changedFiles": [
+    "DESIGN.md",
+    "HANDOFF.md",
+    "daily/http.test.mjs",
+    "daily/interaction.test.mjs",
+    "daily/local-server.mjs",
+    "daily/paper-status.test.mjs",
+    "daily/photo-visibility.test.mjs",
+    "daily/comment-recovery.test.mjs",
+    "daily/web/app.js",
+    "daily/web/holistic.css",
+    "daily/web/index.html",
+    "daily/web/comment-draft.js",
+    "daily/web/family-zone.js",
+    "daily/worker.js"
+  ],
+  "normalizedSha256": {
+    "daily/web/app.js": "28d23dd36592af8a0397ed033659bd7154ffbc925a41358b4734df1b4f71099f",
+    "daily/web/holistic.css": "8c1d3e32a644b11d8c22c4ed2347d7279f290439c4ec06276db9ad15f0d3be51",
+    "daily/web/index.html": "6f2db1a191b2d116ba77abbd61896a9838e19062c7890217c829403657925841",
+    "daily/web/comment-draft.js": "afc2199103edf0e2c87814f6ed708168e7474cd05e85aade8063e5751615ebdd",
+    "daily/web/family-zone.js": "391cd798223c29eda6a1b21eb8fa850143889e9a7a5c9f9d3d6a99f26fc92005",
+    "daily/worker.js": "15473b568e3a89abdc9158241913a424d25bbc13b5f2458c0a7cad9d8dfeaf60"
+  },
+  "checks": {
+    "aggregate": "73/73, node --experimental-loader ./daily/test-loader.mjs --test daily/domain.test.mjs daily/http.test.mjs",
+    "syntax": "app/comment-draft/family-zone passed",
+    "diff": "git diff --check passed",
+    "protectedModules": "domain,camera-session,capture-outbox,capture-session,album-model,visible-reads,time-picker,diary-list-model,story-model unchanged from baseline"
+  },
+  "independentAcceptance": {
+    "functional": "True UI capture/album/manual diary/two-day book evidence retained; controlled outage repair accepted after fresh regression.",
+    "controlledOutage": "Private synthetic draft send failed while3358 intentionally stopped; refresh rendered reconnect page; sameDB restart; original reconnect and reload preserved original text,private recipient and requestId b0cdd8ac-1c0f-49f0-95fd-cc4211e5a43b while server0. Exactly one explicit retry yielded exactly1 private comment; draft reset/newid only after matching result. Unique stable logout and family proxy checked. Old1431 never resent.",
+    "module": "External late-ack/new text/new recipient/member isolation1/1, separate from true UI.",
+    "visualAndPersona": "Independent390/320 completed content diary/book/family letter/time Cancel+Back accepted; parent personally viewed latest family390/320 and home320. Main paper and letter plus scene/signature/button returns accepted. Earlier designer/fresh feedback implemented."
+  },
+  "makerBrowser": "Own isolated synthetic IAB refreshed/reloaded unsent private-open text without loss; persistent logout parent account-controls and visible proxy verified. No Owner materials accessed.",
+  "limitations": [
+    "Animations have state/module and CSS evidence; not all temporal visual effects independently observed.",
+    "Persona did not newly verify original audio playback; existing functional evidence is separate.",
+    "No physical iPhone/mic/camera/OS-interruption or LINE/WhatsApp embedded-browser acceptance.",
+    "AI not newly exercised; local AI adapter remains synthetic.",
+    "Production asset/hash/helper404 checks pending release; no push in this phase.",
+    "Existing20MB test capacity and page-only reminders remain."
+  ],
+  "localOnlyHelpers": [
+    "/__qc",
+    "/__qc-add-days",
+    "/__camera-synthetic"
+  ],
+  "productionExpectation": "local-only helpers remain404; no new fault-injection route added"
+}

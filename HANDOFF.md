@@ -1,3 +1,37 @@
+# Current local freeze: V0.7-LIVING-BOOK — all independent gates ACCEPT
+
+Supersedes candidate/pending statements below. Exact accepted app SHA28d23dd36592af8a0397ed033659bd7154ffbc925a41358b4734df1b4f71099f, CSS8c1d3e32a644b11d8c22c4ed2347d7279f290439c4ec06276db9ad15f0d3be51, comment-draft afc2199103edf0e2c87814f6ed708168e7474cd05e85aade8063e5751615ebdd, worker15473b568e3a89abdc9158241913a424d25bbc13b5f2458c0a7cad9d8dfeaf60. Freeze commit is the git commit containing this record; parent requested local commit only, no push/deploy. Production/rollback still21ada4684fadda30eba1d71c6a6da721663adc8e.
+
+Final aggregate73/73, syntax and diff checks pass. Full exact file scope and layered evidence: docs/acceptance/2026-11-05-living-book-freeze.json. Functional true UI and controlled private-comment failure/reconnect/reload/one-retry chain accepted; independent visual/simulated-family390/320 content journey accepted. Earlier design/fresh returns resolved. Animations have module/state/CSS evidence, not universal temporal visual acceptance; persona did not newly verify original audio; no real hardware/embedded-browser/model acceptance. Original20MB test limit and App-only reminders remain. Production helper404 and live assets pending the separately authorized release, not claimed here.
+
+Product files stopped changing after gate; preserve original synthetic SQLite/session and unrelated untracked files. No extra service, fault route, credentials, billing or policy changes. Exact app changes include the approved zone initialization and comment interruption fix, not merely visual changes; old3cb app hash is superseded.
+
+---
+
+# Active Return repair: comment interruption/reconnect (not frozen/published)
+
+V0.7 visual files remain unchanged. Fixed the independently reproduced error: the canonical logout button now stays in account-controls permanently; the family/error page has a same-action proxy, so app replacement cannot destroy the reconnect prerequisite. Family comments have a small family+member-keyed local draft holding text, private-open state, recipient, requestId/revision and immutable attempted payload. Input/refresh/navigation/logout/pagehide preserve it; reload/reconnect reconciles by actual server comments without automatic resend. Only the matching revision is cleared; newer text/scope/recipient survives a late acknowledgement. A retry first checks state; HTTP409 protects an old id acknowledged with different text/scope. No QA1431 resend or reconstruction.
+
+Latest main suite73/73 in daily/scratch/comment-recovery-tests.log; includes actual load error/reconnect with transport/DOM substitutes, private isolation, late-ack revision protection and real Worker idempotency/conflict. Maker IAB own isolated synthetic family: refreshed/reloaded unsent private-open draft preserved; logout parent remains account-controls and family exit shown. First maker browser check found misplaced status markup and it was corrected, then true page rechecked. No physical device or true network-interruption UI claim; Independent QA now ACCEPTS the real controlled shutdown chain: failed private send → refresh/error → original reconnect → same family → reload retains original text/private recipient/requestId with server0 → one explicit same-id retry → exactly1 private server comment and blank new draft. Stable logout unique, family proxy present. Old1431 never resent. External module late-ack/new-text/new-recipient/member-isolation1/1 also accepted; separate from true browser evidence. Final persona/visual gate still pending; no commit/push yet. New comment-draft module/root both200 after sameDB restart, PID13140. Keep service stable; no further visual changes.
+
+---
+
+# Active local candidate: V0.7-LIVING-BOOK (not frozen or published)
+
+Supersedes the prior no-more-product-changes statement only for the newly authorized round. Production remains21ada468; original DB/fixtures and unrelated untracked files preserved. Parent owns independent visual/functional/simulated-family gates and release instruction. Sole repo writer remains this worker.
+
+Implemented: one compact72px scene/56px tabs, continuous diary/contents/letter carriers, stable real cotton/ruled/thick-card paper variants, clock24px with24/20/18 wheel, homepage actual existing diary title/excerpt. Existing behavior preserved. New-family device-zone initialization validates once; no family-facing timezone selector, old stored zone/reminder instants never rebase through settings/join/login.
+
+Self-check:68/68 domain+HTTP suite in daily/scratch/living-book-tests.log; node syntax and diff checks pass. IAB own synthetic family at390/320: home first note approx246/251px, no horizontal overflow; original clock cancel/Done leaves20:00, original story-time Save succeeds without timezone field. Not physical-phone proof. Motion tests gate arrival on local persistence and companion on visible/non-camera/non-reduced context; no capture handler delay. Representative local3358 ready for early design review, Last early-review changes are implemented: full unobstructed small scene, paper-edge signatures, lighter reading/selection actions, one full-row first real paper at390, and continuous family message/writing letter. Independent visual judgement and complete journeys pending. Current precise candidate hashes in daily/scratch/living-book-candidate.json; no freeze/push yet. No push/deploy in this round.
+
+---
+
+# Current delivery: V0.6-INTERACTION-3 deployed
+
+Exact21ada4684fadda30eba1d71c6a6da721663adc8e is deployed to the same authorized preview site; previous candidate-only statements below are historical. CI42038454559/job127282643651:64/64 and Verify/Deploy success. Worker76b3b9c1-e28c-4989-8886-74e11ccae1cc. Live asset/runtime verification passed; independent postdeploy browser UI accepted for the explicit read-only journey recorded below. Rollback369907565704be586677d202ee8a9ff0588ab983 retained. No more product changes/push/deploy.
+
+---
+
 # Active follow-up: 0.3.1 late-cancel fix; full UX redesign pending contract
 
 Owner real-device feedback supersedes the earlier browser functional pass as a UX judgment: the current form-based capture experience is NOT accepted. Parent is assigning independent design and permissions research; integration writer remains root. Preserve proven private-family backend, raw media, manual diary versions and books. Do not build another platform, reset QC data, add material certification/moderation, or incrementally enlarge the old form.
@@ -325,3 +359,11 @@ Independent postdeploy FINAL ACCEPT for exact3699075: sole holistic.css link; CS
 
 ### Interaction candidate freeze gate after environment reconnect
 Original Windows workspace recovered; HEAD was3699075 and accepted product hashes remained exact: appF3922B3CF63754DE2B316E6A2FABC96F8EF91426D865A941EA9A0AF22DF6D223; time-pickerB012E8622194843D134DCF3BF2073ADE474EB76A08A682DD15924FDA02B351C8; holistic CSS45644bytes/A3EA7B6A546F4B27032FFCDF07FF7E0ECF3A54143CA36688DC64FC62B9936706. No product overwrite/reimplementation. Added only the interrupted production Worker boundary regression and final records; complete suite64/64 and scope guard passed after reconnect. Functional QA, independent design/UX and independent simulated-family full journey all Accept; not real-user research. Explicit frontend logic changes: one-list selection/context, book tab/activeView/saveView restoration, preview settings continuity, real time-wheel transaction/history/focus cleanup. Backend/capture/private/read/AI modules remain unchanged in the named scope, not a claim that all functional code is unchanged. Local /__qc-add-days remains in Node local-server/test-support only, outside Worker imports/web assets; Worker boundary regression passes, actual new-deployment404 remains a release check. No push/deploy. Original SQL/fixtures/unrelated untracked files preserved.
+
+
+### Interaction release evidence
+Normal fast-forward3699075→21ada46 only, original branch/site/workflow/data preserved. Live app/holistic.css/time-picker.js/diary-list-model.js match frozen content after newline normalization; read/camera/outbox/album modules unchanged. Normalized appSHA47177c61046a9a123aa999d9a76db4ac90c659a178e9d89a5fda6b4a06f46a31; CSSd5fd19cfd65b0536888dd86c1e880998eff1e1183acb22e907596a574a4f5946; time-pickerb012e8622194843d134dcf3bf2073ade474eb76a08a682dd15924fda02b351c8. Interaction marker present, runtime200/functionaldaily-mobile-0.5.0-rc1. GET /__qc-add-days,/__qc,/__camera-synthetic,/__camera-synthetic.js,/__camera-synthetic.png all404. Full evidence docs/acceptance/2026-11-05-interaction-release.json. No hardware/OS notification/model retest; local independent complete journeys stay distinct from pending independent live smoke.
+
+
+### Independent postdeploy final Accept (13:47–13:49 UTC)
+Existing Chrome synthetic small-star login retained. Same11/5,11/4,11/2 date list: first2 arranged diaries selectable, material-only11/2 not selectable; back to reading normal. Shelf reload stays shelf. Existing orange/blue-cup two-day book retains2chapters/original image/audio/manual text on reopen. Evening20:00 open/cancel unchanged;4photo album/detail/back/Today normal; home7text/audio papers and today2photo summary retained. No new live data or saved settings, no hardware/model run. UI reviewer did not independently fetch asset bytes/hashes/helper404: those remain maker release checks; parent independently confirmed exact GitHub head Verify/Deploy. Final delivery complete; rollback3699075 retained; no product changes or further deployment.

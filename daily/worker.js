@@ -1,3 +1,4 @@
+import {initialFamilyZone} from './web/family-zone.js';
 import {DurableObject} from 'cloudflare:workers';
 import {transcribe} from '../baby-poc/ai.mjs';
 import {observeImage,arrangeSources,VISION_MODEL,GEMMA_VISION_MODEL,LEGACY_VISION_MODEL} from './multimodal.mjs';
@@ -104,7 +105,7 @@ export class DailyWarehouse extends DurableObject {
      const inviteHash=await hash(String(body.invite||'')),invite=this.get('invite',inviteHash);
      if(!invite||invite.used||Date.parse(invite.expiresAt)<Date.now())fail('邀請碼無效或已使用，請家人重新建立。',403);
      f=this.get('family',invite.familyId);role='member';invite.used=true;this.put('invite',inviteHash,invite);
-    }else {try{new Intl.DateTimeFormat('en',{timeZone:body.timezone||'Asia/Taipei'});}catch{fail('家庭時區無效，請重新選擇。');}f=newFamily({id:id(),name:String(body.family||`${String(body.child||'寶寶')}的家`).slice(0,60),child:String(body.child||'寶寶').slice(0,40),now,timezone:body.timezone||'Asia/Taipei'});role='owner';this.put('family',f.id,f);}
+    }else {f=newFamily({id:id(),name:String(body.family||`${String(body.child||'寶寶')}的家`).slice(0,60),child:String(body.child||'寶寶').slice(0,40),now,timezone:initialFamilyZone(body.timezone)});role='owner';this.put('family',f.id,f);}
     if(this.get('account',handle))fail('登入名稱已存在。',409);
     account={id:id(),handle,name:String(body.name||'家人').slice(0,40),familyId:f.id,role,salt,password:digest};this.put('account',handle,account);
    }
@@ -150,9 +151,9 @@ export class DailyWarehouse extends DurableObject {
    const d=f.diaries.find(d=>d.id===body.id);if(!d?.pending)fail('目前沒有更新草稿。');if(d.current.number!==body.baseRevision)fail('家人已更新，請重新載入。',409);
    d.current={...d.pending,number:d.versions.length+1,kind:'manual'};d.versions.push(d.current);d.sourceKey=d.current.sourceKey;d.pending=null;d.confirmedAt=now;this.put('family',f.id,f);return json({ok:true});
   }
-  if(path==='/api/settings'){if(account.role!=='owner')fail('請由管理者調整。',403);if(!/^([01]\d|2[0-3]):(00|15|30|45)$/.test(body.evening||''))fail('請選每15分鐘的時刻。');try{dayAt(now,body.timezone);}catch{fail('時區無效。');}f.evening=body.evening;f.timezone=body.timezone;}
+  if(path==='/api/settings'){if(account.role!=='owner')fail('請由管理者調整。',403);if(!/^([01]\d|2[0-3]):(00|15|30|45)$/.test(body.evening||''))fail('請選每15分鐘的時刻。');f.evening=body.evening;}
   else if(path==='/api/comment'){
-   if(!String(body.text||'').trim())fail('請輸入留言。');const prior=f.comments.find(c=>c.requestId===body.requestId&&c.authorId===member.id);if(prior)return json({ok:true});
+   if(!String(body.text||'').trim())fail('請輸入留言。');const prior=f.comments.find(c=>c.requestId===body.requestId&&c.authorId===member.id);if(prior){if(prior.text!==String(body.text).slice(0,1000)||String(prior.recipientId||'')!==String(body.recipientId||''))fail('先前留言已保存，這份修改仍保留。請讀取家人最新消息後再送出。',409);return json({ok:true});}
    if(body.recipientId&&!this.members(f.id).some(m=>m.id===body.recipientId))fail('請選擇這個家庭的收件人。');f.comments.push({...(body.recipientId?{recipientId:body.recipientId}:{}),id:id(),requestId:body.requestId,authorId:member.id,author:member.name,text:String(body.text).slice(0,1000),...(body.momentId&&f.moments.some(m=>m.id===body.momentId)?{momentId:body.momentId}:{}),createdAt:now,readBy:[]});
   }else if(path==='/api/read'){const ids=new Set(Array.isArray(body.ids)?body.ids.slice(0,100):[]);f.comments.filter(c=>ids.has(c.id)&&c.authorId!==member.id&&this.visibleComment(c,member)).forEach(c=>{c.readBy||=[];if(!c.readBy.includes(member.id))c.readBy.push(member.id);});}
   else if(path==='/api/task'){

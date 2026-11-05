@@ -1,3 +1,4 @@
+import './comment-recovery.test.mjs';
 import './album-model.test.mjs';
 import './interaction.test.mjs';
 import './visible-reads.test.mjs';
@@ -27,6 +28,18 @@ const completion=value=>({choices:[{finish_reason:'stop',message:{content:typeof
 const env={AI:{async run(model,input){if(model.includes('whisper'))return {text:'虛構口述'};const message=input.messages.at(-1).content;if(Array.isArray(message))return {...completion({facts:['桌上有橘子與藍色杯子'],uncertain:[]}),_testAdapter:true};const content=JSON.parse(message);if(input.messages[0].content.includes('paragraphs'))return completion({paragraphs:content.map(e=>({eventIndices:[e.index],text:'今天留下了這段生活記錄。'}))});return completion({groups:[]});}},ASSETS:{fetch:async()=>new Response('test')}};
 const store=new DailyWarehouse(ctx,env);env.DAILY_WAREHOUSE={idFromName:n=>n,get:()=>store};
 async function call(path,body,cookie){const headers={};if(cookie)headers.cookie=cookie;if(body){headers.origin=origin;headers['content-type']='application/json';}const response=await worker.fetch(new Request(origin+'/api/'+path,{method:body?'POST':'GET',headers,body:body?JSON.stringify(body):undefined}),env);const data=await response.json();return {response,data,cookie:response.headers.get('set-cookie')?.split(';')[0]};}
+test('creation-zone default stays fixed across foreign members and settings saves without moving reminders',async()=>{
+ const owner=await call('register',{handle:'fixed-zone-owner',password:'synthetic-pass-43',name:'媽媽',child:'小禾',timezone:'America/Los_Angeles'});assert.equal(owner.response.status,200);
+ const start=(await call('state',null,owner.cookie)).data;assert.equal(start.family.timezone,'America/Los_Angeles');
+ const invite=await call('invite',{},owner.cookie),member=await call('join',{handle:'fixed-zone-traveller',password:'synthetic-pass-43',name:'家人',invite:invite.data.code,timezone:'Asia/Tokyo'});assert.equal(member.response.status,200);
+ assert.equal((await call('state',null,member.cookie)).data.family.timezone,'America/Los_Angeles');
+ const dueAt='2026-12-01T17:37:00.000Z',task=await call('task',{requestId:'fixed-zone-task',text:'家庭提醒',assigneeId:start.member.id,dueAt},owner.cookie);assert.equal(task.response.status,200);
+ assert.equal((await call('settings',{evening:'20:15'},owner.cookie)).response.status,200);
+ assert.equal((await call('settings',{evening:'20:30',timezone:'Asia/Tokyo'},owner.cookie)).response.status,200);
+ const login=await call('login',{handle:'fixed-zone-owner',password:'synthetic-pass-43',timezone:'Europe/London'});assert.equal(login.response.status,200);
+ const after=(await call('state',null,login.cookie)).data.family;assert.equal(after.timezone,start.family.timezone);assert.equal(after.evening,'20:30');assert.equal(after.tasks.find(t=>t.id===task.data.task.id).dueAt,dueAt);
+ const fallback=await call('register',{handle:'fixed-zone-fallback',password:'synthetic-pass-43',name:'家人',child:'小雨',timezone:'not/a-zone'});assert.equal(fallback.response.status,200);assert.equal((await call('state',null,fallback.cookie)).data.family.timezone,'Asia/Taipei');
+});
 test('production Worker never executes local QC seed handlers',async()=>{
  const production={...env,ASSETS:{fetch:async()=>new Response('Not found',{status:404})}};
  for(const path of ['/__qc-add-days','/__qc','/__camera-synthetic'])for(const method of ['GET','POST'])assert.equal((await worker.fetch(new Request(origin+path,{method}),production)).status,404);
@@ -160,4 +173,9 @@ test('video frame contract supports current objects and legacy strings; failed i
   const state=(await call('state',null,a.cookie)).data;const stored=store.get('family',state.family.id);stored.moments.find(m=>m.id===capture.data.moment.id).media[0].observation.state='failed';store.put('family',stored.id,stored);
   const before=visionRequests;assert.equal((await call('generate',{date:'2026-10-04'},a.cookie)).response.status,200);assert.equal(visionRequests,before+1);
  }finally{env.AI=originalAI;}
+});
+
+test('comment retry is idempotent without silently accepting changed text or private scope',async()=>{
+ const a=await call('register',{handle:'comment-recovery-owner',password:'synthetic-pass-43',name:'Mom',child:'Synthetic'});const invite=await call('invite',{},a.cookie),b=await call('join',{handle:'comment-recovery-dad',password:'synthetic-pass-43',name:'Dad',invite:invite.data.code});const bid=(await call('state',null,b.cookie)).data.member.id;
+ const payload={requestId:'comment-recovery-a',text:'private synthetic',recipientId:bid};assert.equal((await call('comment',payload,a.cookie)).response.status,200);assert.equal((await call('comment',payload,a.cookie)).response.status,200);assert.equal((await call('comment',{...payload,text:'newer draft'},a.cookie)).response.status,409);assert.equal((await call('comment',{...payload,recipientId:''},a.cookie)).response.status,409);const comments=(await call('state',null,a.cookie)).data.family.comments;assert.equal(comments.length,1);assert.equal(comments[0].text,payload.text);assert.equal(comments[0].recipientId,bid);
 });

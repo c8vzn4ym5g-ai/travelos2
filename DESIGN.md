@@ -1,3 +1,17 @@
+## Current visual contract — V0.7-LIVING-BOOK (2026-11-05)
+
+This section supersedes earlier visual dimensions and decorative layouts below; all existing capture, album, private/read, diary version, book snapshot and return/restore behavior stays authoritative. Parent supplied one direction: a family living book led by real content, not repeated mascot heroes or a workbench.
+
+- Shared scene header64–76px, small14px brand and one24/32 page title; four56px notebook tabs, original order/routes. Capture remains instant with the three original touch targets,16px text/26px icons. Home first paper target≤255px at390, filters/date/album retained.
+- Completed diary and editing are one continuous cream bound page:24/32 title,18/30 system-TC reading text,13/20 status; original media once, original controls. Same diary list becomes a continuous contents page in reading/selection modes; raw days remain ineligible.
+- Original stable material/shape ids now map to real cotton-watercolour, ruled perforated note, and thick card structures. No single tinted image pretending to be three materials; handwriting20/32 only on papers/writing sheet. No record changes.
+- Family name, existing roster and refresh share one light row. Signed messages and one letter input lead; original subsequent settings/actions remain accessible. Books retain real title/photo/date content and bound cover; no duplicated header mascot.
+- UI type scale24/32 title,20/28 section,16/26 field/content,16/24 buttons,14/20 navigation,13/20 metadata. Clock closed24; wheel selected24, neighbours20/18 in44px rows,220px five-row viewport with240px centered columns. Original minute precision, Done/Cancel/Back/focus/inert remain.
+- New family uses a valid creator device IANA zone once; no timezone adjustment UI. Existing stored family zone/reminder instants are preserved, foreign devices never rebase it. Invalid/missing device zone uses existing Asia/Taipei fallback.
+- Arrival animation only after durable local enqueue, never before; one noninteractive≤280ms companion nod only on server success, absent for camera/hidden/reduced-motion. No handler delay, new request or idle animation. Pending/failure remains honest.
+
+Status: independent visual, functional and simulated-family gates accepted; local freeze only, not released. Final scope and evidence are in docs/acceptance/2026-11-05-living-book-freeze.json.
+
 # Active interaction contract: V0.6-INTERACTION-3 (2026-11-05)
 
 This narrow increment supersedes the duplicated date-selection page and permits the explicitly requested book navigation/state fixes, time controls and planning-copy cleanup. V0.6-HOLISTIC-1 shell/Today/capture/paper/photo rules remain. Baseline3699075 is preserved. No model, billing, native-framework, storage, private/read/task/capture changes.
