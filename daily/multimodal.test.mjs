@@ -50,3 +50,10 @@ test('real mixed-response regression allows two related inputs in one paragraph 
  assert.equal(result.events.length,2);assert.deepEqual(result.events[0].sourceIds,['photo','voice']);assert.deepEqual(result.events[1].sourceIds,['snow']);assert.ok(!result.body.includes('AI整理'));
  await assert.rejects(()=>arrangeSources({run:async()=>completion({paragraphs:[{eventIndices:[0,1,2],text:'全部一起做。'}]})},sources),/故事文字尚未/);
 });
+
+
+test('prose model sees plain material content and short indices, never UUID-copy or review labels',async()=>{
+ const source={id:'private-material-uuid',author:'媽媽',text:'把橘子放在桌上。',media:[{kind:'image',observation:{facts:['藍色杯子']}}]};let payload;
+ const result=await arrangeSources({run:async(model,input)=>{payload=JSON.parse(input.messages.at(-1).content);return completion({paragraphs:[{eventIndices:[0],text:'把橘子放在桌上，旁邊有藍色杯子。'}]});}},[source]);
+ assert.equal(payload[0].index,0);assert.deepEqual(payload[0].photoFacts,['藍色杯子']);assert.ok(!JSON.stringify(payload).includes(source.id));assert.ok(!JSON.stringify(payload).includes('待核對'));assert.deepEqual(result.events[0].sourceIds,[source.id]);
+});
