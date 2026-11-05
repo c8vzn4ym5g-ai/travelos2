@@ -8,8 +8,13 @@
   "model": "@cf/meta/llama-3.2-11b-vision-instruct",
   "outcome": "stored observation failed / terms-required classification; no facts returned",
   "visibleMessage": "照片理解需要管理者確認模型使用條款，原始素材已保存。",
-  "rawProviderErrorRetained": false,
+  "rawProviderErrorRetained": true,
   "agreementAccepted": false,
   "inferenceQualityPassed": false,
-  "thirdPartyMessageSent": false
+  "thirdPartyMessageSent": false,
+  "diagnosticVersion": "daily-mobile-0.3.0-rc3",
+  "providerErrorCode": 5016,
+  "requiredAction": "explicit prompt agree accepts Llama Community License and AUP plus non-EU representation; NOT performed",
+  "license": "https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/LICENSE",
+  "aup": "https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/USE_POLICY.md"
 }

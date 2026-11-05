@@ -1,4 +1,4 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {observeImage,validatedGroups,arrangeSources,VISION_MODEL} from './multimodal.mjs';
+import {test} from 'node:test';import assert from 'node:assert/strict';import {observeImage,validatedGroups,arrangeSources,VISION_MODEL,GEMMA_VISION_MODEL} from './multimodal.mjs';
 test('vision request really contains image bytes and cannot turn a typed sentence into fake image inference',async()=>{
  let request;const ai={run:async(model,input)=>{request={model,input};return {response:JSON.stringify({facts:['橘色水果帶一片綠葉','右側有藍色有柄杯','媽媽第一次開心地餵奶'],uncertain:['無法看見杯內物品']})};}};
  const image='data:image/png;base64,c3ludGhldGlj';const r=await observeImage(ai,image);assert.equal(request.model,VISION_MODEL);assert.equal(request.input.image,image);assert.equal(r.facts.length,2);assert.ok(!r.facts.join('').includes('第一次'));
@@ -24,4 +24,12 @@ test('narrative accepts sourced family language and requires an exact unique sou
  const good=await arrangeSources(ai,sources);assert.equal(good.body,'My father held an orange. An orange was on the table.');
  const badAI={run:async(model,input)=>({response:JSON.stringify(input.messages[0].content.includes('paragraphs')?{paragraphs:[{sourceIds:['a','a'],text:'Only a survived.'}]}:{groups:[{sourceIds:['a','b'],anchor:'orange'}]})})};
  await assert.rejects(()=>arrangeSources(badAI,sources),/故事文字尚未/);
+});
+
+
+test('Gemma vision uses typed image content and completion output, never a fake response field',async()=>{
+ let request;const pixels='data:image/png;base64,eA==';const ai={run:async(model,input)=>{request={model,input};return {choices:[{finish_reason:'stop',message:{content:JSON.stringify({facts:['桌上有橘子'],uncertain:[]})}}]};}};
+ const result=await observeImage(ai,pixels,GEMMA_VISION_MODEL);assert.equal(request.model,GEMMA_VISION_MODEL);assert.equal(request.input.messages[0].content[1].image_url.url,pixels);assert.equal(request.input.max_completion_tokens,600);assert.equal(result.model,GEMMA_VISION_MODEL);assert.deepEqual(result.facts,['桌上有橘子']);
+ await assert.rejects(()=>observeImage({run:async()=>({response:'not the Gemma contract'})},pixels,GEMMA_VISION_MODEL));
+ await assert.rejects(()=>observeImage({run:async()=>({choices:[{finish_reason:'length',message:{content:'{}'}}]})},pixels,GEMMA_VISION_MODEL));
 });
