@@ -1,0 +1,59 @@
+{
+  "baseline": "4eb07d88bad521b2a36f88daf1078a76e74024d8",
+  "status": "independent functional/design/simulated-family UX ACCEPT; local freeze only; no push/deploy/CI",
+  "scope": [
+    "DESIGN.md",
+    "HANDOFF.md",
+    "daily/family-scope.test.mjs",
+    "daily/web/app.js",
+    "daily/web/holistic.css",
+    "docs/acceptance/2026-11-05-home-capture-first.json"
+  ],
+  "appSha256": "dc99ee3d4a72b4fb21cd1e770ee70b5286202d15275148772d4c7247626db7e3",
+  "tests": {
+    "focusedPassed": 35,
+    "failed": 0,
+    "syntax": "pass",
+    "aggregate": {
+      "passed": 116,
+      "failed": 0,
+      "command": "node --experimental-loader ./daily/test-loader.mjs --test daily/domain.test.mjs daily/http.test.mjs"
+    }
+  },
+  "behavior": "No home daily/weekly result preview; Diary destination and all generation/data preserved",
+  "modelQuality": "Separate pending,0 calls",
+  "cssSha256": "61b0111335e8a407b11446ad750f8cd09f9f78224d1a7bcd7d285eef1f07cfae",
+  "makerUi": {
+    "syntheticOnly": true,
+    "widths": [
+      390,
+      320
+    ],
+    "firstPaperTop": 197.39,
+    "overflow": false,
+    "paperTextTransform": "none",
+    "paperBackgroundTransform": "-.35deg",
+    "viewportReset": true,
+    "screenshots": [
+      "../little-days-independent-qc/home-capture-object-final-390.png",
+      "../little-days-independent-qc/home-capture-object-final-320.png"
+    ],
+    "captureColors": [
+      "#EDC2AE",
+      "#C7DEC7",
+      "#EDDEA3"
+    ],
+    "paperFrame": "single no-repeat image,125% inner crop; actual computed no-repeat",
+    "singleVisibleEntryPerDay": "only-child full-width after current filters; 390 measured348px for each of first3 groups"
+  },
+  "independent": "390/320 controls/writer, singleton width/multiple paper grid, daily/weekly/candidate/source/Back, album/filter ACCEPT",
+  "hashes": {
+    "DESIGN.md": "d2bba4988be94a756c1ee1a91e98d05ab9f4bebc41595a44eeefb8e2827173b9",
+    "HANDOFF.md": "e3e0a54ddb64aee396082d574bbf7f3cc8071ce98337d8acfa8b583d72074dff",
+    "daily/family-scope.test.mjs": "7f28f06a902179e5cd7690c461d300fbb0b4a16c7cc907fbf10065243fb82e52",
+    "daily/web/app.js": "dc99ee3d4a72b4fb21cd1e770ee70b5286202d15275148772d4c7247626db7e3",
+    "daily/web/holistic.css": "61b0111335e8a407b11446ad750f8cd09f9f78224d1a7bcd7d285eef1f07cfae",
+    "docs/acceptance/2026-11-05-home-capture-first.json": "35706f16fca8a1fc78bb0a2b9a0f2b6337b61e4aab21c6638c7fac23f8241f81"
+  },
+  "publication": "not authorized by this freeze instruction; parent resolving reported review rejection; no push attempted"
+}

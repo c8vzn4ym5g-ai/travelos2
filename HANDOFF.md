@@ -1,3 +1,19 @@
+# Home capture-first freeze — independent ACCEPT, local commit only
+
+Baseline4eb07d88bad521b2a36f88daf1078a76e74024d8. Owner17:22 supersedes the earlier home story-preview design: removed daily/weekly result block entirely from renderToday (not moved below wall), and removed its home binding only. Diary destination daily/weekly reading and all backend/scheduling/manual/pending/source/book behavior unchanged; capture/paper/photo-summary/filter/navigation unchanged. app.js only two-line render/binding delta. Family-scope test added public-render regression, red before fix and4/4 green after; syntax passed. Homepage CSS object polish implemented per narrow contract: transparent birds, background-only paper tilt, integrated signature typography and balanced capture surfaces; maker real390/320 first paper197px/no overflow, screenshots in siblingQC folder, viewport reset. Focused35/35 includes home/camera/navigation/paper guards; final full aggregate116/116 plus app/worker syntax anddiff pass. Date groups with a single filtered visible entry are full-width via CSS :only-child; no JS/data change. Independent final functional/design/simulated-family UX ACCEPT: single-date singleton full width, same-day multi-paper grid, daily/weekly/manual/candidate/source/Back, album/filter,390/320 writer cancel and last controls. Authorized local freeze only; no push/deploy/CI while parent resolves reported deployment authorization rejection. Preserve uncommitted previous release documents and all original data/unrelated files. Model-quality bench remains separate pending0 calls.
+
+---
+
+# V0.8 delivered — independent live read-only UI ACCEPT
+
+Exact4eb07d88bad521b2a36f88daf1078a76e74024d8 normally fast-forward synchronized from expected5ecf1d2 to existing codex/baby-daily-mobile, same original preview URL. CI42070338862/job127396208875 exacthead Verify115/115 and Deploy success. Worker3a3fe978-7319-4276-a062-da074a6ea207. Functional version daily-mobile-0.8.0-rc1 derives from exact deployed domain.VERSION; no authenticated live API/session read used to claim independent API version verification.
+
+Maker live root/CSS/app/all browser imports18 paths200 with normalized git-blob hashes; week-model.js explicitly200/matched. Twelve helper base/JS/PNG paths404 including /__weekly-qc. No live synthetic data, manual generation, setting edits or model calls during release checks. Independent live normal-Chrome synthetic-family UI ACCEPT17:03–17:08: real daily preview/daily-weekly entries, ungenerated Nov2–8 week truthfully awaiting Sunday20:00 (not triggered), manual Nov5 text, existing two-day book/media,4-image album and family controls retained. Zero live changes/settings/model calls. Independent UI is separate from maker HTTP evidence; coordinator independently checked exactCI head. Full evidence docs/acceptance/2026-11-05-auto-stories-release.json. Rollback5ecf1d228bf27c641283b0b498a6a84da4d127fb. Only docs may now change; do not repush/redeploy for records.
+
+True-model quality benchmark remains separate pending0/9 calls/$0, not a platform release gate by Owner16:40. No fresh realCloud cron execution or hardware claim. Existing private drafts/families/SQLite retained, workflow/security/billing unchanged.
+
+---
+
 # V0.8 platform freeze — independently ACCEPTED, not pushed
 
 Version daily-mobile-0.8.0-rc1; baseline5ecf1d228bf27c641283b0b498a6a84da4d127fb. Freeze commit authorized; not pushed/deployed. Only the17 files enumerated in docs/acceptance/2026-11-05-auto-stories-freeze.json belong to this candidate; preserve unrelated files and originalSQLite/session/fixture data.

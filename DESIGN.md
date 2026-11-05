@@ -1,3 +1,9 @@
+## Home capture-first correction — Owner17:22
+
+Supersedes V0.8 home-preview placement only. No daily/weekly teaser, card, story preview or replacement announcement anywhere on Today, including below the paper wall. Preserve paper wall, capture dock, photo summary/album, filters and four destinations. Daily/weekly remain directly readable in Diary; generation/scheduling/versions/media/books unchanged. Homepage object polish is limited to the same-height transparent88×62 family birds (no rectangle scene), three genuine paper surfaces with background-only stable tilt (first-.35°, others±.6°), latest full-width/full-text paper and original sequence, paper-bottom14px author/13px time, and equal72px capture targets with20px corners/28px icon/17px text in balanced pastel surfaces. No new hero/copy/step, camera shutter unchanged. A date group containing just one visible paper is full-width via :only-child; multi-entry groups retain their original order/grid and320 stays single-column. No backend change.
+
+---
+
 ## V0.8-AUTO-STORIES — daily and weekly platform
 
 Supersedes earlier model-quality release gates: Owner16:40 explicitly separates the capped intelligence bench from platform delivery. Preserve V0.7 design and all capture/album/private/read/book behavior. One real family daily preview before the wall; explicit historical date wins, author filter only affects wall. A compact labeled weekly entry uses the actual date range/title. Daily/weekly reading tabs remember the chosen mode. Collections remain secondary and accessible.

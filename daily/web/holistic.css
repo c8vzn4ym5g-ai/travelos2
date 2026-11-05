@@ -38,7 +38,7 @@ main[data-interior=family]>h1{margin:12px 0 18px;font-size:var(--type-title);lin
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}button:active,button:hover{scale:1;translate:none}.camera-shutter-feedback.shot{border-width:2px;border-color:#FFFFFF50}}
 @media print{header,nav,footer,#capture-dock,#notice,button,.no-print,.selection-footer{display:none!important}body{background:white;padding:0}main{max-width:none;padding:0}.book-cover{break-after:page;background:white;box-shadow:none}.book-cover:after{display:none}.diary{break-inside:avoid;border-radius:3px 12px 12px 3px;box-shadow:-4px 0 0 #A7B697,0 5px 12px -10px #203D3250;padding:16px 20px 20px 30px;margin:8px 0;}.book-chapter{break-after:page}.story-media audio,.story-media video{display:none}.story-text{color:#203D32;font-size:var(--type-reading);line-height:30px;}}
 /* Reusable authored art: no record content is sent to image generation. */
-body[data-scene=today] header{background:#F9DBC7 url('/sunny-window-scene.jpg') right center/auto 68px no-repeat;min-height:68px;height:auto;padding-top:6px;padding-bottom:6px;grid-template-columns:minmax(0,1fr) 72px;}body[data-scene=today] .shell-companions,body[data-scene=today] .shell-window{display:none}body[data-scene=today] .shell-wordmark{max-width:100%}
+body[data-scene=today] header{background:#F9DBC7;min-height:68px;height:auto;padding-top:6px;padding-bottom:6px;grid-template-columns:minmax(0,1fr) 96px;}body[data-scene=today] .shell-companions{display:block;width:88px;height:62px;right:10px;bottom:3px}body[data-scene=today] .shell-window{display:none}body[data-scene=today] .shell-wordmark{max-width:100%}
 body[data-scene=diary] header,body[data-scene=album] header{background:radial-gradient(ellipse at 90% 20%,#FFFCF3A8 0 15%,transparent 16%),radial-gradient(ellipse at 75% 5%,#FFFCF377 0 12%,transparent 13%),#D6EBF0;min-height:68px;height:auto;padding-top:6px;padding-bottom:6px;grid-template-columns:minmax(0,1fr) 72px;}body[data-scene=diary] .shell-window,body[data-scene=album] .shell-window{display:none}body:not([data-scene=today]) .shell-companions,body:not([data-scene=today]) .shell-window{display:none}
 .paper-note{background:transparent;box-shadow:none;border-radius:0;overflow:visible;filter:drop-shadow(0 4px 4px #5B684027)}
 /* Stable material classes come from each original entry id. */
@@ -53,6 +53,25 @@ body[data-scene=diary] header,body[data-scene=album] header{background:radial-gr
 .paper-shape-1.paper-material-0{border-radius:2px 9px 4px 8px}.paper-shape-2.paper-material-0{border-radius:9px 2px 8px 3px}
 .paper-fold:after{display:none}.paper-material-0.paper-fold:after{display:block}
 .paper-note .paper-copy{position:relative;z-index:1}
+/* Today: material and tilt belong to paper, never to the handwriting. */
+body[data-scene=today] .paper-grid>.paper-entry:only-child{grid-column:1/-1}
+body[data-scene=today] .paper-note{background:transparent;border-radius:0;box-shadow:none;filter:none;transform:none;--paper-surface:#FFFCF3;--paper-shadow:0 3px 6px -3px #52603D40}
+body[data-scene=today] .paper-note:before{inset:0;transform:rotate(var(--tilt,0deg));border-radius:3px 7px 10px 3px;background-color:var(--paper-surface);box-shadow:var(--paper-shadow);pointer-events:none}
+body[data-scene=today] .paper-material-0:before{background-image:url('/modern-paper.png');background-size:125% 125%;background-position:center;background-repeat:no-repeat;opacity:1;filter:saturate(.3) brightness(1.035)}
+body[data-scene=today] .paper-material-1{--paper-surface:#FFF8D9;--paper-shadow:0 2px 0 #D4CEAF,0 5px 7px -5px #5B68404A}
+body[data-scene=today] .paper-material-1:before{border-radius:1px;background-image:radial-gradient(circle at 8px 5px,#E4DDC4 0 2px,transparent 3px),repeating-linear-gradient(transparent 0 31px,#A9BBC24D 31px 32px);background-size:16px 12px,auto;background-position:0 0,0 24px;background-repeat:repeat-x,repeat}
+body[data-scene=today] .paper-material-2{--paper-surface:#E1EBD8;--paper-shadow:0 4px 0 #A6B79E,0 7px 8px -6px #5B684050}
+body[data-scene=today] .paper-material-2:is(.paper-3,.paper-0){--paper-surface:#F6DDCA;--paper-shadow:0 4px 0 #C5A88F,0 7px 8px -6px #5B684050}
+body[data-scene=today] .paper-material-2:before{border-radius:13px 7px 12px 6px;background-image:linear-gradient(125deg,#FFFFFF55,transparent 65%)}
+body[data-scene=today] .paper-place-0,body[data-scene=today] .paper-place-2{--tilt:-.6deg}body[data-scene=today] .paper-place-1,body[data-scene=today] .paper-place-3{--tilt:.6deg}
+body[data-scene=today] .paper-timeline>.wall-day:first-child+.paper-grid>.paper-entry:first-child .paper-note{--tilt:-.35deg}
+body[data-scene=today] .paper-timeline>.wall-day:first-child+.paper-grid>.paper-entry:first-child .paper-copy{display:block;overflow:visible;-webkit-line-clamp:unset}
+body[data-scene=today] .paper-meta{column-gap:8px;padding-bottom:10px;color:#455B4A}body[data-scene=today] .paper-meta>span{font-size:14px;font-weight:550}body[data-scene=today] .paper-meta time{font-size:13px;font-weight:400;color:#697669}
+@media(min-width:351px) and (max-width:759px){body[data-scene=today] .paper-grid>.paper-entry:nth-child(odd):not(:first-child):not(.wide-note){translate:0 8px}}
+body[data-scene=today] .capture-dock:not(.recording-dock) [data-capture]{border-radius:20px;font-size:17px;font-weight:650;background:#EDC2AE;box-shadow:inset 0 2px 0 #FFFFFF70,0 4px 0 -2px #BCA48F,0 7px 10px -8px #31594366}
+body[data-scene=today] .capture-dock:not(.recording-dock) [data-capture=write]{background:#C7DEC7}body[data-scene=today] .capture-dock:not(.recording-dock) [data-capture=photo]{background:#EDDEA3}
+body[data-scene=today] .capture-dock:not(.recording-dock) svg{width:28px;height:28px}body[data-scene=today] .capture-dock [data-capture=photo] svg circle{fill:#EDDEA3;stroke:#EDDEA3}
+
 nav{padding-bottom:0;min-height:56px;gap:2px;}
 main[data-interior=diary-list] .page-heading,main[data-interior=books] .page-heading{display:block;margin:14px 0 20px}
 main[data-interior=diary-list] .page-heading>button,main[data-interior=books] .page-heading>button{width:100%;min-height:56px;background:#DFE8D5;color:var(--green);font-size:var(--type-reading)}
