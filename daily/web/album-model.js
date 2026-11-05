@@ -1,0 +1,4 @@
+// Presentation only: all media references remain on their existing moments and diary sources.
+export function paperMoments(moments){return moments.filter(m=>!m.archivedAt&&(String(m.text||'').trim()||(m.media||[]).some(a=>a.kind==='audio')));}
+export function albumItems(moments){return moments.filter(m=>!m.archivedAt).flatMap(m=>(m.media||[]).flatMap((media,index)=>['image','video'].includes(media.kind)?[{key:(m.requestId||m.id)+':'+index,shotId:m.requestId||m.id,moment:m,media,index,date:m.date,at:m.capturedAt||m.createdAt}]:[])).sort((a,b)=>b.date.localeCompare(a.date)||b.at.localeCompare(a.at)||a.index-b.index);}
+export function dayPhotoSummary(items,date){const today=items.filter(p=>p.date===date);return{items:today,photos:today.filter(p=>p.media.kind==='image').length,videos:today.filter(p=>p.media.kind==='video').length,thumbnails:today.slice(0,3)};}

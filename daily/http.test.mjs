@@ -1,3 +1,4 @@
+import './album-model.test.mjs';
 import './camera-ui.test.mjs';
 import './camera-session.test.mjs';
 import './photo-visibility.test.mjs';
