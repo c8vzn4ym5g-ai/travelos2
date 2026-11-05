@@ -11,7 +11,7 @@ const origin='https://phone-test.example';
 const db=new DatabaseSync(':memory:');
 const sql={exec(query,...args){const s=db.prepare(query);const rows=s.columns().length?s.all(...args):(s.run(...args),[]);return {toArray:()=>rows};}};
 const ctx={storage:{sql,transactionSync(fn){db.exec('BEGIN');try{const r=fn();db.exec('COMMIT');return r;}catch(e){db.exec('ROLLBACK');throw e;}}}};
-const env={AI:{async run(model,input){if(model.includes('whisper'))return {text:'虛構口述'};return {response:'媽媽說今天笑了。'};}},ASSETS:{fetch:async()=>new Response('test')}};
+const env={AI:{async run(model,input){if(model.includes('whisper'))return {text:'虛構口述'};const message=input.messages?.at(-1)?.content;let content;try{content=JSON.parse(message);}catch{}if(Array.isArray(content))return {response:JSON.stringify(input.messages[0].content.includes('paragraphs')?{paragraphs:content.map(e=>({sourceIds:e.sourceIds,text:'今天留下了這段生活記錄。'}))}:{groups:[]})};return {response:'媽媽說今天笑了。'};}},ASSETS:{fetch:async()=>new Response('test')}};
 const store=new DailyWarehouse(ctx,env);env.DAILY_WAREHOUSE={idFromName:n=>n,get:()=>store};
 async function call(path,body,cookie){const headers={};if(cookie)headers.cookie=cookie;if(body){headers.origin=origin;headers['content-type']='application/json';}const response=await worker.fetch(new Request(origin+'/api/'+path,{method:body?'POST':'GET',headers,body:body?JSON.stringify(body):undefined}),env);const data=await response.json();return {response,data,cookie:response.headers.get('set-cookie')?.split(';')[0]};}
 test('HTTP private families, joining, large media, idempotency, diary conflicts and snapshots',async()=>{
@@ -92,4 +92,24 @@ test('V2 private messages, recoverable notes, conflict rebase and selected book 
  assert.equal((await call('moment-archive',{id:note.data.moment.id},owner.cookie)).response.status,200);
  assert.ok((await call('state',null,owner.cookie)).data.family.moments.find(m=>m.id===note.data.moment.id).archivedAt);
  assert.equal((await call('moment-archive',{id:note.data.moment.id,restore:true},owner.cookie)).response.status,200);
+});
+
+
+test('video frame contract supports current objects and legacy strings; failed image processing retries',async()=>{
+ const originalAI=env.AI;let visionRequests=0;
+ env.AI={run:async(model,input)=>{if(model.includes('vision')){visionRequests++;assert.match(input.image,/^data:image/);return {response:JSON.stringify({facts:['桌上有橘子'],uncertain:[]})};}const evidence=JSON.parse(input.messages.at(-1).content);return {response:JSON.stringify(input.messages[0].content.includes('paragraphs')?{paragraphs:evidence.map(e=>({sourceIds:e.sourceIds,text:'桌上放著橘子。'}))}:{groups:[]})};}};
+ try{
+  const a=await call('register',{handle:'v2-frames',password:'synthetic-pass-43',name:'媽媽',child:'小禾'});
+  const pixels='data:image/jpeg;base64,eA==';
+  for(const [n,preview] of [[1,{data:pixels,seconds:0}],[2,pixels]]){
+   const capture=await call('capture',{requestId:'frame'+n,date:'2026-10-03',media:[{kind:'video',data:'data:video/mp4;base64,eA==',preview}]},a.cookie);
+   assert.equal(capture.response.status,200);assert.equal((await call('process-moment',{id:capture.data.moment.id},a.cookie)).response.status,200);
+   const saved=(await call('state',null,a.cookie)).data.family.moments.find(m=>m.id===capture.data.moment.id);assert.deepEqual(saved.media[0].observation.facts,['桌上有橘子']);
+  }
+  assert.equal(visionRequests,2);
+  const capture=await call('capture',{requestId:'failed-photo',date:'2026-10-04',text:'桌上有橘子',media:[{kind:'image',data:pixels}]},a.cookie);
+  assert.equal((await call('generate',{date:'2026-10-04'},a.cookie)).response.status,200);
+  const state=(await call('state',null,a.cookie)).data;const stored=store.get('family',state.family.id);stored.moments.find(m=>m.id===capture.data.moment.id).media[0].observation.state='failed';store.put('family',stored.id,stored);
+  const before=visionRequests;assert.equal((await call('generate',{date:'2026-10-04'},a.cookie)).response.status,200);assert.equal(visionRequests,before+1);
+ }finally{env.AI=originalAI;}
 });

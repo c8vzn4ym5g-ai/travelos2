@@ -1,0 +1,15 @@
+{
+  "appCommit": "d8d6bb588f0e60909ab2641c586514b916bb75ee",
+  "workflowRun": 41965531971,
+  "job": 127041551423,
+  "deployment": "success",
+  "fixture": "synthetic-orange-blue-cup.png; non-personal",
+  "delivery": "real browser upload, original visibly retained",
+  "model": "@cf/meta/llama-3.2-11b-vision-instruct",
+  "outcome": "stored observation failed / terms-required classification; no facts returned",
+  "visibleMessage": "照片理解需要管理者確認模型使用條款，原始素材已保存。",
+  "rawProviderErrorRetained": false,
+  "agreementAccepted": false,
+  "inferenceQualityPassed": false,
+  "thirdPartyMessageSent": false
+}

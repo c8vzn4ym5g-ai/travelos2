@@ -37,7 +37,7 @@ export class DailyWarehouse extends DurableObject {
      reserve('transcriptions',20);const result=await transcribe(this.env.AI,source.data,'zh');f=this.get('family',fid);const latest=f.moments.find(x=>x.id===momentId);
      if(latest.processing?.id===job.id&&latest.media[i]?.data===source.data&&!latest.media[i].transcriptReviewed){latest.media[i].transcript=result.transcript;latest.revision=(latest.revision||1)+1;latest.updatedAt=new Date().toISOString();this.put('family',fid,f);}
     }
-    const image=source.kind==='image'?(source.analysisImage||source.data):source.kind==='video'?source.preview?.data:null;
+    const image=source.kind==='image'?(source.analysisImage||source.data):source.kind==='video'?(typeof source.preview==='string'?source.preview:source.preview?.data):null;
     if(image&&!source.observationReviewed){
      const sourceHash=await hash(image);if(source.observation?.sourceHash===sourceHash&&['ready','uncertain'].includes(source.observation.state))continue;
      f=this.get('family',fid);if(f.visualModelGate&&!force)fail('照片理解需要管理者確認模型使用條款，原始素材已保存。',503);
@@ -49,7 +49,7 @@ export class DailyWarehouse extends DurableObject {
       this.put('family',fid,f);if(requiresTerms)fail('照片理解需要管理者確認模型使用條款，原始素材已保存。',503);throw error;
      }
      f=this.get('family',fid);const latest=f.moments.find(x=>x.id===momentId),stored=latest.media[i];
-     if(latest.processing?.id===job.id&&!stored.observationReviewed&&(stored.kind==='image'?(stored.analysisImage||stored.data):stored.preview?.data)===image){stored.observation={...observation,sourceHash,at:new Date().toISOString(),...(source.kind==='video'?{frameSeconds:source.preview.seconds}:{} )};latest.revision=(latest.revision||1)+1;latest.updatedAt=new Date().toISOString();delete f.visualModelGate;this.put('family',fid,f);}
+     if(latest.processing?.id===job.id&&!stored.observationReviewed&&(stored.kind==='image'?(stored.analysisImage||stored.data):(typeof stored.preview==='string'?stored.preview:stored.preview?.data))===image){stored.observation={...observation,sourceHash,at:new Date().toISOString(),...(source.kind==='video'?{frameSeconds:source.preview.seconds}:{} )};latest.revision=(latest.revision||1)+1;latest.updatedAt=new Date().toISOString();delete f.visualModelGate;this.put('family',fid,f);}
     }
    }
    f=this.get('family',fid);m=f.moments.find(x=>x.id===momentId);if(m.processing?.id===job.id)delete m.processing;delete m.processError;
@@ -58,7 +58,7 @@ export class DailyWarehouse extends DurableObject {
  }
  async generate(fid,date){
   let f=this.get('family',fid),sources=sourcesFor(f,date),key=sourceKey(sources),d=f.diaries.find(d=>d.date===date);
-  const needsProcessing=sources.some(m=>m.media.some(a=>(a.kind==='image'||(a.kind==='video'&&a.preview?.data))&&!a.observation));
+  const needsProcessing=(await Promise.all(sources.flatMap(m=>m.media.map(async a=>{const pixels=a.kind==='image'?(a.analysisImage||a.data):a.kind==='video'?(typeof a.preview==='string'?a.preview:a.preview?.data):null;return !!pixels&&!a.observationReviewed&&(!a.observation||a.observation.state==='failed'||a.observation.sourceHash!==await hash(pixels));})))).some(Boolean);
   if(!sources.length||!active(f,new Date().toISOString())||(!needsProcessing&&(d?.sourceKey===key||d?.pending?.sourceKey===key)))return d||null;
   if(f.jobs[date]&&Date.now()-Date.parse(f.jobs[date].startedAt)<120000)return d||null;
   const originalIds=new Set(sources.map(m=>m.id)),job={id:id(),startedAt:new Date().toISOString(),key};f.jobs[date]=job;this.put('family',fid,f);

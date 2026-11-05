@@ -11,5 +11,17 @@ test('explicit shared object can associate corrected speech and image; unrelated
 test('uncertain or rejected vision is not silently converted to successful understanding',async()=>{
  await assert.rejects(()=>observeImage({run:async()=>{throw Error('license agreement required');}},'data:image/png;base64,AAAA'),/license/);
  await assert.rejects(()=>observeImage({run:async()=>({response:'unstructured guess'})},'data:image/png;base64,AAAA'));
- const r=await arrangeSources({run:async()=>({response:'not JSON'})},[{id:'a',author:'媽媽',text:'橘子',media:[]},{id:'b',author:'爺爺',text:'下雪',media:[]}]);assert.equal(r.events.length,2);
+ await assert.rejects(()=>arrangeSources({run:async()=>({response:'not JSON'})},[{id:'a',author:'媽媽',text:'橘子',media:[]},{id:'b',author:'爺爺',text:'下雪',media:[]}]),/故事文字尚未/);
+});
+
+
+test('visual safety validation applies after traditional Chinese normalization',async()=>{
+ const result=await observeImage({run:async()=>({response:JSON.stringify({facts:['妈妈很开心','桌上有橘子'],uncertain:[]})})},'data:image/png;base64,eA==');assert.deepEqual(result.facts,['桌上有橘子']);
+});
+test('narrative accepts sourced family language and requires an exact unique source set',async()=>{
+ const sources=[{id:'a',author:'Mom',text:'My father held an orange.',media:[]},{id:'b',author:'Dad',text:'An orange was on the table.',media:[]}];
+ const ai={run:async(model,input)=>({response:JSON.stringify(input.messages[0].content.includes('paragraphs')?{paragraphs:[{sourceIds:['a','b'],text:'My father held an orange. An orange was on the table.'}]}:{groups:[{sourceIds:['a','b'],anchor:'orange'}]})})};
+ const good=await arrangeSources(ai,sources);assert.equal(good.body,'My father held an orange. An orange was on the table.');
+ const badAI={run:async(model,input)=>({response:JSON.stringify(input.messages[0].content.includes('paragraphs')?{paragraphs:[{sourceIds:['a','a'],text:'Only a survived.'}]}:{groups:[{sourceIds:['a','b'],anchor:'orange'}]})})};
+ await assert.rejects(()=>arrangeSources(badAI,sources),/故事文字尚未/);
 });
