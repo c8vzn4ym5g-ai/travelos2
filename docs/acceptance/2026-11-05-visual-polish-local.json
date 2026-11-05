@@ -1,0 +1,103 @@
+{
+  "functionalBaseline": "0fc050ae339845fbdd731aad210b0c171ab1fd92",
+  "visualLayer": "V0.5-POLISH-1",
+  "localOnly": true,
+  "cssBytes": 23602,
+  "cssSHA256": "efba0324e9a88f0b8e3c030422b995ca933e465322e677b8af5bf4974e135f7e",
+  "cssNormalizedSHA256": "83e00c264c1ee9714c579f8ce1475254a60d3017be72dbf720f64659bcc6890a",
+  "functionalChecks": [
+    {
+      "path": "daily/web/album-model.js",
+      "unchanged": true
+    },
+    {
+      "path": "daily/web/app.js",
+      "unchanged": true
+    },
+    {
+      "path": "daily/web/camera-session.js",
+      "unchanged": true
+    },
+    {
+      "path": "daily/web/capture-outbox.js",
+      "unchanged": true
+    },
+    {
+      "path": "daily/web/capture-session.js",
+      "unchanged": true
+    },
+    {
+      "path": "daily/web/drafts.js",
+      "unchanged": true
+    },
+    {
+      "path": "daily/web/family-time.js",
+      "unchanged": true
+    },
+    {
+      "path": "daily/web/recording.js",
+      "unchanged": true
+    },
+    {
+      "path": "daily/web/story-model.js",
+      "unchanged": true
+    },
+    {
+      "path": "daily/web/transport.js",
+      "unchanged": true
+    },
+    {
+      "path": "daily/web/validation.js",
+      "unchanged": true
+    },
+    {
+      "path": "daily/domain.mjs",
+      "unchanged": true
+    },
+    {
+      "path": "daily/worker.js",
+      "unchanged": true
+    },
+    {
+      "path": "daily/wrangler.jsonc",
+      "unchanged": true
+    }
+  ],
+  "handlerChanges": "none; app.js and all web JS unchanged",
+  "makerObserved": {
+    "desktopFirstPaperTop": 269.78,
+    "captureDockHeight": 88,
+    "sourceInventory": "existing auth modes/fields/errors, diary/list/book/family/actions remain",
+    "textContrastRatios": {
+      "inkCanvas": 11.51,
+      "mutedCanvas": 4.63,
+      "mutedPaper": 4.91,
+      "selected": 6.36,
+      "primary": 7.88,
+      "errorPaper": 6.33
+    },
+    "motion": "CSS only; explicit reduced-motion removes transitions/animation/interactive scale/translate; no JS transition callbacks"
+  },
+  "independentReported": "Functional QA keyboard Enter/focus, two synthetic shutters without animation lock, diary edit and two-day book preview/save passed. Design final320 accepted before placeholder contrast line.",
+  "limitations": [
+    "maker real browser is desktop; narrow320/390 provided by independent design/QC",
+    "physical iPhone/safe-area/camera/mic/OS interruption/embedded browsers remain unverified"
+  ],
+  "independentVisualAcceptance": {
+    "result": "ACCEPT",
+    "cssSHA256": "6ff73c525b8a7c6771a70b15ac78cb16c4413638081834bc5794b7f295ab7e29",
+    "cssBytes": 23528,
+    "scope": "320 navigation single-line;390first paper~270;family/book empty states and cross-page diary/book review accepted; design did not test auth"
+  },
+  "finalIncrement": "Only 74-byte explicit placeholder ink/opacity rule after visual acceptance; no layout/handler change. Final QA hash comparison pending.",
+  "makerAuth": "Final stylesheet: own already logged-out synthetic 127.0.0.1 context. Register/name/password/call-name/child/optional-family, login/name/password, join/name/password/call-name/invite all present with original actions. Earlier empty login validation and focus verified. No account creation, credential submission, Owner data or other session clearing.",
+  "functionalBaselineRegression": "54/54 at accepted0fc050a; reused for unchanged JS/domain.14 direct functional-file equality checks pass. Independent real UI functional checks under new CSS reported passed.",
+  "candidateStatus": "Frozen locally pending final QA hash comparison; not pushed/published.",
+  "changedFiles": [
+    "DESIGN.md",
+    "daily/web/index.html",
+    "daily/web/visual-polish.css",
+    "daily/local-server.mjs",
+    "docs/acceptance/2026-11-05-visual-polish-local.json"
+  ]
+}
