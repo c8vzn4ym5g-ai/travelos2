@@ -1,0 +1,18 @@
+{
+  "version": "daily-mobile-0.3.0-rc4-probe",
+  "model": "@cf/google/gemma-4-26b-a4b-it",
+  "requestType": "one real same-binding synthetic image request; not agree",
+  "processStatus": 400,
+  "error": "目前無法完成，請保留輸入並稍後再試。",
+  "observation": {
+    "state": "failed",
+    "code": "unavailable",
+    "sourceHash": "0dd955bf47500cf26873a485fb05f4eccc39cd5005094fe5963d4f8e67bafbb0",
+    "providerError": {
+      "message": "照片描述尚未完成，原圖仍保留。",
+      "code": ""
+    }
+  },
+  "originalRetained": true,
+  "syntheticOnly": true
+}
