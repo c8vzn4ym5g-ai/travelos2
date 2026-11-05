@@ -1,0 +1,22 @@
+{
+  "version": "daily-mobile-0.3.1",
+  "baselineProductCommit": "b4c6180",
+  "originalDefectReproduced": true,
+  "originalReproductionCommand": "node --test ../little-days-independent-qc/late-cancel.test.mjs",
+  "originalReproductionPassMeaning": "data loss confirmed; not product success",
+  "regressionCommand": "node --test daily/capture.test.mjs",
+  "regressionsPassed": 4,
+  "fullCommand": "node --experimental-loader ./daily/test-loader.mjs --test daily/domain.test.mjs daily/http.test.mjs",
+  "fullPassed": 28,
+  "seam": "actual saveCapture and receive; DOM/transport doubles, no external calls",
+  "covered": [
+    "late cancellation plus edited text and attachment preserved until explicit save-as-new",
+    "unchanged late retry creates no duplicate or extra step",
+    "early cancellation plus edit saves only new content",
+    "attachment-only edit after late cancellation retained"
+  ],
+  "realLateBrowserCancellation": "not tested",
+  "realEarlyBrowserCancellation": "parent reports 5MB synthetic raw sound early cancel, reload recovery, edited resend succeeds with only edited note",
+  "hardwareRecording": "not tested",
+  "mainUX": "Owner rejected existing flow; complete redesign awaiting independent contract"
+}

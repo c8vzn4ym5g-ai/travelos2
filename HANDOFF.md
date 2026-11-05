@@ -1,3 +1,17 @@
+# Active follow-up: 0.3.1 late-cancel fix; full UX redesign pending contract
+
+Owner real-device feedback supersedes the earlier browser functional pass as a UX judgment: the current form-based capture experience is NOT accepted. Parent is assigning independent design and permissions research; integration writer remains root. Preserve proven private-family backend, raw media, manual diary versions and books. Do not build another platform, reset QC data, add material certification/moderation, or incrementally enlarge the old form.
+
+Minimal data fix: a capture retry now compares returned saved text/date/original attachments with the current draft before clearing it. When an already-saved request returns old content, keep the edited text/files and request ID; clearly say the previous note is saved and changes remain in the draft. The existing save button becomes an explicit「將草稿另存新紙條」action. Only that choice changes request ID and saves a new note; it never overwrites the first note or silently duplicates it. Unchanged late retry and edited early retry keep their original one-step success paths.
+
+Writer independently reproduced the original loss with `node --test ../little-days-independent-qc/late-cancel.test.mjs` (1/1 means defect reproduction, NOT product pass). Added `daily/capture.test.mjs`: four actual-saveCapture + actual-receive integration regressions, DOM/transport doubles only. Red tests showed edited text/attachments being cleared; fixed four tests now pass. Full standard entry `node --experimental-loader ./daily/test-loader.mjs --test daily/domain.test.mjs daily/http.test.mjs`: 28/28 passed. New tests are imported by the unchanged CI entry. Real browser late-after-commit cancellation remains untested; parent's separate 5MB early-cancel/edit/resend UI journey passed. No real microphone/phone testing claimed.
+
+Capture inventory for the new UX contract: fixed Speak only opens the composer, requiring a second Start tap; Write opens the same large form; Photo opens a generic image/video/audio chooser. Recording stop stores local audio and renders native playback but does not send; photo selection similarly stores a local preview but does not send. The send button is after the controls/previews/date section, not a persistent nearby action. The header ✳ is a decorative aria-hidden span with no handler, misleadingly placed beside Logout. `record()` requests audio only, not video; every new recording requests a stream and stops tracks when done. Pending permission has no single-flight guard, and full rerenders can separate controls from ongoing capture. Prepare one capture-session owner with requesting/recording/review/sending states and late-resolution cleanup; wait for the independent design contract before changing the main UI. Do not assume this Owner report came from iPhone Safari, or promise permanent one-time permissions. Do not retain a hidden microphone to avoid prompts.
+
+This patch changes only late-cancel data protection and release metadata; no main-flow redesign, AI/backend behavior or new form section. App/deploy identity follows the patch commit. Earlier rc5 acceptance below remains valid for unchanged backend functions, not approval of the rejected UX.
+
+---
+
 # Frozen candidate: Little Days 0.3.0-rc5 / b4c6180
 
 This is the active truth (2026-11-05), superseding all earlier candidate and blocker summaries below. Functional code, UI and deployment remain frozen. Independent final cloud core browser acceptance has passed; change only for a reproduced defect.

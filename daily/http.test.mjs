@@ -1,3 +1,4 @@
+import './capture.test.mjs';
 import './family-time.test.mjs';
 import './recording.test.mjs';
 import './story-model.test.mjs';
