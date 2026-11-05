@@ -1,4 +1,4 @@
-export const VERSION = 'daily-mobile-0.5.0-rc1';
+export const VERSION = 'daily-mobile-0.8.0-rc1';
 export const dayAt = (now, zone) => new Intl.DateTimeFormat('en-CA', {timeZone:zone, year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(now));
 export function newFamily({id, name, child, now, timezone='Asia/Taipei'}) {
   return {id,name,child,timezone,evening:'20:00',createdAt:now,trialEndsAt:new Date(Date.parse(now)+30*86400000).toISOString(),moments:[],diaries:[],comments:[],tasks:[],collections:[],jobs:{}};
@@ -14,7 +14,8 @@ export function receive(f, input, member, now, id) {
   if(!text&&!media.length)throw new Error('請留一句話或選一個檔案。');
   const date=input.date||dayAt(now,f.timezone);
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date)))throw new Error('日期無效。');
-  const moment={id,requestId:input.requestId,authorId:member.id,author:member.name,date,createdAt:now,...(Number.isFinite(Date.parse(input.capturedAt))?{capturedAt:new Date(input.capturedAt).toISOString()}:{}),text,title:String(input.title||'').slice(0,100),media,revision:1,seenBy:[],playedBy:[]};
+  const timeOrigin=['camera_capture','import_time','user_stated'].includes(input.timeOrigin)?input.timeOrigin:'unknown';
+  const moment={timeOrigin,id,requestId:input.requestId,authorId:member.id,author:member.name,date,createdAt:now,...(Number.isFinite(Date.parse(input.capturedAt))?{capturedAt:new Date(input.capturedAt).toISOString()}:{}),text,title:String(input.title||'').slice(0,100),media,revision:1,seenBy:[],playedBy:[]};
   f.moments.push(moment); return moment;
 }
 export function integrate(f,date,body,now) {

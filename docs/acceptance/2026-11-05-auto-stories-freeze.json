@@ -1,0 +1,86 @@
+{
+  "stage": "V0.8-AUTO-STORIES",
+  "status": "independent functional/visual/simulated-family ACCEPT; frozen for commit; not pushed/deployed",
+  "baseline": "5ecf1d228bf27c641283b0b498a6a84da4d127fb",
+  "version": "daily-mobile-0.8.0-rc1",
+  "tests": {
+    "command": "node --experimental-loader ./daily/test-loader.mjs --test daily/domain.test.mjs daily/http.test.mjs",
+    "passed": 115,
+    "failed": 0
+  },
+  "modelBench": {
+    "calls": 0,
+    "status": "true model quality separate pending; not platform release gate"
+  },
+  "hashes": {
+    "DESIGN.md": "98fe9130bde64b91df8d5fe5d8943aaef2c82e91fcfefdb9bc372806e9da3863",
+    "HANDOFF.md": "a4f47936d1cf183a405c772187b6513bff2a198ae7bf114f8f8bcca3229f85f0",
+    "daily/domain.mjs": "675721bc3d8a7cc121319da9c97d168001db002033d780427b11a4858796ad04",
+    "daily/family-scope.test.mjs": "f9aa17e4362fc2f7e1d76d3398cd95939590b58b55e6968b94c8f2940604e7da",
+    "daily/http.test.mjs": "20183dcf9105808b3e29f9bf51e8d54af88eb4c0a898d2d769b5393d03eb7d8a",
+    "daily/local-server.mjs": "1a4b540029c8caa413ff6ea4a7e3c80048c7114cb20fbd0fed9b8c913e574e8b",
+    "daily/multimodal.mjs": "6be564f38bd196a1988a9d1571d44fa35c0e22868bba574ee7b64f755283e752",
+    "daily/multimodal.test.mjs": "0e77a64b79572186a3bb4a91a0c669ed6b06711bc8f5ef38540cecc86ae66971",
+    "daily/web/app.js": "ff63b29b23ec50d0d86e71b63d683efe4fb3f6a1c04a3e62ea83d2ea38fdd62e",
+    "daily/web/holistic.css": "7c3c7064926f2af3e6fa58e021a282476bf2fd87b1df662e3dec6e89b3b53b72",
+    "daily/worker.js": "c6ae78775c72e9f0e323c9d3dc4cd6b7fb24f431f6ef7bb27f1e8ca11dc82935",
+    "daily/generation-navigation.test.mjs": "8cdb7c0dd9e31eeb9093c51a20bbeddfc448c2b01b4bc77b720ddc9fc7b9c4e6",
+    "daily/test-support/weekly-fixture.mjs": "23512f0f344b61b91a2f5d9caabdf4628d38a5b89ca63d4e8c9cca786639a01a",
+    "daily/web/week-model.js": "fa931fb3156151bcc3881c3bb91842fbb43a4fad57f19719575e0caeafaa9339",
+    "daily/weekly.mjs": "fc4f3d76868d3bdc76efca8e70ddbfcf0da0c8436f042c66e7540fd487f28644",
+    "daily/weekly.test.mjs": "9ff65ca303a28205f04f7f3382fdf285300ca46021c5c28b368099f9b26716f2",
+    "docs/acceptance/2026-11-05-auto-stories-freeze.json": "1070a61beb7fa1e1f6f7d2d66c0dd62c7ee7cbb4eb55d8f39f4f109639ed912c"
+  },
+  "limitations": [
+    "No new real-model daily/weekly prose quality evidence",
+    "No real iPhone/microphone/camera or new live Cloud cron execution",
+    "UI stories use deterministic adapter; independent gates are UI/state evidence"
+  ],
+  "weeklyBackfill": {
+    "scope": "all completed weeks with material",
+    "budget": "shared existing30 story/day; visual20 and ASR20 preparation limits remain",
+    "sameKeySuccess": "no new version or inference",
+    "sameKeyAutomaticFailure": "actual attempt key only; in-flight corrections remain eligible; unchanged failure suppressed, explicit retry allowed",
+    "dailyRetryPolicy": "unchanged"
+  },
+  "scope": [
+    "DESIGN.md",
+    "HANDOFF.md",
+    "daily/domain.mjs",
+    "daily/family-scope.test.mjs",
+    "daily/http.test.mjs",
+    "daily/local-server.mjs",
+    "daily/multimodal.mjs",
+    "daily/multimodal.test.mjs",
+    "daily/web/app.js",
+    "daily/web/holistic.css",
+    "daily/worker.js",
+    "daily/generation-navigation.test.mjs",
+    "daily/test-support/weekly-fixture.mjs",
+    "daily/web/week-model.js",
+    "daily/weekly.mjs",
+    "daily/weekly.test.mjs",
+    "docs/acceptance/2026-11-05-auto-stories-freeze.json"
+  ],
+  "localRuntime": {
+    "pid": 1020,
+    "port": 3358,
+    "root": 200,
+    "weekModel": 200,
+    "database": "original unchanged SQLite",
+    "worker": "final accepted attempt-key correction loaded"
+  },
+  "rollback": "5ecf1d228bf27c641283b0b498a6a84da4d127fb",
+  "independent": {
+    "actualWorker": {
+      "passed": 5,
+      "failed": 0
+    },
+    "generationNavigation": {
+      "passed": 12,
+      "failed": 0
+    },
+    "ui": "390/320 daily/weekly/manual/pending/media/book and final label/back checks ACCEPT",
+    "scope": "mock UI and controlled worker; not true model quality"
+  }
+}

@@ -1,3 +1,27 @@
+# V0.8 platform freeze — independently ACCEPTED, not pushed
+
+Version daily-mobile-0.8.0-rc1; baseline5ecf1d228bf27c641283b0b498a6a84da4d127fb. Freeze commit authorized; not pushed/deployed. Only the17 files enumerated in docs/acceptance/2026-11-05-auto-stories-freeze.json belong to this candidate; preserve unrelated files and originalSQLite/session/fixture data.
+
+Implemented: independent Monday–Sunday weekly synthesis in stored family timezone, immutable adopted material/diary-version snapshots and cutoff, generated/manual/pending versions, optimistic edit/adopt; true daily/weekly reading modes and one real home daily preview with compact labeled weekly entry; original-media return/reload; first daily through waitUntil and existing family-evening scheduled handler. No capture confirmation, polling, push, new service, billing or database migration. Existing reminder retirement, private/read/comment draft protection, capture/outbox/camera/album and book snapshots remain.
+
+Backfill: completed historical weeks share the existing30 story/day budget with daily. Successful identical input keys do not infer again. Automatic failure records only the actual attempted bundle key after preparation and before synthesis; unchanged failures do not cycle on cron. A new source/diary revision or explicit retry can run; concurrent family edits are never marked attempted by an older failure. Existing visual20/day and transcription20/day preparation limits remain. Daily retry policy unchanged.
+
+Maker integration115/115: node --experimental-loader ./daily/test-loader.mjs --test daily/domain.test.mjs daily/http.test.mjs. Includes actual scheduled→internal/tick family timezone/week boundaries, first-daily background behavior, failed media retry/cutoff, manual/pending preservation, delayed transport navigation/busy guards and in-flight weekly-correction failure race. Syntax/diff checks pass. Local helpers including /__weekly-qc remain production404.
+
+Independent parent evidence: functional, visual and simulated-family390/320 review accepted home daily/weekly entry, original media/detail/back/reload, manual week + late candidate, existing books/audio/photos and weekly-tab persistence. Busy/ownership actual-function delta12/12 accepted; final actual-worker delta5/5 ACCEPTED including in-flight correction, same-key suppression/manual retry/new diary unlock. Tests using deterministicAI validate state/UI only. True-model story quality is a separate pending benchmark,0 calls; it does not block platform delivery per Owner16:40. No new real hardware or deployed Cloud cron execution claim.
+
+Local3358 uses originalSQLite and isolated existing /__weekly-qc synthetic family (six dates/two authors/image/audio/manual daily/book). Reuse it, never reseed or replace another session's private draft. Final accepted worker loaded onPID1020; root andweek-model.js200 after coordinated sameDB restart. No publication yet.
+
+---
+
+# Current deployed delivery: family scope5ecf1d2
+
+Supersedes local-only candidate statements below. Exact5ecf1d228bf27c641283b0b498a6a84da4d127fb normally fast-forward synchronized from expected80df9c10 to the same codex/baby-daily-mobile; CI42056780120/job127347196574 exacthead Verify77/77 and Deploy success. Worker b5c5fffb-c442-4aca-bdb7-68b24bcd454a. Same original preview URL, no workflow/security/permission/DB changes. Rollback80df9c10b231ff45e7364ef87af9a54a68669866.
+
+Maker live normal root/CSS/app/all browser imports17 assets200 and normalized hashes match exact freeze;9 helper base/JS/PNG routes404. Full record docs/acceptance/2026-11-05-family-scope-release.json. Independent live read-only UI pending. No new live data, live task request/fault or hardware/model probe. Existing local independent UI and Worker410/history preservation evidence remain separate. After release only docs may change; do not repush or redeploy for docs.
+
+---
+
 # Current local freeze: family scope simplification — independently ACCEPTED
 
 Supersedes this round's pending remarks below; no push/deploy yet. Baseline/rollback80df9c10b231ff45e7364ef87af9a54a68669866. Exact product hashes: app dca4c5c09f5350bc99157d84318d46bddc966ab5b25abf90a8d16f7f28494242; worker e2bf51ff7f19b5c040b0235931ff9e90b00c9c15e3e534f5b53d8b406657fa74; picker218b86a9f43d0dc9829e9a29c802aca381022e9a401513db3e1cd2ee3957ddc9; CSS dd9487dc39b2845156a355cf7418789bb52cf2af6fad8aea75ac8cc6628bd250. Freeze commit is the git commit containing this record.

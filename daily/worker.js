@@ -1,3 +1,4 @@
+import {weekRange,weekInputs,weekSourceKey,weekStarts,integrateWeek,editWeek,adoptWeek,synthesizeWeek} from './weekly.mjs';
 import {initialFamilyZone} from './web/family-zone.js';
 import {DurableObject} from 'cloudflare:workers';
 import {transcribe} from '../baby-poc/ai.mjs';
@@ -34,7 +35,7 @@ export class DailyWarehouse extends DurableObject {
   try{
    for(let i=0;i<m.media.length;i++){
     const source=m.media[i];
-    if(source.kind==='audio'&&!source.transcript&&!source.transcriptReviewed){
+    if(source.kind==='audio'&&!source.rawOnly&&!source.transcript&&!source.transcriptReviewed){
      reserve('transcriptions',20);const result=await transcribe(this.env.AI,source.data,'zh');f=this.get('family',fid);const latest=f.moments.find(x=>x.id===momentId);
      if(latest.processing?.id===job.id&&latest.media[i]?.data===source.data&&!latest.media[i].transcriptReviewed){latest.media[i].transcript=result.transcript;latest.revision=(latest.revision||1)+1;latest.updatedAt=new Date().toISOString();this.put('family',fid,f);}
     }
@@ -70,21 +71,43 @@ export class DailyWarehouse extends DurableObject {
    const usageDay=dayAt(new Date().toISOString(),f.timezone);f.usage||={};f.usage[usageDay]||={stories:0,transcriptions:0};if(f.usage[usageDay].stories>=30)fail('今日AI整理額度已用完，仍可手動編輯。',429);f.usage[usageDay].stories++;this.put('family',fid,f);
    let body,events,mode;
    const hasVisual=sources.some(m=>m.media.some(a=>a.observation?.facts?.length));
-   if(hasVisual||sources.some(m=>m.text||m.media.some(a=>a.transcript))){const result=await arrangeSources(this.env.AI,sources);({body,events,mode}=result);}
+   if(hasVisual||sources.some(m=>m.text||m.media.some(a=>a.transcript))){const result=await arrangeSources(this.env.AI,sources,{timezone:f.timezone});({body,events,mode}=result);}
    else{body=notes;mode='source-layout';}
    f=this.get('family',fid);if(f.jobs[date]?.id!==job.id)return null;
    const current=f.moments;f.moments=sources;d=integrate(f,date,body,new Date().toISOString());f.moments=current;
    if(d){d.generationMode=mode;const version=d.pending?.sourceKey===sourceKey(sources)?d.pending:d.current;if(events)version.events=events;version.preparedThrough=sources.map(m=>m.updatedAt||m.createdAt).sort().at(-1);}
-   delete f.jobs[date];delete f.lastError;delete f.lastGenerationDiagnostic;this.put('family',fid,f);return d;
-  }catch(e){f=this.get('family',fid);if(f.jobs[date]?.id===job.id){delete f.jobs[date];if(e.diagnostic)f.lastGenerationDiagnostic=e.diagnostic;f.lastError=e.status===503?e.message:'故事整理尚未完成，原始素材已保存，可以稍後重試。';this.put('family',fid,f);}throw e;}
+   delete f.jobs[date];if(f.dailyErrors)delete f.dailyErrors[date];delete f.lastError;delete f.lastGenerationDiagnostic;this.put('family',fid,f);return d;
+  }catch(e){f=this.get('family',fid);if(f.jobs[date]?.id===job.id){delete f.jobs[date];if(e.diagnostic)f.lastGenerationDiagnostic=e.diagnostic;f.dailyErrors||={};f.dailyErrors[date]='這一天還沒整理完成，原記錄仍在，可以重試。';f.lastError=e.status===503?e.message:'故事整理尚未完成，原始素材已保存，可以稍後重試。';this.put('family',fid,f);}throw e;}
+ }
+ async generateWeek(fid,start,cutoff=new Date().toISOString(),automatic=false){
+  let f=this.get('family',fid),bundle=weekInputs(f,start,cutoff),w=f.weeklies?.find(w=>w.start===start),key=weekSourceKey(bundle);
+  let attemptedKey=key;
+  if(!bundle.inputs.length||!active(f,cutoff))return w||null;
+  if(automatic&&f.weekAutoFailures?.[start]?.sourceKey===key)return w||null;
+  const includedIds=new Set(bundle.inputs.flatMap(d=>d.sources.map(s=>s.id))),included=f.moments.filter(m=>includedIds.has(m.id));
+  const needsPreparation=source=>source.media.some(a=>a.kind==='audio'?!a.rawOnly&&!a.transcript&&!a.transcriptReviewed:!!(a.kind==='image'?(a.analysisImage||a.data):a.kind==='video'?(typeof a.preview==='string'?a.preview:a.preview?.data):null)&&!a.observationReviewed&&(!a.observation||a.observation.state==='failed'));
+  if((w?.sourceKey===key||w?.pending?.sourceKey===key)&&!included.some(needsPreparation))return w;
+  if(f.weekJobs?.[start]&&Date.now()-Date.parse(f.weekJobs[start].startedAt)<150000)return w||null;
+  const job={id:id(),startedAt:new Date().toISOString()};f.weekJobs||={};f.weekJobs[start]=job;this.put('family',fid,f);
+  try{
+   for(const source of included){
+    const needs=needsPreparation(source);
+    if(needs){try{await this.processMoment(fid,source.id);}catch(error){if(!source.text&&!source.media.some(a=>a.transcript)&&!bundle.inputs.some(d=>d.diary))throw error;}}
+   }
+   f=this.get('family',fid);bundle=weekInputs(f,start,cutoff);attemptedKey=weekSourceKey(bundle);if(!bundle.inputs.some(d=>d.diary?.body||d.sources.some(s=>s.words||s.photoFacts.length||s.videoFrameFacts.length)))fail('原始素材已保存，這週還沒有可整理的文字或照片內容。',409);
+   const usageDay=dayAt(new Date().toISOString(),f.timezone);f.usage||={};f.usage[usageDay]||={stories:0,transcriptions:0};if(f.usage[usageDay].stories>=30)fail('今天的AI整理額度已用完，週記原稿仍保留。',429);f.usage[usageDay].stories++;this.put('family',fid,f);
+   const story=await synthesizeWeek(this.env.AI,bundle,f.child);f=this.get('family',fid);if(f.weekJobs?.[start]?.id!==job.id)return null;w=integrateWeek(f,bundle,story,new Date().toISOString());if(w){const v=w.pending?.sourceKey===weekSourceKey(bundle)?w.pending:w.current;v.model=story.model;v.generationMode=story.testAdapter?'synthetic-adapter':'weekly-synthesis';}
+   delete f.weekJobs[start];if(f.weekAutoFailures)delete f.weekAutoFailures[start];if(f.weekErrors)delete f.weekErrors[start];this.put('family',fid,f);return w;
+  }catch(error){f=this.get('family',fid);if(f.weekJobs?.[start]?.id===job.id){delete f.weekJobs[start];f.weekAutoFailures||={};f.weekAutoFailures[start]={sourceKey:attemptedKey,at:new Date().toISOString()};f.weekErrors||={};f.weekErrors[start]='這週的故事還沒整理完成，原記錄與先前週記仍在，可重試。';this.put('family',fid,f);}throw error;}
  }
  async fetch(request){try{return await this.handle(request);}catch(e){return json({error:e.status?e.message:'目前無法完成，請保留輸入並稍後再試。',...(e.fieldErrors?{fieldErrors:e.fieldErrors}:{})},e.status||400);}}
  async handle(request){
-  const path=new URL(request.url).pathname,now=new Date().toISOString();
+  const url=new URL(request.url),path=url.pathname,tickAt=path==='/internal/tick'?Number(url.searchParams.get('at')):NaN,now=Number.isFinite(tickAt)&&tickAt>0?new Date(tickAt).toISOString():new Date().toISOString();
   if(path==='/internal/tick'){
    let generated=0,failed=0;for(const f of this.all('family'))if(due(f,now)&&active(f,now)){
     const days=[...new Set(f.moments.map(m=>m.date))].filter(d=>d<=dayAt(now,f.timezone));
     for(const date of days)try{if(await this.generate(f.id,date))generated++;}catch{failed++;}
+    for(const start of weekStarts(this.get('family',f.id)))if(weekRange(start).end<=dayAt(now,f.timezone))try{if(await this.generateWeek(f.id,start,now,true))generated++;}catch{failed++;}
    }return json({generated,failed});
   }
   let body={};if(request.method==='POST'){const reader=request.body?.getReader();let size=0;const parts=[];if(reader){while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>12*1024*1024){await reader.cancel();fail('一次傳送上限12MB，請分次留下片刻。',413);}parts.push(value);}}const bytes=new Uint8Array(size);let offset=0;for(const p of parts){bytes.set(p,offset);offset+=p.length;}body=JSON.parse(new TextDecoder().decode(bytes)||'{}');}
@@ -118,7 +141,7 @@ export class DailyWarehouse extends DurableObject {
   const account=this.get('account',session.accountHandle);if(!account)fail('請重新登入。',401);
   let f=this.get('family',account.familyId);const member={id:account.id,name:account.name,role:account.role};
   if(path==='/api/logout'){this.sql.exec('DELETE FROM records WHERE kind=? AND id=?','session',await hash(sessionToken));return json({ok:true},200,{'set-cookie':'daily_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});}
-  if(path==='/api/state'){for(const d of f.diaries)d.hasNewSources=sourceKey(sourcesFor(f,d.date))!==(d.pending?.sourceKey||d.sourceKey);return json({version:VERSION,member,family:{...f,comments:f.comments.filter(c=>this.visibleComment(c,member))},today:dayAt(now,f.timezone),members:this.members(f.id),trialActive:active(f,now)});}
+  if(path==='/api/state'){for(const w of f.weeklies||[])w.hasNewSources=weekSourceKey(weekInputs(f,w.start,now))!==(w.pending?.sourceKey||w.sourceKey);for(const d of f.diaries)d.hasNewSources=sourceKey(sourcesFor(f,d.date))!==(d.pending?.sourceKey||d.sourceKey);return json({version:VERSION,member,family:{...f,comments:f.comments.filter(c=>this.visibleComment(c,member))},today:dayAt(now,f.timezone),members:this.members(f.id),trialActive:active(f,now)});}
   if(path==='/api/export')return json({version:VERSION,family:{...f,comments:f.comments.filter(c=>this.visibleComment(c,member))}});
   if(path==='/api/invite'){
    if(account.role!=='owner')fail('請由家庭管理者建立邀請。',403);
@@ -128,8 +151,11 @@ export class DailyWarehouse extends DurableObject {
   if(!active(f,now))fail('30天試用已結束；既有日記仍可閱讀與匯出。此測試版尚不收費。',403);
   if(path==='/api/capture'){
    const prior=f.moments.find(m=>m.requestId===body.requestId&&m.authorId===member.id);if(prior)return json({moment:prior});validateMedia(body.media||[]);if(JSON.stringify(f).length+JSON.stringify(body).length>20*1024*1024)fail('測試家庭容量已達20MB。請匯出內容，暫停新增。',413);
-   const m=receive(f,body,member,now,id());m.reminderHint=reminderHint(m.text,m.date,this.members(f.id));this.put('family',f.id,f);return json({moment:m});
+   const m=receive(f,body,member,now,id());m.reminderHint=reminderHint(m.text,m.date,this.members(f.id));this.put('family',f.id,f);if(!f.diaries.length)this.ctx.waitUntil?.(this.generate(f.id,m.date).catch(()=>{}));return json({moment:m});
   }
+  if(path==='/api/generate-week')return json({weekly:await this.generateWeek(f.id,weekRange(body.start||dayAt(now,f.timezone)).start)});
+  if(path==='/api/edit-week'){const weekly=editWeek(f,body,now);this.put('family',f.id,f);return json({weekly});}
+  if(path==='/api/adopt-week'){const weekly=adoptWeek(f,body,now);this.put('family',f.id,f);return json({weekly});}
   if(path==='/api/process-moment')return json(await this.processMoment(f.id,body.id,body.force===true));
   if(path==='/api/moment-edit'){
    const m=editMoment(f,body,member,now);for(const [index,text] of Object.entries(body.transcripts||{})){const media=m.media[Number(index)];if(media?.kind==='audio'){media.transcript=String(text).slice(0,8000);media.transcriptReviewed=true;}}
@@ -183,5 +209,5 @@ export default {
   if(Number(request.headers.get('content-length')||0)>12*1024*1024)return json({error:'一次傳送上限12MB，請分次留下片刻。'},413);
   const response=await env.DAILY_WAREHOUSE.get(env.DAILY_WAREHOUSE.idFromName('daily-mobile-v1')).fetch(request);return response;
  }const r=await env.ASSETS.fetch(request);const h=new Headers(r.headers);h.set('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");h.set('X-Content-Type-Options','nosniff');h.set('Referrer-Policy','same-origin');return new Response(r.body,{status:r.status,headers:h});},
- async scheduled(event,env,ctx){ctx.waitUntil(env.DAILY_WAREHOUSE.get(env.DAILY_WAREHOUSE.idFromName('daily-mobile-v1')).fetch('https://internal/internal/tick'));}
+ async scheduled(event,env,ctx){ctx.waitUntil(env.DAILY_WAREHOUSE.get(env.DAILY_WAREHOUSE.idFromName('daily-mobile-v1')).fetch('https://internal/internal/tick?at='+encodeURIComponent(event.scheduledTime||Date.now())));}
 };

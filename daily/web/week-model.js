@@ -1,0 +1,1 @@
+export function weekRange(date){const time=Date.parse(date+'T12:00:00Z');if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(time)||new Date(time).toISOString().slice(0,10)!==date)throw Error('日期無效。');const start=time-((new Date(time).getUTCDay()+6)%7)*86400000;return {start:new Date(start).toISOString().slice(0,10),end:new Date(start+6*86400000).toISOString().slice(0,10)};}

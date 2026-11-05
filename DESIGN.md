@@ -1,3 +1,15 @@
+## V0.8-AUTO-STORIES — daily and weekly platform
+
+Supersedes earlier model-quality release gates: Owner16:40 explicitly separates the capped intelligence bench from platform delivery. Preserve V0.7 design and all capture/album/private/read/book behavior. One real family daily preview before the wall; explicit historical date wins, author filter only affects wall. A compact labeled weekly entry uses the actual date range/title. Daily/weekly reading tabs remember the chosen mode. Collections remain secondary and accessible.
+
+Weekly is a separate Monday–Sunday synthesis in stored family timezone, with material and adopted diary-version snapshots, generation cutoff, current/manual/pending versions, idempotency and failure preservation. Existing family evening cron remains; Sunday/completed weeks are handled through the scheduled entry, first daily uses waitUntil without client polling or capture confirmation. Historical completed weeks share the existing30 story/day budget with daily; an automatic failure with identical input key is not repeatedly retried by cron. New input or explicit retry can proceed. No notification promise. No empty-week fabrication. Original media links and manual text remain intact.
+
+Generation completion may open its result only while the original member/view/DOM/foreground/capture ownership is unchanged; navigation, scrolling or capture invalidates automatic opening. Same surviving daily button still leaves busy state and offers reading/retry. No late response clears a draft or scrolls the reader.
+
+Local deterministic adapter and isolated /__weekly-qc are UI/state evidence only. No helper is published. Real-model image/action/story quality remains unverified, separate,0 calls; do not claim semantic reliability from JSON validation or mock prose. No source certification, moderation, new service, billing or push feature.
+
+---
+
 ## Family scope update — Owner15:13,2026-11-05
 
 Supersedes all earlier reminder/assignment UI requirements while preserving V0.7 presentation. Remove all reminder/task creation, due/status/count, claim/complete and secondary-memo entry from every user screen. Keep old task data/hints/source links and export unchanged; retired task creation returns410, never false success. Ordinary/private messages, actual visible-read receipts, member-isolated drafts and capture stay unchanged. Daily story generation is a separate capability: preserve cron and actual family evening, expose owner-only48px one-line disclosure and original wheel/Save when opened. No timezone picker, pushes, new service or native scope. This is a narrow product simplification, not a visual redesign.

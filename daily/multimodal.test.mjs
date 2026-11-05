@@ -57,3 +57,11 @@ test('prose model sees plain material content and short indices, never UUID-copy
  const result=await arrangeSources({run:async(model,input)=>{payload=JSON.parse(input.messages.at(-1).content);return completion({paragraphs:[{eventIndices:[0],text:'把橘子放在桌上，旁邊有藍色杯子。'}]});}},[source]);
  assert.equal(payload[0].index,0);assert.deepEqual(payload[0].photoFacts,['藍色杯子']);assert.ok(!JSON.stringify(payload).includes(source.id));assert.ok(!JSON.stringify(payload).includes('待核對'));assert.deepEqual(result.events[0].sourceIds,[source.id]);
 });
+
+test('story payload retains uncertain actions and distinguishes imported time from occurrence',async()=>{
+ let request;const action={actor:'人',verb:'手靠近嘴',object:'',visibleEvidence:'手在嘴邊',certainty:'uncertain',alternatives:['看不清是否接觸']};
+ const ai={run:async(model,input)=>{request=input;return completion({paragraphs:[{eventIndices:[0],text:'家人記下吃橘子的片刻。',support:[{phrase:'吃橘子',inputIndex:0,evidenceType:'human',evidenceQuote:'吃橘子'}]}]});}};
+ await arrangeSources(ai,[{id:'synthetic',date:'2026-11-05',capturedAt:'2026-11-05T12:00:00Z',timeOrigin:'import_time',author:'合成家人',text:'吃橘子',media:[{kind:'image',observation:{facts:['手在嘴邊'],uncertain:['看不清是否接觸'],actions:[action]}}]}],{timezone:'Asia/Taipei'});
+ const input=JSON.parse(request.messages[1].content)[0];assert.equal(input.timeOrigin,'import_time');assert.equal(input.familyTimezone,'Asia/Taipei');assert.equal(input.author,'合成家人');assert.equal(input.recordedAt,'2026-11-05T12:00:00Z');assert.equal(input.actions[0].certainty,'uncertain');assert.equal(input.uncertain[0].text,'看不清是否接觸');
+});
+test('vision explicitly requests graded actions and normalizes returned uncertainty without another model call',async()=>{let calls=0;const r=await observeImage({run:async(model,input)=>{calls++;assert.match(input.messages[0].content[0].text,/actions/);assert.equal(input.max_completion_tokens,1800);return completion({facts:['手在嘴邊'],uncertain:['接觸看不清'],actions:[{actor:'人',verb:'靠近',visibleEvidence:'手在嘴邊',certainty:'uncertain',alternatives:['未接觸']}]});}},'data:image/png;base64,c3ludGhldGlj');assert.equal(calls,1);assert.equal(r.actions[0].certainty,'uncertain');assert.deepEqual(r.uncertain,['接觸看不清']);});

@@ -1,0 +1,32 @@
+import {weekRange} from './web/week-model.js';
+export {weekRange} from './web/week-model.js';
+import {dayAt,sourceKey} from './domain.mjs';
+import {GEMMA_VISION_MODEL} from './multimodal.mjs';
+import {Converter} from '../baby-poc/vendor/opencc-cn2t.mjs';
+const traditional=Converter({from:'cn',to:'tw'}),clone=v=>JSON.parse(JSON.stringify(v));
+
+export function weekInputs(f,start,cutoff=new Date().toISOString()){
+ const range=weekRange(start);if(range.start!==start)throw Error('請選擇這一週。');const today=dayAt(cutoff,f.timezone||'Asia/Taipei'),moments=f.moments.filter(m=>!m.archivedAt&&m.date>=start&&m.date<=range.end&&m.date<=today&&(!m.createdAt||Date.parse(m.createdAt)<=Date.parse(cutoff))),diaries=f.diaries.filter(d=>d.date>=start&&d.date<=range.end&&d.date<=today);
+ const dates=[...new Set([...moments.map(m=>m.date),...diaries.map(d=>d.date)])].sort();
+ const inputs=dates.map(date=>{const sources=moments.filter(m=>m.date===date).map(m=>({id:m.id,revision:m.revision||1,author:m.author,timeOrigin:m.timeOrigin||'unknown',actions:m.media.flatMap(a=>a.observation?.actions||[]),recordedAt:m.capturedAt||m.createdAt,uncertain:m.media.flatMap(a=>a.observation?.uncertain||[]),words:[...new Set([m.text,...m.media.filter(a=>a.kind==='audio').map(a=>a.transcript||'')].filter(Boolean))].join('\n'),photoFacts:m.media.filter(a=>a.kind==='image').flatMap(a=>a.observation?.facts||[]),videoFrameFacts:m.media.filter(a=>a.kind==='video').flatMap(a=>a.observation?.facts||[]),mediaKeys:m.media.map((a,i)=>`${m.id}:${i}`),updatedAt:m.updatedAt||m.createdAt})),d=diaries.find(d=>d.date===date);return {date,words:sources.map(s=>s.words).filter(Boolean).join('\n'),sources,...(d?{diary:{id:d.id,number:d.current.number,title:d.current.title,body:d.current.body,kind:d.current.kind,sourceIds:d.current.sourceIds,selectedMedia:d.current.selectedMedia}}:{})};});
+ return {...range,timezone:f.timezone,cutoff,inputs};
+}
+export function weekSourceKey(bundle){return JSON.stringify(bundle.inputs.map(d=>({date:d.date,sources:d.sources.map(s=>[s.id,s.revision]),diary:d.diary?[d.diary.id,d.diary.number]:null})));}
+export function weekStarts(f){return [...new Set([...f.moments.filter(m=>!m.archivedAt).map(m=>m.date),...f.diaries.map(d=>d.date)].map(d=>weekRange(d).start))].sort();}
+export function integrateWeek(f,bundle,story,now){
+ if(!bundle.inputs.length)return null;f.weeklies||=[];const key=weekSourceKey(bundle);let weekly=f.weeklies.find(w=>w.start===bundle.start);if(weekly?.sourceKey===key||weekly?.pending?.sourceKey===key)return weekly;
+ const indices=[...new Set(story.indices)],adopted=indices.map(i=>bundle.inputs[i]);if(!adopted.length||adopted.some(v=>!v))throw Error('週記尚未整理完成。');
+ const version={number:(weekly?.versions.length||0)+1,title:story.title,body:story.body,kind:'generated',createdAt:now,sourceKey:key,sourceIds:[...new Set(adopted.flatMap(d=>d.sources.map(s=>s.id)))],inputs:clone(adopted),diaryVersions:clone(adopted.flatMap(d=>d.diary?[{date:d.date,...d.diary}]:[])),generatedThrough:bundle.cutoff};
+ if(!weekly){weekly={id:'weekly-'+bundle.start,start:bundle.start,end:bundle.end,current:version,versions:[],pending:null,sourceKey:key};f.weeklies.push(weekly);}else if(weekly.current.kind==='manual'||weekly.confirmedAt)weekly.pending=version;else{weekly.current=version;weekly.sourceKey=key;}
+ weekly.versions.push(version);return weekly;
+}
+export function editWeek(f,{id,baseRevision,title,body},now){const w=f.weeklies?.find(w=>w.id===id);if(!w)throw Error('找不到週記。');if(w.current.number!==baseRevision)throw Object.assign(Error('家人已更新這篇週記，你的文字仍保留。請讀取最新內容後合併。'),{status:409});const v={...w.current,number:w.versions.length+1,title:String(title||'').slice(0,150),body:String(body||'').slice(0,16000),kind:'manual',createdAt:now};w.current=v;w.versions.push(v);w.confirmedAt=now;return w;}
+export function adoptWeek(f,{id,baseRevision},now){const w=f.weeklies?.find(w=>w.id===id);if(!w?.pending)throw Error('目前沒有新的週記草稿。');if(w.current.number!==baseRevision)throw Object.assign(Error('家人已更新週記，請先讀取最新版本。'),{status:409});const v={...w.pending,number:w.versions.length+1,kind:'manual',createdAt:now};w.versions.push(v);w.current=v;w.sourceKey=v.sourceKey;w.pending=null;w.confirmedAt=now;return w;}
+export async function synthesizeWeek(ai,bundle,child){
+ const material=bundle.inputs.map((d,index)=>({index,date:d.date,records:d.sources.map(s=>({author:s.author,timeOrigin:s.timeOrigin,actions:s.actions,recordedAt:s.recordedAt,uncertain:s.uncertain,words:s.words,photoFacts:s.photoFacts,sampledVideoFrameFacts:s.videoFrameFacts})),...(d.diary?{savedDiary:{title:d.diary.title,body:d.diary.body,familyEdited:d.diary.kind==='manual'}}:{})}));if(JSON.stringify(material).length>48000)throw Object.assign(Error('這週內容較多，原記錄已保留，請先整理較長的日記後重試。'),{status:413});
+ const result=await ai.run(GEMMA_VISION_MODEL,{messages:[{role:'system',content:'為一家人寫一篇真正跨日整理的繁體中文週記。不是逐日清單，也不要拼接七篇日記。從原話、更正後文字、可見照片事實和已保存日記挑選幾段具體生活片刻；只有明確延續的物件或活動才跨天連起，無關事件分段，不硬造主題或因果。人工修改的日記是家人的表達，不能被早先原話的錯字覆蓋。少素材就短，不猜人物身份、心情、第一次、成長、能力或未提供的動作/地點。照片只用所提供可見事實；明確動作可以寫出，uncertain所說看不清的動作不能猜。recordedAt是記錄時間，import_time只是匯入時間，unknown不可當發生時間；只有camera_capture是該次相機時間。不能單靠時間接近連成同事件。短片只代表單張抽樣。寫自然短文，日期可自然提及但不要機械列出每天；不要AI/來源索引等工程文字。只回JSON：{"title":"具體溫暖的真題名","paragraphs":[{"indices":[0,1],"text":"跨日生活短文"}]}。indices只能使用提供的日期索引，標示該段實際採用哪幾天；可挑重點，不必把每一筆都寫進去。'}, {role:'user',content:JSON.stringify({child,period:{start:bundle.start,end:bundle.end},familyTimezone:bundle.timezone,days:material})}],max_completion_tokens:2400,chat_template_kwargs:{enable_thinking:false},temperature:0,stream:false});
+ const choice=result.choices?.[0];if(choice?.finish_reason==='length')throw Error('週記文字尚未完整，原內容仍在，可重試。');let parsed;try{const text=String(choice?.message?.content||'').trim(),a=text.indexOf('{'),b=text.lastIndexOf('}');parsed=JSON.parse(text.slice(a,b+1));}catch{throw Error('週記尚未整理完成，原內容仍在，可重試。');}
+ const title=traditional(String(parsed.title||'').trim());if(!title||title.length>150||!Array.isArray(parsed.paragraphs)||!parsed.paragraphs.length)throw Error('週記內容尚未完整，可重試。');const indices=new Set(),paragraphs=[];
+ for(const p of parsed.paragraphs){const ids=Array.isArray(p.indices)?p.indices:[],text=traditional(String(p.text||'').trim());if(!ids.length||ids.some(i=>!Number.isInteger(i)||i<0||i>=material.length)||!text||text.length>4000)throw Error('週記內容尚未完整，可重試。');ids.forEach(i=>indices.add(i));paragraphs.push(text);}
+ return {title,body:paragraphs.join('\n\n'),indices:[...indices],model:GEMMA_VISION_MODEL,...(result._testAdapter?{testAdapter:true}:{})};
+}
