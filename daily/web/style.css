@@ -4,3 +4,15 @@
 header{padding-top:12px;padding-bottom:6px}.brand{font-size:26px}nav button{gap:6px;font-size:15px;padding:10px 3px}nav svg{width:18px;height:18px;flex:none}main{padding-top:12px}.wall-options{margin-bottom:0}.wall-day{margin-top:10px;margin-bottom:10px}.paper-note.tilt-right{transform:rotate(.35deg)}.paper-note.tilt-left{transform:rotate(-.3deg)}.paper-note.paper-fold:after,.paper-grid>.paper-entry:first-child .paper-note:after{content:'';display:block;position:absolute;bottom:0;right:0;width:11px;height:11px;background:linear-gradient(135deg,#00000016 44%,#FFFEFA 49%);clip-path:polygon(100% 0,100% 100%,0 100%)}
 
 nav button{white-space:nowrap;min-width:0}nav{gap:0}@media(max-width:350px){nav button{gap:3px;font-size:14px;padding:10px 0}nav svg{width:16px;height:16px}}
+
+/* Shared generated paper backings. Text remains live DOM; zero per-note generation. */
+.paper-grid{gap:28px 20px;padding:4px 3px 6px}.paper-entry{filter:none;min-width:0}
+.paper-note{padding:25px 21px 29px;min-height:132px;border:0;border-radius:0;background:transparent;box-shadow:none;clip-path:none;overflow:visible;isolation:isolate;position:relative}
+.paper-note::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background-position:center;background-size:100% 100%;background-repeat:no-repeat;filter:drop-shadow(0 2px 1px #594a3026) drop-shadow(0 6px 4px #594a3012)}
+.paper-note.paper-material-0::before{background-image:url('/paper/honey-card.png')}.paper-note.paper-material-1::before{background-image:url('/paper/sage-card.png')}.paper-note.paper-material-2::before{background-image:url('/paper/flower-card.png')}
+.paper-note.paper-material-2{padding-bottom:52px}.paper-note.paper-shape-0{clip-path:none;transform:rotate(-1deg)}.paper-note.paper-shape-1{clip-path:none;transform:rotate(.9deg)}.paper-note.paper-shape-2{clip-path:none;transform:rotate(.2deg)}
+.paper-place-0{margin-top:4px}.paper-place-1{margin-top:8px}.paper-place-2{margin-top:0}.paper-place-3{margin-top:5px}
+.paper-note:after,.paper-note.paper-fold:after,.paper-grid>.paper-entry:first-child .paper-note:after{content:none;display:none;pointer-events:none}
+.paper-copy{position:relative;color:#3E4431}.paper-note:hover{filter:brightness(1.015)}.paper-note:focus-visible{outline:2px solid #315943;outline-offset:3px}
+.paper-photo{padding:15px 14px 22px}.paper-photo img{position:relative;border-radius:1px}.paper-meta{padding-left:4px}
+@media(max-width:350px){.paper-grid{padding-left:3px;padding-right:3px;gap:25px}.paper-note{padding:25px 23px 29px}.paper-material-2{padding-bottom:52px}.paper-photo{padding:15px 14px 22px}}
