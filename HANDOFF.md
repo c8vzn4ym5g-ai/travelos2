@@ -1,3 +1,73 @@
+# Local member-access candidate — independent desktop/API ACCEPT, not published
+
+Final independent report2026-11-06 accepts the tested desktop member-access journey and retained-content regression on127.0.0.2. Cancel/revoke, old-session rejection, truly unused old-invite rejection, fresh-invite same-member restoration, original authorship, non-owner UI/API403 all passed. Six daily entries, two weekly drafts (manual text and separate pending candidate), original photos/corrected transcript, actual playback of synthetic original audio, old two-day book, album/source/back/reload remained intact. Final console errors empty. Evidence: sibling little-days-independent-qc/member-ui-evidence-20261106.json and seven member-ui-*-20261106.jpg. Independent Worker HTTP7/7 and rendering5/5 also accepted. Maker aggregate129/129 is separate evidence.
+
+Final product identity: app431b7e3865a34e1c7858efc6eceb0e9d9ecd69602c76c0dc355e8bf93374dad8; worker ea136db7a6d88322b06f67b71e27f64d6f4766a1cbb3b453eb59e3664a9f1a89; CSS905b7abf48c6864c9a5704e831ed9c7f9b85c3cc1f29caf2187fbaa980574587. Full candidate checksums remain in docs/acceptance/2026-11-06-member-access-local.json, excluding that manifest itself.
+
+Limits: final390/320 independent acceptance NOT performed (shared browser-wide viewport unchanged); earlier maker viewport checks predate finalP1/copy. No real iPhone, microphone recording/camera capture, formal LINE, production cron execution or true-model quality validation. Existing synthetic audio playback is not microphone validation. Benchmark remains0/9,$0. Separate host cookies and DB copy are not full browser-context isolation. Own QA tab closed; other tabs untouched.
+
+Both local servers end at their existing bounded leases; no extension requested. Existing weekly fixture sessions were restored only in alt2 DB, without reseeding content or touching other synthetic families. Product files remain unchanged. No commit/push/deploy: this is a local review candidate, awaiting separate next-step authorization. Deployed baseline/rollback remains15f3005342ad6e0c1e0d69689d9ee1164952c9cd.
+
+---
+
+# Replacement UI QC — isolated loopback ready (2026-11-06 06:35 UTC)
+
+Use http://127.0.0.2:3358/__member-qc in a new QA tab. Listener PID21352, supervisor19216; bounded lease expires2026-11-06T07:35:16.767Z. Working DB is daily/scratch/local-qc-member-alt2-20261106T063459Z.sqlite, backed up from the preserved snapshot. Different loopback host isolates cookies, and independent SQLite isolates writes; this is not full browser-context isolation. Original127.0.0.1:3358/PID14100 remains running and200; no old browser tab was touched.
+
+Root/app/CSS200; app431b7e38…374dad8 and CSS905b7abf…574587 match the final candidate. No product changes: only local-server gained an allowlisted loopback bind parameter; default remains127.0.0.1. Separate ignored scratch lease file prevents either supervisor clobbering the other's cleanup ownership. No permanent service, public bind, commit, push, deployment or model calls. Independent replacement UI remains pending.
+
+---
+
+# P1 local candidate — independent API accepted, replacement UI pending
+
+The invitation-generation P1 is fixed and independent public Worker HTTP re-QC7/7 plus render5/5 passed (parent report). Full maker aggregate129/129 passed. Final copy-only correction now says exactly that downloaded content and still-valid single-book share links are unaffected; it no longer promises historical share controls. Affected family render5/5 and app syntax rerun after that wording change. Existing sharing implementation is unchanged (only the current creation-result panel retains its revoke ID; no history list added).
+
+At06:28UTC OS checks confirmed oldPID1756/supervisor10860/listener all gone naturally; no shared browser taken over. Original SQLite was backed up through SQLite's backup API to scratch/local-qc-snapshot-20261106T062916Z.sqlite, quick_check ok, original main file hash unchanged. The replacement uses scratch/local-qc-member-p1-20261106T062916Z.sqlite. Only copied session capabilities/member-fixture pointer were cleared to prevent stale old-QC sessions writing the replacement fixture; original sessions and all source/snapshot family/account/material rows remain untouched. /__member-qc now creates/reuses a separate replacement synthetic family in the working copy.
+
+Replacement root200; one listenerPID14100, supervisor20944; explicit60-minute deadline2026-11-06T07:29:32.727Z with child-stop/exit cleanup in ignored scratch supervisor. Local-server alone gained a validated basename-only LOCAL_QC_DATABASE override (default originalDB unchanged); no production Worker behavior or cron change for this isolation. A normal local API smoke in a separate new empty synthetic family confirmed revoke200/old-session401/old-invite403/new-invite200/same memberID; no capture/generate/LINE/model calls. Static app/CSS were checked against manifest, core6 files matched finalP1 source at startup. Final wording is served dynamically and reflected in the updated manifest. No commit/push/deploy or true-family operation.
+
+Manifest scope includes necessary local isolation code; hashes exclude the manifest itself (no self-referential checksum). The next gate is independent replacement UI on this isolated working DB, not the older candidate's acceptance. Benchmark remains paused0/9,$0.
+
+---
+
+# P1 invitation boundary fixed — awaiting independent re-QC, local only
+
+Supersedes previous127-test candidate acceptance. Review found an unused pre-removal invitation could restore a removed member. Family inviteGeneration now increments once per effective removal; old/legacy generation0 invitations are invalid after that boundary. Both password andLINE joins use currentInvitation; invitation issuance snapshots generation before async hash so in-flight old invites cannot become new grants. Pending rejoin after a later revoke now fails403; only a fresh post-revoke admin invite can restore the same identity. No task/data deletion or share-policy change.
+
+Red regressions reproduced the spare-link,LINE stale authorization,overlapping-rejoin and pending-issuance defects before fix. Full aggregate129/129 plus syntax/diff now PASS; independent repeat pending. Native dialog wording now says family-account access, and explicitly excludes downloaded content/separately valid single-book shares (unchanged revocation mechanism). No commit/push/deploy/model call.
+
+CurrentPID1756 is pre-P1, expires~06:27:30UTC. UIQC safety window pending before restarting sameSQLite into finalP1 candidate with an ignored scratch copy of existing bounded supervisor (60min, explicit expiresAt, child stop/cleanup). No product runtime/supervisor code changed, no permanent service or duplicate process intended. Exact product hashes/scope are in docs/acceptance/2026-11-06-member-access-local.json.
+
+---
+
+# Active continuation — local member access/LINE preparation, not committed/deployed
+
+Baseline/HEAD15f3005342ad6e0c1e0d69689d9ee1164952c9cd remains the deployed home. Sole writer in current tool inventory. Original uncommitted release records and unrelated files/SQLite/private drafts preserved. This task explicitly authorizes LOCAL review only: no commit/push/deploy/external settings, no benchmark (still0/9,$0).
+
+Implemented: owner taps another active member's portrait in Family, one dialog cancels family access. Owner/self removal and foreign-family IDs rejected. Account accessVersion is incremented durably, checked on every protected request and again before returning asynchronous protected responses. Revoked accounts cannot password-login; fresh original-family invitation + original password/LINE restores the same member ID/history. Old sessions never revive, including overlapping rejoin/revoke. No tasks/data deleted or new management platform. Downloaded content and still-valid single-book share links remain unaffected; no historical share-management claim is made.
+
+Optional LINE integration is implemented but disabled: existing channel ID/secret/exact HTTPS callback are absent locally, no new credential or grant created. Authorization-code +state/browser proof/nonce/S256, server token verification, one-time10-minute callback,15-second total deadline/no auto retry, bounded pending state. Original account linking, create/join, revoke/fresh invitation use the same membership IDs/version guards. All provider tests use synthetic HTTP responses; no realLINE/OAuth/model call. Setup/activation gap: docs/LINE-LOGIN-HANDOFF.md. Real LINE consent/callback/mobile behavior is UNVERIFIED, not locally simulated success.
+
+Cron: deployed CI42096380747/job127487388024 exact15f3005 log registers */15 * * * * UTC, Worker a9d4c8b4-916b-41af-a003-dc09df977535. Tick/scheduled/weekly module/Wrangler config unchanged. Controlled actual scheduled→internal/tick test passed with deterministicAI and memorySQLite (Sunday/Mon/family timezone/idempotence). Formal successful weekly invocation remains unverified: no authorized Cloudflare CronEvents/Logs reader, no Wrangler command/session; CI token not retrieved, no paid generation or real-family access. Exact read-only target and evidence: docs/acceptance/2026-11-06-cron-evidence.json.
+
+Final maker aggregate127/127 plus syntax/diff PASS; the final invitation-help wording clarifies original-account rejoin, with affected family-render5/5 rerun after that copy-only change. Protected14 home/capture/album/diary/weekly/book functions byte-equal to baseline. Public HTTP covers owner-only revoke, old/new material/export/write rejection, fresh one-use rejoin, old-session/in-flight response/version-race protection, original photo/audio/private text retained. LINE6 protocol/worker cases include bad/browser-mismatched/replayed/cancelled/expired flows and original-account linking. No test helper deployed; new /__member-qc is local-only and production404-tested.
+
+Maker real IAB desktop browser390/320: portrait→cancel unchanged; remove synthetic observer→roster absent; old observer cookie returns auth with no family title; same after restarting originalSQLite.320 dialog fits and focus returns. No real iPhone/mic/camera, no LINE client/SSO tested. Screenshots in sibling little-days-independent-qc: member-revoked-owner-390.png, member-revoked-auth-390.png, member-access-sheet-320.png.
+
+Local ready root200/APIline-config disabled, PID1756, same3358/SQLite,30-minute lease from~05:57UTC to~06:27UTC. Isolated review entry http://127.0.0.1:3358/__member-qc (owner), ?member=relative (active synthetic Dad), ?member=observer (maker revoked, intentionally stays revoked). Use independent browser context to preserve previous QC/private-draft sessions. Helper reuses its own new fixture, never reseeds it. Reviewers can invite/create their own synthetic member for their own password/rejoin journey; no session/credential is shared in chat.
+
+Next: independent local QC of the15-file scope in docs/acceptance/2026-11-06-member-access-local.json. Current branch uncommitted by request; no publication authorized. Real cron read-only events and realLINE configuration/real-device acceptance are separate external gates, not excuses to block completed local membership work.
+
+---
+
+# Capture-first home delivered — independent live UI ACCEPT
+
+Exact15f3005342ad6e0c1e0d69689d9ee1164952c9cd normally fast-forward synchronized from confirmed4eb07d8 to existing codex/baby-daily-mobile after Owner's explicit same-site publication confirmation. Same original LittleDays preview URL. No product modifications after freeze. CI42096380747/job127487388024 exacthead Verify116/116 and Deploy success; Worker a9d4c8b4-916b-41af-a003-dc09df977535. Rollback4eb07d88bad521b2a36f88daf1078a76e74024d8.
+
+Maker HTTP verified18 root/CSS/app/browser imports200 and git-blob normalized hashes match, including week-model.js. Twelve local helper paths404 including /__weekly-qc. No live data/settings/model mutation. Independent normal-Chrome live UI ACCEPT19:43–19:45:390 no result cards, first paper197.4px (prior357.6),72px capture controls, singleton348px/multi167px;320 clear; filters/daily manual text/weekly truthful empty state/book chapters-photo-audio controls/album4 retained. No live changes/settings/generation/model/hardware; viewport reset. Independent UI, maker HTTP and coordinator exactCI-head evidence are separate. Record docs/acceptance/2026-11-05-home-capture-release.json. After deployment only docs; do not push/redeploy for records. Model quality separate pending0 calls; no hardware claim.
+
+---
+
 # Home capture-first freeze — independent ACCEPT, local commit only
 
 Baseline4eb07d88bad521b2a36f88daf1078a76e74024d8. Owner17:22 supersedes the earlier home story-preview design: removed daily/weekly result block entirely from renderToday (not moved below wall), and removed its home binding only. Diary destination daily/weekly reading and all backend/scheduling/manual/pending/source/book behavior unchanged; capture/paper/photo-summary/filter/navigation unchanged. app.js only two-line render/binding delta. Family-scope test added public-render regression, red before fix and4/4 green after; syntax passed. Homepage CSS object polish implemented per narrow contract: transparent birds, background-only paper tilt, integrated signature typography and balanced capture surfaces; maker real390/320 first paper197px/no overflow, screenshots in siblingQC folder, viewport reset. Focused35/35 includes home/camera/navigation/paper guards; final full aggregate116/116 plus app/worker syntax anddiff pass. Date groups with a single filtered visible entry are full-width via CSS :only-child; no JS/data change. Independent final functional/design/simulated-family UX ACCEPT: single-date singleton full width, same-day multi-paper grid, daily/weekly/manual/candidate/source/Back, album/filter,390/320 writer cancel and last controls. Authorized local freeze only; no push/deploy/CI while parent resolves reported deployment authorization rejection. Preserve uncommitted previous release documents and all original data/unrelated files. Model-quality bench remains separate pending0 calls.

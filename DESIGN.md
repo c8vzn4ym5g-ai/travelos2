@@ -1,3 +1,9 @@
+## Member access continuation — local review only,2026-11-06
+
+Preserve15f3005 home and every accepted capture/album/daily/weekly/book flow. Existing family member portraits become actionable only for the administrator, except the owner's own portrait. One native accessible dialog offers retaining or cancelling access; no management page, new settings hierarchy or reminder feature. Names/history/materials remain. Effective removal invalidates all earlier unused invitations; only an administrator-issued fresh link permits rejoining. Dialog distinguishes family-account access from separately valid single-book share grants and downloaded files. Existing account login stays intact. LINE buttons remain absent until an exact existing channel/callback configuration is present; no new hero/assets/fonts or external profile images.
+
+---
+
 ## Home capture-first correction — Owner17:22
 
 Supersedes V0.8 home-preview placement only. No daily/weekly teaser, card, story preview or replacement announcement anywhere on Today, including below the paper wall. Preserve paper wall, capture dock, photo summary/album, filters and four destinations. Daily/weekly remain directly readable in Diary; generation/scheduling/versions/media/books unchanged. Homepage object polish is limited to the same-height transparent88×62 family birds (no rectangle scene), three genuine paper surfaces with background-only stable tilt (first-.35°, others±.6°), latest full-width/full-text paper and original sequence, paper-bottom14px author/13px time, and equal72px capture targets with20px corners/28px icon/17px text in balanced pastel surfaces. No new hero/copy/step, camera shutter unchanged. A date group containing just one visible paper is full-width via :only-child; multi-entry groups retain their original order/grid and320 stays single-column. No backend change.

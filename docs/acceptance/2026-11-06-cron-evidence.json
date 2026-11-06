@@ -1,0 +1,46 @@
+{
+  "baseline": "15f3005342ad6e0c1e0d69689d9ee1164952c9cd",
+  "deployedWorkerVersion": "a9d4c8b4-916b-41af-a003-dc09df977535",
+  "configuredTrigger": "*/15 * * * *",
+  "triggerTimezone": "UTC",
+  "triggerMinutes": [
+    0,
+    15,
+    30,
+    45
+  ],
+  "deployedConfigurationEvidence": {
+    "run": "https://github.com/c8vzn4ym5g-ai/travelos2/actions/runs/42096380747",
+    "job": 127487388024,
+    "logUTC": "2026-11-05T19:42:36.1913961Z",
+    "scheduleLine": "schedule: */15 * * * *"
+  },
+  "familyDecision": "Existing stored family timezone and evening; completed Monday–Sunday weeks, historical eligible weeks and idempotency/automatic-failure suppression unchanged",
+  "candidateCronUnchanged": {
+    "tick": true,
+    "scheduled": true,
+    "weeklyModule": true,
+    "wranglerConfig": true
+  },
+  "controlledExecution": {
+    "status": "tested; actual Worker scheduled -> internal tick, in-memory SQLite and deterministic AI",
+    "test": "official scheduled handler creates daily and completed family week with closed client, not next Monday week",
+    "observed": [
+      "Los Angeles Sunday19:45 not generated",
+      "Sunday20:15 completed daily and previous week generated",
+      "same key repeat did not add version",
+      "Monday did not create current unfinished week"
+    ],
+    "realModelCalls": 0,
+    "OSClockChanged": false
+  },
+  "formalExecutionEvidence": {
+    "status": "pending; not obtained",
+    "reason": "No authenticated Cloudflare Cron Events/Workers Logs/GraphQL reader available. Wrangler absent and standard local login configurations absent. Existing CI token was not retrieved. No family data read or paid inference invoked. Deployment log proves trigger registration, not a successful weekly invocation.",
+    "minimumReadOnlyTarget": "Cloudflare Dashboard > Workers & Pages > travelos-baby-daily-preview > Settings > Trigger Events > View events: one scheduled invocation timestamp/outcome, no family payload.",
+    "publicHelperUsed": false
+  },
+  "sources": [
+    "https://developers.cloudflare.com/workers/configuration/cron-triggers/"
+  ]
+}

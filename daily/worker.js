@@ -1,3 +1,5 @@
+import {currentInvitation} from './invitations.mjs';
+import {handleLineLogin} from './line-routes.mjs';
 import {weekRange,weekInputs,weekSourceKey,weekStarts,integrateWeek,editWeek,adoptWeek,synthesizeWeek} from './weekly.mjs';
 import {initialFamilyZone} from './web/family-zone.js';
 import {DurableObject} from 'cloudflare:workers';
@@ -20,7 +22,7 @@ export class DailyWarehouse extends DurableObject {
  put(k,i,v){const text=JSON.stringify(v);if(!['family','book-share'].includes(k))return this.sql.exec('INSERT OR REPLACE INTO records VALUES (?,?,?)',k,i,text);const chunks=Math.ceil(text.length/400000);this.ctx.storage.transactionSync(()=>{for(let n=0;n<chunks;n++)this.sql.exec('INSERT OR REPLACE INTO records VALUES (?,?,?)',`${k}-chunk`,`${i}:${n}`,JSON.stringify(text.slice(n*400000,(n+1)*400000)));this.sql.exec('INSERT OR REPLACE INTO records VALUES (?,?,?)',k,i,JSON.stringify({chunks}));});}
  all(k){return this.sql.exec('SELECT id,payload FROM records WHERE kind=?',k).toArray().map(r=>k==='family'?this.get(k,r.id):JSON.parse(r.payload));}
  visibleComment(c,member){return !c.recipientId||c.authorId===member.id||c.recipientId===member.id;}
- members(fid){return this.all('account').filter(a=>a.familyId===fid).map(a=>({id:a.id,name:a.name,role:a.role}));}
+ members(fid){return this.all('account').filter(a=>a.familyId===fid&&!a.revokedAt).map(a=>({id:a.id,name:a.name,role:a.role}));}
  processMoment(fid,momentId,force=false,visionModel=VISION_MODEL){
   const key=`${fid}:${momentId}`;let pending=this.momentJobs.get(key);
   if(!pending){pending=this.runMoment(fid,momentId,force,visionModel).finally(()=>this.momentJobs.delete(key));this.momentJobs.set(key,pending);this.ctx.waitUntil?.(pending.catch(()=>{}));}
@@ -100,7 +102,11 @@ export class DailyWarehouse extends DurableObject {
    delete f.weekJobs[start];if(f.weekAutoFailures)delete f.weekAutoFailures[start];if(f.weekErrors)delete f.weekErrors[start];this.put('family',fid,f);return w;
   }catch(error){f=this.get('family',fid);if(f.weekJobs?.[start]?.id===job.id){delete f.weekJobs[start];f.weekAutoFailures||={};f.weekAutoFailures[start]={sourceKey:attemptedKey,at:new Date().toISOString()};f.weekErrors||={};f.weekErrors[start]='這週的故事還沒整理完成，原記錄與先前週記仍在，可重試。';this.put('family',fid,f);}throw error;}
  }
- async fetch(request){try{return await this.handle(request);}catch(e){return json({error:e.status?e.message:'目前無法完成，請保留輸入並稍後再試。',...(e.fieldErrors?{fieldErrors:e.fieldErrors}:{})},e.status||400);}}
+ async fetch(request){try{const response=await this.handle(request),path=new URL(request.url).pathname;
+   if(path.startsWith('/api/')&&!['/api/register','/api/login','/api/join','/api/logout','/api/shared-book','/api/line/config','/api/line/start','/api/line/callback'].includes(path)){
+    const secret=(request.headers.get('cookie')||'').match(/(?:^|; )daily_session=([^;]+)/)?.[1],session=secret?this.get('session',await hash(secret)):null,account=session?this.get('account',session.accountHandle):null;
+    if(!account||account.revokedAt||(session.accessVersion||0)!==(account.accessVersion||0))fail('家庭存取已更新，請重新登入或取得新的邀請連結。',401);
+   }return response;}catch(e){return json({error:e.status?e.message:'目前無法完成，請保留輸入並稍後再試。',...(e.fieldErrors?{fieldErrors:e.fieldErrors}:{})},e.status||400);}}
  async handle(request){
   const url=new URL(request.url),path=url.pathname,tickAt=path==='/internal/tick'?Number(url.searchParams.get('at')):NaN,now=Number.isFinite(tickAt)&&tickAt>0?new Date(tickAt).toISOString():new Date().toISOString();
   if(path==='/internal/tick'){
@@ -111,41 +117,58 @@ export class DailyWarehouse extends DurableObject {
    }return json({generated,failed});
   }
   let body={};if(request.method==='POST'){const reader=request.body?.getReader();let size=0;const parts=[];if(reader){while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>12*1024*1024){await reader.cancel();fail('一次傳送上限12MB，請分次留下片刻。',413);}parts.push(value);}}const bytes=new Uint8Array(size);let offset=0;for(const p of parts){bytes.set(p,offset);offset+=p.length;}body=JSON.parse(new TextDecoder().decode(bytes)||'{}');}
-  if(path==='/api/shared-book'){
+  if(path.startsWith('/api/line/'))return handleLineLogin(this,request,body);
+   if(path==='/api/shared-book'){
    if(!/^[a-f0-9]{48}$/i.test(body.token||''))fail('分享連結無效，請向分享者索取新連結。',404);
    const share=this.get('book-share',await hash(body.token));if(!share||share.revoked||Date.parse(share.expiresAt)<Date.now())fail('分享已到期或已被收回，請向分享者索取新連結。',404);
    return json({collection:share.collection,media:share.media,child:share.child});
   }
   if(['/api/register','/api/login','/api/join'].includes(path)){
-   const handle=normalizeHandle(body.handle),p=String(body.password||''),errors=authErrors(body,path.split('/').at(-1));
-   if(Object.keys(errors).length)throw Object.assign(new Error('請一起核對下面幾個地方。'),{status:400,fieldErrors:errors});
-   let account=this.get('account',handle);
-   if(path==='/api/login'){if(!account||await password(p,account.salt)!==account.password)fail('登入名稱或密碼不正確。',401);}
-   else{
-    if(account)fail('這個登入名稱已有人使用，請換一個。',409);
-    const salt=token(),digest=await password(p,salt);let f,role;
-    if(path==='/api/join'){
-     const inviteHash=await hash(String(body.invite||'')),invite=this.get('invite',inviteHash);
-     if(!invite||invite.used||Date.parse(invite.expiresAt)<Date.now())fail('邀請碼無效或已使用，請家人重新建立。',403);
-     f=this.get('family',invite.familyId);role='member';invite.used=true;this.put('invite',inviteHash,invite);
-    }else {f=newFamily({id:id(),name:String(body.family||`${String(body.child||'寶寶')}的家`).slice(0,60),child:String(body.child||'寶寶').slice(0,40),now,timezone:initialFamilyZone(body.timezone)});role='owner';this.put('family',f.id,f);}
-    if(this.get('account',handle))fail('登入名稱已存在。',409);
-    account={id:id(),handle,name:String(body.name||'家人').slice(0,40),familyId:f.id,role,salt,password:digest};this.put('account',handle,account);
+    const handle=normalizeHandle(body.handle),p=String(body.password||''),errors=authErrors(body,path.split('/').at(-1));
+    if(Object.keys(errors).length)throw Object.assign(new Error('請一起核對下面幾個地方。'),{status:400,fieldErrors:errors});
+    let account=this.get('account',handle);
+    if(path==='/api/login'){
+     if(!account||!account.password||await password(p,account.salt)!==account.password)fail('登入名稱或密碼不正確。',401);
+     if(account.revokedAt)fail('你已不在這個家庭，請取得新的邀請連結後，用原帳號加入。',403);
+    }else{
+     const rejoining=path==='/api/join'&&!!account?.revokedAt;
+     if(account&&!rejoining)fail('這個登入名稱已有人使用，請換一個。',409);
+     if(rejoining&&(!account.password||await password(p,account.salt)!==account.password))fail('登入名稱或密碼不正確。',401);
+     const salt=rejoining?account.salt:token(),digest=rejoining?account.password:await password(p,salt);let f,role;
+     if(path==='/api/join'){
+      const inviteHash=await hash(String(body.invite||'')),invite=this.get('invite',inviteHash);
+      if(rejoining){account=this.get('account',handle);if(!account?.revokedAt)fail('這個帳號已加入家庭，請直接登入。',409);}
+      const invitedFamily=invite?this.get('family',invite.familyId):null;
+      if(!currentInvitation(invite,invitedFamily))fail('邀請連結已失效，請家人重新建立。',403);
+      if(rejoining&&account.familyId!==invite.familyId)fail('請使用原家庭的新邀請連結。',403);
+      f=invitedFamily;role='member';invite.used=true;this.put('invite',inviteHash,invite);
+     }else {f=newFamily({id:id(),name:String(body.family||`${String(body.child||'寶寶')}的家`).slice(0,60),child:String(body.child||'寶寶').slice(0,40),now,timezone:initialFamilyZone(body.timezone)});role='owner';this.put('family',f.id,f);}
+     if(!rejoining&&this.get('account',handle))fail('登入名稱已存在。',409);
+     account=rejoining?{...account,name:String(body.name||account.name).slice(0,40)}:{id:id(),handle,name:String(body.name||'家人').slice(0,40),familyId:f.id,role,salt,password:digest};delete account.revokedAt;this.put('account',handle,account);
+    }
+    const session=token();this.put('session',await hash(session),{accountHandle:handle,accessVersion:account.accessVersion||0,expiresAt:Date.now()+30*86400000});
+    return json({ok:true},200,{'set-cookie':cookie(session)});
    }
-   const session=token();this.put('session',await hash(session),{accountHandle:handle,expiresAt:Date.now()+30*86400000});
-   return json({ok:true},200,{'set-cookie':cookie(session)});
-  }
-  const sessionToken=(request.headers.get('cookie')||'').match(/(?:^|; )daily_session=([^;]+)/)?.[1];
+   const sessionToken=(request.headers.get('cookie')||'').match(/(?:^|; )daily_session=([^;]+)/)?.[1];
   const session=sessionToken?this.get('session',await hash(sessionToken)):null;
   if(!session||session.expiresAt<Date.now())fail('請先登入家庭。',401);
   const account=this.get('account',session.accountHandle);if(!account)fail('請重新登入。',401);
-  let f=this.get('family',account.familyId);const member={id:account.id,name:account.name,role:account.role};
+  if(path!=='/api/logout'&&(account.revokedAt||(session.accessVersion||0)!==(account.accessVersion||0)))fail('你已不在這個家庭，請取得新的邀請連結後重新加入。',401);
+   let f=this.get('family',account.familyId);const member={id:account.id,name:account.name,role:account.role};
   if(path==='/api/logout'){this.sql.exec('DELETE FROM records WHERE kind=? AND id=?','session',await hash(sessionToken));return json({ok:true},200,{'set-cookie':'daily_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});}
   if(path==='/api/state'){for(const w of f.weeklies||[])w.hasNewSources=weekSourceKey(weekInputs(f,w.start,now))!==(w.pending?.sourceKey||w.sourceKey);for(const d of f.diaries)d.hasNewSources=sourceKey(sourcesFor(f,d.date))!==(d.pending?.sourceKey||d.sourceKey);return json({version:VERSION,member,family:{...f,comments:f.comments.filter(c=>this.visibleComment(c,member))},today:dayAt(now,f.timezone),members:this.members(f.id),trialActive:active(f,now)});}
   if(path==='/api/export')return json({version:VERSION,family:{...f,comments:f.comments.filter(c=>this.visibleComment(c,member))}});
-  if(path==='/api/invite'){
+  if(path==='/api/member-revoke'){
+    if(account.role!=='owner')fail('請由家庭管理者調整家人存取。',403);
+    const target=this.all('account').find(a=>a.id===body.memberId&&a.familyId===f.id);
+    if(!target)fail('找不到這位家人。',404);
+    if(target.role==='owner'||target.id===account.id)fail('不能移除家庭管理者。',400);
+    if(!target.revokedAt){target.revokedAt=now;target.accessVersion=(target.accessVersion||0)+1;f.inviteGeneration=(f.inviteGeneration||0)+1;this.put('family',f.id,f);this.put('account',target.handle,target);}
+    return json({ok:true});
+   }
+   if(path==='/api/invite'){
    if(account.role!=='owner')fail('請由家庭管理者建立邀請。',403);
-   const code=token();this.put('invite',await hash(code),{familyId:f.id,used:false,expiresAt:new Date(Date.now()+7*86400000).toISOString()});return json({code});
+   const code=token();this.put('invite',await hash(code),{familyId:f.id,generation:f.inviteGeneration||0,used:false,expiresAt:new Date(Date.now()+7*86400000).toISOString()});return json({code});
   }
   if(path==='/api/task')fail('到期提醒功能已停止，請用家人留言保留這段內容。',410);
   if(!active(f,now))fail('30天試用已結束；既有日記仍可閱讀與匯出。此測試版尚不收費。',403);

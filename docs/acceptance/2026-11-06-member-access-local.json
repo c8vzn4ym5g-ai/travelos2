@@ -1,0 +1,244 @@
+{
+  "baseline": "15f3005342ad6e0c1e0d69689d9ee1164952c9cd",
+  "status": "Independent API and tested desktop UI ACCEPT; local uncommitted candidate only",
+  "scope": [
+    "HANDOFF.md",
+    "DESIGN.md",
+    "daily/worker.js",
+    "daily/web/app.js",
+    "daily/web/holistic.css",
+    "daily/http.test.mjs",
+    "daily/family-scope.test.mjs",
+    "daily/local-server.mjs",
+    "daily/line-login.mjs",
+    "daily/line-routes.mjs",
+    "daily/line-login.test.mjs",
+    "daily/test-support/member-fixture.mjs",
+    "docs/LINE-LOGIN-HANDOFF.md",
+    "docs/acceptance/2026-11-06-cron-evidence.json",
+    "docs/acceptance/2026-11-06-member-access-local.json",
+    "daily/invitations.mjs"
+  ],
+  "tests": {
+    "command": "node --experimental-loader ./daily/test-loader.mjs --test daily/domain.test.mjs daily/http.test.mjs",
+    "passed": 129,
+    "failed": 0,
+    "syntax": "worker/app/line-login/line-routes/local-server pass",
+    "diff": "pass",
+    "finalCopyOnlyRender": {
+      "passed": 5,
+      "failed": 0,
+      "syntax": "pass"
+    }
+  },
+  "protectedFunctions": {
+    "renderToday": true,
+    "momentView": true,
+    "openCapture": true,
+    "receivePhotos": true,
+    "openCamera": true,
+    "closeCamera": true,
+    "generateToday": true,
+    "generateWeekly": true,
+    "showWeekly": true,
+    "showDiary": true,
+    "editWeekly": true,
+    "renderDiaries": true,
+    "renderBooks": true,
+    "openAlbum": true
+  },
+  "memberAccess": [
+    "owner-only same-family portrait removal",
+    "owner/self protected",
+    "same original membership identity via fresh one-use invitation",
+    "legacy sessions supported with default version0; revoked old versions stay invalid",
+    "protected in-flight responses denied after revoke",
+    "overlapping rejoin cannot roll version backwards",
+    "photo/audio/private content preserved; no task mutation"
+  ],
+  "line": {
+    "status": "implemented configuration-gated; real activation blocked/pending",
+    "tests": "synthetic provider only,6 cases",
+    "localConfigEnabled": false,
+    "missingLocalSettings": [
+      "LINE_CHANNEL_ID",
+      "LINE_CHANNEL_SECRET",
+      "LINE_REDIRECT_URI"
+    ],
+    "actualProviderCalls": 0,
+    "persistentCredentialsCreated": 0,
+    "setup": "docs/LINE-LOGIN-HANDOFF.md"
+  },
+  "cron": "docs/acceptance/2026-11-06-cron-evidence.json",
+  "makerBrowser": {
+    "status": "Earlier maker self-check only; predates final invitation P1/copy changes and does not establish final390/320 acceptance",
+    "widths": [
+      390,
+      320
+    ],
+    "observed": [
+      "cancel preserves member",
+      "remove synthetic observer updates roster",
+      "old observer session cannot restore family before/after server restart",
+      "auth page has no prior family title",
+      "320 dialog no horizontal overflow; native focus returns"
+    ],
+    "notClaimed": [
+      "real iPhone",
+      "real hardware",
+      "real LINE",
+      "real weekly Cloud cron"
+    ],
+    "viewportReset": true
+  },
+  "accessBoundaries": [
+    "Family-account access is revoked. Downloaded content and independently valid single-book bearer shares are unaffected.",
+    "Sharing implementation unchanged; the current creation-result panel has a revoke action, but no historical share list exists after reload."
+  ],
+  "runtime": {
+    "pid": 14100,
+    "supervisorPid": 20944,
+    "port": 3358,
+    "root": 200,
+    "expiresAt": "2026-11-06T07:29:32.727Z",
+    "leaseMs": 3600000,
+    "listenerCount": 1,
+    "lineConfigEnabled": false,
+    "database": "isolated copy local-qc-member-p1-20261106T062916Z.sqlite",
+    "snapshot": "local-qc-snapshot-20261106T062916Z.sqlite",
+    "originalSQLitePreserved": true,
+    "copiedSessionIsolation": "only copied sessions and member fixture pointer cleared; original and snapshot preserved",
+    "runtimeSmoke": {
+      "revoke": 200,
+      "oldSession": 401,
+      "oldSpareInvite": 403,
+      "freshInvite": 200,
+      "identityPreserved": true,
+      "modelCalls": 0
+    },
+    "localOnlyEntry": "/__member-qc"
+  },
+  "runtimeGuardrails": {
+    "membershipVersionAndRequestBoundary": "pass public HTTP including concurrent/in-flight races",
+    "callbackReplayAndExpiry": "pass synthetic HTTP; no retry",
+    "networkDeadline": "15-second total AbortSignal checked in adapter test; real provider not exercised",
+    "restartRevocation": "pass real local browser + original persisted SQLite after restart",
+    "realExternalAuth": "pending configuration; not activated",
+    "newResidentWatchers": "not applicable; none introduced"
+  },
+  "benchmark": {
+    "calls": 0,
+    "costUSD": 0,
+    "status": "paused; unchanged"
+  },
+  "hashes": {
+    "HANDOFF.md": "5db71e30a12a4e67ecd97127f9a6178f5a2aa130fa4f87d9377e53ad69ea3730",
+    "DESIGN.md": "cd47a7c1a9377f6a8241031c7d4287012b0f8b4979dd74d3f7f499ad6ee47648",
+    "daily/worker.js": "ea136db7a6d88322b06f67b71e27f64d6f4766a1cbb3b453eb59e3664a9f1a89",
+    "daily/web/app.js": "431b7e3865a34e1c7858efc6eceb0e9d9ecd69602c76c0dc355e8bf93374dad8",
+    "daily/web/holistic.css": "905b7abf48c6864c9a5704e831ed9c7f9b85c3cc1f29caf2187fbaa980574587",
+    "daily/http.test.mjs": "8d66313b3bc71a9dfee1446a1985e4ea59dc2327945f1c71ea757eec852e68a2",
+    "daily/family-scope.test.mjs": "50518709379c21a15e524eb86add771c7df18b1b979a332f444cafb289d6cd8a",
+    "daily/local-server.mjs": "8ca9c1344ba42f51c24c7cd26a512f73faa6df7ee463e98c8364add39289e43d",
+    "daily/line-login.mjs": "23ada70dbd8f6a0bd8c77ae97b53178e0655783edbd07cb4e199639156bd4a4f",
+    "daily/line-routes.mjs": "ade021b3f738a58961b84bbcc1d541f1b3933edca8e13f306a4b70f057810325",
+    "daily/line-login.test.mjs": "35fa6c7e0cf798fc31e07b8e4e713b800b23f6afb7107fd6b61a7f38bd504f8c",
+    "daily/test-support/member-fixture.mjs": "ad2af6fc37c78311a279fdcdbf9d0381e7cfaa1de6bb711c08374b05a3a30bcb",
+    "docs/LINE-LOGIN-HANDOFF.md": "88e8d81ca287c3c260b591c3665a8d2ee9c9dc42fda59e6b7faecadb2c3e8737",
+    "docs/acceptance/2026-11-06-cron-evidence.json": "efd5a447eb4785a16e6a3b6faa708c2f70a2c5e9979fd30bc1a26f84f4c9e4b9",
+    "daily/invitations.mjs": "d4e34caa5a2f7b373159b07b2730bc64443ac0bfdd6321d392f5b8add7205a97"
+  },
+  "reviewReady": true,
+  "publication": "Awaiting separate freeze/publication authorization; no commit/push/deploy; original15f3005 remains live",
+  "p1Fix": {
+    "issue": "pre-removal unused invitation could restore removed member",
+    "correction": "family monotonic invitation generation increments once per effective revoke; password and LINE share one currentInvitation predicate; generation snapshotted before asynchronous invitation hashing",
+    "regression": [
+      "old spare denied for same and new password identity",
+      "LINE authorization begun before revoke denied; new LINE identity using old link denied",
+      "pending rejoin cannot cross later revoke; fresh post-revoke link restores identity",
+      "invitation issued while hash waits retains old generation and stays invalid"
+    ],
+    "status": "Maker129/129; independent public Worker HTTP7/7 and tested desktop UI accepted"
+  },
+  "independentReQC": {
+    "publicWorkerHTTP": {
+      "passed": 7,
+      "failed": 0,
+      "source": "parent independent report"
+    },
+    "familyRender": {
+      "passed": 5,
+      "failed": 0,
+      "source": "parent independent report before final copy-only clarification"
+    },
+    "UI": {
+      "status": "ACCEPT tested desktop scope only",
+      "evidence": "../little-days-independent-qc/member-ui-evidence-20261106.json",
+      "passed": [
+        "Owner portrait opens one clear dialog; cancel preserves roster and returns focus",
+        "UI revoke removes synthetic member; original family message retained",
+        "Revoked password login shows new invitation required",
+        "Existing authenticated browser session returns auth page on next family refresh after independent HTTP owner revoke",
+        "Unused pre-revoke invitation issued via independent HTTP is rejected in real UI",
+        "Post-revoke invitation rejoined through real UI; original message marked as authored by current user",
+        "Independent HTTP confirms exact original memberId retained",
+        "Non-owner UI has no portrait revoke/invite/settings controls; direct revoke API403",
+        "Empty writing composer opens and closes; photo page opens with blocked camera and returns safely",
+        "Final share/download exception wording visually verified; no historical-share revocation promise",
+        "Existing fixture six daily entries read; manually edited Oct26 diary retained",
+        "Two weekly entries read; Oct26 manual text plus separate pending candidate retained, not adopted",
+        "Original materials retain photo, text and corrected transcript; source navigation works",
+        "Stored 1-second synthetic original audio played: time0.246828, paused=false,error=null",
+        "Existing two-day book renders both chapters, original photo and audio controls, source return path",
+        "Album has two retained800x600 images loaded; detail survives reload and returns to album",
+        "Final observed console error list empty"
+      ],
+      "method": "First removal and rejoin through UI. Second boundary used synthetic owner HTTP login/invite/revoke/invite to preserve existing member browser session; denial and rejoin tested through UI.",
+      "isolation": "host-cookie, dedicated DB, own tab; NOT independent browser context",
+      "screenshots": [
+        "member-ui-album-20261106.jpg",
+        "member-ui-capture-home-20261106.jpg",
+        "member-ui-dialog-final-20261106.jpg",
+        "member-ui-manual-daily-20261106.jpg",
+        "member-ui-manual-weekly-20261106.jpg",
+        "member-ui-old-book-20261106.jpg",
+        "member-ui-rejoined-20261106.jpg"
+      ],
+      "notRun": [
+        "390/320 viewport: exposed viewport capability is browser-wide and shared browser must remain unchanged",
+        "Real iPhone/microphone/camera",
+        "Live LINE/cloud cron/model quality"
+      ],
+      "cleanup": "Closed own tab1336336611; never changed browser viewport or other tabs"
+    }
+  },
+  "manifestHashPolicy": "not self-hashed; scope lists this deliverable, hashes intentionally exclude it",
+  "replacementUiRuntime": {
+    "url": "http://127.0.0.2:3358/__member-qc",
+    "host": "127.0.0.2",
+    "pid": 21352,
+    "supervisorPid": 19216,
+    "expiresAt": "2026-11-06T07:35:16.767Z",
+    "leaseMs": 3600000,
+    "database": "daily/scratch/local-qc-member-alt2-20261106T063459Z.sqlite",
+    "root": 200,
+    "app": 200,
+    "css": 200,
+    "isolation": "different loopback host/cookies and independent SQLite copy; not a full browser context",
+    "originalServicePreserved": {
+      "host": "127.0.0.1",
+      "pid": 14100,
+      "root": 200
+    },
+    "independentUi": "ACCEPT tested desktop scope; no further lease extension"
+  },
+  "remainingLimitations": [
+    "Final candidate390/320 not independently tested; browser-wide viewport intentionally unchanged",
+    "Real iPhone, microphone recording and camera capture untested",
+    "Formal LINE activation pending external configuration; no provider calls",
+    "Production weekly cron execution not verified; configured/deployed schedule and controlled local tests are separate",
+    "True model quality benchmark paused0/9 calls,US$0",
+    "Downloaded content and independently valid single-book share links unaffected by membership revocation"
+  ]
+}
