@@ -20,7 +20,7 @@ export async function observeImage(ai,data,model=VISION_MODEL){
 export function sourceEvidence(moment){
  const human=[...new Set([moment.text,...moment.media.filter(m=>m.kind==='audio').map(m=>m.transcript||'')].filter(Boolean))].join('\n');
  const visual=moment.media.flatMap((m,index)=>(m.observation?.facts||[]).map(text=>({text,index,kind:m.kind==='video'?'video-frame':'image',reviewed:!!m.observationReviewed})));
- const uncertain=moment.media.flatMap((m,index)=>(m.observation?.uncertain||[]).map(text=>({text,index,kind:m.kind==='video'?'video-frame':'image'})));return {id:moment.id,date:moment.date,recordedAt:moment.capturedAt||moment.createdAt,timeOrigin:moment.timeOrigin||'unknown',actions:moment.media.flatMap((m,index)=>(m.observation?.actions||[]).map(a=>({...a,index}))),author:moment.author,title:moment.title||'',human,visual,uncertain};
+ const uncertain=moment.media.flatMap((m,index)=>(m.observation?.uncertain||[]).map(text=>({text,index,kind:m.kind==='video'?'video-frame':'image'})));return {id:moment.id,date:moment.date,recordedAt:moment.capturedAt||moment.createdAt,timeOrigin:moment.timeOrigin||'unknown',actions:moment.media.flatMap((m,index)=>(m.observationReviewed?[]:m.observation?.actions||[]).map(a=>({...a,index}))),author:moment.author,title:moment.title||'',human,visual,uncertain};
 }
 export function validatedGroups(sources,proposal){
  const evidence=sources.map(sourceEvidence),byId=new Map(evidence.map(e=>[e.id,e])),used=new Set(),groups=[];

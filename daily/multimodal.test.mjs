@@ -1,5 +1,6 @@
+import {weekInputs} from './weekly.mjs';
 const completion=value=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify(value)}}]});
-import {test} from 'node:test';import assert from 'node:assert/strict';import {observeImage,validatedGroups,arrangeSources,VISION_MODEL,GEMMA_VISION_MODEL,LEGACY_VISION_MODEL} from './multimodal.mjs';
+import {test} from 'node:test';import assert from 'node:assert/strict';import {observeImage,sourceEvidence,validatedGroups,arrangeSources,VISION_MODEL,GEMMA_VISION_MODEL,LEGACY_VISION_MODEL} from './multimodal.mjs';
 test('vision request really contains image bytes and cannot turn a typed sentence into fake image inference',async()=>{
  let request;const ai={run:async(model,input)=>{request={model,input};return {response:JSON.stringify({facts:['橘色水果帶一片綠葉','右側有藍色有柄杯','媽媽第一次開心地餵奶'],uncertain:['無法看見杯內物品']})};}};
  const image='data:image/png;base64,c3ludGhldGlj';const r=await observeImage(ai,image,LEGACY_VISION_MODEL);assert.equal(request.model,LEGACY_VISION_MODEL);assert.equal(request.input.image,image);assert.equal(r.facts.length,2);assert.ok(!r.facts.join('').includes('第一次'));
@@ -65,3 +66,12 @@ test('story payload retains uncertain actions and distinguishes imported time fr
  const input=JSON.parse(request.messages[1].content)[0];assert.equal(input.timeOrigin,'import_time');assert.equal(input.familyTimezone,'Asia/Taipei');assert.equal(input.author,'合成家人');assert.equal(input.recordedAt,'2026-11-05T12:00:00Z');assert.equal(input.actions[0].certainty,'uncertain');assert.equal(input.uncertain[0].text,'看不清是否接觸');
 });
 test('vision explicitly requests graded actions and normalizes returned uncertainty without another model call',async()=>{let calls=0;const r=await observeImage({run:async(model,input)=>{calls++;assert.match(input.messages[0].content[0].text,/actions/);assert.equal(input.max_completion_tokens,1800);return completion({facts:['手在嘴邊'],uncertain:['接觸看不清'],actions:[{actor:'人',verb:'靠近',visibleEvidence:'手在嘴邊',certainty:'uncertain',alternatives:['未接觸']}]});}},'data:image/png;base64,c3ludGhldGlj');assert.equal(calls,1);assert.equal(r.actions[0].certainty,'uncertain');assert.deepEqual(r.uncertain,['接觸看不清']);});
+
+
+test('human correction excludes only its own obsolete action; other image uncertainty and clear actions retain media association',()=>{
+ const reviewed={kind:'image',observationReviewed:true,observation:{facts:['只拿橘子'],uncertain:[],actions:[{verb:'吃',certainty:'clear',visibleEvidence:'舊AI判斷'}]}};
+ const unreviewed={kind:'image',observation:{facts:['手靠近嘴'],uncertain:['看不清是否接觸'],actions:[{verb:'靠近嘴',certainty:'uncertain',visibleEvidence:'手在嘴邊',alternatives:['沒有接觸']}]}},clear={kind:'video',observation:{facts:['翻書'],uncertain:[],actions:[{verb:'翻書',certainty:'clear',visibleEvidence:'手掀書頁'}]}};
+ const m={id:'mixed',date:'2026-10-26',author:'家人',revision:2,media:[reviewed,unreviewed,clear],text:'更正後原話',capturedAt:'2026-11-06T01:00:00Z',timeOrigin:'import_time'},snapshot=JSON.stringify(m);
+ const daily=sourceEvidence(m);assert.deepEqual(daily.actions.map(a=>[a.verb,a.certainty,a.index]),[['靠近嘴','uncertain',1],['翻書','clear',2]]);assert.equal(daily.uncertain[0].text,'看不清是否接觸');assert.equal(daily.visual[0].reviewed,true);assert.equal(daily.timeOrigin,'import_time');assert.equal(daily.date,'2026-10-26');
+ const bundle=weekInputs({timezone:'Asia/Taipei',moments:[m],diaries:[]},'2026-10-26','2026-11-06T02:00:00Z');assert.deepEqual(bundle.inputs[0].sources[0].actions.map(a=>[a.verb,a.certainty]),[['靠近嘴','uncertain'],['翻書','clear']]);assert.deepEqual(bundle.inputs[0].sources[0].uncertain,['看不清是否接觸']);assert.equal(JSON.stringify(m),snapshot,'Evidence filtering never rewrites original material');
+});

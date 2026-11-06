@@ -1,0 +1,65 @@
+{
+  "status": "Frozen independent-ACCEPT candidate; specific publication approved;151/151 release rerun",
+  "baseline": "ed2565f2a08dbe60a8e1a721e3709c8c65ff799c",
+  "worktree": "little-days-capture-release",
+  "scope": [
+    "daily/http.test.mjs",
+    "daily/multimodal.mjs",
+    "daily/multimodal.test.mjs",
+    "daily/weekly.mjs"
+  ],
+  "hashes": {
+    "daily/http.test.mjs": "e338e4df0de8f993f68b4e709131c3a2bc5f0f414a0d1dc39469ae1c980b529a",
+    "daily/multimodal.mjs": "928ee77bb9e4477b2cc677efc979bb9498f6f9c8810470aae87c7d580fc67c65",
+    "daily/multimodal.test.mjs": "5713abaa368d3147aa3c0083f6e6627c6d13d3893fb9777c612d8b01136c960e",
+    "daily/weekly.mjs": "1c4bfc44f3c4680262b28acef7de5c5290be882f984c3a3c2a967b810af4ef66"
+  },
+  "defect": "User edits image/video visualFacts, observationReviewed=true but old observation.actions remains; both daily sourceEvidence and weekly weekInputs forwarded obsolete model action as still applicable.",
+  "fix": "Only suppress old AI actions for media whose visual description family already corrected. Keep corrected facts as human-reviewed visual text, preserve other unreviewed media certainty/alternatives and raw media and existing stored actions; no mutation/migration.",
+  "red": "Actual public Worker with in-memory SQLite/provider stub: corrected only holding orange still sent actions.length1 to daily (expected0). daily/scratch/visual-correction-red.log",
+  "tests": {
+    "unit": 14,
+    "workerFocused": 1,
+    "aggregate": 151,
+    "failed": 0,
+    "logs": [
+      "daily/scratch/visual-correction-unit.log",
+      "daily/scratch/visual-correction-focused.log",
+      "daily/scratch/visual-correction-aggregate.log"
+    ],
+    "proof": [
+      "Actual /moment-edit → daily input contains corrected fact, no obsolete action; date/author/import_time retained",
+      "Weekly input corrected fact/no obsolete action plus adopted manual daily text",
+      "Manual weekly survives later source correction; new revision is pending candidate",
+      "Original image bytes and old AI action remain stored; prior week snapshot retained",
+      "Mixed-media reviewed image only suppressed; unreviewed uncertain image and clear video actions/uncertainty preserved"
+    ]
+  },
+  "scopeGuard": "App/capture modules/CSS/worker/cron/config/workflow equal deployeded2565f2; unpublished weekly UI remains in separate original worktree",
+  "patch": "daily/scratch/reviewed-visual-only.patch",
+  "independentEntry": "node --experimental-loader ./daily/test-loader.mjs --test --test-name-pattern=\"reviewed visual correction\" daily/http.test.mjs; node --test daily/multimodal.test.mjs daily/weekly.test.mjs",
+  "limits": [
+    "Provider stub tests model input/state only, not true-model prose quality or visual accuracy",
+    "SQLite in-memory actual Worker, not formal cloud cron or real family",
+    "No network/model/credentials/services/hardware or deployment"
+  ],
+  "independentAcceptance": {
+    "source": "parent independent final report",
+    "fourHashesAndExactDiff": "match",
+    "unitPassed": 14,
+    "workerFocusedPassed": 1,
+    "additionalActualWorkerSQLiteStub": [
+      "Mixed reviewed photo/clip suppress obsolete actions while unreviewed uncertain/clear media retain evidence",
+      "Late correction generates pending daily/weekly only; current and existing versions preserved",
+      "Latest manually edited daily included in weekly input",
+      "Cross-day author/event/import/sourceIds retained",
+      "Revision changes unlock new key; identical key uses cache"
+    ],
+    "preservationLimit": "Media bytes and existing actions retained. No claim of complete old observation archive: original moment-edit already replaces facts and clears uncertain."
+  },
+  "publicationGate": {
+    "status": "Specific approval received after earlier nonexecution; original CI publication authorized",
+    "liveBase": "ed2565f2a08dbe60a8e1a721e3709c8c65ff799c",
+    "boundary": "No targetdomain HTTP/browser/proxy/new CI probes; existing workflow only"
+  }
+}
