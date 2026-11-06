@@ -21,9 +21,10 @@ export function startRecording({stream,Recorder=globalThis.MediaRecorder,onChunk
  }
  recorder.addEventListener('dataavailable',event=>{
   if(finished||!event.data?.size)return;
-  if(bytes+event.data.size>maxBytes){stop('limit');return;}
   const index=chunks.length;chunks.push(event.data);bytes+=event.data.size;
   queue=queue.then(()=>onChunk(event.data,index)).catch(error=>{storageError=error;});
+  // Safari/background delivery may batch audio: stop capture, never truncate delivered original data.
+  if(bytes>maxBytes)stop('limit');
  });
  recorder.addEventListener('stop',finish,{once:true});
  try{recorder.start(1000);}catch(error){clearTimeout(timer);for(const track of tracks){track.removeEventListener('ended',interrupted);track.stop();}throw error;}return session;

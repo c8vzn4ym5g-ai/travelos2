@@ -1,0 +1,57 @@
+{
+  "status": "Independent exact-release scope and149/149 accepted; authorized for original CI publication",
+  "base": "3f795c0050ca507dcfb3829289560142817554d5",
+  "worktree": "little-days-capture-release",
+  "branch": "codex/capture-integrity-release",
+  "scope": [
+    "daily/capture-outbox.test.mjs",
+    "daily/interaction.test.mjs",
+    "daily/photo-visibility.test.mjs",
+    "daily/recording.test.mjs",
+    "daily/web/app.js",
+    "daily/web/capture-outbox.js",
+    "daily/web/recording.js"
+  ],
+  "hashes": {
+    "daily/capture-outbox.test.mjs": "8611dae3baae75c552adf667c0acef6a09354eabc20e5cfc199df660eb3efcf9",
+    "daily/interaction.test.mjs": "0f2f34b893eb5b8e4dabb72f64f9729b2f51b03b3e2a71ab466fb8e658a3741c",
+    "daily/photo-visibility.test.mjs": "a3056e9619677b5f72dfd0e76418145728bb4d79c238516ec104593b29da3486",
+    "daily/recording.test.mjs": "453031be72b22d2021b85ce3db89cc4b6cf9300df8f88074895702e63c4d3ae6",
+    "daily/web/app.js": "50b59857a0c0360ef9eba268b7d317d3786baa60b08f95a6d501ec86bc6dccf6",
+    "daily/web/capture-outbox.js": "d3f5c663bea79e25ef83ef6bdf49f423a5f56ac46d1635766acf2ce6b5893792",
+    "daily/web/recording.js": "5d7d62d0ab19c061840f32ec156d5ae7acdf088abb6d1663f4ab2fc5cd4dad35"
+  },
+  "tests": {
+    "aggregate": 149,
+    "failed": 0,
+    "log": "daily/scratch/release-aggregate.log",
+    "differenceFrom150": "Unpublished weekly explicit-action test intentionally excluded; actual release aggregate ran independently"
+  },
+  "scopeGuards": {
+    "weeklyRenderAndGenerate": "byte-equivalent functions to base; no weekly explicit-action UI",
+    "familyRenderer": "byte-equivalent to base",
+    "CSS": "base unchanged",
+    "workerWeeklyWranglerWorkflow": "base unchanged",
+    "originalWorktree": "Uncommitted weekly candidate and all snapshots preserved"
+  },
+  "productChanges": [
+    "recording delivered-overlimit chunk retained before stop",
+    "outbox cancelled local/queued entries durable; terminal cleanup protected",
+    "photo batch launch owner/key/date and view ownership; stale originals local to original queue"
+  ],
+  "pipeline": "Existing workflow only test/syntax and wrangler deploy; no workers.dev HTTP smoke. No workflow changes.",
+  "networkBoundary": "No workers.dev requests/browser/proxy/new CI probe permitted; after approved push only normal GitHub CI/deployment metadata may be verified. Live domain/UI smoke must remain explicitly unverified.",
+  "limits": [
+    "No real iPhone/Safari/hardware/IndexedDB crash",
+    "Accepted same-owner stale onChange paint callback residual remains; no wrong delivery/content injection/navigation in controlled tests"
+  ],
+  "rollback": "3f795c0050ca507dcfb3829289560142817554d5",
+  "independentAcceptance": {
+    "scope": "Seven product/test files, hashes exact; no weekly UI/CSS/worker/cron/config/workflow changes",
+    "aggregate": 149,
+    "syntax": "pass",
+    "diff": "pass",
+    "source": "parent independent release QC report"
+  },
+  "rollbackWarning": "Emergency rollback to3f795c0 restores the original three capture defects; not a defect-free version."
+}
